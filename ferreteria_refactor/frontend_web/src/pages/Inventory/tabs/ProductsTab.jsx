@@ -130,6 +130,223 @@ const StockPill = ({ stock, minStock }) => {
     );
 };
 
+
+const QuickPriceModal = ({ product, priceLists, isOpen, onClose, onSave }) => {
+    const [basePrice, setBasePrice] = useState('');
+    const [listPrices, setListPrices] = useState({});
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        if (!product || !isOpen) return;
+        const prices = {};
+        if (Array.isArray(product.prices)) {
+            product.prices.forEach(item => {
+                const listId = item.price_list_id || item.price_list?.id;
+                if (listId) prices[listId] = Number(item.price || 0).toFixed(2);
+            });
+        }
+        setBasePrice(Number(product.price || 0).toFixed(2));
+        setListPrices(prices);
+    }, [product, isOpen]);
+
+    if (!isOpen || !product) return null;
+
+    const submit = async () => {
+        setSaving(true);
+        try {
+            const prices = Object.entries(listPrices)
+                .map(([price_list_id, price]) => ({ price_list_id: Number(price_list_id), price: Number(price || 0) }))
+                .filter(item => Number.isFinite(item.price_list_id) && item.price > 0);
+            await onSave({ price: Number(basePrice || 0), prices });
+            onClose();
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-xl overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                    <div>
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-400">Precios rapidos</p>
+                        <h3 className="text-lg font-black text-slate-900">{product.name}</h3>
+                    </div>
+                    <button onClick={onClose} className="rounded-md px-3 py-2 text-sm font-bold text-slate-500 hover:bg-slate-50">Cerrar</button>
+                </div>
+                <div className="space-y-4 p-5">
+                    <label className="block">
+                        <span className="text-xs font-black uppercase tracking-wide text-slate-400">Precio de venta</span>
+                        <div className="mt-1 flex h-12 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 focus-within:border-emerald-400">
+                            <span className="text-lg font-black text-emerald-700">$</span>
+                            <input value={basePrice} onChange={e => setBasePrice(e.target.value)} type="number" min="0" step="0.01" className="h-full flex-1 bg-transparent text-lg font-black text-slate-900 outline-none" />
+                        </div>
+                    </label>
+                    <div className="rounded-lg border border-slate-200">
+                        <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
+                            <span className="text-xs font-black uppercase tracking-wide text-slate-400">Listas de precio</span>
+                            <span className="text-xs font-bold text-slate-400">{priceLists.length} configuradas</span>
+                        </div>
+                        <div className="max-h-64 divide-y divide-slate-100 overflow-auto">
+                            {priceLists.length === 0 ? (
+                                <div className="px-3 py-4 text-sm font-medium text-slate-400">No hay listas configuradas.</div>
+                            ) : priceLists.map(list => (
+                                <label key={list.id} className="grid grid-cols-[1fr_150px] items-center gap-3 px-3 py-2">
+                                    <span className="min-w-0 truncate text-sm font-bold text-slate-700">{list.name}</span>
+                                    <input
+                                        value={listPrices[list.id] || ''}
+                                        onChange={e => setListPrices(prev => ({ ...prev, [list.id]: e.target.value }))}
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        placeholder="0.00"
+                                        className="h-9 rounded-md border border-slate-200 px-3 text-right text-sm font-black text-slate-800 outline-none focus:border-indigo-300"
+                                    />
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+                <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-4">
+                    <button onClick={onClose} className="h-10 rounded-md px-4 text-sm font-bold text-slate-600 hover:bg-white">Cancelar</button>
+                    <button onClick={submit} disabled={saving} className="inline-flex h-10 items-center gap-2 rounded-md bg-indigo-600 px-4 text-sm font-black text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60">
+                        <Save size={15} /> {saving ? 'Guardando...' : 'Guardar precios'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const StockAdjustModal = ({ product, warehouses, isOpen, onClose, onSave }) => {
+    const [mode, setMode] = useState('add');
+    const [warehouseId, setWarehouseId] = useState('');
+    const [quantity, setQuantity] = useState('1');
+    const [reason, setReason] = useState('Ajuste rapido de inventario');
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        setMode('add');
+        setWarehouseId(warehouses[0]?.id ? String(warehouses[0].id) : '');
+        setQuantity('1');
+        setReason('Ajuste rapido de inventario');
+    }, [isOpen, warehouses]);
+
+    if (!isOpen || !product) return null;
+
+    const submit = async () => {
+        setSaving(true);
+        try {
+            await onSave({ mode, warehouse_id: Number(warehouseId), quantity: Number(quantity || 0), reason });
+            onClose();
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-lg overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl">
+                <div className="border-b border-slate-100 px-5 py-4">
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-400">Ajuste rapido de stock</p>
+                    <h3 className="text-lg font-black text-slate-900">{product.name}</h3>
+                    <p className="mt-1 text-sm font-medium text-slate-500">Stock actual: <span className="font-black text-slate-900">{formatStock(product.stock)} un.</span></p>
+                </div>
+                <div className="space-y-4 p-5">
+                    <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
+                        <button onClick={() => setMode('add')} className={cn('h-10 rounded-md text-sm font-black', mode === 'add' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500')}>Entrada</button>
+                        <button onClick={() => setMode('remove')} className={cn('h-10 rounded-md text-sm font-black', mode === 'remove' ? 'bg-white text-rose-700 shadow-sm' : 'text-slate-500')}>Salida</button>
+                    </div>
+                    <label className="block">
+                        <span className="text-xs font-black uppercase tracking-wide text-slate-400">Almacen</span>
+                        <select value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-300">
+                            {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                        </select>
+                    </label>
+                    <label className="block">
+                        <span className="text-xs font-black uppercase tracking-wide text-slate-400">Cantidad</span>
+                        <input value={quantity} onChange={e => setQuantity(e.target.value)} type="number" min="0.001" step="0.001" className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm font-black text-slate-800 outline-none focus:border-indigo-300" />
+                    </label>
+                    <label className="block">
+                        <span className="text-xs font-black uppercase tracking-wide text-slate-400">Motivo</span>
+                        <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-indigo-300" />
+                    </label>
+                </div>
+                <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-4">
+                    <button onClick={onClose} className="h-10 rounded-md px-4 text-sm font-bold text-slate-600 hover:bg-white">Cancelar</button>
+                    <button onClick={submit} disabled={saving || !warehouseId || Number(quantity || 0) <= 0} className="inline-flex h-10 items-center gap-2 rounded-md bg-indigo-600 px-4 text-sm font-black text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60">
+                        <PackagePlus size={15} /> {saving ? 'Aplicando...' : 'Aplicar ajuste'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const QuickKardexModal = ({ product, isOpen, onClose }) => {
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!isOpen || !product) return;
+        let alive = true;
+        setLoading(true);
+        apiClient.get('/inventory/kardex', { params: { product_id: product.id, limit: 20 } })
+            .then(res => { if (alive) setItems(res.data || []); })
+            .catch(err => toast.error(getApiErrorMessage(err, 'No se pudo cargar el Kardex del producto')))
+            .finally(() => { if (alive) setLoading(false); });
+        return () => { alive = false; };
+    }, [isOpen, product]);
+
+    if (!isOpen || !product) return null;
+
+    return (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-2xl overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                    <div>
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-400">Kardex del producto</p>
+                        <h3 className="text-lg font-black text-slate-900">{product.name}</h3>
+                    </div>
+                    <button onClick={onClose} className="rounded-md px-3 py-2 text-sm font-bold text-slate-500 hover:bg-slate-50">Cerrar</button>
+                </div>
+                <div className="max-h-[480px] overflow-auto p-5">
+                    {loading ? (
+                        <div className="py-10 text-center text-sm font-bold text-slate-400">Cargando movimientos...</div>
+                    ) : items.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-10 text-center text-sm font-bold text-slate-400">Sin movimientos recientes.</div>
+                    ) : (
+                        <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+                            {items.map(item => {
+                                const qty = Number(item.quantity || 0);
+                                const isOut = qty < 0;
+                                return (
+                                    <div key={item.id} className="grid grid-cols-[1fr_auto] gap-3 px-4 py-3">
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className={cn('rounded-md px-2 py-1 text-xs font-black', isOut ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700')}>
+                                                    {item.movement_type}
+                                                </span>
+                                                <span className="text-xs font-bold text-slate-400">{new Date(item.date).toLocaleString('es-VE')}</span>
+                                            </div>
+                                            <p className="mt-1 truncate text-sm font-medium text-slate-600">{item.description || 'Sin descripcion'}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className={cn('text-base font-black', isOut ? 'text-rose-600' : 'text-emerald-700')}>{qty > 0 ? '+' : ''}{formatStock(qty)}</div>
+                                            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Saldo {formatStock(item.balance_after)}</div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // KPI Card
 const KpiCard = ({ icon: Icon, label, value, sub, iconBg, iconColor }) => (
     <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
@@ -156,6 +373,9 @@ const ProductsTab = () => {
     const [isCompactModalOpen, setIsCompactModalOpen] = useState(false);
     const [isInstancesModalOpen, setIsInstancesModalOpen] = useState(false);
     const [selectedProductForInstances, setSelectedProductForInstances] = useState(null);
+    const [quickPriceProduct, setQuickPriceProduct] = useState(null);
+    const [stockAdjustProduct, setStockAdjustProduct] = useState(null);
+    const [quickKardexProduct, setQuickKardexProduct] = useState(null);
     const [searchTerm, setSearchTerm]     = useState('');
     const [products, setProducts]         = useState([]);
     const [totalProductsReal, setTotalProductsReal] = useState(0);
@@ -168,6 +388,7 @@ const ProductsTab = () => {
     const [categories, setCategories]     = useState([]);
     const [exchangeRates, setExchangeRates] = useState([]);
     const [warehouses, setWarehouses]     = useState([]);
+    const [priceLists, setPriceLists]     = useState([]);
     const [filterCategory, setFilterCategory] = useState('');
     const [filterWarehouse, setFilterWarehouse] = useState('');
     const [filterStock, setFilterStock]   = useState('');
@@ -243,12 +464,13 @@ const ProductsTab = () => {
     useEffect(() => {
         const fetch = async () => {
             try {
-                const [c, e, w] = await Promise.all([
+                const [c, e, w, pl] = await Promise.all([
                     apiClient.get('/categories'),
                     apiClient.get('/config/exchange-rates', { params: { is_active: true } }),
                     apiClient.get('/warehouses'),
+                    apiClient.get('/price-lists/'),
                 ]);
-                setCategories(c.data); setExchangeRates(e.data); setWarehouses(w.data);
+                setCategories(c.data); setExchangeRates(e.data); setWarehouses(w.data); setPriceLists(pl.data || []);
             } catch {}
         };
         fetch();
@@ -340,6 +562,35 @@ const ProductsTab = () => {
         setFilterType('');
         setFilterIssue('');
         setSortBy('');
+    };
+
+    const handleQuickPriceSave = async (payload) => {
+        try {
+            await apiClient.put(`/products/${quickPriceProduct.id}`, payload);
+            toast.success('Precios actualizados');
+            await fetchProducts();
+        } catch (e) {
+            toast.error(getApiErrorMessage(e, 'No se pudieron actualizar los precios'));
+            throw e;
+        }
+    };
+
+    const handleStockAdjustSave = async ({ mode, warehouse_id, quantity, reason }) => {
+        try {
+            const endpoint = mode === 'add' ? '/inventory/add' : '/inventory/remove';
+            await apiClient.post(endpoint, {
+                product_id: stockAdjustProduct.id,
+                warehouse_id,
+                quantity,
+                reason,
+                type: mode === 'add' ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT',
+            });
+            toast.success('Stock ajustado');
+            await fetchProducts();
+        } catch (e) {
+            toast.error(getApiErrorMessage(e, 'No se pudo ajustar el stock'));
+            throw e;
+        }
     };
 
     return (
@@ -689,6 +940,26 @@ const ProductsTab = () => {
                                                 >
                                                     <Pencil size={14} className="mr-2 text-indigo-500" /> Editar producto
                                                 </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                    onClick={() => setQuickPriceProduct(product)}
+                                                    className="cursor-pointer rounded-md font-medium text-slate-700"
+                                                >
+                                                    <CircleDollarSign size={14} className="mr-2 text-emerald-500" /> Precios rapidos
+                                                </DropdownMenuItem>
+                                                {!product.has_imei && !product.is_service && (
+                                                    <DropdownMenuItem
+                                                        onClick={() => setStockAdjustProduct(product)}
+                                                        className="cursor-pointer rounded-md font-medium text-slate-700"
+                                                    >
+                                                        <PackagePlus size={14} className="mr-2 text-amber-500" /> Ajustar stock
+                                                    </DropdownMenuItem>
+                                                )}
+                                                <DropdownMenuItem
+                                                    onClick={() => setQuickKardexProduct(product)}
+                                                    className="cursor-pointer rounded-md font-medium text-slate-700"
+                                                >
+                                                    <History size={14} className="mr-2 text-slate-500" /> Ver Kardex
+                                                </DropdownMenuItem>
                                                 {product.has_imei && (
                                                     <DropdownMenuItem
                                                         onClick={() => { setSelectedProductForInstances(product); setIsInstancesModalOpen(true); }}
@@ -765,6 +1036,25 @@ const ProductsTab = () => {
             })()}
 
             {/* ── Modales ──────────────────────────────────────────────────── */}
+            <QuickPriceModal
+                isOpen={!!quickPriceProduct}
+                product={quickPriceProduct}
+                priceLists={priceLists}
+                onClose={() => setQuickPriceProduct(null)}
+                onSave={handleQuickPriceSave}
+            />
+            <StockAdjustModal
+                isOpen={!!stockAdjustProduct}
+                product={stockAdjustProduct}
+                warehouses={warehouses}
+                onClose={() => setStockAdjustProduct(null)}
+                onSave={handleStockAdjustSave}
+            />
+            <QuickKardexModal
+                isOpen={!!quickKardexProduct}
+                product={quickKardexProduct}
+                onClose={() => setQuickKardexProduct(null)}
+            />
             <ProductInstancesModal
                 isOpen={isInstancesModalOpen}
                 onClose={() => { setIsInstancesModalOpen(false); setSelectedProductForInstances(null); }}
