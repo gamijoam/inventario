@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Bell, Warehouse, AlertCircle, ScanBarcode, Zap, Search, ChevronDown, Scissors, Snowflake, Shield, UtensilsCrossed, ChefHat } from 'lucide-react';
+import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Warehouse, AlertCircle, ScanBarcode, Zap, Search, ChevronDown, Scissors, Snowflake, Shield, UtensilsCrossed, ChefHat } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import apiClient from '../../config/axios';
@@ -386,22 +386,6 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
         return Math.round(n * 100) % (5 * 100) !== 0;
     };
 
-    // ── Toggle helper ──────────────────────────────────────────────────────────
-    const Toggle = ({ checked, onChange, color = 'bg-indigo-500' }) => (
-        <button
-            type="button"
-            onClick={onChange}
-            className={cn(
-                'relative w-11 h-6 rounded-full transition-all duration-200 flex-shrink-0',
-                checked ? color : 'bg-slate-200'
-            )}
-        >
-            <span className={cn(
-                'absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200',
-                checked && 'translate-x-5'
-            )} />
-        </button>
-    );
 
     const productType = formData.is_service ? 'service' : formData.is_combo ? 'combo' : formData.has_imei ? 'serial' : 'physical';
     const productTypeOptions = [
@@ -1001,7 +985,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                         </div>
 
                         {/* ══ SECCIÓN 3: INVENTARIO ═════════════════════════════ */}
-                        {!formData.is_service && !formData.is_combo && (
+                        {!formData.is_service && !formData.is_combo && !formData.has_imei && (
                             <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
                                 <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                                     <SectionHeader icon={Warehouse} label="Inventario" color="text-amber-600" bg="bg-amber-100" />
@@ -1098,41 +1082,80 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                             </div>
                         )}
 
-                        {/* Stock mínimo para productos con IMEI */}
-                        {!formData.is_service && formData.has_imei && (
-                            <div className="bg-white rounded-lg border border-blue-100 shadow-sm p-5">
-                                <SectionHeader icon={Bell} label="Alerta de Stock Mínimo" color="text-blue-600" bg="bg-blue-100" />
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5">Unidades mínimas</label>
-                                        <Input type="number" name="min_stock" value={formData.min_stock} onChange={handleInputChange} className="h-10 text-center font-bold border-rose-100 bg-rose-50/30" />
+                        {formData.is_service && (
+                            <div className="rounded-lg border border-indigo-100 bg-white shadow-sm overflow-hidden">
+                                <div className="flex items-start gap-3 p-5">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+                                        <Scissors size={18} />
                                     </div>
-                                    <div>
-                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Ubicación Física</label>
-                                        <Input name="location" value={formData.location} onChange={handleInputChange} placeholder="Vitrina A, Caja 3..." className="h-10" />
+                                    <div className="min-w-0">
+                                        <h3 className="text-sm font-black text-slate-800">Servicio sin inventario</h3>
+                                        <p className="mt-1 text-xs font-medium text-slate-500">Este tipo no necesita stock, almacen ni recepcion de unidades. Solo conserva precio, garantia y datos comerciales.</p>
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {/* ══ SECCIÓN 4: PRESENTACIONES / UNIDADES ════════════ */}
-                        <CollapsibleSection
-                            id="units"
-                            icon={Layers}
-                            label="Presentaciones y unidades"
-                            summary={formData.units.length > 0 ? `${formData.units.length} presentaciones configuradas` : "Opcional"}
-                            iconColor="text-indigo-600"
-                            iconBg="bg-indigo-100"
-                        >
-                            <ProductUnitManager
-                                units={formData.units}
-                                onUnitsChange={u => setFormData(p => ({ ...p, units: u }))}
-                                baseUnitType={formData.unit_type}
-                                basePrice={formData.price}
-                                baseCost={formData.cost}
-                                exchangeRates={exchangeRates}
-                            />
-                        </CollapsibleSection>
+                        {formData.is_combo && (
+                            <div className="rounded-lg border border-violet-100 bg-white shadow-sm overflow-hidden">
+                                <div className="flex items-start gap-3 p-5">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600">
+                                        <Layers size={18} />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h3 className="text-sm font-black text-slate-800">Inventario calculado por componentes</h3>
+                                        <p className="mt-1 text-xs font-medium text-slate-500">El combo no usa stock manual aqui. La disponibilidad depende de los productos agregados al kit.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Control para productos con IMEI */}
+                        {!formData.is_service && !formData.is_combo && formData.has_imei && (
+                            <div className="bg-white rounded-lg border border-blue-100 shadow-sm overflow-hidden">
+                                <div className="flex items-center justify-between gap-3 border-b border-blue-50 px-5 py-4">
+                                    <SectionHeader icon={ScanBarcode} label="Control serializado" color="text-blue-600" bg="bg-blue-100" />
+                                    <span className="rounded-md border border-blue-100 bg-blue-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-blue-600">IMEI / Serial</span>
+                                </div>
+                                <div className="space-y-4 p-5">
+                                    <div className="rounded-lg border border-blue-100 bg-blue-50/60 px-4 py-3">
+                                        <p className="text-xs font-bold text-blue-700">Las existencias se controlan por serial individual.</p>
+                                        <p className="mt-1 text-[11px] font-medium text-blue-600/80">Para cargar unidades usa Recepcion IMEI; aqui solo se define alerta minima y ubicacion sugerida.</p>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                        <div>
+                                            <label className="block text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5">Alerta minima</label>
+                                            <Input type="number" name="min_stock" value={formData.min_stock} onChange={handleInputChange} className="h-10 text-center font-bold border-rose-100 bg-rose-50/30" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Ubicacion sugerida</label>
+                                            <Input name="location" value={formData.location} onChange={handleInputChange} placeholder="Vitrina A, Caja 3..." className="h-10 border-slate-200" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Seccion 4: presentaciones / unidades */}
+                        {!formData.is_service && !formData.is_combo && (
+                            <CollapsibleSection
+                                id="units"
+                                icon={Layers}
+                                label="Presentaciones y unidades"
+                                summary={formData.units.length > 0 ? `${formData.units.length} presentaciones configuradas` : "Opcional"}
+                                iconColor="text-indigo-600"
+                                iconBg="bg-indigo-100"
+                            >
+                                <ProductUnitManager
+                                    units={formData.units}
+                                    onUnitsChange={u => setFormData(p => ({ ...p, units: u }))}
+                                    baseUnitType={formData.unit_type}
+                                    basePrice={formData.price}
+                                    baseCost={formData.cost}
+                                    exchangeRates={exchangeRates}
+                                />
+                            </CollapsibleSection>
+                        )}
 
                         {/* ══ SECCIÓN 5: COMBO ══════════════════════════════════ */}
                         {formData.is_combo && (
