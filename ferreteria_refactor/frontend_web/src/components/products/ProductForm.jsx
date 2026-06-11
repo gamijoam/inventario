@@ -405,6 +405,19 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
         }));
     };
 
+    const costValue = parseFloat(formData.cost || 0) || 0;
+    const priceValue = parseFloat(formData.price || 0) || 0;
+    const marginValue = parseFloat(formData.profit_margin || 0) || 0;
+    const marginLabel = Number.isFinite(marginValue) ? `${marginValue.toFixed(2)}%` : '0.00%';
+    const profitValue = priceValue - costValue;
+    const priceWarnings = [
+        priceValue <= 0 ? 'El precio de venta esta en cero.' : null,
+        costValue > 0 && priceValue > 0 && costValue > priceValue ? 'El costo es mayor que el precio de venta.' : null,
+        marginValue < 0 ? 'El margen calculado es negativo.' : null,
+        formData.is_combo ? 'En combos, revisa que los componentes sostengan el costo real.' : null,
+        formData.is_service && costValue === 0 ? 'En servicios puedes dejar costo en cero si no aplica.' : null,
+    ].filter(Boolean);
+
     const SwitchVisual = ({ checked }) => (
         <span className={cn(
             'relative h-5 w-9 shrink-0 rounded-full transition-colors',
@@ -719,61 +732,47 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
 
                         {/* ══ SECCIÓN 2: PRECIOS — Unificado ═══════════════════ */}
                         <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
-                                <SectionHeader icon={DollarSign} label="Precios" color="text-emerald-600" bg="bg-emerald-100">
-                                </SectionHeader>
-                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                    <span>Moneda Base:</span>
-                                    <span className="bg-indigo-50 text-indigo-600 border border-indigo-200 px-2 py-0.5 rounded-md font-black">
+                            <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                                <SectionHeader icon={DollarSign} label="Precios" color="text-emerald-600" bg="bg-emerald-100" />
+                                <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                    <span className={cn('rounded-md border px-2 py-1', priceValue > 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-600' : 'border-amber-200 bg-amber-50 text-amber-600')}>
+                                        Precio {priceValue > 0 ? 'listo' : 'pendiente'}
+                                    </span>
+                                    <span className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-indigo-600">
                                         {anchorCurrency.symbol} {anchorCurrency.name || 'USD'}
                                     </span>
                                 </div>
                             </div>
-                            <div className="space-y-5 p-4 sm:p-5">
-
-                                {/* Costo + Margen + Precio en una fila */}
-                                <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-[1fr_1fr_1.35fr]">
-                                    <div>
-                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Costo Neto</label>
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
-                                            <Input
-                                                type="number"
-                                                name="cost"
-                                                value={formData.cost || ''}
-                                                onChange={handleInputChange}
-                                                onFocus={e => e.target.select()}
-                                                step="0.01"
-                                                className="pl-7 h-11 font-bold border-slate-200 text-slate-700"
-                                                placeholder="0.00"
-                                            />
+                            <div className="space-y-4 p-4 sm:p-5">
+                                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.15fr_0.85fr]">
+                                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-4">
+                                        <div className="mb-3 flex items-center justify-between gap-3">
+                                            <div>
+                                                <label className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-600">
+                                                    <Calculator size={10} /> Precio de venta
+                                                </label>
+                                                <p className="mt-0.5 text-xs font-medium text-emerald-700/70">Valor principal que vera el POS y el catalogo.</p>
+                                            </div>
+                                            {needsRound(formData.price) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const rounded = roundPrice(formData.price);
+                                                        const price = parseFloat(rounded);
+                                                        const cost = parseFloat(formData.cost) || 0;
+                                                        const margin = cost > 0
+                                                            ? (useGrossMargin ? ((1 - cost/price)*100) : ((price-cost)/cost*100))
+                                                            : 0;
+                                                        setFormData(p => ({ ...p, price: rounded, profit_margin: margin.toFixed(2) }));
+                                                    }}
+                                                    className="shrink-0 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-600 transition-all hover:bg-amber-100"
+                                                >
+                                                    Redondear
+                                                </button>
+                                            )}
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Margen (%)</label>
                                         <div className="relative">
-                                            <Input
-                                                type="number"
-                                                name="profit_margin"
-                                                value={formData.profit_margin || ''}
-                                                onChange={handleInputChange}
-                                                onFocus={e => e.target.select()}
-                                                step="0.01"
-                                                className={cn(
-                                                    'h-11 text-center font-black pr-7 border-slate-200',
-                                                    parseFloat(formData.profit_margin) < 0 ? 'text-rose-600 bg-rose-50' : 'text-indigo-600 bg-indigo-50/60'
-                                                )}
-                                                placeholder="0"
-                                            />
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5 flex items-center gap-1">
-                                            <Calculator size={10} /> Precio de Venta
-                                        </label>
-                                        <div className="relative">
-                                            <span className={cn('absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-black', parseFloat(formData.price) > 0 ? 'text-emerald-500' : 'text-slate-300')}>$</span>
+                                            <span className={cn('absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-black', priceValue > 0 ? 'text-emerald-500' : 'text-slate-300')}>$</span>
                                             <Input
                                                 type="number"
                                                 name="price"
@@ -782,44 +781,78 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                 onFocus={e => e.target.select()}
                                                 step="0.01"
                                                 className={cn(
-                                                    'h-12 border-2 pl-10 text-right text-2xl font-black transition-all',
-                                                    parseFloat(formData.price) > 0
-                                                        ? 'text-emerald-600 border-emerald-400/30 bg-emerald-50/40'
-                                                        : 'text-slate-400 border-slate-200 bg-slate-50'
+                                                    'h-14 border-2 pl-10 text-right text-3xl font-black transition-all',
+                                                    priceValue > 0
+                                                        ? 'border-emerald-400/40 bg-white text-emerald-600'
+                                                        : 'border-slate-200 bg-white text-slate-400'
                                                 )}
                                                 placeholder="0.00"
                                             />
                                         </div>
                                     </div>
-                                    {/* Botón redondeo precio principal */}
-                                    {needsRound(formData.price) && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const rounded = roundPrice(formData.price);
-                                                const price = parseFloat(rounded);
-                                                const cost = parseFloat(formData.cost) || 0;
-                                                const margin = cost > 0
-                                                    ? (useGrossMargin ? ((1 - cost/price)*100) : ((price-cost)/cost*100))
-                                                    : 0;
-                                                setFormData(p => ({ ...p, price: rounded, profit_margin: margin.toFixed(2) }));
-                                            }}
-                                            className="flex items-center gap-1.5 text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 hover:bg-amber-100 px-3 py-1.5 rounded-xl transition-all w-fit"
-                                        >
-                                            Redondear
-                                        </button>
-                                    )}
+
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Costo neto</label>
+                                            <div className="relative mt-1.5">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">$</span>
+                                                <Input
+                                                    type="number"
+                                                    name="cost"
+                                                    value={formData.cost || ''}
+                                                    onChange={handleInputChange}
+                                                    onFocus={e => e.target.select()}
+                                                    step="0.01"
+                                                    className={cn('h-10 border-slate-200 pl-7 font-bold', costValue > priceValue && priceValue > 0 ? 'bg-rose-50 text-rose-600' : 'text-slate-700')}
+                                                    placeholder="0.00"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Margen</label>
+                                            <div className="relative mt-1.5">
+                                                <Input
+                                                    type="number"
+                                                    name="profit_margin"
+                                                    value={formData.profit_margin || ''}
+                                                    onChange={handleInputChange}
+                                                    onFocus={e => e.target.select()}
+                                                    step="0.01"
+                                                    className={cn('h-10 pr-7 text-center font-black border-slate-200', marginValue < 0 ? 'bg-rose-50 text-rose-600' : 'bg-indigo-50/60 text-indigo-600')}
+                                                    placeholder="0"
+                                                />
+                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 font-bold text-slate-400">%</span>
+                                            </div>
+                                        </div>
+                                        <div className="rounded-lg border border-slate-200 bg-white p-3">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Utilidad estimada</p>
+                                            <p className={cn('mt-1 text-lg font-black', profitValue < 0 ? 'text-rose-600' : 'text-slate-800')}>${profitValue.toFixed(2)}</p>
+                                            <p className="text-[10px] font-bold text-slate-400">Margen: {marginLabel}</p>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                {/* Tasa de referencia */}
-                                <div className="flex items-center justify-end gap-2">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Referencia Moneda:</span>
+                                {priceWarnings.length > 0 && (
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+                                        <div className="flex items-start gap-2">
+                                            <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-500" />
+                                            <div className="space-y-1">
+                                                {priceWarnings.map((warning, idx) => (
+                                                    <p key={idx} className="text-xs font-bold text-amber-700">{warning}</p>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Referencia moneda:</span>
                                     <Select
                                         name="exchange_rate_id"
                                         value={formData.exchange_rate_id?.toString()}
                                         onValueChange={(val) => setFormData({ ...formData, exchange_rate_id: val })}
                                     >
-                                        <SelectTrigger className="h-8 w-44 text-xs font-bold bg-slate-100 border-none shadow-none">
+                                        <SelectTrigger className="h-8 w-44 border-none bg-slate-100 text-xs font-bold shadow-none">
                                             <SelectValue placeholder="Tasa Global" />
                                         </SelectTrigger>
                                         <SelectContent align="end">
