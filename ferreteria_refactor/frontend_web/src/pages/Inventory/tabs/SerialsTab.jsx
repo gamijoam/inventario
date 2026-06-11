@@ -460,19 +460,26 @@ const getAgeDays = (dateValue) => {
     return Math.max(0, Math.floor((Date.now() - date.getTime()) / 86400000));
 };
 
+const formatTransitDate = (dateValue) => {
+    if (!dateValue) return 'Sin fecha';
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return 'Sin fecha';
+    return date.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: '2-digit' });
+};
+
 const TransitView = ({ instances = [], isLoading, onRefresh }) => {
     const [search, setSearch] = useState('');
     const [ageFilter, setAgeFilter] = useState('ALL');
 
     const transit = instances.filter(item => item.status === 'TRANSIT');
+    const getItemAge = (item) => getAgeDays(item.updated_at || item.created_at) ?? 0;
     const filtered = transit.filter(item => {
         const q = search.trim().toLowerCase();
         const productName = item.product?.name || item.product_name || '';
         const serial = item.serial_number || '';
         const warehouse = item.warehouse?.name || item.warehouse_name || '';
-        const age = getAgeDays(item.updated_at || item.created_at) ?? 0;
         const matchesSearch = !q || productName.toLowerCase().includes(q) || serial.toLowerCase().includes(q) || warehouse.toLowerCase().includes(q);
-        const matchesAge = ageFilter === 'ALL' ? true : age >= Number(ageFilter);
+        const matchesAge = ageFilter === 'ALL' ? true : getItemAge(item) >= Number(ageFilter);
         return matchesSearch && matchesAge;
     });
 
@@ -488,8 +495,17 @@ const TransitView = ({ instances = [], isLoading, onRefresh }) => {
         return acc;
     }, {});
 
-    const groups = Object.values(grouped).sort((a, b) => b.items.length - a.items.length);
-    const oldTransit = transit.filter(item => (getAgeDays(item.updated_at || item.created_at) ?? 0) >= 7).length;
+    const groups = Object.values(grouped)
+        .map(group => ({ ...group, items: group.items.sort((a, b) => getItemAge(b) - getItemAge(a)) }))
+        .sort((a, b) => b.items.length - a.items.length);
+    const ageBuckets = [
+        { value: 'ALL', label: 'Todos', count: transit.length },
+        { value: '3', label: '3+ dias', count: transit.filter(item => getItemAge(item) >= 3).length },
+        { value: '7', label: '7+ dias', count: transit.filter(item => getItemAge(item) >= 7).length },
+        { value: '15', label: '15+ dias', count: transit.filter(item => getItemAge(item) >= 15).length },
+    ];
+    const oldTransit = ageBuckets.find(item => item.value === '7')?.count || 0;
+    const maxAge = transit.reduce((max, item) => Math.max(max, getItemAge(item)), 0);
 
     const copyImeis = async (items = filtered) => {
         const text = items.map(item => item.serial_number).filter(Boolean).join('\n');
@@ -504,39 +520,64 @@ const TransitView = ({ instances = [], isLoading, onRefresh }) => {
 
     return (
         <div className="flex h-full flex-col gap-4">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div className="rounded-lg border border-violet-200 bg-violet-50 p-4 shadow-sm">
-                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-violet-700"><TimerReset size={16} /> En transito</div>
-                    <div className="mt-2 text-3xl font-black text-violet-700">{transit.length}</div>
-                    <div className="text-xs font-semibold text-violet-500">IMEIs descontados del origen</div>
+            <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+                            <TimerReset size={20} />
+                        </div>
+                        <div className="min-w-0">
+                            <h3 className="text-base font-black text-slate-900">Tr?nsitos externos pendientes</h3>
+                            <p className="text-xs font-semibold text-slate-400">IMEIs que ya salieron del origen y siguen esperando cierre/importaci?n.</p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 lg:w-[420px]">
+                        {[
+                            { label: 'Pendientes', value: transit.length, cls: 'text-violet-600' },
+                            { label: '7+ dias', value: oldTransit, cls: oldTransit > 0 ? 'text-amber-600' : 'text-slate-500' },
+                            { label: 'Mayor edad', value: `${maxAge}d`, cls: maxAge >= 7 ? 'text-amber-600' : 'text-slate-900' },
+                        ].map(item => (
+                            <div key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center">
+                                <div className={clsx('text-xl font-black leading-none', item.cls)}>{item.value}</div>
+                                <div className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-400">{item.label}</div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 shadow-sm">
-                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-amber-700"><AlertTriangle size={16} /> 7+ dias</div>
-                    <div className="mt-2 text-3xl font-black text-amber-700">{oldTransit}</div>
-                    <div className="text-xs font-semibold text-amber-600">Conviene conciliarlos o cerrar destino</div>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="text-xs font-black uppercase tracking-wide text-slate-500">Productos afectados</div>
-                    <div className="mt-2 text-3xl font-black text-slate-900">{groups.length}</div>
-                    <div className="text-xs font-semibold text-slate-400">Agrupados por modelo serializado</div>
-                </div>
-            </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+                <div className="flex flex-col gap-2 p-3 lg:flex-row lg:items-center">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
-                        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar producto, IMEI o almacen..." className="w-full rounded-md border border-slate-200 bg-white py-2.5 pl-9 pr-4 text-sm font-semibold outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />
+                        <input
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            placeholder="Buscar producto, IMEI o almacen..."
+                            className="w-full rounded-md border border-slate-200 bg-white py-2.5 pl-9 pr-4 text-sm font-semibold outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                        />
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                        {[{ value: 'ALL', label: 'Todos' }, { value: '3', label: '3+ dias' }, { value: '7', label: '7+ dias' }, { value: '15', label: '15+ dias' }].map(option => (
-                            <button key={option.value} onClick={() => setAgeFilter(option.value)} className={clsx('rounded-md border px-3 py-2 text-xs font-black transition-colors', ageFilter === option.value ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:text-indigo-600')}>
+                        {ageBuckets.map(option => (
+                            <button
+                                key={option.value}
+                                onClick={() => setAgeFilter(option.value)}
+                                className={clsx(
+                                    'inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs font-black transition-colors',
+                                    ageFilter === option.value
+                                        ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                                        : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:text-indigo-600'
+                                )}
+                            >
                                 {option.label}
+                                <span className={clsx('rounded px-1.5 py-0.5 text-[10px]', ageFilter === option.value ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500')}>{option.count}</span>
                             </button>
                         ))}
                     </div>
-                    <button onClick={() => copyImeis(filtered)} className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-600 transition-colors hover:border-indigo-300 hover:text-indigo-600"><Copy size={15} /> Copiar IMEIs</button>
-                    <button onClick={onRefresh} className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-400 transition-colors hover:border-indigo-300 hover:text-indigo-600" title="Actualizar"><RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} /></button>
+                    <button onClick={() => copyImeis(filtered)} className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-600 transition-colors hover:border-indigo-300 hover:text-indigo-600">
+                        <Copy size={15} /> Copiar
+                    </button>
+                    <button onClick={onRefresh} className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-400 transition-colors hover:border-indigo-300 hover:text-indigo-600" title="Actualizar">
+                        <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+                    </button>
                 </div>
             </div>
 
@@ -545,37 +586,42 @@ const TransitView = ({ instances = [], isLoading, onRefresh }) => {
             ) : groups.length === 0 ? (
                 <div className="flex flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white py-16 text-slate-400">
                     <TimerReset size={46} className="mb-3 opacity-25" />
-                    <p className="font-black text-slate-600">No hay IMEIs en transito con esos filtros</p>
-                    <p className="mt-1 text-sm font-medium">Cuando un traslado externo queda pendiente, aparecera aqui.</p>
+                    <p className="font-black text-slate-600">No hay IMEIs en tr?nsito con esos filtros</p>
+                    <p className="mt-1 text-sm font-medium">Cuando un traslado externo quede pendiente, aparecer? aqu?.</p>
                 </div>
             ) : (
-                <div className="flex-1 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+                <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
                     <div className="divide-y divide-slate-100">
                         {groups.map(group => (
                             <div key={group.product.id || group.product.name} className="p-4">
                                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="min-w-0">
                                         <div className="truncate text-sm font-black text-slate-900">{group.product.name}</div>
-                                        <div className="mt-0.5 text-xs font-mono font-semibold text-slate-400">{group.product.sku || 'Sin SKU'}</div>
+                                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                            <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-500">{group.product.sku || 'Sin SKU'}</span>
+                                            <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-black uppercase text-violet-600">{group.items.length} IMEIs</span>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="rounded-md bg-violet-50 px-2 py-1 text-xs font-black text-violet-700">{group.items.length} IMEIs</span>
-                                        <button onClick={() => copyImeis(group.items)} className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs font-black text-slate-500 hover:border-indigo-300 hover:text-indigo-600"><Copy size={13} /> Copiar</button>
-                                    </div>
+                                    <button onClick={() => copyImeis(group.items)} className="inline-flex items-center justify-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-black text-slate-500 transition-colors hover:border-indigo-300 hover:text-indigo-600">
+                                        <Copy size={13} /> Copiar grupo
+                                    </button>
                                 </div>
-                                <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                                <div className="mt-3 grid items-start gap-2 md:grid-cols-2 xl:grid-cols-3">
                                     {group.items.map(item => {
-                                        const age = getAgeDays(item.updated_at || item.created_at);
+                                        const age = getItemAge(item);
                                         const warehouse = item.warehouse?.name || item.warehouse_name || 'Sin almacen';
                                         return (
-                                            <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                                            <div key={item.id} className={clsx('rounded-lg border px-3 py-2.5', age >= 7 ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50')}>
                                                 <div className="flex items-start justify-between gap-2">
                                                     <div className="min-w-0">
-                                                        <div className="truncate font-mono text-xs font-black text-slate-800">{item.serial_number}</div>
-                                                        <div className="mt-1 flex items-center gap-1 text-[11px] font-bold text-slate-400"><Warehouse size={12} /> {warehouse}</div>
+                                                        <div className="truncate font-mono text-xs font-black text-slate-900">{item.serial_number}</div>
+                                                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-bold text-slate-500">
+                                                            <span className="inline-flex items-center gap-1 rounded bg-white/70 px-1.5 py-0.5"><Warehouse size={11} /> {warehouse}</span>
+                                                            <span className="rounded bg-white/70 px-1.5 py-0.5">{formatTransitDate(item.updated_at || item.created_at)}</span>
+                                                        </div>
                                                     </div>
-                                                    <span className={clsx('shrink-0 rounded-md px-2 py-1 text-[10px] font-black', age >= 7 ? 'bg-amber-100 text-amber-700' : 'bg-violet-100 text-violet-700')}>
-                                                        {age === null ? 'Sin fecha' : `${age}d`}
+                                                    <span className={clsx('shrink-0 rounded-md px-2 py-1 text-[10px] font-black', age >= 7 ? 'bg-amber-200 text-amber-800' : 'bg-violet-100 text-violet-700')}>
+                                                        {age}d
                                                     </span>
                                                 </div>
                                             </div>
