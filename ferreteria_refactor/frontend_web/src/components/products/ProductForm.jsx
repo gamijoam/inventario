@@ -137,6 +137,20 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
     });
 
     const [isScanning, setIsScanning] = useState(false);
+    const [openSections, setOpenSections] = useState({
+        priceLists: false,
+        inventory: true,
+        imei: false,
+        units: false,
+        combo: true,
+        warranty: false,
+        discounts: false,
+        pharmacy: false,
+    });
+
+    const toggleSection = (section) => {
+        setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+    };
 
     // Category dropdown specific state
     const [isCategoryOpen, setIsCategoryOpen] = useState(false);
@@ -400,6 +414,31 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
             {children}
         </div>
     );
+
+    const CollapsibleSection = ({ id, icon: Icon, label, summary, children, iconColor = 'text-indigo-600', iconBg = 'bg-indigo-100', subtle = false }) => {
+        const open = openSections[id];
+        return (
+            <div className={cn('overflow-hidden rounded-lg border bg-white shadow-sm', subtle ? 'border-slate-200' : 'border-slate-200')}>
+                <button
+                    type="button"
+                    onClick={() => toggleSection(id)}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 sm:px-5"
+                >
+                    <div className="flex min-w-0 items-center gap-3">
+                        <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', iconBg)}>
+                            <Icon size={16} className={iconColor} />
+                        </div>
+                        <div className="min-w-0">
+                            <h3 className="truncate text-sm font-black text-slate-800">{label}</h3>
+                            {summary && <p className="mt-0.5 truncate text-xs font-medium text-slate-500">{summary}</p>}
+                        </div>
+                    </div>
+                    <ChevronDown size={18} className={cn('shrink-0 text-slate-400 transition-transform', open && 'rotate-180 text-indigo-500')} />
+                </button>
+                {open && <div className="border-t border-slate-100">{children}</div>}
+            </div>
+        );
+    };
 
     return (
         <Sheet open={isOpen} onOpenChange={onClose}>
@@ -751,7 +790,24 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                 </div>
 
                                 {/* Listas de precios — directamente aquí */}
-                                <div className="pt-4 border-t border-slate-100">
+                                <div className="rounded-lg border border-slate-200 bg-slate-50/60">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleSection('priceLists')}
+                                        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/70"
+                                    >
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100">
+                                                <Tag size={15} className="text-violet-600" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-black text-slate-800">Precios avanzados</p>
+                                                <p className="truncate text-xs font-medium text-slate-500">{priceLists.length} listas configuradas - precio base ${parseFloat(formData.price || 0).toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                        <ChevronDown size={17} className={cn('shrink-0 text-slate-400 transition-transform', openSections.priceLists && 'rotate-180 text-indigo-500')} />
+                                    </button>
+                                    <div className={cn('border-t border-slate-200 bg-white p-4', !openSections.priceLists && 'hidden')}>
                                     <div className="flex items-center justify-between mb-3">
                                         <div className="flex items-center gap-2">
                                             <div className="w-6 h-6 bg-violet-100 rounded-lg flex items-center justify-center">
@@ -882,6 +938,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                 </div>
                             </div>
                         </div>
+                        </div>
 
                         {/* ══ SECCIÓN 3: INVENTARIO ═════════════════════════════ */}
                         {!formData.is_service && !formData.is_combo && (
@@ -999,10 +1056,14 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                         )}
 
                         {/* ══ SECCIÓN 4: PRESENTACIONES / UNIDADES ════════════ */}
-                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="px-5 py-4 border-b border-slate-100">
-                                <SectionHeader icon={Layers} label="Presentaciones y Unidades Alternativas" color="text-indigo-600" bg="bg-indigo-100" />
-                            </div>
+                        <CollapsibleSection
+                            id="units"
+                            icon={Layers}
+                            label="Presentaciones y unidades"
+                            summary={formData.units.length > 0 ? `${formData.units.length} presentaciones configuradas` : "Opcional"}
+                            iconColor="text-indigo-600"
+                            iconBg="bg-indigo-100"
+                        >
                             <ProductUnitManager
                                 units={formData.units}
                                 onUnitsChange={u => setFormData(p => ({ ...p, units: u }))}
@@ -1011,79 +1072,99 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                 baseCost={formData.cost}
                                 exchangeRates={exchangeRates}
                             />
-                        </div>
+                        </CollapsibleSection>
 
                         {/* ══ SECCIÓN 5: COMBO ══════════════════════════════════ */}
                         {formData.is_combo && (
-                            <div className="bg-white rounded-lg border border-violet-200 shadow-sm overflow-hidden">
-                                <div className="px-5 py-4 border-b border-violet-100 bg-violet-50/30">
-                                    <SectionHeader icon={Layers} label="Configuración de Combo / Kit" color="text-violet-600" bg="bg-violet-100" />
-                                </div>
+                            <CollapsibleSection
+                                id="combo"
+                                icon={Layers}
+                                label="Combo / kit"
+                                summary={formData.combo_items.length > 0 ? `${formData.combo_items.length} componentes` : "Agrega los productos del kit"}
+                                iconColor="text-violet-600"
+                                iconBg="bg-violet-100"
+                            >
                                 <ComboManager
                                     comboItems={formData.combo_items}
                                     onItemsChange={i => setFormData(p => ({ ...p, combo_items: i, is_combo: i.length > 0 }))}
                                 />
-                            </div>
+                            </CollapsibleSection>
                         )}
 
                         {/* ══ SECCIÓN 6: GARANTÍA ══════════════════════════════ */}
-                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
-                            <SectionHeader icon={ShieldCheck} label="Política de Garantía" color="text-teal-600" bg="bg-teal-100" />
-                            <Select
-                                value={formData.warranty_policy_id?.toString()}
-                                onValueChange={val => setFormData({ ...formData, warranty_policy_id: val === 'null' ? null : val })}
-                            >
-                                <SelectTrigger className="h-11 border-slate-200">
-                                    <SelectValue placeholder="Sin garantía (u omitida)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="null">-- Ninguna / Según Factura --</SelectItem>
-                                    {policies.map(p => (
-                                        <SelectItem key={p.id} value={p.id.toString()}>
-                                            {p.name} ({p.type === 'LIFETIME' ? 'De por vida' : `${p.duration} ${p.type}`})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        <CollapsibleSection
+                            id="warranty"
+                            icon={ShieldCheck}
+                            label="Garantia"
+                            summary={formData.warranty_policy_id ? "Politica seleccionada" : "Opcional"}
+                            iconColor="text-teal-600"
+                            iconBg="bg-teal-100"
+                        >
+                            <div className="p-5">
+                                <Select
+                                    value={formData.warranty_policy_id?.toString()}
+                                    onValueChange={val => setFormData({ ...formData, warranty_policy_id: val === 'null' ? null : val })}
+                                >
+                                    <SelectTrigger className="h-11 border-slate-200">
+                                        <SelectValue placeholder="Sin garantia (u omitida)" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="null">-- Ninguna / Segun Factura --</SelectItem>
+                                        {policies.map(p => (
+                                            <SelectItem key={p.id} value={p.id.toString()}>
+                                                {p.name} ({p.type === 'LIFETIME' ? 'De por vida' : `${p.duration} ${p.type}`})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </CollapsibleSection>
 
                         {/* ══ SECCIÓN 7: DESCUENTOS POR VOLUMEN (si existe) ═══ */}
                         {initialData?.id && (
-                            <div className="bg-white rounded-lg border border-amber-200 shadow-sm overflow-hidden">
-                                <div className="px-5 py-4 border-b border-amber-100 bg-amber-50/30">
-                                    <SectionHeader icon={Zap} label="Reglas de Descuento por Volumen" color="text-amber-600" bg="bg-amber-100" />
-                                </div>
+                            <CollapsibleSection
+                                id="discounts"
+                                icon={Zap}
+                                label="Descuentos por volumen"
+                                summary="Reglas avanzadas del producto"
+                                iconColor="text-amber-600"
+                                iconBg="bg-amber-100"
+                            >
                                 <div className="p-5">
                                     <DiscountRulesManager
                                         productId={initialData.id}
                                         initialRules={initialData.discount_rules || []}
                                     />
                                 </div>
-                            </div>
+                            </CollapsibleSection>
                         )}
 
                         {/* ══ MÓDULO FARMACIA ═══════════════════════════════════ */}
                         {modules?.pharmacy && (
-                            <div className="bg-white rounded-lg border border-indigo-200 shadow-sm overflow-hidden">
-                                <div className="px-5 py-4 border-b border-indigo-100 bg-indigo-50/30">
-                                    <SectionHeader icon={Shield} label="Información Farmacéutica" color="text-indigo-600" bg="bg-indigo-100" />
-                                </div>
+                            <CollapsibleSection
+                                id="pharmacy"
+                                icon={Shield}
+                                label="Informacion farmaceutica"
+                                summary={formData.drug_classification || formData.active_ingredient ? "Datos configurados" : "Opcional"}
+                                iconColor="text-indigo-600"
+                                iconBg="bg-indigo-100"
+                            >
                                 <div className="p-5 space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                         <div>
-                                            <label className="block text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1.5">Clasificación</label>
+                                            <label className="block text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1.5">Clasificacion</label>
                                             <Select
                                                 value={formData.drug_classification || ''}
                                                 onValueChange={val => setFormData(p => ({ ...p, drug_classification: val === 'none' ? '' : val }))}
                                             >
                                                 <SelectTrigger className="h-10 border-indigo-200 bg-indigo-50/20">
-                                                    <SelectValue placeholder="Sin clasificación" />
+                                                    <SelectValue placeholder="Sin clasificacion" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="none">-- Sin clasificación --</SelectItem>
-                                                    <SelectItem value="OTC">OTC — Venta Libre</SelectItem>
-                                                    <SelectItem value="PRESCRIPTION">PRESCRIPTION — Requiere Receta</SelectItem>
-                                                    <SelectItem value="CONTROLLED">CONTROLLED — Controlada</SelectItem>
+                                                    <SelectItem value="none">-- Sin clasificacion --</SelectItem>
+                                                    <SelectItem value="OTC">OTC - Venta Libre</SelectItem>
+                                                    <SelectItem value="PRESCRIPTION">PRESCRIPTION - Requiere Receta</SelectItem>
+                                                    <SelectItem value="CONTROLLED">CONTROLLED - Controlada</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -1099,7 +1180,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                 <SelectContent>
                                                     <SelectItem value="none">-- Sin especificar --</SelectItem>
                                                     <SelectItem value="AMBIENT">Temperatura Ambiente</SelectItem>
-                                                    <SelectItem value="REFRIGERATED">Refrigerado 2-8°C</SelectItem>
+                                                    <SelectItem value="REFRIGERATED">Refrigerado 2-8 C</SelectItem>
                                                     <SelectItem value="FROZEN">Congelado</SelectItem>
                                                 </SelectContent>
                                             </Select>
@@ -1116,7 +1197,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                         />
                                     </div>
                                 </div>
-                            </div>
+                            </CollapsibleSection>
                         )}
 
                     </div>
