@@ -452,19 +452,19 @@ const POSCart = ({
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center justify-between mt-1">
-                                            {/* Quantity Control (Elegant) */}
-                                            <div className="flex items-center bg-slate-50 rounded-md border border-slate-200 h-5 shadow-inner overflow-hidden">
+                                        <div className="mt-2 flex items-center justify-between gap-2">
+                                            {/* Quantity Control */}
+                                            <div className="flex h-8 items-center overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         onUpdateQuantity(item.id, Math.max(0, item.quantity - 1));
                                                     }}
                                                     disabled={item.has_imei}
-                                                    className="w-5 h-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white transition-all border-r border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="flex h-full w-8 items-center justify-center border-r border-slate-200 text-slate-500 transition-all hover:bg-slate-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
                                                     title={item.has_imei ? "Elimine el item para modificar seriales" : "Disminuir cantidad"}
                                                 >
-                                                    <Minus size={10} strokeWidth={3} />
+                                                    <Minus size={14} strokeWidth={3} />
                                                 </button>
                                                 <input
                                                     type="number"
@@ -476,7 +476,8 @@ const POSCart = ({
                                                         if (!isNaN(val)) onUpdateQuantity(item.id, val);
                                                     }}
                                                     disabled={item.has_imei}
-                                                    className="w-7 text-center text-[10px] font-black text-slate-900 bg-transparent border-none focus:ring-0 tabular-nums disabled:text-slate-500"
+                                                    aria-label={`Cantidad de ${item.name}`}
+                                                    className="h-full w-14 border-none bg-slate-50/70 p-0 text-center text-sm font-black tabular-nums text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-200 disabled:text-slate-500"
                                                 />
                                                 <button
                                                     onClick={(e) => {
@@ -484,13 +485,12 @@ const POSCart = ({
                                                         onUpdateQuantity(item.id, item.quantity + 1);
                                                     }}
                                                     disabled={item.has_imei}
-                                                    className="w-5 h-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white transition-all border-l border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="flex h-full w-8 items-center justify-center border-l border-slate-200 text-slate-500 transition-all hover:bg-slate-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
                                                     title={item.has_imei ? "Escanee otro serial para agregar" : "Aumentar cantidad"}
                                                 >
-                                                    <Plus size={10} strokeWidth={3} />
+                                                    <Plus size={14} strokeWidth={3} />
                                                 </button>
                                             </div>
-                                        </div>
                                             {/* Botón lista de precios */}
                                             {(() => {
                                                 // Resolver nombre de lista activa
@@ -506,7 +506,7 @@ const POSCart = ({
                                                     <button
                                                         onClick={e => { e.stopPropagation(); onItemClick && onItemClick(item); }}
                                                         className={cn(
-                                                            "flex items-center gap-1 h-5 px-1.5 rounded-md border transition-all text-[8px] font-bold shrink-0 shadow-sm max-w-full truncate",
+                                                            "flex h-7 max-w-[120px] shrink-0 items-center gap-1 rounded-md border px-2 text-[9px] font-black shadow-sm transition-all truncate",
                                                             activeName
                                                                 ? "bg-indigo-50 border-indigo-300 text-indigo-700 hover:bg-indigo-100"
                                                                 : "bg-white border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50"
@@ -518,6 +518,7 @@ const POSCart = ({
                                                     </button>
                                                 );
                                             })()}
+                                        </div>
                                     </div>
 
                                     {/* Remove Action (Accessible) */}
