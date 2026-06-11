@@ -2,6 +2,8 @@ const FIELD_LABELS = {
     name: 'Nombre',
     sku: 'SKU',
     price: 'Precio',
+    prices: 'Listas de precios',
+    price_list_id: 'Lista de precios',
     stock: 'Stock',
     category_id: 'Categoria',
     warehouse_id: 'Almacen',
@@ -26,6 +28,7 @@ const translateKnownMessage = (message) => {
     if ((lower.includes('sku') || lower.includes('barcode')) && (lower.includes('already exists') || lower.includes('duplicate') || lower.includes('unique'))) {
         return 'Ya existe un producto con ese SKU. Usa otro codigo o deja el SKU vacio si no aplica.';
     }
+    if (lower.includes('input should be a valid list')) return 'debe tener un formato valido';
     if (lower.includes('decimal input should be') || lower.includes('valid decimal') || lower.includes('finite number')) return 'debe ser un numero valido';
     if (lower.includes('field required')) return 'es obligatorio';
     if (lower.includes('input should be greater than') || lower.includes('greater than 0')) return 'debe ser mayor que cero';

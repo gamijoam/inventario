@@ -16,6 +16,7 @@ import { Sheet, SheetContent } from '../../components/ui/sheet';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { cn } from '../../lib/utils';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
 import ProductImageUploader from './ProductImageUploader';
@@ -175,21 +176,54 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
     };
 
     const handleSubmit = async () => {
+        const name = formData.name.trim();
+        const sku = formData.sku.trim();
+        if (!name) {
+            toast.error('El nombre del producto es obligatorio.');
+            return;
+        }
+        if (priceValue <= 0) {
+            toast.error('El precio de venta debe ser mayor que cero.');
+            setActiveTab('precios');
+            return;
+        }
+
+        const pricesArray = Object.entries(formData.prices || {})
+            .map(([listId, rawPrice]) => ({
+                price_list_id: parseInt(listId, 10),
+                price: parseFloat(rawPrice) || 0,
+            }))
+            .filter(item => Number.isFinite(item.price_list_id) && item.price > 0);
+
+        const stockValue = productType === 'physical' ? parseFloat(formData.stock || 0) || 0 : 0;
+        const payload = {
+            ...formData,
+            name,
+            sku,
+            category_id: formData.category_id ? parseInt(formData.category_id, 10) : null,
+            cost_price: costValue,
+            price: priceValue,
+            stock: stockValue,
+            min_stock: parseFloat(formData.min_stock || 0) || 0,
+            exchange_rate_id: formData.exchange_rate_id ? parseInt(formData.exchange_rate_id, 10) : null,
+            warranty_policy_id: formData.warranty_policy_id ? parseInt(formData.warranty_policy_id, 10) : null,
+            profit_margin: Number.isFinite(marginValue) ? Math.min(marginValue, 999.99) : null,
+            commission_amount: formData.commission_amount ? parseFloat(formData.commission_amount) : null,
+            commission_percentage: formData.commission_percentage ? parseFloat(formData.commission_percentage) : null,
+            warehouse_stocks: productType === 'physical' ? formData.warehouse_stocks : [],
+            units: Array.isArray(formData.units) ? formData.units : [],
+            combo_items: formData.is_combo ? (formData.combo_items || []) : [],
+            prices: pricesArray,
+            image_url: formData.image_url || '',
+        };
+        delete payload.cost;
+
         setSaving(true);
         try {
-            await onSubmit({
-                ...formData,
-                name: formData.name.trim(),
-                sku: formData.sku.trim(),
-                category_id: formData.category_id || null,
-                cost: costValue,
-                price: priceValue,
-                profit_margin: marginValue,
-                min_stock: parseFloat(formData.min_stock || 0) || 0,
-                exchange_rate_id: formData.exchange_rate_id || null,
-                warranty_policy_id: formData.warranty_policy_id || null,
-            });
+            await onSubmit(payload);
             setFormData(defaultForm);
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, 'No se pudo crear el producto. Revisa los datos e intenta de nuevo.'));
         } finally {
             setSaving(false);
         }

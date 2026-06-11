@@ -635,7 +635,6 @@ const ProductsTab = () => {
                         await fetchProducts();
                         setIsCompactModalOpen(false);
                     } catch (e) {
-                        toast.error(getApiErrorMessage(e, 'No se pudo crear el producto'));
                         throw e;
                     }
                 }}
