@@ -1,4 +1,4 @@
-import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { AlertTriangle, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import ProductThumbnail from './ProductThumbnail';
 import { Button } from '../ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu';
@@ -10,6 +10,15 @@ const formatStock = (stock) => {
 };
 
 const formatMoney = (value) => `$${Number(value || 0).toFixed(2)}`;
+
+const getProductIssues = (product) => {
+    const issues = [];
+    if (!String(product.sku || '').trim()) issues.push('Sin SKU');
+    if (Number(product.price || 0) <= 0) issues.push('Precio 0');
+    if (Array.isArray(product.prices) && product.prices.some(item => Number(item?.price || 0) <= 0)) issues.push('Lista pendiente');
+    if (product.has_imei && Number(product.stock || 0) <= 0) issues.push('Serial sin stock');
+    return issues;
+};
 
 export default function ProductMobileCard({ product, onEdit, onDelete, onCategoryClick }) {
     const totalStock = Number(product.stock || 0);
@@ -29,6 +38,7 @@ export default function ProductMobileCard({ product, onEdit, onDelete, onCategor
         product.is_combo && 'Combo',
         product.is_commissionable && 'Comision',
     ].filter(Boolean);
+    const issues = getProductIssues(product);
 
     return (
         <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-white p-3 shadow-sm animate-in fade-in duration-300">
@@ -82,7 +92,7 @@ export default function ProductMobileCard({ product, onEdit, onDelete, onCategor
                         )}
                     </div>
 
-                    {(badges.length > 0 || (product.prices && product.prices.length > 0)) && (
+                    {(badges.length > 0 || issues.length > 0 || (product.prices && product.prices.length > 0)) && (
                         <div className="mt-2 flex flex-wrap gap-1">
                             {badges.map(label => (
                                 <span key={label} className="rounded-md border border-slate-100 bg-slate-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-500">
@@ -94,6 +104,11 @@ export default function ProductMobileCard({ product, onEdit, onDelete, onCategor
                                     {product.prices.length} lista{product.prices.length === 1 ? '' : 's'}
                                 </span>
                             )}
+                            {issues.slice(0, 2).map(issue => (
+                                <span key={issue} className="inline-flex items-center gap-1 rounded-md border border-amber-100 bg-amber-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-700">
+                                    <AlertTriangle size={10} /> {issue}
+                                </span>
+                            ))}
                         </div>
                     )}
                 </div>

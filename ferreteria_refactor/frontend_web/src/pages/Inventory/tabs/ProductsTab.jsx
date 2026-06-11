@@ -64,6 +64,44 @@ const ProductTypeBadges = ({ product }) => {
     );
 };
 
+const getProductIssues = (product) => {
+    const issues = [];
+    if (!String(product.sku || '').trim()) {
+        issues.push({ key: 'missing_sku', label: 'Sin SKU', className: 'border-amber-100 bg-amber-50 text-amber-700' });
+    }
+    if (Number(product.price || 0) <= 0) {
+        issues.push({ key: 'zero_price', label: 'Precio 0', className: 'border-rose-100 bg-rose-50 text-rose-700' });
+    }
+    if (Array.isArray(product.prices) && product.prices.some(item => Number(item?.price || 0) <= 0)) {
+        issues.push({ key: 'incomplete_prices', label: 'Lista pendiente', className: 'border-orange-100 bg-orange-50 text-orange-700' });
+    }
+    if (product.has_imei && Number(product.stock || 0) <= 0) {
+        issues.push({ key: 'serial_without_stock', label: 'Serial sin stock', className: 'border-indigo-100 bg-indigo-50 text-indigo-700' });
+    }
+    return issues;
+};
+
+const ProductIssueBadges = ({ product, compact = false }) => {
+    const issues = getProductIssues(product);
+    if (!issues.length) return null;
+
+    return (
+        <div className={cn('flex flex-wrap gap-1', compact ? 'mt-1' : 'mt-1.5')}>
+            {issues.slice(0, compact ? 2 : 3).map(issue => (
+                <span key={issue.key} className={cn('inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide', issue.className)}>
+                    <AlertTriangle size={10} />
+                    {issue.label}
+                </span>
+            ))}
+            {issues.length > (compact ? 2 : 3) && (
+                <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-500">
+                    +{issues.length - (compact ? 2 : 3)}
+                </span>
+            )}
+        </div>
+    );
+};
+
 // Stock compacto del listado
 const StockPill = ({ stock, minStock }) => {
     const total = Number(stock || 0);
@@ -134,6 +172,8 @@ const ProductsTab = () => {
     const [filterWarehouse, setFilterWarehouse] = useState('');
     const [filterStock, setFilterStock]   = useState('');
     const [sortBy, setSortBy]             = useState('');
+    const [filterType, setFilterType]     = useState('');
+    const [filterIssue, setFilterIssue]   = useState('');
     const [showFilters, setShowFilters]   = useState(false);
 
     const fetchProducts = async (page = currentPage) => {
@@ -224,18 +264,28 @@ const ProductsTab = () => {
     useEffect(() => {
         const t = setTimeout(() => { setCurrentPage(1); fetchProducts(1); }, 400);
         return () => clearTimeout(t);
-    }, [searchTerm, filterCategory, filterWarehouse, filterStock]);
+    }, [searchTerm, filterCategory, filterWarehouse, filterStock, filterType, filterIssue]);
 
     const filteredProducts = useMemo(() => {
-        // Los filtros category, stock, search ya se aplican en el backend
-        // Solo aplicamos sort local sobre la página actual
+        // Category, stock and search run in the backend. Smart filters run locally over the current page.
         let r = [...products];
+
+        if (filterType === 'serial') r = r.filter(p => p.has_imei);
+        else if (filterType === 'service') r = r.filter(p => p.is_service);
+        else if (filterType === 'combo') r = r.filter(p => p.is_combo);
+        else if (filterType === 'physical') r = r.filter(p => !p.has_imei && !p.is_service && !p.is_combo);
+
+        if (filterIssue) {
+            r = r.filter(p => getProductIssues(p).some(issue => issue.key === filterIssue));
+        }
+
         if (sortBy === 'az') r = r.sort((a, b) => a.name.localeCompare(b.name));
         else if (sortBy === 'za') r = r.sort((a, b) => b.name.localeCompare(a.name));
         else if (sortBy === 'price_asc') r = r.sort((a, b) => Number(a.price) - Number(b.price));
         else if (sortBy === 'price_desc') r = r.sort((a, b) => Number(b.price) - Number(a.price));
+        else if (sortBy === 'issues') r = r.sort((a, b) => getProductIssues(b).length - getProductIssues(a).length);
         return r;
-    }, [products, sortBy]);
+    }, [products, sortBy, filterType, filterIssue]);
 
     // KPI stats — siempre usa los totales reales del backend (/products/kpis)
     // Los filtros locales (categoría, stock) NO afectan los totales globales del inventario
@@ -257,21 +307,38 @@ const ProductsTab = () => {
         za: 'Nombre Z-A',
         price_asc: 'Precio menor',
         price_desc: 'Precio mayor',
+        issues: 'Mas alertas',
+    };
+    const typeLabels = {
+        physical: 'Producto fisico',
+        serial: 'Serial / IMEI',
+        service: 'Servicio',
+        combo: 'Combo',
+    };
+    const issueLabels = {
+        missing_sku: 'Sin SKU',
+        zero_price: 'Precio en cero',
+        incomplete_prices: 'Listas pendientes',
+        serial_without_stock: 'Serial sin stock',
     };
     const activeFilters = [
         searchTerm?.trim() && `Búsqueda: ${searchTerm.trim()}`,
         filterCategory && `Categoría: ${categories.find(c => String(c.id) === String(filterCategory))?.name || filterCategory}`,
         filterWarehouse && `Almacén: ${warehouses.find(w => String(w.id) === String(filterWarehouse))?.name || filterWarehouse}`,
         filterStock && stockLabels[filterStock],
+        filterType && `Tipo: ${typeLabels[filterType]}`,
+        filterIssue && `Alerta: ${issueLabels[filterIssue]}`,
         sortBy && sortLabels[sortBy],
     ].filter(Boolean);
-    const hasFilters = filterCategory || filterWarehouse || filterStock || sortBy;
+    const hasFilters = filterCategory || filterWarehouse || filterStock || filterType || filterIssue || sortBy;
     const hasActiveConstraints = activeFilters.length > 0;
     const clearAllFilters = () => {
         setSearchTerm('');
         setFilterCategory('');
         setFilterWarehouse('');
         setFilterStock('');
+        setFilterType('');
+        setFilterIssue('');
         setSortBy('');
     };
 
@@ -375,47 +442,109 @@ const ProductsTab = () => {
                     </div>
                 )}
             </div>
-
             {/* Panel de Filtros */}
             {showFilters && (
-                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <label className="flex min-w-[190px] flex-col gap-1 text-xs font-bold uppercase tracking-wide text-slate-400">
-                        Categoría
-                        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="h-9 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium normal-case tracking-normal text-slate-700 focus:border-slate-400 focus:outline-none">
-                            <option value="">Todas</option>
-                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                    </label>
+                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                    <div className="grid gap-3 xl:grid-cols-[1.1fr_1.4fr_1fr]">
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                            <label className="flex min-w-[190px] flex-col gap-1 text-xs font-bold uppercase tracking-wide text-slate-400">
+                                Categoria
+                                <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="h-9 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium normal-case tracking-normal text-slate-700 focus:border-slate-400 focus:outline-none">
+                                    <option value="">Todas</option>
+                                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                            </label>
 
-                    <label className="flex min-w-[190px] flex-col gap-1 text-xs font-bold uppercase tracking-wide text-slate-400">
-                        Almacén
-                        <select value={filterWarehouse} onChange={e => setFilterWarehouse(e.target.value)} className="h-9 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium normal-case tracking-normal text-slate-700 focus:border-slate-400 focus:outline-none">
-                            <option value="">Todos</option>
-                            {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                        </select>
-                    </label>
+                            <label className="flex min-w-[190px] flex-col gap-1 text-xs font-bold uppercase tracking-wide text-slate-400">
+                                Almacen
+                                <select value={filterWarehouse} onChange={e => setFilterWarehouse(e.target.value)} className="h-9 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium normal-case tracking-normal text-slate-700 focus:border-slate-400 focus:outline-none">
+                                    <option value="">Todos</option>
+                                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                                </select>
+                            </label>
+                        </div>
 
-                    <div className="flex flex-col gap-1">
-                        <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Stock</span>
-                        <div className="flex h-9 items-center gap-1 rounded-md bg-slate-100 p-1">
-                            {[{ val: '', label: 'Todo' }, { val: 'in_stock', label: 'En stock' }, { val: 'low_stock', label: 'Bajo' }, { val: 'out_of_stock', label: 'Agotado' }].map(({ val, label }) => (
-                                <button key={val} onClick={() => setFilterStock(val)} className={cn('rounded px-3 py-1.5 text-xs font-bold transition-colors', filterStock === val ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800')}>{label}</button>
-                            ))}
+                        <div className="space-y-3 rounded-lg border border-slate-100 bg-slate-50/70 p-3">
+                            <div>
+                                <span className="text-xs font-black uppercase tracking-wide text-slate-400">Tipo de producto</span>
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                    {[
+                                        { val: '', label: 'Todos', icon: Package },
+                                        { val: 'physical', label: 'Fisicos', icon: Boxes },
+                                        { val: 'serial', label: 'Serial/IMEI', icon: Barcode },
+                                        { val: 'service', label: 'Servicios', icon: Wrench },
+                                        { val: 'combo', label: 'Combos', icon: Layers },
+                                    ].map(({ val, label, icon: Icon }) => (
+                                        <button
+                                            key={val || 'all-types'}
+                                            onClick={() => setFilterType(val)}
+                                            className={cn(
+                                                'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-black transition-colors',
+                                                filterType === val
+                                                    ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                                                    : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700'
+                                            )}
+                                        >
+                                            <Icon size={13} /> {label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <span className="text-xs font-black uppercase tracking-wide text-slate-400">Diagnostico</span>
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                    {[
+                                        { val: '', label: 'Sin filtro', icon: SlidersHorizontal },
+                                        { val: 'missing_sku', label: 'Sin SKU', icon: AlertTriangle },
+                                        { val: 'zero_price', label: 'Precio 0', icon: CircleDollarSign },
+                                        { val: 'incomplete_prices', label: 'Listas pendientes', icon: Tag },
+                                        { val: 'serial_without_stock', label: 'Serial sin stock', icon: Barcode },
+                                    ].map(({ val, label, icon: Icon }) => (
+                                        <button
+                                            key={val || 'all-issues'}
+                                            onClick={() => setFilterIssue(val)}
+                                            className={cn(
+                                                'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-black transition-colors',
+                                                filterIssue === val
+                                                    ? 'border-amber-500 bg-amber-50 text-amber-800 shadow-sm'
+                                                    : 'border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700'
+                                            )}
+                                        >
+                                            <Icon size={13} /> {label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                            <div className="flex flex-col gap-1">
+                                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Stock</span>
+                                <div className="flex h-9 items-center gap-1 rounded-md bg-slate-100 p-1">
+                                    {[{ val: '', label: 'Todo' }, { val: 'in_stock', label: 'En stock' }, { val: 'low_stock', label: 'Bajo' }, { val: 'out_of_stock', label: 'Agotado' }].map(({ val, label }) => (
+                                        <button key={val} onClick={() => setFilterStock(val)} className={cn('rounded px-3 py-1.5 text-xs font-bold transition-colors', filterStock === val ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800')}>{label}</button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <label className="flex min-w-[190px] flex-col gap-1 text-xs font-bold uppercase tracking-wide text-slate-400">
+                                Orden
+                                <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="h-9 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium normal-case tracking-normal text-slate-700 focus:border-slate-400 focus:outline-none">
+                                    <option value="">Recientes</option>
+                                    <option value="issues">Mas alertas primero</option>
+                                    <option value="az">Nombre A-Z</option>
+                                    <option value="za">Nombre Z-A</option>
+                                    <option value="price_asc">Precio menor primero</option>
+                                    <option value="price_desc">Precio mayor primero</option>
+                                </select>
+                            </label>
                         </div>
                     </div>
-
-                    <label className="flex min-w-[190px] flex-col gap-1 text-xs font-bold uppercase tracking-wide text-slate-400">
-                        Orden
-                        <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="h-9 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium normal-case tracking-normal text-slate-700 focus:border-slate-400 focus:outline-none">
-                            <option value="">Recientes</option>
-                            <option value="az">Nombre A-Z</option>
-                            <option value="za">Nombre Z-A</option>
-                            <option value="price_asc">Precio menor primero</option>
-                            <option value="price_desc">Precio mayor primero</option>
-                        </select>
-                    </label>
                 </div>
             )}
+
+
 
             {/* ── Vista móvil ──────────────────────────────────────────────── */}
             <div className="md:hidden space-y-3">
@@ -499,6 +628,7 @@ const ProductsTab = () => {
                                                 )}
                                             </div>
                                             <ProductTypeBadges product={product} />
+                                            <ProductIssueBadges product={product} />
                                         </div>
                                     </div>
                                 </td>
