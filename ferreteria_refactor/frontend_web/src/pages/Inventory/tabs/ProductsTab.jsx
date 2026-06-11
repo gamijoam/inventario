@@ -105,9 +105,10 @@ const ProductIssueBadges = ({ product, compact = false }) => {
 // Stock compacto del listado
 const StockPill = ({ stock, minStock }) => {
     const total = Number(stock || 0);
-    const min = Number(minStock ?? 5);
-    const isOut = total === 0;
-    const isLow = !isOut && total < min;
+    const configuredMin = Number(minStock);
+    const min = Number.isFinite(configuredMin) && configuredMin > 0 ? configuredMin : 5;
+    const isOut = total <= 0;
+    const isLow = !isOut && total <= min;
     const visualTarget = Math.max(min * 4, 1);
     const ratio = Math.min(100, Math.max(6, (total / visualTarget) * 100));
 
