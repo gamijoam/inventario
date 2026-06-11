@@ -310,141 +310,135 @@ const CreatePurchase = () => {
         <>
         <div className="flex flex-col min-h-[calc(100vh-64px)] bg-slate-50 gap-4 p-3 md:p-4 pb-32 md:pb-4">
             {/* TOP HEADER: Invoice & Supplier Info */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 shadow-sm flex-shrink-0 z-30">
-                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-start">
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-5 w-full">
-                        {/* Supplier */}
-                        <div className="col-span-1 sm:col-span-2 md:col-span-1 relative">
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
-                                <FileText size={12} /> Proveedor
-                            </label>
-                            <div className="relative">
-                                <input
-                                    ref={searchInputRef}
-                                    type="text"
-                                    value={supplierSearch}
-                                    onChange={(e) => {
-                                        setSupplierSearch(e.target.value);
-                                        setShowSupplierDropdown(true);
-                                    }}
-                                    onFocus={() => setShowSupplierDropdown(true)}
-                                    className={clsx(
-                                        "w-full p-2.5 border rounded-xl font-medium outline-none text-sm transition-all shadow-sm",
-                                        selectedSupplier
-                                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                                            : 'border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
-                                    )}
-                                    placeholder="Buscar proveedor..."
-                                />
-                                {selectedSupplier && (
-                                    <div className="absolute right-3 top-2.5 text-emerald-600 animate-in zoom-in">
-                                        <Check size={16} strokeWidth={3} />
-                                    </div>
-                                )}
+            <div className="rounded-lg border border-slate-200 bg-white shadow-sm flex-shrink-0 z-30">
+                <div className="flex flex-col gap-4 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                                <Package size={20} />
                             </div>
-                            {showSupplierDropdown && filteredSuppliers.length > 0 && (
-                                <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto animate-in fade-in zoom-in-95">
-                                    {filteredSuppliers.map(supplier => (
-                                        <div
-                                            key={supplier.id}
-                                            onClick={() => handleSupplierSelect(supplier)}
-                                            className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-slate-50 last:border-0 text-sm transition-colors"
-                                        >
-                                            <div className="font-bold text-slate-800">{supplier.name}</div>
-                                            <div className="text-xs text-slate-500 mt-0.5">Crédito: {supplier.payment_terms} días</div>
-                                        </div>
-                                    ))}
+                            <div>
+                                <h1 className="text-xl font-black text-slate-900">Recepcion de inventario</h1>
+                                <p className="text-sm font-semibold text-slate-500">Registra factura, proveedor, costos y entrada al almacen.</p>
+                            </div>
+                            <HelpButton contextKey="purchases" onClick={help.open} />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:w-80">
+                        <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-center">
+                            <div className="text-xl font-black leading-none text-indigo-600">${Number(total).toFixed(2)}</div>
+                            <div className="mt-1 text-[10px] font-black uppercase tracking-wide text-indigo-500">Total factura</div>
+                        </div>
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center">
+                            <div className="text-xl font-black leading-none text-slate-900">{purchaseItems.length}</div>
+                            <div className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-400">Lineas</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 p-4 lg:grid-cols-[minmax(220px,1.2fr)_minmax(180px,0.8fr)_minmax(160px,0.7fr)_minmax(260px,1fr)]">
+                    <div className="relative">
+                        <label className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                            <FileText size={12} /> Proveedor
+                        </label>
+                        <div className="relative">
+                            <input
+                                ref={searchInputRef}
+                                type="text"
+                                value={supplierSearch}
+                                onChange={(e) => {
+                                    setSupplierSearch(e.target.value);
+                                    setShowSupplierDropdown(true);
+                                }}
+                                onFocus={() => setShowSupplierDropdown(true)}
+                                className={clsx(
+                                    "w-full rounded-md border px-3 py-2.5 pr-9 text-sm font-semibold outline-none transition-all",
+                                    selectedSupplier
+                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                        : 'border-slate-200 bg-white text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100'
+                                )}
+                                placeholder="Buscar proveedor..."
+                            />
+                            {selectedSupplier && (
+                                <div className="absolute right-3 top-2.5 text-emerald-600">
+                                    <Check size={16} strokeWidth={3} />
                                 </div>
                             )}
                         </div>
+                        {showSupplierDropdown && filteredSuppliers.length > 0 && (
+                            <div className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+                                {filteredSuppliers.map(supplier => (
+                                    <div
+                                        key={supplier.id}
+                                        onClick={() => handleSupplierSelect(supplier)}
+                                        className="cursor-pointer border-b border-slate-50 p-3 text-sm transition-colors last:border-0 hover:bg-indigo-50"
+                                    >
+                                        <div className="font-black text-slate-800">{supplier.name}</div>
+                                        <div className="mt-0.5 text-xs font-semibold text-slate-500">Credito: {supplier.payment_terms} dias</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
-                        {/* Warehouse Selector */}
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
-                                <Package size={12} /> Bodega Destino
-                            </label>
-                            <div className="relative">
-                                <select
-                                    value={selectedWarehouse || ''}
-                                    onChange={(e) => setSelectedWarehouse(Number(e.target.value))}
-                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-800 outline-none text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm transition-all appearance-none"
-                                >
-                                    {warehouses.map(wh => (
-                                        <option key={wh.id} value={wh.id}>
-                                            {wh.name} {wh.is_main ? '(Principal)' : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                                <ChevronDown className="absolute right-3 top-3 text-slate-400 pointer-events-none" size={16} />
-                            </div>
-                        </div>
-
-                        {/* Invoice Data */}
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
-                                <Package size={12} /> Nro. Factura
-                            </label>
-                            <input
-                                type="text"
-                                value={invoiceData.invoice_number}
-                                onChange={(e) => setInvoiceData(prev => ({ ...prev, invoice_number: e.target.value }))}
-                                className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 outline-none text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm transition-all"
-                                placeholder="Ej: 001-230"
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 sm:gap-5 col-span-1 sm:col-span-2 md:col-span-1">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
-                                    <Calendar size={12} /> Emisión
-                                </label>
-                                <input
-                                    type="date"
-                                    value={invoiceData.purchase_date}
-                                    onChange={(e) => setInvoiceData(prev => ({ ...prev, purchase_date: e.target.value }))}
-                                    className="w-full p-2.5 border border-slate-200 rounded-xl outline-none text-sm text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm transition-all"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
-                                    <AlertCircle size={12} /> Vence
-                                </label>
-                                <input
-                                    type="date"
-                                    value={invoiceData.due_date}
-                                    onChange={(e) => setInvoiceData(prev => ({ ...prev, due_date: e.target.value }))}
-                                    className={clsx(
-                                        "w-full p-2.5 border rounded-xl outline-none text-sm shadow-sm transition-all",
-                                        new Date(invoiceData.due_date) < new Date()
-                                            ? 'border-rose-200 bg-rose-50 text-rose-800'
-                                            : 'border-slate-200 text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
-                                    )}
-                                />
-                            </div>
+                    <div>
+                        <label className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                            <Package size={12} /> Almacen destino
+                        </label>
+                        <div className="relative">
+                            <select
+                                value={selectedWarehouse || ''}
+                                onChange={(e) => setSelectedWarehouse(Number(e.target.value))}
+                                className="w-full appearance-none rounded-md border border-slate-200 bg-white px-3 py-2.5 pr-9 text-sm font-black text-slate-800 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                            >
+                                {warehouses.map(wh => (
+                                    <option key={wh.id} value={wh.id}>{wh.name} {wh.is_main ? '(Principal)' : ''}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-3 top-3 text-slate-400" size={16} />
                         </div>
                     </div>
 
-                    {/* Totals Widget */}
-                    <div className="w-full md:w-72 bg-slate-900 rounded-2xl p-4 text-white shadow-lg shadow-slate-200 flex-shrink-0 relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                            <DollarSign size={64} />
+                    <div>
+                        <label className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                            <FileText size={12} /> Factura
+                        </label>
+                        <input
+                            type="text"
+                            value={invoiceData.invoice_number}
+                            onChange={(e) => setInvoiceData(prev => ({ ...prev, invoice_number: e.target.value }))}
+                            className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm font-black text-slate-800 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                            placeholder="Ej: 001-230"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                                <Calendar size={12} /> Emision
+                            </label>
+                            <input
+                                type="date"
+                                value={invoiceData.purchase_date}
+                                onChange={(e) => setInvoiceData(prev => ({ ...prev, purchase_date: e.target.value }))}
+                                className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-600 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                            />
                         </div>
-                        <div className="relative z-10 flex flex-row md:flex-col justify-between items-center md:items-start">
-                            <div>
-                                <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Total Factura</div>
-                                <div className="text-3xl font-black tracking-tight mb-2 flex items-baseline gap-1">
-                                    <span className="text-lg text-slate-500 font-bold">$</span>
-                                    {Number(total).toFixed(2)}
-                                </div>
-                            </div>
-                            <div className="flex flex-col md:flex-row items-end md:items-center justify-between bg-slate-800/50 rounded-lg p-2 backdrop-blur-sm gap-2">
-                                <span className="text-xs text-slate-400 font-medium whitespace-nowrap">Items: {purchaseItems.length}</span>
-                                <span className={clsx(
-                                    "text-xs font-bold px-2 py-0.5 rounded-lg",
-                                    paymentType === 'CREDIT' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'
-                                )}>
-                                    {paymentType === 'CREDIT' ? 'Crédito' : 'Contado'}
-                                </span>
-                            </div>
+                        <div>
+                            <label className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                                <AlertCircle size={12} /> Vence
+                            </label>
+                            <input
+                                type="date"
+                                value={invoiceData.due_date}
+                                onChange={(e) => setInvoiceData(prev => ({ ...prev, due_date: e.target.value }))}
+                                className={clsx(
+                                    "w-full rounded-md border px-3 py-2.5 text-sm font-semibold outline-none transition-all",
+                                    new Date(invoiceData.due_date) < new Date()
+                                        ? 'border-rose-200 bg-rose-50 text-rose-800'
+                                        : 'border-slate-200 text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100'
+                                )}
+                            />
                         </div>
                     </div>
                 </div>
