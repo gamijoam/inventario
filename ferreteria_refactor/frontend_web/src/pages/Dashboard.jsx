@@ -120,7 +120,7 @@ const CashierDashboard = () => {
 /* ─────────────────────────────────────────────────────────────────────────── */
 /*  KPI CARD con tendencia real                                                */
 /* ─────────────────────────────────────────────────────────────────────────── */
-const KPICard = ({ title, value, prevValue, icon: Icon, isCurrency = true, color = 'indigo', loading = false }) => {
+const KPICard = ({ title, value, prevValue, icon: Icon, isCurrency = true, color = 'indigo', loading = false, active = false, onClick }) => {
     const pct = prevValue != null ? pctChange(Number(value || 0), Number(prevValue || 0)) : null;
     const up = pct !== null && pct >= 0;
     const colorMap = {
@@ -145,7 +145,14 @@ const KPICard = ({ title, value, prevValue, icon: Icon, isCurrency = true, color
     );
 
     return (
-        <div className="relative min-h-[112px] overflow-hidden rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+        <button
+            type="button"
+            onClick={onClick}
+            className={cn(
+                "relative min-h-[112px] w-full overflow-hidden rounded-lg border bg-white p-3 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-200",
+                active ? "border-indigo-300 ring-2 ring-indigo-100" : "border-slate-200"
+            )}
+        >
             <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${palette.accent}`} />
             <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -168,6 +175,66 @@ const KPICard = ({ title, value, prevValue, icon: Icon, isCurrency = true, color
                 </div>
             ) : (
                 <div className="mt-3 text-[11px] font-semibold text-slate-400">Sin comparativo</div>
+            )}
+        </button>
+    );
+};
+
+const KPIDetailPanel = ({ detail, onClose }) => {
+    if (!detail) return null;
+    const Icon = detail.icon || BarChart2;
+    return (
+        <div className="rounded-lg border border-indigo-200 bg-white p-4 shadow-sm animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex min-w-0 gap-3">
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${detail.iconClass || 'border-indigo-100 bg-indigo-50 text-indigo-600'}`}>
+                        <Icon size={20} />
+                    </div>
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-sm font-black text-slate-900">{detail.title}</h3>
+                            {detail.badge && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">{detail.badge}</span>}
+                        </div>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">{detail.description}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    {detail.action && (
+                        <button
+                            type="button"
+                            onClick={detail.action.onClick}
+                            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-2 text-xs font-black text-white shadow-sm transition-colors hover:bg-indigo-700"
+                        >
+                            {detail.action.label} <ArrowRight size={13} />
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-md border border-slate-200 px-3 py-2 text-xs font-black text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50"
+                    >
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+            <div className="mt-4 grid gap-2 md:grid-cols-3">
+                {(detail.metrics || []).map(metric => (
+                    <div key={metric.label} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">{metric.label}</div>
+                        <div className={cn("mt-1 text-lg font-black leading-none", metric.className || 'text-slate-900')}>{metric.value}</div>
+                        {metric.hint && <div className="mt-1 text-[11px] font-semibold text-slate-400">{metric.hint}</div>}
+                    </div>
+                ))}
+            </div>
+            {detail.items?.length > 0 && (
+                <div className="mt-3 grid gap-2 lg:grid-cols-2">
+                    {detail.items.slice(0, 4).map((item, idx) => (
+                        <div key={`${item.label}-${idx}`} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-white px-3 py-2">
+                            <span className="truncate text-xs font-bold text-slate-600">{item.label}</span>
+                            <span className="shrink-0 text-xs font-black text-slate-900">{item.value}</span>
+                        </div>
+                    ))}
+                </div>
             )}
         </div>
     );
@@ -271,6 +338,7 @@ const Dashboard = () => {
     const [recentSales,   setRecentSales]   = useState([]);
     const [alerts,        setAlerts]        = useState({ lowStock: 0, tallerReady: 0, overdueCredits: 0, pendingCommissions: 0 });
     const [paymentPie,    setPaymentPie]    = useState([]);
+    const [activeKpi,     setActiveKpi]     = useState(null);
 
     /* ── carga principal ── */
     const buildChartFromDaily = useCallback((dailyRows = [], start, end) => {
@@ -399,6 +467,105 @@ const Dashboard = () => {
     }, [subscribe, user, load]);
 
     /* cajero → panel simplificado */
+    const kpiDetails = useMemo(() => {
+        const revenue = Number(salesCurr?.total_revenue || 0);
+        const prevRevenue = Number(salesPrev?.total_revenue || 0);
+        const profit = Number(profitCurr?.realized_profit || profitCurr?.total_profit || 0);
+        const prevProfit = Number(profitPrev?.realized_profit || profitPrev?.total_profit || 0);
+        const transactions = Number(salesCurr?.net_transactions || salesCurr?.total_transactions || 0);
+        const prevTransactions = Number(salesPrev?.net_transactions || salesPrev?.total_transactions || 0);
+        const avgTicket = Number(salesCurr?.average_ticket || 0);
+        const prevAvgTicket = Number(salesPrev?.average_ticket || 0);
+        const pendingCredits = Number(credits?.total_pending_usd || 0);
+        const pendingServices = Number(alerts.tallerReady || 0);
+        const marginPct = revenue > 0 ? (profit / revenue) * 100 : 0;
+
+        return {
+            revenue: {
+                title: 'Ingresos del periodo',
+                badge: period.label,
+                icon: DollarSign,
+                iconClass: 'border-emerald-100 bg-emerald-50 text-emerald-600',
+                description: 'Ventas cobradas en el rango seleccionado, con desglose por forma de pago cuando existe data.',
+                metrics: [
+                    { label: 'Ingresos', value: fmt(revenue), className: 'text-emerald-600' },
+                    { label: 'Periodo anterior', value: fmt(prevRevenue), hint: prevRevenue > 0 ? 'Base comparativa' : 'Sin ventas previas' },
+                    { label: 'Pagos usados', value: fmtNumber(paymentPie.length), hint: 'Metodos activos en el periodo' },
+                ],
+                items: paymentPie.map(item => ({ label: item.name, value: fmt(item.value) })),
+                action: { label: 'Ver reportes', onClick: () => navigate('/reports') },
+            },
+            profit: {
+                title: 'Ganancia real',
+                badge: `${marginPct.toFixed(1)}% margen`,
+                icon: TrendingUp,
+                iconClass: 'border-indigo-100 bg-indigo-50 text-indigo-600',
+                description: 'Utilidad estimada contra el costo registrado de los productos vendidos.',
+                metrics: [
+                    { label: 'Ganancia', value: fmt(profit), className: 'text-indigo-600' },
+                    { label: 'Anterior', value: fmt(prevProfit) },
+                    { label: 'Margen', value: `${marginPct.toFixed(1)}%`, className: marginPct > 0 ? 'text-emerald-600' : 'text-slate-900' },
+                ],
+                items: topProducts.map(item => ({ label: item.product_name, value: fmt(item.revenue) })),
+                action: { label: 'Top productos', onClick: () => navigate('/reports?tab=ventas') },
+            },
+            transactions: {
+                title: 'Transacciones',
+                badge: `${fmtNumber(transactions)} ventas`,
+                icon: ShoppingCart,
+                iconClass: 'border-blue-100 bg-blue-50 text-blue-600',
+                description: 'Operaciones cerradas durante el periodo actual y lectura rapida de actividad reciente.',
+                metrics: [
+                    { label: 'Actual', value: fmtNumber(transactions), className: 'text-blue-600' },
+                    { label: 'Anterior', value: fmtNumber(prevTransactions) },
+                    { label: 'Ticket prom.', value: fmt(avgTicket), className: 'text-violet-600' },
+                ],
+                items: recentSales.map(item => ({ label: item.customer_name || item.client_name || `Venta #${item.id || ''}`, value: fmt(item.total || item.total_amount || 0) })),
+                action: { label: 'Abrir POS', onClick: () => navigate('/pos') },
+            },
+            ticket: {
+                title: 'Ticket promedio',
+                badge: period.label,
+                icon: BarChart2,
+                iconClass: 'border-violet-100 bg-violet-50 text-violet-600',
+                description: 'Valor promedio por venta. Sirve para medir calidad de venta y oportunidades de venta cruzada.',
+                metrics: [
+                    { label: 'Ticket actual', value: fmt(avgTicket), className: 'text-violet-600' },
+                    { label: 'Ticket anterior', value: fmt(prevAvgTicket) },
+                    { label: 'Transacciones', value: fmtNumber(transactions) },
+                ],
+                items: chartData.slice(-4).map(item => ({ label: item.name, value: fmt(item.Ventas || 0) })),
+                action: { label: 'Ver ventas', onClick: () => navigate('/reports?tab=ventas') },
+            },
+            credits: {
+                title: 'Creditos pendientes',
+                badge: pendingCredits > 0 ? 'Por cobrar' : 'Al d?a',
+                icon: CreditCard,
+                iconClass: 'border-amber-100 bg-amber-50 text-amber-600',
+                description: 'Saldo por cobrar y alertas de vencimiento de clientes.',
+                metrics: [
+                    { label: 'Pendiente', value: fmt(pendingCredits), className: pendingCredits > 0 ? 'text-amber-600' : 'text-emerald-600' },
+                    { label: 'Vencidos', value: fmtNumber(alerts.overdueCredits), className: alerts.overdueCredits > 0 ? 'text-rose-600' : 'text-slate-900' },
+                    { label: 'Estado', value: pendingCredits > 0 ? 'Revisar' : 'OK' },
+                ],
+                action: { label: 'Ver cr?ditos', onClick: () => navigate('/accounts-receivable') },
+            },
+            services: {
+                title: 'Ordenes de taller',
+                badge: modules?.services ? 'Servicios' : 'Inactivo',
+                icon: Wrench,
+                iconClass: 'border-rose-100 bg-rose-50 text-rose-600',
+                description: 'Ordenes listas o pendientes de atencion en servicios y taller.',
+                metrics: [
+                    { label: 'Listas', value: fmtNumber(pendingServices), className: pendingServices > 0 ? 'text-rose-600' : 'text-slate-900' },
+                    { label: 'Modulo', value: modules?.services ? 'Activo' : 'Inactivo' },
+                    { label: 'Accion', value: pendingServices > 0 ? 'Cobrar' : 'Sin pendientes' },
+                ],
+                action: { label: 'Ir a servicios', onClick: () => navigate('/services') },
+            },
+        };
+    }, [salesCurr, salesPrev, profitCurr, profitPrev, credits, alerts, paymentPie, topProducts, recentSales, chartData, period.label, modules?.services, navigate]);
+
     if (user?.role === 'CASHIER') return <CashierDashboard />;
 
     /* ── RENDER ── */
@@ -437,17 +604,20 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* ── KPIs ── */}
+            {/* KPIs */}
             <div className={cn("grid grid-cols-2 sm:grid-cols-3 gap-3", modules?.services ? "lg:grid-cols-6" : "lg:grid-cols-5")}>
-                <KPICard title="Ingresos"     value={salesCurr?.total_revenue || 0}      prevValue={salesPrev?.total_revenue}                             icon={DollarSign}   color="emerald" loading={loading} />
-                <KPICard title="Ganancia real" value={profitCurr?.realized_profit || profitCurr?.total_profit || 0} prevValue={profitPrev?.realized_profit || profitPrev?.total_profit} icon={TrendingUp}  color="indigo"  loading={loading} />
-                <KPICard title="Transacciones" value={salesCurr?.net_transactions || salesCurr?.total_transactions || 0} prevValue={salesPrev?.net_transactions || salesPrev?.total_transactions} icon={ShoppingCart} color="blue" isCurrency={false} loading={loading} />
-                <KPICard title="Ticket prom."  value={salesCurr?.average_ticket || 0}     prevValue={salesPrev?.average_ticket}                            icon={BarChart2}    color="violet"  loading={loading} />
-                <KPICard title="Créditos pend." value={credits?.total_pending_usd || 0}   prevValue={null}                                                 icon={CreditCard}   color="amber"   loading={loading} />
+                <KPICard title="Ingresos" value={salesCurr?.total_revenue || 0} prevValue={salesPrev?.total_revenue} icon={DollarSign} color="emerald" loading={loading} active={activeKpi === 'revenue'} onClick={() => setActiveKpi(activeKpi === 'revenue' ? null : 'revenue')} />
+                <KPICard title="Ganancia real" value={profitCurr?.realized_profit || profitCurr?.total_profit || 0} prevValue={profitPrev?.realized_profit || profitPrev?.total_profit} icon={TrendingUp} color="indigo" loading={loading} active={activeKpi === 'profit'} onClick={() => setActiveKpi(activeKpi === 'profit' ? null : 'profit')} />
+                <KPICard title="Transacciones" value={salesCurr?.net_transactions || salesCurr?.total_transactions || 0} prevValue={salesPrev?.net_transactions || salesPrev?.total_transactions} icon={ShoppingCart} color="blue" isCurrency={false} loading={loading} active={activeKpi === 'transactions'} onClick={() => setActiveKpi(activeKpi === 'transactions' ? null : 'transactions')} />
+                <KPICard title="Ticket prom." value={salesCurr?.average_ticket || 0} prevValue={salesPrev?.average_ticket} icon={BarChart2} color="violet" loading={loading} active={activeKpi === 'ticket'} onClick={() => setActiveKpi(activeKpi === 'ticket' ? null : 'ticket')} />
+                <KPICard title="Creditos pend." value={credits?.total_pending_usd || 0} prevValue={null} icon={CreditCard} color="amber" loading={loading} active={activeKpi === 'credits'} onClick={() => setActiveKpi(activeKpi === 'credits' ? null : 'credits')} />
                 {modules?.services && (
-                    <KPICard title="Órdenes taller" value={alerts.tallerReady}                prevValue={null}                                                 icon={Wrench}       color="rose"    loading={loading} isCurrency={false} />
+                    <KPICard title="Ordenes taller" value={alerts.tallerReady} prevValue={null} icon={Wrench} color="rose" loading={loading} isCurrency={false} active={activeKpi === 'services'} onClick={() => setActiveKpi(activeKpi === 'services' ? null : 'services')} />
                 )}
             </div>
+            {!loading && activeKpi && (
+                <KPIDetailPanel detail={kpiDetails[activeKpi]} onClose={() => setActiveKpi(null)} />
+            )}
 
             {/* ── ALERTAS ACCIONABLES ── */}
             {!loading && (alerts.lowStock > 0 || (modules?.services && alerts.tallerReady > 0) || alerts.overdueCredits > 0 || alerts.pendingCommissions > 0) && (
