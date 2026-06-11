@@ -314,7 +314,8 @@ def get_all_serialized_instances(db: Session = Depends(get_db)):
     Used for the serialized report PDF.
     """
     instances = db.query(models.ProductInstance).options(
-        joinedload(models.ProductInstance.warehouse)
+        joinedload(models.ProductInstance.warehouse),
+        joinedload(models.ProductInstance.product)
     ).order_by(
         models.ProductInstance.product_id,
         models.ProductInstance.status,

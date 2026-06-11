@@ -9,7 +9,7 @@ import {
     Search, Loader2, Smartphone, Save, X, Trash2, Edit2, Check, Layers,
     ChevronDown, ChevronRight, Package, CheckCircle2, Clock,
     AlertTriangle, Warehouse, Hash, Plus, RefreshCw, Filter,
-    ScanLine, ArrowLeft, Zap, Info
+    ScanLine, ArrowLeft, Zap, Info, Copy, TimerReset
 } from 'lucide-react';
 import ProductThumbnail from '../../../components/products/ProductThumbnail';
 import clsx from 'clsx';
@@ -18,6 +18,7 @@ import clsx from 'clsx';
 const STATUS_CONFIG = {
     AVAILABLE: { label: 'Disponible', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', dot: 'bg-emerald-500', icon: CheckCircle2 },
     SOLD:      { label: 'Vendido',    color: 'text-rose-700',    bg: 'bg-rose-50',    border: 'border-rose-200',    dot: 'bg-rose-500',    icon: AlertTriangle },
+    TRANSIT:   { label: 'En transito', color: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-200', dot: 'bg-violet-500', icon: TimerReset },
     RESERVED:  { label: 'Reservado', color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200',   dot: 'bg-amber-500',   icon: Clock },
     DAMAGED:   { label: 'Dañado',    color: 'text-slate-600',   bg: 'bg-slate-100',  border: 'border-slate-300',   dot: 'bg-slate-400',   icon: AlertTriangle },
 };
@@ -437,6 +438,145 @@ const ProductCard = ({ product, onSelect }) => {
 };
 
 // ─── Vista: Escaneo de IMEIs ──────────────────────────────────────────────────
+
+const getAgeDays = (dateValue) => {
+    if (!dateValue) return null;
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return null;
+    return Math.max(0, Math.floor((Date.now() - date.getTime()) / 86400000));
+};
+
+const TransitView = ({ instances = [], isLoading, onRefresh }) => {
+    const [search, setSearch] = useState('');
+    const [ageFilter, setAgeFilter] = useState('ALL');
+
+    const transit = instances.filter(item => item.status === 'TRANSIT');
+    const filtered = transit.filter(item => {
+        const q = search.trim().toLowerCase();
+        const productName = item.product?.name || item.product_name || '';
+        const serial = item.serial_number || '';
+        const warehouse = item.warehouse?.name || item.warehouse_name || '';
+        const age = getAgeDays(item.updated_at || item.created_at) ?? 0;
+        const matchesSearch = !q || productName.toLowerCase().includes(q) || serial.toLowerCase().includes(q) || warehouse.toLowerCase().includes(q);
+        const matchesAge = ageFilter === 'ALL' ? true : age >= Number(ageFilter);
+        return matchesSearch && matchesAge;
+    });
+
+    const grouped = filtered.reduce((acc, item) => {
+        const key = item.product?.id || item.product_id || 'unknown';
+        if (!acc[key]) {
+            acc[key] = {
+                product: item.product || { name: item.product_name || 'Producto sin nombre', sku: item.product_sku },
+                items: [],
+            };
+        }
+        acc[key].items.push(item);
+        return acc;
+    }, {});
+
+    const groups = Object.values(grouped).sort((a, b) => b.items.length - a.items.length);
+    const oldTransit = transit.filter(item => (getAgeDays(item.updated_at || item.created_at) ?? 0) >= 7).length;
+
+    const copyImeis = async (items = filtered) => {
+        const text = items.map(item => item.serial_number).filter(Boolean).join('\n');
+        if (!text) return toast.error('No hay IMEIs para copiar');
+        try {
+            await navigator.clipboard.writeText(text);
+            toast.success(`${items.length} IMEIs copiados`);
+        } catch {
+            toast.error('No se pudo copiar la lista');
+        }
+    };
+
+    return (
+        <div className="flex h-full flex-col gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="rounded-lg border border-violet-200 bg-violet-50 p-4 shadow-sm">
+                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-violet-700"><TimerReset size={16} /> En transito</div>
+                    <div className="mt-2 text-3xl font-black text-violet-700">{transit.length}</div>
+                    <div className="text-xs font-semibold text-violet-500">IMEIs descontados del origen</div>
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 shadow-sm">
+                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-amber-700"><AlertTriangle size={16} /> 7+ dias</div>
+                    <div className="mt-2 text-3xl font-black text-amber-700">{oldTransit}</div>
+                    <div className="text-xs font-semibold text-amber-600">Conviene conciliarlos o cerrar destino</div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="text-xs font-black uppercase tracking-wide text-slate-500">Productos afectados</div>
+                    <div className="mt-2 text-3xl font-black text-slate-900">{groups.length}</div>
+                    <div className="text-xs font-semibold text-slate-400">Agrupados por modelo serializado</div>
+                </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
+                        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar producto, IMEI o almacen..." className="w-full rounded-md border border-slate-200 bg-white py-2.5 pl-9 pr-4 text-sm font-semibold outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                        {[{ value: 'ALL', label: 'Todos' }, { value: '3', label: '3+ dias' }, { value: '7', label: '7+ dias' }, { value: '15', label: '15+ dias' }].map(option => (
+                            <button key={option.value} onClick={() => setAgeFilter(option.value)} className={clsx('rounded-md border px-3 py-2 text-xs font-black transition-colors', ageFilter === option.value ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:text-indigo-600')}>
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
+                    <button onClick={() => copyImeis(filtered)} className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-600 transition-colors hover:border-indigo-300 hover:text-indigo-600"><Copy size={15} /> Copiar IMEIs</button>
+                    <button onClick={onRefresh} className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-400 transition-colors hover:border-indigo-300 hover:text-indigo-600" title="Actualizar"><RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} /></button>
+                </div>
+            </div>
+
+            {isLoading ? (
+                <div className="flex flex-1 items-center justify-center rounded-lg border border-slate-200 bg-white"><Loader2 className="animate-spin text-indigo-500" size={36} /></div>
+            ) : groups.length === 0 ? (
+                <div className="flex flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white py-16 text-slate-400">
+                    <TimerReset size={46} className="mb-3 opacity-25" />
+                    <p className="font-black text-slate-600">No hay IMEIs en transito con esos filtros</p>
+                    <p className="mt-1 text-sm font-medium">Cuando un traslado externo queda pendiente, aparecera aqui.</p>
+                </div>
+            ) : (
+                <div className="flex-1 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+                    <div className="divide-y divide-slate-100">
+                        {groups.map(group => (
+                            <div key={group.product.id || group.product.name} className="p-4">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="min-w-0">
+                                        <div className="truncate text-sm font-black text-slate-900">{group.product.name}</div>
+                                        <div className="mt-0.5 text-xs font-mono font-semibold text-slate-400">{group.product.sku || 'Sin SKU'}</div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="rounded-md bg-violet-50 px-2 py-1 text-xs font-black text-violet-700">{group.items.length} IMEIs</span>
+                                        <button onClick={() => copyImeis(group.items)} className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs font-black text-slate-500 hover:border-indigo-300 hover:text-indigo-600"><Copy size={13} /> Copiar</button>
+                                    </div>
+                                </div>
+                                <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                                    {group.items.map(item => {
+                                        const age = getAgeDays(item.updated_at || item.created_at);
+                                        const warehouse = item.warehouse?.name || item.warehouse_name || 'Sin almacen';
+                                        return (
+                                            <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="min-w-0">
+                                                        <div className="truncate font-mono text-xs font-black text-slate-800">{item.serial_number}</div>
+                                                        <div className="mt-1 flex items-center gap-1 text-[11px] font-bold text-slate-400"><Warehouse size={12} /> {warehouse}</div>
+                                                    </div>
+                                                    <span className={clsx('shrink-0 rounded-md px-2 py-1 text-[10px] font-black', age >= 7 ? 'bg-amber-100 text-amber-700' : 'bg-violet-100 text-violet-700')}>
+                                                        {age === null ? 'Sin fecha' : `${age}d`}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
     const [imeiInput, setImeiInput]     = useState('');
     const [scannedList, setScannedList] = useState([]);
@@ -676,19 +816,23 @@ const SerialsTab = () => {
     const showPdfInversion = useFeatureFlag('pdf_inversion_seriales');
     const [catalog, setCatalog]               = useState([]);
     const [warehouses, setWarehouses]         = useState([]);
+    const [allInstances, setAllInstances]     = useState([]);
     const [isLoading, setIsLoading]           = useState(true);
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [viewMode, setViewMode]             = useState('catalog');
 
     const loadData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const [prodRes, whRes] = await Promise.all([
+            const [prodRes, whRes, instRes] = await Promise.all([
                 apiClient.get('/products/', { params: { limit: 2000, has_imei: true } }),
                 apiClient.get('/warehouses'),
+                apiClient.get('/inventory/serialized-instances'),
             ]);
             const all = Array.isArray(prodRes.data) ? prodRes.data : (prodRes.data?.items || []);
             setCatalog(all.filter(p => p.has_imei));
             setWarehouses(Array.isArray(whRes.data) ? whRes.data : []);
+            setAllInstances(Array.isArray(instRes.data) ? instRes.data : []);
         } catch {
             toast.error('Error cargando productos serializados');
         } finally {
@@ -703,6 +847,8 @@ const SerialsTab = () => {
         loadData(); // refrescar stocks
     };
 
+    const transitCount = allInstances.filter(item => item.status === 'TRANSIT').length;
+
     return (
         <div className="flex flex-col h-full gap-4">
             {/* Header */}
@@ -711,15 +857,39 @@ const SerialsTab = () => {
                     <div className="min-w-0">
                         <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                             <Smartphone className="text-indigo-600" size={20} />
-                            {selectedProduct ? 'Ingreso de IMEIs' : 'Equipos serializados'}
+                            {selectedProduct ? 'Ingreso de IMEIs' : viewMode === 'transit' ? 'Auditoria de transitos' : 'Equipos serializados'}
                         </h2>
                         <p className="text-xs font-medium text-slate-400">
                             {selectedProduct
                                 ? `Escaneando para: ${selectedProduct.name}`
-                                : `${catalog.length} modelos con control IMEI - ${warehouses.length} almacenes`}
+                                : viewMode === 'transit'
+                                    ? `${transitCount} IMEIs pendientes de cierre externo`
+                                    : `${catalog.length} modelos con control IMEI - ${warehouses.length} almacenes`}
                         </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                        {!selectedProduct && (
+                            <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+                                {[
+                                    { value: 'catalog', label: 'Catalogo', count: catalog.length },
+                                    { value: 'transit', label: 'En transito', count: transitCount },
+                                ].map(option => (
+                                    <button
+                                        key={option.value}
+                                        onClick={() => setViewMode(option.value)}
+                                        className={clsx(
+                                            'rounded-md px-3 py-1.5 text-xs font-black transition-colors',
+                                            viewMode === option.value
+                                                ? 'bg-white text-indigo-600 shadow-sm'
+                                                : 'text-slate-500 hover:text-indigo-600'
+                                        )}
+                                    >
+                                        {option.label}
+                                        <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">{option.count}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                         <InversionReportPDF />
                         <SerializedReportPDF />
                         <button
@@ -741,6 +911,12 @@ const SerialsTab = () => {
                         warehouses={warehouses}
                         onBack={() => setSelectedProduct(null)}
                         onSuccess={handleSuccess}
+                    />
+                ) : viewMode === 'transit' ? (
+                    <TransitView
+                        instances={allInstances}
+                        isLoading={isLoading}
+                        onRefresh={loadData}
                     />
                 ) : (
                     <CatalogView
