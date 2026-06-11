@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import SerializedReportPDF from '../../../components/inventory/SerializedReportPDF';
 import { useFeatureFlag } from '../../../hooks/useFeatureFlag';
 import InversionReportPDF from '../../../components/inventory/InversionReportPDF';
@@ -43,83 +42,87 @@ const CatalogView = ({ catalog, onSelectProduct, isLoading }) => {
 
     const totalStock = catalog.reduce((s, p) => s + Number(p.stock || 0), 0);
     const withStock  = catalog.filter(p => p.stock > 0).length;
+    const noStock = catalog.length - withStock;
+    const filters = [
+        { v: 'ALL', label: 'Todos', count: catalog.length },
+        { v: 'WITH_STOCK', label: 'Con stock', count: withStock },
+        { v: 'NO_STOCK', label: 'Sin stock', count: noStock },
+    ];
 
     return (
-        <div className="flex flex-col gap-4 h-full">
-            {/* Stats rápidas */}
-            <div className="grid grid-cols-3 gap-3">
-                <div className="bg-white rounded-lg border border-slate-200 p-3 text-center shadow-sm">
-                    <div className="text-2xl font-black text-slate-800">{catalog.length}</div>
-                    <div className="text-xs text-slate-400 font-semibold mt-0.5">Modelos</div>
+        <div className="flex h-full flex-col gap-4">
+            <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                                <Smartphone size={18} />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-black text-slate-900">Control de seriales</h3>
+                                <p className="text-xs font-semibold text-slate-400">Selecciona un equipo para registrar, revisar o auditar sus IMEIs.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 lg:w-[420px]">
+                        {[
+                            { label: 'Modelos', value: catalog.length, cls: 'text-slate-900' },
+                            { label: 'Unidades', value: totalStock, cls: 'text-emerald-600' },
+                            { label: 'Con stock', value: withStock, cls: 'text-indigo-600' },
+                        ].map(item => (
+                            <div key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center">
+                                <div className={clsx('text-xl font-black leading-none', item.cls)}>{item.value}</div>
+                                <div className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-400">{item.label}</div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-                <div className="bg-emerald-50 rounded-lg border border-emerald-200 p-3 text-center shadow-sm">
-                    <div className="text-2xl font-black text-emerald-600">{totalStock}</div>
-                    <div className="text-xs text-emerald-500 font-semibold mt-0.5">Unidades</div>
-                </div>
-                <div className="bg-indigo-50 rounded-lg border border-indigo-200 p-3 text-center shadow-sm">
-                    <div className="text-2xl font-black text-indigo-600">{withStock}</div>
-                    <div className="text-xs text-indigo-500 font-semibold mt-0.5">Con stock</div>
+
+                <div className="flex flex-col gap-2 p-3 lg:flex-row lg:items-center">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
+                        <input
+                            type="text"
+                            autoFocus
+                            placeholder="Buscar por modelo o SKU..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            className="w-full rounded-md border border-slate-200 bg-white py-2.5 pl-9 pr-4 text-sm font-semibold outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                        />
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                        {filters.map(f => (
+                            <button
+                                key={f.v}
+                                onClick={() => setFilterStatus(f.v)}
+                                className={clsx(
+                                    'inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs font-black transition-colors',
+                                    filterStatus === f.v
+                                        ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                                        : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:text-indigo-600'
+                                )}
+                            >
+                                {f.label}
+                                <span className={clsx('rounded px-1.5 py-0.5 text-[10px]', filterStatus === f.v ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500')}>{f.count}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
-            {/* Botón Recepción Multi-Producto */}
-            <Link
-                to="/inventory/serialized-reception"
-                className="flex items-center justify-center gap-2 w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm rounded-lg shadow-md shadow-indigo-200 transition-colors "
-            >
-                <Zap size={16} />
-                Recepción con IMEI.info — Identificación automática
-            </Link>
-
-            {/* Buscador + filtros */}
-            <div className="flex flex-col sm:flex-row gap-2">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
-                    <input
-                        type="text"
-                        autoFocus
-                        placeholder="Buscar modelo, SKU..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                    />
-                </div>
-                <div className="flex gap-1.5">
-                    {[
-                        { v: 'ALL',        label: 'Todos' },
-                        { v: 'WITH_STOCK', label: 'Con stock' },
-                        { v: 'NO_STOCK',   label: 'Sin stock' },
-                    ].map(f => (
-                        <button
-                            key={f.v}
-                            onClick={() => setFilterStatus(f.v)}
-                            className={clsx(
-                                'px-3 py-2 rounded-md text-xs font-bold border transition-colors whitespace-nowrap',
-                                filterStatus === f.v
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                                    : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-400'
-                            )}
-                        >
-                            {f.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Grid de productos */}
             {isLoading ? (
-                <div className="flex-1 flex items-center justify-center">
+                <div className="flex flex-1 items-center justify-center rounded-lg border border-slate-200 bg-white">
                     <Loader2 className="animate-spin text-indigo-500" size={36} />
                 </div>
             ) : filtered.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-slate-400 py-16">
-                    <Smartphone size={48} className="opacity-20 mb-3" />
-                    <p className="font-semibold">No se encontraron equipos</p>
-                    <p className="text-sm mt-1">Intenta con otro término de búsqueda</p>
+                <div className="flex flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white py-16 text-slate-400">
+                    <Smartphone size={48} className="mb-3 opacity-20" />
+                    <p className="font-black text-slate-600">No se encontraron equipos</p>
+                    <p className="mt-1 text-sm font-medium">Intenta con otro termino de busqueda.</p>
                 </div>
             ) : (
                 <div className="flex-1 overflow-y-auto">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 pb-4">
+                    <div className="grid items-start grid-cols-1 gap-3 pb-4 sm:grid-cols-2 xl:grid-cols-3">
                         {filtered.map(product => (
                             <ProductCard
                                 key={product.id}
@@ -134,7 +137,8 @@ const CatalogView = ({ catalog, onSelectProduct, isLoading }) => {
     );
 };
 
-// ─── Card de producto en catálogo ─────────────────────────────────────────────
+// ??? Card de producto en cat?logo ?????????????????????????????????????????????
+
 
 const normalizeSerial = (value = '') => String(value).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
 
