@@ -108,7 +108,8 @@ const StockPill = ({ stock, minStock }) => {
     const min = Number(minStock ?? 5);
     const isOut = total === 0;
     const isLow = !isOut && total < min;
-    const ratio = min > 0 ? Math.min(100, Math.max(8, (total / Math.max(min, total)) * 100)) : 100;
+    const visualTarget = Math.max(min * 4, 1);
+    const ratio = Math.min(100, Math.max(6, (total / visualTarget) * 100));
 
     const cfg = isOut
         ? { label: 'Agotado', text: 'text-rose-600', bar: 'bg-rose-400', bg: 'bg-rose-50' }
@@ -123,7 +124,7 @@ const StockPill = ({ stock, minStock }) => {
                 <span className="text-[10px] font-bold text-slate-400">un.</span>
             </div>
             <div className={cn('mt-1 h-1.5 overflow-hidden rounded-full', cfg.bg)}>
-                <div className={cn('h-full rounded-full', cfg.bar)} style={{ width: `${isOut ? 100 : ratio}%` }} />
+                <div className={cn('h-full rounded-full', cfg.bar)} style={{ width: `${isOut ? 0 : ratio}%` }} />
             </div>
             <div className={cn('mt-1 text-[10px] font-black uppercase tracking-wide', cfg.text)}>{cfg.label}</div>
         </div>
