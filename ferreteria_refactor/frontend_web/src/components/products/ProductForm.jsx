@@ -403,6 +403,36 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
         </button>
     );
 
+    const productType = formData.is_service ? 'service' : formData.is_combo ? 'combo' : formData.has_imei ? 'serial' : 'physical';
+    const productTypeOptions = [
+        { key: 'physical', label: 'Fisico', desc: 'Stock normal', icon: Package },
+        { key: 'service', label: 'Servicio', desc: 'No descuenta stock', icon: Scissors },
+        { key: 'serial', label: 'Serial / IMEI', desc: 'Una unidad por serial', icon: ScanBarcode, show: modules.services },
+        { key: 'combo', label: 'Combo / kit', desc: 'Agrupa productos', icon: Layers },
+    ].filter(option => option.show !== false);
+
+    const setProductType = (type) => {
+        setFormData(prev => ({
+            ...prev,
+            is_service: type === 'service',
+            has_imei: type === 'serial',
+            is_combo: type === 'combo',
+            combo_items: type === 'combo' ? prev.combo_items : [],
+        }));
+    };
+
+    const SwitchVisual = ({ checked }) => (
+        <span className={cn(
+            'relative h-5 w-9 shrink-0 rounded-full transition-colors',
+            checked ? 'bg-indigo-600' : 'bg-slate-200'
+        )}>
+            <span className={cn(
+                'absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
+                checked && 'translate-x-4'
+            )} />
+        </span>
+    );
+
     const SectionHeader = ({ icon: Icon, label, color = 'text-slate-600', bg = 'bg-slate-100', children }) => (
         <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2.5">
@@ -618,56 +648,86 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                         </div>
                                     </div>
 
-                                    {/* Toggles de propiedades en grid compacto */}
-                                    <div className="grid grid-cols-1 gap-2 pt-1 xl:grid-cols-2">
-                                        {[
-                                            { key: 'is_service', label: 'Es un servicio', desc: 'No descuenta stock', icon: Package, color: 'bg-indigo-500' },
-                                            { key: 'has_imei', label: 'Maneja IMEI/Serial', desc: 'Serial único por unidad', icon: ScanBarcode, color: 'bg-blue-500', show: modules.services },
-                                            { key: 'is_menu_item', label: 'Item de Menú', desc: 'Restaurante', icon: UtensilsCrossed, color: 'bg-orange-500', show: modules?.restaurant },
-                                            { key: 'is_combo', label: 'Es un Combo/Kit', desc: 'Agrupa productos', icon: Layers, color: 'bg-violet-500' },
-                                            { key: 'is_commissionable', label: 'Aplica Comisión', desc: 'Al cajero al vender', icon: DollarSign, color: 'bg-green-500' },
-                                        ].filter(t => t.show !== false).map(toggle => {
-                                            const Icon = toggle.icon;
-                                            const active = formData[toggle.key];
-                                            return (
-                                                <button
-                                                    key={toggle.key}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        if (toggle.key === 'has_imei') {
-                                                            setFormData(p => ({ ...p, has_imei: !p.has_imei }));
-                                                        } else if (toggle.key === 'is_service') {
-                                                            setFormData(p => ({ ...p, is_service: !p.is_service }));
-                                                        } else if (toggle.key === 'is_menu_item') {
-                                                            setFormData(p => ({ ...p, is_menu_item: !p.is_menu_item }));
-                                                        } else if (toggle.key === 'is_combo') {
-                                                            setFormData(p => ({ ...p, is_combo: !p.is_combo, combo_items: !p.is_combo ? p.combo_items : [] }));
-                                                        } else if (toggle.key === 'is_commissionable') {
-                                                            setFormData(p => ({ ...p, is_commissionable: !p.is_commissionable }));
-                                                        }
-                                                    }}
-                                                    className={cn(
-                                                        'flex min-h-[62px] items-center gap-2.5 rounded-lg border p-3 text-left transition-all',
-                                                        active
-                                                            ? 'bg-indigo-50 border-indigo-200 ring-1 ring-indigo-400/20'
-                                                            : 'bg-slate-50 border-slate-200 hover:border-slate-300'
-                                                    )}
-                                                >
-                                                    <div className={cn('flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md transition-colors', active ? toggle.color + ' text-white' : 'bg-slate-200 text-slate-400')}>
-                                                        <Icon size={13} />
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <div className={cn('text-[11px] font-bold truncate', active ? 'text-slate-800' : 'text-slate-500')}>{toggle.label}</div>
-                                                        <div className="text-[9px] text-slate-400 truncate">{toggle.desc}</div>
-                                                    </div>
-                                                    <Toggle
-                                                        checked={active}
-                                                        onChange={() => {}}
-                                                        color={toggle.color}
-                                                    />
-                                                </button>
-                                            );
-                                        })}
+                                    <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+                                        <div className="mb-3 flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Tipo de producto</p>
+                                                <p className="mt-0.5 text-xs font-medium text-slate-500">Define stock, seriales y opciones visibles.</p>
+                                            </div>
+                                            <span className="shrink-0 rounded-md border border-indigo-200 bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wider text-indigo-600">
+                                                {productTypeOptions.find(option => option.key === productType)?.label || 'Fisico'}
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+                                            {productTypeOptions.map(option => {
+                                                const Icon = option.icon;
+                                                const active = productType === option.key;
+                                                return (
+                                                    <button
+                                                        key={option.key}
+                                                        type="button"
+                                                        onClick={() => setProductType(option.key)}
+                                                        className={cn(
+                                                            'min-h-[76px] rounded-lg border p-3 text-left transition-all',
+                                                            active
+                                                                ? 'border-indigo-500 bg-white shadow-sm ring-2 ring-indigo-500/15'
+                                                                : 'border-slate-200 bg-white/80 hover:border-indigo-200 hover:bg-white'
+                                                        )}
+                                                    >
+                                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                                            <span className={cn(
+                                                                'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
+                                                                active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'
+                                                            )}>
+                                                                <Icon size={15} />
+                                                            </span>
+                                                            <span className={cn(
+                                                                'h-2.5 w-2.5 rounded-full',
+                                                                active ? 'bg-indigo-600' : 'bg-slate-200'
+                                                            )} />
+                                                        </div>
+                                                        <p className={cn('truncate text-[12px] font-black', active ? 'text-slate-900' : 'text-slate-600')}>{option.label}</p>
+                                                        <p className="mt-0.5 truncate text-[10px] font-bold text-slate-400">{option.desc}</p>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2">
+                                            <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Comportamiento adicional</p>
+                                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                                                {[
+                                                    { key: 'is_menu_item', label: 'Item de menu', desc: 'Disponible para restaurante', icon: UtensilsCrossed, show: modules?.restaurant },
+                                                    { key: 'is_commissionable', label: 'Aplica comision', desc: 'Calcula pago al cajero', icon: DollarSign },
+                                                ].filter(option => option.show !== false).map(option => {
+                                                    const Icon = option.icon;
+                                                    const active = !!formData[option.key];
+                                                    return (
+                                                        <button
+                                                            key={option.key}
+                                                            type="button"
+                                                            onClick={() => setFormData(prev => ({ ...prev, [option.key]: !prev[option.key] }))}
+                                                            className={cn(
+                                                                'flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-all',
+                                                                active ? 'border-indigo-200 bg-indigo-50/70' : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+                                                            )}
+                                                        >
+                                                            <span className="flex min-w-0 items-center gap-2.5">
+                                                                <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', active ? 'bg-indigo-600 text-white' : 'bg-white text-slate-400')}>
+                                                                    <Icon size={14} />
+                                                                </span>
+                                                                <span className="min-w-0">
+                                                                    <span className="block truncate text-[12px] font-black text-slate-700">{option.label}</span>
+                                                                    <span className="block truncate text-[10px] font-bold text-slate-400">{option.desc}</span>
+                                                                </span>
+                                                            </span>
+                                                            <SwitchVisual checked={active} />
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
