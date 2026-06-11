@@ -207,15 +207,6 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                                 </div>
                             </div>
 
-                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                                <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Imagen</p>
-                                <ProductImageUploader
-                                    currentImageUrl={formData.image_url}
-                                    currentImageOriginalUrl={formData.image_url_original}
-                                    onImageUpdate={(url) => setFormData(prev => ({ ...prev, image_url: url || '' }))}
-                                    onOriginalUpdate={(url) => setFormData(prev => ({ ...prev, image_url_original: url || '' }))}
-                                />
-                            </div>
 
                             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                                 <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Tipo</p>
@@ -237,6 +228,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                                 {[
                                     { id: 'precios', label: 'Precios', icon: DollarSign },
                                     { id: 'inventario', label: 'Inventario', icon: Warehouse },
+                                    { id: 'media', label: 'Imagen', icon: Package },
                                     { id: 'avanzado', label: 'Avanzado', icon: Layers },
                                 ].map(tab => {
                                     const Icon = tab.icon;
@@ -392,6 +384,23 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                                             <p className="mt-1 text-sm font-medium text-slate-500">Este tipo no requiere carga manual de stock en este formulario compacto.</p>
                                         </section>
                                     )}
+                                </div>
+                            )}
+
+                            {activeTab === 'media' && (
+                                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[320px_1fr]">
+                                    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                                        <h3 className="text-sm font-black text-slate-900">Imagen del producto</h3>
+                                        <p className="mt-1 text-xs font-bold text-slate-400">Gestiona galeria, camara o carga de imagen desde aqui.</p>
+                                    </section>
+                                    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                                        <ProductImageUploader
+                                            currentImageUrl={formData.image_url}
+                                            currentImageOriginalUrl={formData.image_url_original}
+                                            onImageUpdate={(url) => setFormData(prev => ({ ...prev, image_url: url || '' }))}
+                                            onOriginalUpdate={(url) => setFormData(prev => ({ ...prev, image_url_original: url || '' }))}
+                                        />
+                                    </section>
                                 </div>
                             )}
 
