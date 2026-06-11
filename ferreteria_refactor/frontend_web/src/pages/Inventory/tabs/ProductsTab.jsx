@@ -6,7 +6,7 @@ import {
     MoreHorizontal, ChevronDown, Barcode, ArrowUpAZ, ArrowDownAZ,
     TrendingUp, TrendingDown, Download, Upload, FileSpreadsheet,
     FileText, SlidersHorizontal, Boxes, AlertTriangle, Ban,
-    Zap
+    Zap, Tag, Wrench, Layers, CircleDollarSign, History, PackagePlus, Save
 } from 'lucide-react';
 import SearchWithScanner from '../../../components/common/SearchWithScanner';
 import CompactProductForm from '../../../components/products/CompactProductForm';
