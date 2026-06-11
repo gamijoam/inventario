@@ -611,7 +611,6 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
             return;
         }
 
-        // Validar en BD
         try {
             const res = await apiClient.get(`/inventory/validate-entry?imei=${code}`);
             if (res.data.exists) {
@@ -626,7 +625,7 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
 
         setScannedList(prev => [{ code, ts: new Date() }, ...prev]);
         setImeiInput('');
-        toast.success(`✅ ${code}`, { id: 'scan', duration: 1200 });
+        toast.success(`IMEI ${code} agregado`, { id: 'scan', duration: 1200 });
         inputRef.current?.focus();
     };
 
@@ -636,7 +635,7 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
 
     const handleSubmit = async () => {
         if (!warehouseId || scannedList.length === 0) {
-            toast.error('Selecciona bodega y agrega al menos un IMEI');
+            toast.error('Selecciona almacen y agrega al menos un IMEI');
             return;
         }
         setSubmitting(true);
@@ -647,7 +646,7 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                 imeis: scannedList.map(i => i.code),
                 cost: unitCost ? parseFloat(unitCost) : 0,
             });
-            toast.success(`✅ ${scannedList.length} equipos ingresados. Stock: ${res.data.new_stock_level}`);
+            toast.success(`${scannedList.length} equipos ingresados. Stock: ${res.data.new_stock_level}`);
             onSuccess();
         } catch (err) {
             toast.error(err.response?.data?.detail || 'Error procesando ingreso');
@@ -657,51 +656,58 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-4 h-full">
-            {/* Panel izquierdo: producto + input */}
-            <div className="flex-1 flex flex-col gap-4">
-                {/* Header producto */}
-                <div className="bg-white rounded-lg border border-indigo-200 shadow-sm overflow-hidden">
-                    <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-indigo-50 to-white">
+        <div className="flex h-full flex-col gap-4">
+            <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex min-w-0 items-center gap-3">
                         <button
                             onClick={onBack}
-                            className="p-2 hover:bg-white rounded-md text-indigo-400 hover:text-slate-700 transition-colors border border-transparent hover:border-slate-200"
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-indigo-300 hover:text-indigo-600"
+                            title="Volver"
                         >
                             <ArrowLeft size={18} />
                         </button>
                         <ProductThumbnail imageUrl={product.image_url} productName={product.name} size="md" updatedAt={product.updated_at} />
-                        <div className="flex-1 min-w-0">
-                            <div className="font-black text-slate-800 text-base leading-tight line-clamp-1">{product.name}</div>
-                            <div className="flex items-center gap-2 mt-1">
-                                {product.sku && <span className="text-[10px] font-mono text-slate-400">{product.sku}</span>}
-                                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
-                                    Stock actual: {product.stock}
-                                </span>
+                        <div className="min-w-0">
+                            <div className="line-clamp-1 text-lg font-black leading-tight text-slate-900">{product.name}</div>
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                {product.sku && <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-500">{product.sku}</span>}
+                                <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-black uppercase text-indigo-600">Producto serializado</span>
                             </div>
                         </div>
                     </div>
-
-                    {/* Bodega + costo */}
-                    <div className="flex gap-3 p-4 bg-slate-50 border-t border-slate-100">
-                        <div className="flex-1">
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                                <Warehouse size={10} /> Bodega destino
-                            </label>
-                            <select
-                                className="w-full bg-white border border-slate-200 rounded-md px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                                value={warehouseId}
-                                onChange={e => setWarehouseId(e.target.value)}
-                            >
-                                {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                            </select>
+                    <div className="grid grid-cols-2 gap-2 sm:w-72">
+                        <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-center">
+                            <div className="text-xl font-black leading-none text-emerald-600">{Number(product.stock || 0)}</div>
+                            <div className="mt-1 text-[10px] font-black uppercase tracking-wide text-emerald-500">Stock actual</div>
                         </div>
-                        <div className="w-36">
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                                Costo unitario ($)
-                            </label>
+                        <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-center">
+                            <div className="text-xl font-black leading-none text-indigo-600">{scannedList.length}</div>
+                            <div className="mt-1 text-[10px] font-black uppercase tracking-wide text-indigo-500">Por ingresar</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_180px]">
+                    <div>
+                        <label className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                            <Warehouse size={11} /> Almacen destino
+                        </label>
+                        <select
+                            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                            value={warehouseId}
+                            onChange={e => setWarehouseId(e.target.value)}
+                        >
+                            {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="mb-1.5 block text-[10px] font-black uppercase tracking-wide text-slate-400">Costo unitario</label>
+                        <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">$</span>
                             <input
                                 type="number"
-                                className="w-full bg-white border border-slate-200 rounded-md px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                className="w-full rounded-md border border-slate-200 bg-white py-2.5 pl-7 pr-3 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                                 value={unitCost}
                                 onChange={e => setUnitCost(e.target.value)}
                                 placeholder="0.00"
@@ -709,120 +715,121 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                         </div>
                     </div>
                 </div>
-
-                {/* Scanner principal */}
-                <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col items-center justify-center p-6 gap-5">
-                    <div className="flex flex-col items-center gap-1 text-slate-400">
-                        <ScanLine size={36} className="text-indigo-400" />
-                        <span className="text-xs font-bold uppercase tracking-widest">Escanear IMEI / Serial</span>
-                    </div>
-
-                    <div className="w-full max-w-sm relative">
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            className="w-full text-center px-4 py-5 text-xl font-mono bg-white border-2 border-indigo-200 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-colors placeholder:text-slate-200 tracking-widest"
-                            placeholder="· · · · · · · · · · · · · · ·"
-                            value={imeiInput}
-                            onChange={e => setImeiInput(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            autoComplete="off"
-                            spellCheck={false}
-                        />
-                        {imeiInput && (
-                            <button
-                                onClick={addImei}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700 transition-colors"
-                            >
-                                <Plus size={16} />
-                            </button>
-                        )}
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs text-slate-400">
-                        <Zap size={12} className="text-amber-400" />
-                        <span>Presiona <kbd className="bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 font-mono text-slate-600 text-[10px]">ENTER</kbd> para agregar cada IMEI</span>
-                    </div>
-                </div>
             </div>
 
-            {/* Panel derecho: lista capturada */}
-            <div className="w-full lg:w-80 xl:w-96 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-                {/* Header lista */}
-                <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                    <div>
-                        <div className="font-bold text-slate-700 text-sm">IMEIs capturados</div>
-                        <div className="text-xs text-slate-400 mt-0.5">
-                            {scannedList.length === 0 ? 'Lista vacía' : `${scannedList.length} equipo${scannedList.length > 1 ? 's' : ''} listo${scannedList.length > 1 ? 's' : ''}`}
+            <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+                <div className="flex min-h-[360px] flex-col rounded-lg border border-slate-200 bg-white shadow-sm">
+                    <div className="border-b border-slate-100 p-4">
+                        <div className="flex items-center gap-2 text-base font-black text-slate-900">
+                            <ScanLine className="text-indigo-600" size={20} /> Registrar IMEI / Serial
                         </div>
+                        <p className="mt-1 text-xs font-semibold text-slate-400">Escanea o escribe un codigo y presiona Enter. Cada IMEI se valida antes de agregarlo a la cola.</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        {scannedList.length > 0 && (
-                            <span className="w-8 h-8 bg-indigo-600 text-white text-sm font-black rounded-full flex items-center justify-center">
-                                {scannedList.length}
-                            </span>
-                        )}
-                    </div>
-                </div>
 
-                {/* Lista */}
-                <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-                    {scannedList.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-slate-300 py-16">
-                            <Hash size={40} className="opacity-20 mb-3" />
-                            <p className="text-sm font-medium">Empieza a escanear</p>
-                            <p className="text-xs mt-1 opacity-70">Los IMEIs aparecerán aquí</p>
-                        </div>
-                    ) : (
-                        scannedList.map((item, idx) => (
-                            <div
-                                key={item.code}
-                                className="flex items-center gap-2.5 px-3 py-2.5 bg-white border border-slate-100 rounded-md shadow-sm group hover:border-rose-200 transition-colors"
-                            >
-                                <div className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center shrink-0">
-                                    {scannedList.length - idx}
-                                </div>
-                                <span className="font-mono text-xs font-semibold text-slate-700 flex-1 truncate tracking-wide">
-                                    {item.code}
-                                </span>
+                    <div className="flex flex-1 flex-col items-center justify-center gap-5 p-5">
+                        <div className="w-full max-w-2xl">
+                            <div className="relative">
+                                <input
+                                    ref={inputRef}
+                                    type="text"
+                                    className="w-full rounded-xl border-2 border-indigo-200 bg-white px-5 py-5 pr-16 text-center font-mono text-2xl font-black tracking-widest text-slate-900 shadow-sm outline-none transition-all placeholder:text-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                                    placeholder="ESCANEA O ESCRIBE"
+                                    value={imeiInput}
+                                    onChange={e => setImeiInput(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                    autoComplete="off"
+                                    spellCheck={false}
+                                />
                                 <button
-                                    onClick={() => removeImei(item.code)}
-                                    className="text-slate-200 group-hover:text-rose-400 transition-colors shrink-0"
+                                    onClick={addImei}
+                                    disabled={!imeiInput.trim()}
+                                    className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-200"
+                                    title="Agregar IMEI"
                                 >
-                                    <X size={14} />
+                                    <Plus size={18} />
                                 </button>
                             </div>
-                        ))
-                    )}
+                            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs font-semibold text-slate-400">
+                                <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-[10px] font-black text-slate-600">ENTER</span>
+                                <span>agrega el IMEI a la cola</span>
+                                <span className="hidden h-1 w-1 rounded-full bg-slate-300 sm:block" />
+                                <span>duplicados y existentes se bloquean antes de guardar</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Footer acciones */}
-                <div className="p-3 border-t border-slate-100 bg-slate-50 space-y-2">
-                    {scannedList.length > 0 && (
-                        <button
-                            onClick={() => { if (confirm(`¿Borrar los ${scannedList.length} IMEIs capturados?`)) setScannedList([]); }}
-                            className="w-full py-2 text-xs font-bold text-slate-500 hover:text-rose-500 border border-slate-200 hover:border-rose-300 rounded-md transition-colors bg-white"
-                        >
-                            Limpiar lista
-                        </button>
-                    )}
-                    <button
-                        onClick={handleSubmit}
-                        disabled={scannedList.length === 0 || submitting}
-                        className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-md text-sm shadow-sm shadow-indigo-100  transition-colors flex items-center justify-center gap-2"
-                    >
-                        {submitting ? (
-                            <Loader2 size={16} className="animate-spin" />
+                <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                    <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 p-4">
+                        <div>
+                            <div className="text-base font-black text-slate-900">Cola de ingreso</div>
+                            <div className="mt-0.5 text-xs font-semibold text-slate-400">
+                                {scannedList.length === 0 ? 'Sin IMEIs capturados' : `${scannedList.length} IMEI${scannedList.length > 1 ? 's' : ''} listo${scannedList.length > 1 ? 's' : ''}`}
+                            </div>
+                        </div>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-600 text-sm font-black text-white">
+                            {scannedList.length}
+                        </div>
+                    </div>
+
+                    <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                        {scannedList.length === 0 ? (
+                            <div className="flex h-full min-h-[260px] flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-slate-400">
+                                <Hash size={40} className="mb-3 opacity-25" />
+                                <p className="text-sm font-black text-slate-500">Cola vacia</p>
+                                <p className="mt-1 text-xs font-semibold">Los IMEIs capturados apareceran aqui.</p>
+                            </div>
                         ) : (
-                            <Save size={16} />
+                            <div className="space-y-2">
+                                {scannedList.map((item, idx) => (
+                                    <div
+                                        key={item.code}
+                                        className="group flex items-center gap-2.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition-colors hover:border-rose-200"
+                                    >
+                                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-black text-white">
+                                            {scannedList.length - idx}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="truncate font-mono text-xs font-black tracking-wide text-slate-800">{item.code}</div>
+                                            <div className="mt-0.5 text-[10px] font-semibold text-slate-400">Validado para ingreso</div>
+                                        </div>
+                                        <button
+                                            onClick={() => removeImei(item.code)}
+                                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-300 transition-colors hover:bg-rose-50 hover:text-rose-500"
+                                            title="Quitar IMEI"
+                                        >
+                                            <X size={15} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
                         )}
-                        {submitting ? 'Procesando...' : `Procesar ${scannedList.length > 0 ? `(${scannedList.length})` : ''}`}
-                    </button>
+                    </div>
+
+                    <div className="space-y-2 border-t border-slate-100 bg-slate-50 p-3">
+                        {scannedList.length > 0 && (
+                            <button
+                                onClick={() => { if (confirm(`?Borrar los ${scannedList.length} IMEIs capturados?`)) setScannedList([]); }}
+                                className="w-full rounded-md border border-slate-200 bg-white py-2 text-xs font-black text-slate-500 transition-colors hover:border-rose-300 hover:text-rose-500"
+                            >
+                                Limpiar cola
+                            </button>
+                        )}
+                        <button
+                            onClick={handleSubmit}
+                            disabled={scannedList.length === 0 || submitting}
+                            className="flex w-full items-center justify-center gap-2 rounded-md bg-indigo-600 py-3 text-sm font-black text-white shadow-sm shadow-indigo-100 transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {submitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                            {submitting ? 'Procesando...' : `Guardar ingreso${scannedList.length > 0 ? ` (${scannedList.length})` : ''}`}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     );
 };
+
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 const SerialsTab = () => {
