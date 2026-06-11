@@ -134,6 +134,94 @@ const CatalogView = ({ catalog, onSelectProduct, isLoading }) => {
 };
 
 // ─── Card de producto en catálogo ─────────────────────────────────────────────
+
+const normalizeSerial = (value = '') => String(value).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+const SerialAuditPanel = ({ product, instances }) => {
+    const [physicalText, setPhysicalText] = useState('');
+    const available = instances.filter(i => i.status === 'AVAILABLE');
+    const sold = instances.filter(i => i.status === 'SOLD');
+    const transit = instances.filter(i => i.status === 'TRANSIT');
+    const reserved = instances.filter(i => i.status === 'RESERVED');
+    const damaged = instances.filter(i => i.status === 'DAMAGED');
+    const systemStock = Number(product.stock || 0);
+    const availableCount = available.length;
+    const stockDiff = systemStock - availableCount;
+
+    const systemSet = new Set(available.map(i => normalizeSerial(i.serial_number)).filter(Boolean));
+    const physicalList = physicalText.split(/[^A-Za-z0-9]+/).map(normalizeSerial).filter(Boolean);
+    const physicalSet = new Set(physicalList);
+    const missingPhysical = available.filter(i => !physicalSet.has(normalizeSerial(i.serial_number)));
+    const extraPhysical = physicalList.filter(code => !systemSet.has(code));
+    const duplicates = physicalList.filter((code, idx) => physicalList.indexOf(code) !== idx);
+    const hasPhysicalAudit = physicalList.length > 0;
+    const statusOk = stockDiff === 0;
+
+    return (
+        <div className="border-t border-slate-100 bg-slate-50/70 p-3">
+            <div className="flex flex-col gap-3 lg:flex-row">
+                <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-5">
+                    {[
+                        { label: 'Stock sistema', value: systemStock, cls: 'bg-slate-900 text-white border-slate-900' },
+                        { label: 'Disponibles', value: availableCount, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+                        { label: 'Vendidos', value: sold.length, cls: 'bg-rose-50 text-rose-700 border-rose-200' },
+                        { label: 'Transito', value: transit.length, cls: 'bg-violet-50 text-violet-700 border-violet-200' },
+                        { label: 'Otros', value: reserved.length + damaged.length, cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+                    ].map(item => (
+                        <div key={item.label} className={`rounded-lg border px-2 py-2 text-center ${item.cls}`}>
+                            <div className="text-lg font-black leading-none">{item.value}</div>
+                            <div className="mt-1 text-[9px] font-black uppercase tracking-wide opacity-75">{item.label}</div>
+                        </div>
+                    ))}
+                </div>
+                <div className={clsx('rounded-lg border px-3 py-2 lg:w-56', statusOk ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700')}>
+                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide">
+                        {statusOk ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+                        Cuadre sistema
+                    </div>
+                    <div className="mt-1 text-sm font-bold">
+                        {statusOk ? 'Stock e IMEIs disponibles cuadran.' : `Diferencia: ${stockDiff > 0 ? '+' : ''}${stockDiff}`}
+                    </div>
+                    <div className="mt-1 text-[10px] font-medium opacity-80">Compara stock del producto contra IMEIs AVAILABLE.</div>
+                </div>
+            </div>
+
+            <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <div className="text-xs font-black uppercase tracking-wide text-slate-500">Conteo fisico por IMEI</div>
+                        <p className="mt-0.5 text-xs font-medium text-slate-400">Pega o escanea los IMEIs que tienes fisicamente. Puedes separarlos por espacios, coma o saltos de linea.</p>
+                    </div>
+                    {hasPhysicalAudit && <div className={clsx('rounded-md px-2 py-1 text-xs font-black', missingPhysical.length === 0 && extraPhysical.length === 0 && duplicates.length === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700')}>{physicalList.length} contados</div>}
+                </div>
+                <textarea
+                    value={physicalText}
+                    onChange={e => setPhysicalText(e.target.value)}
+                    rows={3}
+                    placeholder="Ej: 353791682868853 353791682872913 ..."
+                    className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700 outline-none focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                />
+                {hasPhysicalAudit && (
+                    <div className="mt-3 grid gap-2 lg:grid-cols-3">
+                        <div className={clsx('rounded-lg border p-2', missingPhysical.length ? 'border-rose-200 bg-rose-50' : 'border-emerald-200 bg-emerald-50')}>
+                            <div className={clsx('text-[10px] font-black uppercase tracking-wide', missingPhysical.length ? 'text-rose-700' : 'text-emerald-700')}>Faltan fisicamente ({missingPhysical.length})</div>
+                            <div className="mt-1 max-h-24 overflow-auto font-mono text-[11px] text-slate-700">{missingPhysical.length ? missingPhysical.map(i => <div key={i.id}>{i.serial_number}</div>) : <span className="font-sans text-xs font-bold text-emerald-700">Todo contado</span>}</div>
+                        </div>
+                        <div className={clsx('rounded-lg border p-2', extraPhysical.length ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50')}>
+                            <div className={clsx('text-[10px] font-black uppercase tracking-wide', extraPhysical.length ? 'text-amber-700' : 'text-slate-500')}>Sobrantes no disponibles ({extraPhysical.length})</div>
+                            <div className="mt-1 max-h-24 overflow-auto font-mono text-[11px] text-slate-700">{extraPhysical.length ? [...new Set(extraPhysical)].map(code => <div key={code}>{code}</div>) : <span className="font-sans text-xs font-bold text-slate-500">Sin sobrantes</span>}</div>
+                        </div>
+                        <div className={clsx('rounded-lg border p-2', duplicates.length ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50')}>
+                            <div className={clsx('text-[10px] font-black uppercase tracking-wide', duplicates.length ? 'text-amber-700' : 'text-slate-500')}>Duplicados en conteo ({new Set(duplicates).size})</div>
+                            <div className="mt-1 max-h-24 overflow-auto font-mono text-[11px] text-slate-700">{duplicates.length ? [...new Set(duplicates)].map(code => <div key={code}>{code}</div>) : <span className="font-sans text-xs font-bold text-slate-500">Sin duplicados</span>}</div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 const ProductCard = ({ product, onSelect }) => {
     const [instances, setInstances] = useState(null);
     const [loadingInst, setLoadingInst] = useState(false);
@@ -156,6 +244,7 @@ const ProductCard = ({ product, onSelect }) => {
 
     const available = instances?.filter(i => i.status === 'AVAILABLE') || [];
     const sold      = instances?.filter(i => i.status === 'SOLD') || [];
+    const transit   = instances?.filter(i => i.status === 'TRANSIT') || [];
     const [deletingId, setDeletingId]   = useState(null);
     const [editingId, setEditingId]     = useState(null);
     const [editSerial, setEditSerial]   = useState('');
@@ -238,6 +327,7 @@ const ProductCard = ({ product, onSelect }) => {
                         <div className="flex items-center gap-1.5">
                             <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">{available.length} disp.</span>
                             {sold.length > 0 && <span className="text-[10px] font-bold text-rose-500 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-md">{sold.length} vend.</span>}
+                            {transit.length > 0 && <span className="text-[10px] font-bold text-violet-600 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded-md">{transit.length} trans.</span>}
                         </div>
                     )}
                 </div>
@@ -255,6 +345,10 @@ const ProductCard = ({ product, onSelect }) => {
                     )}
                 </button>
             </div>
+
+            {expanded && instances !== null && (
+                <SerialAuditPanel product={product} instances={instances} />
+            )}
 
             {/* Lista de seriales expandida */}
             {expanded && instances !== null && (
