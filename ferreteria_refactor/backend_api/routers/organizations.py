@@ -48,9 +48,13 @@ def _org_member(org: Organization, user: User):
     return next((m for m in org.members if (m.user_email or "").lower().strip() == email), None)
 
 
+def _is_org_owner_email(org: Organization, user: User) -> bool:
+    return (org.owner_email or "").lower().strip() == (user.email or "").lower().strip()
+
+
 def _assert_org_access(org: Organization, user: User):
     """Verifica que el usuario tiene acceso a esta organizacion."""
-    if user.is_superuser:
+    if user.is_superuser or _is_org_owner_email(org, user):
         return None
     member = _org_member(org, user)
     if not member or not member.can_switch:
@@ -62,8 +66,10 @@ def _assert_org_role(org: Organization, user: User, allowed_roles: set[str], det
     """Verifica rol dentro de la organizacion: owner, manager o viewer."""
     if user.is_superuser:
         return None
+    if _is_org_owner_email(org, user) and "owner" in allowed_roles:
+        return None
     member = _assert_org_access(org, user)
-    if (member.role or "").lower() not in allowed_roles:
+    if not member or (member.role or "").lower() not in allowed_roles:
         raise HTTPException(status_code=403, detail=detail)
     return member
 
