@@ -14,7 +14,7 @@ import {
     Settings, MessageCircle, Users,
     Save, Loader2, Plus, Trash2,
     Building2, Info, Smartphone, Crown, ShieldCheck, CreditCard, CalendarDays,
-    UserPlus, CheckCircle, Clock, Mail, Radio, Power, Server, Eye, ToggleRight, Store, ExternalLink, Wifi, AlertTriangle
+    UserPlus, CheckCircle, Clock, Mail, Radio, Power, Server, Eye, ToggleRight, Store, ExternalLink, Wifi, AlertTriangle, Activity
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -110,6 +110,7 @@ export default function OrgConfig() {
     const [org, setOrg]         = useState(null);
     const [planInfo, setPlanInfo] = useState(null);
     const [companies, setCompanies] = useState([]);
+    const [activity, setActivity] = useState(null);
     const [switchingCompany, setSwitchingCompany] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -137,15 +138,17 @@ export default function OrgConfig() {
             setOrgId(id);
 
             // Cargar detalle de la org y la info del plan en paralelo
-            const [orgRes, planRes, tenantsRes] = await Promise.all([
+            const [orgRes, planRes, tenantsRes, activityRes] = await Promise.all([
                 apiClient.get(`/organizations/${id}`),
                 apiClient.get(`/organizations/${id}/plan-info`),
                 apiClient.get(`/organizations/${id}/tenants`),
+                apiClient.get(`/organizations/${id}/activity?limit=12`),
             ]);
 
             setOrg(orgRes.data);
             setPlanInfo(planRes.data);
             setCompanies(tenantsRes.data || []);
+            setActivity(activityRes.data || null);
 
             // Sincronizar estado local de WA
             setWaConfig({
@@ -402,6 +405,10 @@ export default function OrgConfig() {
                                 onEnter={handleEnterCompany}
                             />
                         </SectionCard>
+
+                        <SectionCard icon={Activity} title="Actividad reciente" subtitle="Eventos clave del grupo empresarial" color="slate">
+                            <ActivitySection activity={activity} />
+                        </SectionCard>
                     </div>
                 </div>
             </div>
@@ -409,11 +416,91 @@ export default function OrgConfig() {
     );
 }
 
-/**
- * MembersSection — Lista y gestión de miembros de la organización.
- * Separado para poder refrescarlo independientemente.
- */
+function ActivitySection({ activity }) {
+    const events = activity?.events || [];
+    const severityStyles = {
+        success: 'border-emerald-100 bg-emerald-50 text-emerald-700',
+        warning: 'border-amber-100 bg-amber-50 text-amber-700',
+        danger : 'border-rose-100 bg-rose-50 text-rose-700',
+        info   : 'border-indigo-100 bg-indigo-50 text-indigo-700',
+    };
 
+    const formatDate = (value) => {
+        if (!value) return 'Sin fecha';
+        try {
+            return new Date(value).toLocaleString('es-VE', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+            });
+        } catch {
+            return 'Sin fecha';
+        }
+    };
+
+    if (!activity) {
+        return (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-center">
+                <Loader2 size={24} className="mx-auto mb-2 animate-spin text-slate-300" />
+                <p className="text-sm font-bold text-slate-500">Cargando actividad...</p>
+            </div>
+        );
+    }
+
+    if (events.length === 0) {
+        return (
+            <div className="rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                <Activity size={30} className="mx-auto mb-2 text-slate-300" />
+                <p className="text-sm font-black text-slate-700">Sin actividad registrada</p>
+                <p className="mt-1 text-xs text-slate-500">Cuando el grupo tenga cambios importantes, apareceran aqui.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-[10px] font-black uppercase text-slate-400">Eventos</p>
+                    <p className="text-xl font-black text-slate-900">{activity.total_events}</p>
+                </div>
+                <div className="rounded-lg border border-purple-100 bg-purple-50 p-3">
+                    <p className="text-[10px] font-black uppercase text-purple-500">Miembros</p>
+                    <p className="text-xl font-black text-purple-900">{activity.members_count}</p>
+                </div>
+                <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-3">
+                    <p className="text-[10px] font-black uppercase text-indigo-500">Empresas</p>
+                    <p className="text-xl font-black text-indigo-900">{activity.tenants_count}</p>
+                </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white">
+                <div className="divide-y divide-slate-100">
+                    {events.map((event, index) => (
+                        <div key={`${event.type}-${event.occurred_at || index}-${index}`} className="flex gap-3 p-3">
+                            <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${severityStyles[event.severity] || severityStyles.info}`}>
+                                <Activity size={14} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-black text-slate-900">{event.title}</p>
+                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase text-slate-500">{event.type}</span>
+                                </div>
+                                <p className="mt-0.5 text-xs font-semibold leading-relaxed text-slate-500">{event.detail}</p>
+                                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-400">
+                                    <span>{formatDate(event.occurred_at)}</span>
+                                    {event.actor && <span className="truncate">por {event.actor}</span>}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
 
 function BillingSection({ org, planInfo, planMeta, usedTenants, maxTenants, usagePct }) {
     const price = Number(planInfo?.plan_price || 0);

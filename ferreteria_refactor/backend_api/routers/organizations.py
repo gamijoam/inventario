@@ -708,6 +708,105 @@ def remove_member(
 # CATÁLOGO COMPARTIDO
 # ══════════════════════════════════════════════════════════════════════════════
 
+
+@router.get("/{org_id}/activity")
+def get_org_activity(
+    org_id: int,
+    limit: int = Query(30, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Actividad reciente del portal empresarial sin depender de migraciones."""
+    org = db.query(Organization).options(joinedload(Organization.members)).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organizacion no encontrada")
+    _assert_org_owner(org, current_user, "Solo el owner puede ver la actividad empresarial")
+
+    tenants = db.query(Tenant).filter(Tenant.organization_id == org_id).all()
+    events = []
+
+    def add_event(event_type, title, detail, occurred_at=None, actor=None, severity="info", meta=None):
+        events.append({
+            "type"       : event_type,
+            "title"      : title,
+            "detail"     : detail,
+            "actor"      : actor,
+            "severity"   : severity,
+            "occurred_at": occurred_at.isoformat() if occurred_at else None,
+            "meta"       : meta or {},
+        })
+
+    add_event(
+        "organization.created",
+        "Organizacion creada",
+        f"{org.name} quedo registrada como grupo empresarial.",
+        org.created_at,
+        org.owner_email,
+        "success",
+        {"plan": org.plan, "max_tenants": org.max_tenants},
+    )
+
+    add_event(
+        "whatsapp.status",
+        "WhatsApp compartido",
+        "Activo para el grupo." if org.use_shared_whatsapp else "Cada empresa usa su configuracion individual.",
+        org.created_at,
+        "Configuracion",
+        "success" if org.use_shared_whatsapp else "info",
+        {"instance": org.whatsapp_instance, "shared": bool(org.use_shared_whatsapp)},
+    )
+
+    for tenant in tenants:
+        add_event(
+            "tenant.linked",
+            "Empresa en el grupo",
+            f"{tenant.name} forma parte de la organizacion.",
+            tenant.created_at,
+            tenant.schema_name,
+            "success" if tenant.is_active else "warning",
+            {
+                "tenant_id": tenant.id,
+                "schema_name": tenant.schema_name,
+                "license_type": tenant.license_type,
+                "active": tenant.is_active,
+            },
+        )
+
+    for member in org.members:
+        add_event(
+            "member.invited",
+            "Miembro agregado",
+            f"{member.user_email} tiene rol {member.role}.",
+            member.invited_at,
+            member.user_email,
+            "success" if member.can_switch else "warning",
+            {"role": member.role, "can_switch": member.can_switch},
+        )
+        if member.accepted_at and member.accepted_at != member.invited_at:
+            add_event(
+                "member.accepted",
+                "Acceso aceptado",
+                f"{member.user_email} quedo activo en el grupo.",
+                member.accepted_at,
+                member.user_email,
+                "success",
+                {"role": member.role},
+            )
+
+    def sort_key(event):
+        return event["occurred_at"] or ""
+
+    events = sorted(events, key=sort_key, reverse=True)[:limit]
+    return {
+        "organization_id"   : org.id,
+        "organization_name" : org.name,
+        "total_events"      : len(events),
+        "members_count"     : len(org.members),
+        "tenants_count"     : len(tenants),
+        "events"            : events,
+    }
+
+
 @router.get("/{org_id}/catalog", response_model=List[SharedProductOut])
 def list_shared_catalog(
     org_id: int,
