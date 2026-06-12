@@ -14,7 +14,7 @@ import {
     Settings, MessageCircle, Users,
     Save, Loader2, Plus, Trash2,
     Building2, Info, Smartphone, Crown, ShieldCheck, CreditCard, CalendarDays,
-    UserPlus, CheckCircle, Clock, Mail, Radio, Power, Server
+    UserPlus, CheckCircle, Clock, Mail, Radio, Power, Server, Eye, ToggleRight
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -402,6 +402,8 @@ function MembersSection({ orgId }) {
     const [members, setMembers]   = useState([]);
     const [loading, setLoading]   = useState(true);
     const [newEmail, setNewEmail] = useState('');
+    const [newRole, setNewRole] = useState('manager');
+    const [newCanSwitch, setNewCanSwitch] = useState(true);
     const [adding, setAdding]     = useState(false);
 
     const fetchMembers = useCallback(async () => {
@@ -423,11 +425,13 @@ function MembersSection({ orgId }) {
         try {
             await apiClient.post(`/organizations/${orgId}/members`, {
                 user_email: newEmail.trim(),
-                role      : 'manager',
-                can_switch: true,
+                role      : newRole,
+                can_switch: newCanSwitch,
             });
             toast.success('Miembro agregado');
             setNewEmail('');
+            setNewRole('manager');
+            setNewCanSwitch(true);
             fetchMembers();
         } catch (err) {
             toast.error(err.response?.data?.detail || 'Error al agregar miembro');
@@ -448,8 +452,19 @@ function MembersSection({ orgId }) {
     };
 
     const owners = members.filter(m => m.role === 'owner').length;
-    const managers = members.length - owners;
+    const managers = members.filter(m => m.role === 'manager').length;
+    const viewers = members.filter(m => m.role === 'viewer').length;
     const canSwitch = members.filter(m => m.can_switch).length;
+    const roleCards = [
+        { id: 'manager', label: 'Manager', icon: ShieldCheck, desc: 'Opera entre empresas y ve datos de gestion.', tone: 'indigo' },
+        { id: 'viewer', label: 'Viewer', icon: Eye, desc: 'Consulta informacion sin administrar accesos.', tone: 'slate' },
+        { id: 'owner', label: 'Owner', icon: Crown, desc: 'Control total del grupo empresarial.', tone: 'amber' },
+    ];
+    const roleMeta = {
+        owner: { label: 'Owner', icon: Crown, className: 'bg-amber-50 text-amber-700 border-amber-100' },
+        manager: { label: 'Manager', icon: ShieldCheck, className: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+        viewer: { label: 'Viewer', icon: Eye, className: 'bg-slate-100 text-slate-600 border-slate-200' },
+    };
 
     if (loading) {
         return (
@@ -486,25 +501,25 @@ function MembersSection({ orgId }) {
                 <div className="rounded-lg border border-slate-200 overflow-hidden">
                     <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex items-center justify-between gap-2">
                         <p className="text-xs font-black uppercase tracking-wide text-slate-500">Miembros</p>
-                        <span className="text-[10px] font-black text-slate-400">{managers} gerente{managers !== 1 ? 's' : ''}</span>
+                        <span className="text-[10px] font-black text-slate-400">{managers} manager{managers !== 1 ? 's' : ''} ? {viewers} viewer{viewers !== 1 ? 's' : ''}</span>
                     </div>
                     <div className="divide-y divide-slate-100">
                         {members.map(m => {
-                            const isOwner = m.role === 'owner';
+                            const meta = roleMeta[m.role] || roleMeta.viewer;
+                            const RoleIcon = meta.icon;
                             return (
                                 <div key={m.id} className="p-3 hover:bg-slate-50 transition-colors">
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border ${isOwner ? 'bg-amber-50 border-amber-100' : 'bg-indigo-50 border-indigo-100'}`}>
-                                            <span className={`text-xs font-black ${isOwner ? 'text-amber-700' : 'text-indigo-600'}`}>
+                                        <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border bg-white border-slate-200">
+                                            <span className="text-xs font-black text-slate-700">
                                                 {(m.user_email || '?').charAt(0).toUpperCase()}
                                             </span>
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             <p className="text-sm font-black text-slate-800 truncate">{m.user_email}</p>
                                             <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                                <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full border ${isOwner ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                                                    {isOwner ? <Crown size={10} /> : <ShieldCheck size={10} />}
-                                                    {isOwner ? 'Propietario' : 'Gerente'}
+                                                <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full border ${meta.className}`}>
+                                                    <RoleIcon size={10} /> {meta.label}
                                                 </span>
                                                 {m.can_switch ? (
                                                     <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-full font-black">
@@ -534,29 +549,65 @@ function MembersSection({ orgId }) {
                 </div>
             )}
 
-            <div className="rounded-lg bg-indigo-50 border border-indigo-100 p-3 space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-wide text-indigo-600">Agregar gerente</label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                    <div className="relative flex-1">
-                        <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="email"
-                            value={newEmail}
-                            onChange={e => setNewEmail(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleAddMember()}
-                            placeholder="email@empresa.com"
-                            className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-indigo-100 bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 text-sm outline-none"
-                        />
+            <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-3 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                    <div>
+                        <label className="text-[10px] font-black uppercase tracking-wide text-indigo-600">Nuevo acceso</label>
+                        <p className="text-xs font-semibold text-indigo-700/80">Invita una cuenta al portal empresarial.</p>
                     </div>
-                    <button
-                        onClick={handleAddMember}
-                        disabled={adding}
-                        className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-60"
-                    >
-                        {adding ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
-                        Agregar
-                    </button>
+                    <UserPlus size={18} className="text-indigo-500" />
                 </div>
+                <div className="relative">
+                    <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                        type="email"
+                        value={newEmail}
+                        onChange={e => setNewEmail(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddMember()}
+                        placeholder="email@empresa.com"
+                        className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-indigo-100 bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 text-sm outline-none"
+                    />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                    {roleCards.map(role => {
+                        const Icon = role.icon;
+                        const active = newRole === role.id;
+                        return (
+                            <button
+                                key={role.id}
+                                type="button"
+                                onClick={() => setNewRole(role.id)}
+                                className={`rounded-lg border p-3 text-left transition-all ${active ? 'border-indigo-300 bg-white shadow-sm ring-2 ring-indigo-100' : 'border-indigo-100 bg-indigo-50/50 hover:bg-white'}`}
+                            >
+                                <div className="flex items-center gap-2 text-sm font-black text-slate-900">
+                                    <Icon size={15} className={role.tone === 'amber' ? 'text-amber-600' : role.tone === 'slate' ? 'text-slate-500' : 'text-indigo-600'} />
+                                    {role.label}
+                                </div>
+                                <p className="mt-1 text-[11px] font-semibold leading-snug text-slate-500">{role.desc}</p>
+                            </button>
+                        );
+                    })}
+                </div>
+                <button
+                    type="button"
+                    onClick={() => setNewCanSwitch(v => !v)}
+                    className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${newCanSwitch ? 'border-emerald-100 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white text-slate-600'}`}
+                >
+                    <span className="flex items-center gap-2 text-sm font-black">
+                        <ToggleRight size={16} /> Puede cambiar entre empresas
+                    </span>
+                    <span className={`h-6 w-11 rounded-full p-0.5 transition-colors ${newCanSwitch ? 'bg-emerald-600' : 'bg-slate-300'}`}>
+                        <span className={`block h-5 w-5 rounded-full bg-white shadow transition-transform ${newCanSwitch ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </span>
+                </button>
+                <button
+                    onClick={handleAddMember}
+                    disabled={adding}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-indigo-700 disabled:opacity-60"
+                >
+                    {adding ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
+                    Agregar acceso
+                </button>
             </div>
         </div>
     );
