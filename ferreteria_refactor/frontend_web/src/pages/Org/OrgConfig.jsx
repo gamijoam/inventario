@@ -501,7 +501,7 @@ function MembersSection({ orgId }) {
                 <div className="rounded-lg border border-slate-200 overflow-hidden">
                     <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex items-center justify-between gap-2">
                         <p className="text-xs font-black uppercase tracking-wide text-slate-500">Miembros</p>
-                        <span className="text-[10px] font-black text-slate-400">{managers} manager{managers !== 1 ? 's' : ''} ? {viewers} viewer{viewers !== 1 ? 's' : ''}</span>
+                        <span className="text-[10px] font-black text-slate-400">{managers} manager{managers !== 1 ? 's' : ''} / {viewers} viewer{viewers !== 1 ? 's' : ''}</span>
                     </div>
                     <div className="divide-y divide-slate-100">
                         {members.map(m => {
