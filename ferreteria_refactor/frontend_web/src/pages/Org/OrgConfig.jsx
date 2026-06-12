@@ -299,25 +299,15 @@ export default function OrgConfig() {
 
                 <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[1.05fr_0.95fr] items-start">
                     <div className="space-y-4">
-                        <SectionCard icon={Crown} title="Plan y capacidad" subtitle="Limites activos de la organizacion" color="amber">
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between gap-4 rounded-lg bg-slate-50 border border-slate-100 p-4">
-                                    <div>
-                                        <p className="text-xs font-bold text-slate-400">Uso de empresas</p>
-                                        <p className="text-lg font-black text-slate-900">{usedTenants} de {maxTenants || '-'} empresas</p>
-                                    </div>
-                                    <p className="text-2xl font-black text-indigo-600">{Math.round(usagePct)}%</p>
-                                </div>
-                                <div>
-                                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                        <div className={`h-full rounded-full transition-all ${usagePct > 80 ? 'bg-amber-500' : 'bg-indigo-500'}`} style={{ width: `${usagePct}%` }} />
-                                    </div>
-                                    <div className="flex justify-between text-xs text-slate-500 mt-2">
-                                        <span>{planInfo?.slots_available ?? 0} cupos disponibles</span>
-                                        <span>{planInfo?.plan_price > 0 ? `$${planInfo.plan_price}/mes` : 'Sin costo'}</span>
-                                    </div>
-                                </div>
-                            </div>
+                        <SectionCard icon={Crown} title="Licencia y facturacion" subtitle="Plan, vencimiento y capacidad del grupo" color="amber">
+                            <BillingSection
+                                org={org}
+                                planInfo={planInfo}
+                                planMeta={planMeta}
+                                usedTenants={usedTenants}
+                                maxTenants={maxTenants}
+                                usagePct={usagePct}
+                            />
                         </SectionCard>
 
                         <SectionCard icon={MessageCircle} title="WhatsApp compartido" subtitle="Mensajeria centralizada del grupo" color="emerald">
@@ -423,6 +413,127 @@ export default function OrgConfig() {
  * MembersSection — Lista y gestión de miembros de la organización.
  * Separado para poder refrescarlo independientemente.
  */
+
+
+function BillingSection({ org, planInfo, planMeta, usedTenants, maxTenants, usagePct }) {
+    const price = Number(planInfo?.plan_price || 0);
+    const daysLeft = planInfo?.days_left;
+    const expiresAt = planInfo?.plan_expires_at ? new Date(planInfo.plan_expires_at) : null;
+    const isExpired = Boolean(planInfo?.is_expired || org?.is_active === false);
+    const nearLimit = maxTenants > 0 && usagePct >= 80;
+    const nearExpiry = typeof daysLeft === 'number' && daysLeft <= 7 && !isExpired;
+    const statusTone = isExpired
+        ? 'border-rose-100 bg-rose-50 text-rose-700'
+        : nearExpiry
+            ? 'border-amber-100 bg-amber-50 text-amber-700'
+            : 'border-emerald-100 bg-emerald-50 text-emerald-700';
+    const statusLabel = isExpired ? 'Requiere atencion' : nearExpiry ? 'Por vencer' : 'Al dia';
+
+    const formatDate = (value) => {
+        if (!value) return 'Sin vencimiento';
+        try {
+            return value.toLocaleDateString('es-VE');
+        } catch {
+            return 'Sin vencimiento';
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className={`rounded-lg border p-4 ${statusTone}`}>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/80">
+                            {isExpired ? <AlertTriangle size={18} /> : <CheckCircle size={18} />}
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-black uppercase tracking-wide opacity-80">Estado de licencia</p>
+                            <p className="text-lg font-black">{statusLabel}</p>
+                            <p className="mt-0.5 text-xs font-semibold opacity-80">
+                                {isExpired
+                                    ? 'El plan debe renovarse para mantener acceso completo.'
+                                    : expiresAt
+                                        ? `${daysLeft ?? '-'} dia(s) restantes antes del vencimiento.`
+                                        : 'Este grupo no tiene fecha de vencimiento configurada.'}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="rounded-lg bg-white/80 px-4 py-3 text-right shadow-sm">
+                        <p className="text-[10px] font-black uppercase tracking-wide opacity-70">Plan actual</p>
+                        <p className="text-xl font-black">{planInfo?.plan_label || planMeta.label}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <div className="mb-3 flex items-center gap-2 text-slate-500">
+                        <CreditCard size={15} />
+                        <p className="text-[10px] font-black uppercase tracking-wide">Mensualidad</p>
+                    </div>
+                    <p className="text-2xl font-black text-slate-950">{price > 0 ? `$${price.toFixed(2)}` : '$0.00'}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{price > 0 ? 'Monto configurado del plan' : 'Sin precio configurado'}</p>
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <div className="mb-3 flex items-center gap-2 text-slate-500">
+                        <CalendarDays size={15} />
+                        <p className="text-[10px] font-black uppercase tracking-wide">Vencimiento</p>
+                    </div>
+                    <p className="text-lg font-black text-slate-950">{formatDate(expiresAt)}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{expiresAt ? `${daysLeft ?? '-'} dia(s) disponibles` : 'Renovacion manual'}</p>
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <div className="mb-3 flex items-center gap-2 text-slate-500">
+                        <Building2 size={15} />
+                        <p className="text-[10px] font-black uppercase tracking-wide">Capacidad</p>
+                    </div>
+                    <p className="text-lg font-black text-slate-950">{usedTenants} de {maxTenants || '-'} empresas</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{planInfo?.slots_available ?? 0} cupos libres</p>
+                </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                        <p className="text-sm font-black text-slate-900">Uso del plan</p>
+                        <p className="text-xs font-semibold text-slate-500">Controla si el grupo puede sumar mas empresas.</p>
+                    </div>
+                    <p className={`rounded-full px-2.5 py-1 text-xs font-black ${nearLimit ? 'bg-amber-50 text-amber-700' : 'bg-indigo-50 text-indigo-700'}`}>{Math.round(usagePct)}%</p>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+                    <div className={`h-full rounded-full transition-all ${nearLimit ? 'bg-amber-500' : 'bg-indigo-600'}`} style={{ width: `${usagePct}%` }} />
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                        <p className="text-[10px] font-black uppercase text-slate-400">Descripcion</p>
+                        <p className="mt-1 text-sm font-bold text-slate-700">{planInfo?.plan_description || 'Sin descripcion configurada'}</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                        <p className="text-[10px] font-black uppercase text-slate-400">Organizacion</p>
+                        <p className="mt-1 truncate text-sm font-bold text-slate-700">{planInfo?.organization_name || org?.name}</p>
+                    </div>
+                </div>
+            </div>
+
+            {(nearLimit || nearExpiry || isExpired) && (
+                <div className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-amber-800">
+                    <div className="flex items-start gap-2">
+                        <Info size={15} className="mt-0.5 shrink-0" />
+                        <p className="text-xs font-semibold leading-relaxed">
+                            {isExpired
+                                ? 'Prioridad alta: renovar o ajustar el plan antes de seguir creando empresas.'
+                                : nearExpiry
+                                    ? 'Este plan esta cerca de vencer. Conviene coordinar renovacion antes de la fecha limite.'
+                                    : 'El grupo esta cerca del limite de empresas. Si vas a crecer, prepara una ampliacion del plan.'}
+                        </p>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 function CompaniesSection({ companies, maxTenants, usedTenants, switchingCompany, onEnter }) {
     const activeCompanies = companies.filter(c => c.is_active !== false).length;
@@ -535,6 +646,10 @@ function CompaniesSection({ companies, maxTenants, usedTenants, switchingCompany
     );
 }
 
+/**
+ * MembersSection ? Lista y gesti?n de miembros de la organizaci?n.
+ * Separado para poder refrescarlo independientemente.
+ */
 function MembersSection({ orgId }) {
     const [members, setMembers]   = useState([]);
     const [loading, setLoading]   = useState(true);
