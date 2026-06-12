@@ -112,13 +112,7 @@ export default function OrgConfig() {
     const [loading, setLoading] = useState(true);
 
     // Detectar si el usuario actual es dueño del grupo (desde localStorage)
-    const isOrgOwner = (() => {
-        try {
-            const orgs = JSON.parse(localStorage.getItem('org_companies') || '[]');
-            const current = orgs.find(o => o.is_current) || orgs[0];
-            return current?.org_role === 'owner';
-        } catch { return false; }
-    })();
+    const isOrgOwner = Boolean(user?.is_superuser || user?.is_org_owner || user?.org_role === 'owner');
 
     // Estado de los formularios de cada sección
     const [waConfig, setWaConfig] = useState({
@@ -235,8 +229,8 @@ export default function OrgConfig() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50">
-            <div className="max-w-6xl mx-auto px-4 py-5 space-y-5">
+        <div className="space-y-4">
+            <div className="space-y-4">
                 <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
                     <div className="p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                         <div className="flex items-start gap-3 min-w-0">
@@ -271,8 +265,8 @@ export default function OrgConfig() {
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 xl:grid-cols-[1.05fr_0.95fr] gap-5 items-start">
-                    <div className="space-y-5">
+                <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[1.05fr_0.95fr] items-start">
+                    <div className="space-y-4">
                         <SectionCard icon={Crown} title="Plan y capacidad" subtitle="Limites activos de la organizacion" color="amber">
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between gap-4 rounded-lg bg-slate-50 border border-slate-100 p-4">
@@ -372,7 +366,7 @@ export default function OrgConfig() {
                         </SectionCard>
                     </div>
 
-                    <div className="space-y-5">
+                    <div className="space-y-4">
                         <SectionCard icon={Users} title="Miembros y accesos" subtitle="Usuarios que pueden operar entre empresas" color="purple">
                             <MembersSection orgId={orgId} />
                         </SectionCard>
