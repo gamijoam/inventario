@@ -50,26 +50,34 @@ function CompanyList({ companies, loading, switching, onEnter, compact = false }
 
   return (
     <div className={compact ? 'grid gap-2 sm:grid-cols-2' : ''}>
-      {companies.map(c => (
-        <button
-          key={c.id || c.tenant_id || c.schema_name}
-          onClick={() => onEnter(c)}
-          disabled={switching === (c.id || c.tenant_id)}
-          className="group mb-2 flex w-full items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-3 text-left transition-all hover:border-indigo-200 hover:bg-white hover:shadow-sm disabled:opacity-60"
-        >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
-            <Store size={17} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-black text-slate-900">{c.name}</p>
-            <p className="truncate text-[11px] font-semibold text-slate-400">{c.schema_name}</p>
-          </div>
-          {switching === (c.id || c.tenant_id)
-            ? <Wifi size={15} className="shrink-0 animate-pulse text-indigo-500" />
-            : <ExternalLink size={15} className="shrink-0 text-slate-300 transition-colors group-hover:text-indigo-500" />
-          }
-        </button>
-      ))}
+      {companies.map(c => {
+        const id = c.id || c.tenant_id;
+        const active = c.is_active !== false;
+        return (
+          <button
+            key={id || c.schema_name}
+            onClick={() => active && onEnter(c)}
+            disabled={!active || switching === id}
+            title={active ? 'Entrar a la empresa' : 'Empresa suspendida'}
+            className={`group mb-2 flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-all disabled:cursor-not-allowed ${active ? 'border-slate-100 bg-slate-50 hover:border-indigo-200 hover:bg-white hover:shadow-sm' : 'border-rose-100 bg-rose-50 opacity-80'}`}
+          >
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm ring-1 transition-colors ${active ? 'text-indigo-600 ring-slate-200 group-hover:bg-indigo-600 group-hover:text-white' : 'text-rose-500 ring-rose-100'}`}>
+              <Store size={17} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-black text-slate-900">{c.name}</p>
+                {!active && <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black text-rose-700">Suspendida</span>}
+              </div>
+              <p className="truncate text-[11px] font-semibold text-slate-400">{c.schema_name}</p>
+            </div>
+            {switching === id
+              ? <Wifi size={15} className="shrink-0 animate-pulse text-indigo-500" />
+              : <ExternalLink size={15} className={`shrink-0 transition-colors ${active ? 'text-slate-300 group-hover:text-indigo-500' : 'text-rose-300'}`} />
+            }
+          </button>
+        );
+      })}
     </div>
   );
 }
