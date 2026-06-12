@@ -22,6 +22,8 @@ class SystemMessage(Base):
     level        = Column(Enum(MessageLevel), default=MessageLevel.INFO)
     message_type = Column(String(20), nullable=False, default="banner")
     version_tag  = Column(String(20), nullable=True)   # e.g. "v2.5"
+    target_tenant_schema = Column(String(120), nullable=True, index=True)  # Null = global SaaS message
+    created_by_user_id   = Column(Integer, nullable=True)
 
     starts_at  = Column(DateTime, default=get_venezuela_now)
     expires_at = Column(DateTime, nullable=True)  # Null means indefinite

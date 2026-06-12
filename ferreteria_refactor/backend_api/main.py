@@ -415,6 +415,8 @@ def repair_public_schema():
         sm_columns = [
             ("message_type", "VARCHAR(20) NOT NULL DEFAULT 'banner'"),
             ("version_tag",  "VARCHAR(20)"),
+            ("target_tenant_schema", "VARCHAR(120)"),
+            ("created_by_user_id", "INTEGER"),
         ]
 
         for col_name, col_type in sm_columns:

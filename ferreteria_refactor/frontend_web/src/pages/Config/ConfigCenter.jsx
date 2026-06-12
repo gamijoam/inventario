@@ -7,7 +7,7 @@ import MessageCircle from 'lucide-react/dist/esm/icons/message-circle';
 import ShoppingBag from 'lucide-react/dist/esm/icons/shopping-bag';
 import {
     Building2, Users, DollarSign, Percent, CreditCard, Printer,
-    ShieldCheck, ClipboardList, Monitor, ChevronRight, Menu, X, Lock, Calculator
+    ShieldCheck, ClipboardList, Monitor, ChevronRight, Menu, X, Lock, Calculator, Megaphone
 } from 'lucide-react';
 
 const GeneralTab        = React.lazy(() => import('./tabs/GeneralTab'));
@@ -18,6 +18,7 @@ const PagosTab          = React.lazy(() => import('./tabs/PagosTab'));
 const ImpresorasTab     = React.lazy(() => import('./tabs/ImpresorasTab'));
 const GarantiasConfigTab = React.lazy(() => import('./tabs/GarantiasConfigTab'));
 const AuditoriaTab      = React.lazy(() => import('./tabs/AuditoriaTab'));
+const AvisosInternosTab = React.lazy(() => import('./tabs/AvisosInternosTab'));
 const EstacionPOSTab    = React.lazy(() => import('./tabs/EstacionPOSTab'));
 const ComisionesTab     = React.lazy(() => import('./tabs/ComisionesTab'));
 const WhatsAppTab       = React.lazy(() => import('./tabs/WhatsAppTab'));
@@ -82,6 +83,7 @@ const renderTabContent = (activeTab) => {
         case 'impresoras': return wrap(ImpresorasTab);
         case 'garantias':  return wrap(GarantiasConfigTab);
         case 'auditoria':  return wrap(AuditoriaTab);
+        case 'avisos':     return wrap(AvisosInternosTab);
         case 'catalogo':   return wrap(CatalogTab);
         case 'whatsapp':      return wrap(WhatsAppTab);
         case 'integraciones': return wrap(IntegracionesTab);
