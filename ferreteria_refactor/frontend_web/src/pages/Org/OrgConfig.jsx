@@ -14,7 +14,7 @@ import {
     Settings, MessageCircle, Users,
     Save, Loader2, Plus, Trash2,
     Building2, Info, Smartphone, Crown, ShieldCheck, CreditCard, CalendarDays,
-    UserPlus, CheckCircle, Clock, Mail, Radio, Power, Server, Eye, ToggleRight
+    UserPlus, CheckCircle, Clock, Mail, Radio, Power, Server, Eye, ToggleRight, Store, ExternalLink, Wifi, AlertTriangle
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -109,6 +109,8 @@ export default function OrgConfig() {
     const [orgId, setOrgId]     = useState(null);
     const [org, setOrg]         = useState(null);
     const [planInfo, setPlanInfo] = useState(null);
+    const [companies, setCompanies] = useState([]);
+    const [switchingCompany, setSwitchingCompany] = useState(null);
     const [loading, setLoading] = useState(true);
 
     // Detectar si el usuario actual es dueño del grupo (desde localStorage)
@@ -135,13 +137,15 @@ export default function OrgConfig() {
             setOrgId(id);
 
             // Cargar detalle de la org y la info del plan en paralelo
-            const [orgRes, planRes] = await Promise.all([
+            const [orgRes, planRes, tenantsRes] = await Promise.all([
                 apiClient.get(`/organizations/${id}`),
                 apiClient.get(`/organizations/${id}/plan-info`),
+                apiClient.get(`/organizations/${id}/tenants`),
             ]);
 
             setOrg(orgRes.data);
             setPlanInfo(planRes.data);
+            setCompanies(tenantsRes.data || []);
 
             // Sincronizar estado local de WA
             setWaConfig({
@@ -175,6 +179,34 @@ export default function OrgConfig() {
     };
 
     // ── Render: cargando ──────────────────────────────────────────────────────
+    const handleEnterCompany = async (company) => {
+        const schema = company.schema_name;
+        if (!schema) {
+            toast.error('Empresa sin schema configurado');
+            return;
+        }
+
+        setSwitchingCompany(company.id || company.tenant_id || schema);
+        try {
+            const r = await apiClient.post('/auth/switch-company', { target_schema: schema });
+            if (r.data?.access_token) localStorage.setItem('access_token', r.data.access_token);
+            if (r.data?.org_companies) {
+                localStorage.setItem('org_companies', JSON.stringify(r.data.org_companies));
+                localStorage.setItem('has_multiple_companies', r.data.org_companies.length > 1 ? 'true' : 'false');
+            }
+
+            const isQA = window.location.hostname.includes('.qa.');
+            const url = isQA
+                ? (r.data?.switch_url_qa || `https://${schema}.qa.miinventariofacil.com/#/`)
+                : (r.data?.switch_url_prod || r.data?.switch_url || `https://${schema}.miinventariofacil.com/#/`);
+            window.location.href = url;
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Error al entrar a la empresa');
+        } finally {
+            setSwitchingCompany(null);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -371,21 +403,14 @@ export default function OrgConfig() {
                             <MembersSection orgId={orgId} />
                         </SectionCard>
 
-                        <SectionCard icon={Building2} title="Empresas del grupo" subtitle="Capacidad y administracion de tenants" color="indigo">
-                            {usedTenants === 0 ? (
-                                <p className="text-slate-400 text-sm text-center py-3">No hay empresas asignadas aun.</p>
-                            ) : (
-                                <div className="space-y-3">
-                                    <div className="rounded-lg bg-indigo-50 border border-indigo-100 p-4">
-                                        <p className="text-sm text-indigo-900 font-bold">{usedTenants} empresa(s) activa(s)</p>
-                                        <p className="text-xs text-indigo-700 mt-1">La entrada a cada empresa se mantiene en el sidebar empresarial.</p>
-                                    </div>
-                                    <p className="text-xs text-slate-500 leading-relaxed">
-                                        Para asociar nuevas empresas hoy se usa el panel SaaS o el bot de Telegram con:
-                                        <code className="block mt-2 bg-slate-100 px-2 py-1.5 rounded-lg text-xs font-mono text-slate-700 overflow-x-auto">/org agregar {orgId} [schema]</code>
-                                    </p>
-                                </div>
-                            )}
+                        <SectionCard icon={Building2} title="Empresas del grupo" subtitle="Estado, licencia y acceso rapido" color="indigo">
+                            <CompaniesSection
+                                companies={companies}
+                                maxTenants={maxTenants}
+                                usedTenants={usedTenants}
+                                switchingCompany={switchingCompany}
+                                onEnter={handleEnterCompany}
+                            />
                         </SectionCard>
                     </div>
                 </div>
@@ -398,6 +423,118 @@ export default function OrgConfig() {
  * MembersSection — Lista y gestión de miembros de la organización.
  * Separado para poder refrescarlo independientemente.
  */
+
+function CompaniesSection({ companies, maxTenants, usedTenants, switchingCompany, onEnter }) {
+    const activeCompanies = companies.filter(c => c.is_active !== false).length;
+    const suspendedCompanies = companies.length - activeCompanies;
+    const slotsLeft = maxTenants > 0 ? Math.max(0, maxTenants - usedTenants) : 0;
+    const atLimit = maxTenants > 0 && usedTenants >= maxTenants;
+
+    const formatDate = (value) => {
+        if (!value) return 'Sin fecha';
+        try {
+            return new Date(value).toLocaleDateString('es-VE');
+        } catch {
+            return 'Sin fecha';
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="grid gap-2 sm:grid-cols-3">
+                <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-3">
+                    <p className="text-[10px] font-black uppercase text-indigo-500">Usadas</p>
+                    <p className="text-xl font-black text-indigo-900">{usedTenants}/{maxTenants || '-'}</p>
+                </div>
+                <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+                    <p className="text-[10px] font-black uppercase text-emerald-600">Activas</p>
+                    <p className="text-xl font-black text-emerald-900">{activeCompanies}</p>
+                </div>
+                <div className={`rounded-lg border p-3 ${atLimit ? 'border-amber-100 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
+                    <p className={`text-[10px] font-black uppercase ${atLimit ? 'text-amber-600' : 'text-slate-500'}`}>Disponibles</p>
+                    <p className={`text-xl font-black ${atLimit ? 'text-amber-900' : 'text-slate-800'}`}>{slotsLeft}</p>
+                </div>
+            </div>
+
+            {atLimit && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-100 bg-amber-50 p-3 text-amber-800">
+                    <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+                    <p className="text-xs font-semibold leading-relaxed">La organizacion llego al limite del plan. Para agregar otra empresa hace falta ampliar capacidad.</p>
+                </div>
+            )}
+
+            {companies.length === 0 ? (
+                <div className="rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                    <Building2 size={30} className="mx-auto mb-2 text-slate-300" />
+                    <p className="text-sm font-black text-slate-700">No hay empresas asignadas aun</p>
+                    <p className="mt-1 text-xs text-slate-500">Cuando se asocien empresas al grupo, apareceran aqui.</p>
+                </div>
+            ) : (
+                <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                    <div className="border-b border-slate-100 bg-slate-50 px-3 py-2">
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-500">Empresas conectadas</p>
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                        {companies.map(company => {
+                            const id = company.id || company.tenant_id || company.schema_name;
+                            const isSwitching = switchingCompany === id;
+                            const active = company.is_active !== false;
+
+                            return (
+                                <div key={id} className="p-3 transition-colors hover:bg-slate-50">
+                                    <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+                                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${active ? 'border-indigo-100 bg-indigo-50 text-indigo-600' : 'border-slate-200 bg-slate-100 text-slate-400'}`}>
+                                                <Store size={17} />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <p className="truncate text-sm font-black text-slate-900">{company.name || company.schema_name}</p>
+                                                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${active ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-rose-100 bg-rose-50 text-rose-700'}`}>
+                                                        {active ? 'Activa' : 'Suspendida'}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-0.5 truncate font-mono text-[11px] font-semibold text-slate-400">{company.schema_name}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 xl:w-[230px]">
+                                            <div className="rounded-lg border border-slate-100 bg-slate-50 p-2">
+                                                <p className="text-[10px] font-black uppercase text-slate-400">Licencia</p>
+                                                <p className="truncate text-xs font-black text-slate-700">{company.license_type || 'N/A'}</p>
+                                            </div>
+                                            <div className="rounded-lg border border-slate-100 bg-slate-50 p-2">
+                                                <p className="text-[10px] font-black uppercase text-slate-400">Trial</p>
+                                                <p className="truncate text-xs font-black text-slate-700">{formatDate(company.trial_ends_at)}</p>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => onEnter(company)}
+                                            disabled={!active || isSwitching}
+                                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 xl:w-[92px]"
+                                        >
+                                            {isSwitching ? <Wifi size={14} className="animate-pulse" /> : <ExternalLink size={14} />}
+                                            Entrar
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-500">
+                <p className="font-bold text-slate-700">Alta de empresas</p>
+                <p className="mt-1">Por ahora la asociacion o retiro de empresas se mantiene en superadmin/bot para proteger plan y facturacion.</p>
+                {suspendedCompanies > 0 && <p className="mt-1 font-semibold text-rose-600">Hay {suspendedCompanies} empresa(s) suspendida(s) en el grupo.</p>}
+            </div>
+        </div>
+    );
+}
+
 function MembersSection({ orgId }) {
     const [members, setMembers]   = useState([]);
     const [loading, setLoading]   = useState(true);
