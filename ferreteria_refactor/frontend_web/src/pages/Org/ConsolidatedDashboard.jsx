@@ -91,9 +91,9 @@ export default function ConsolidatedDashboard() {
   const avgTicket = totalTx > 0 ? totalVentas / totalTx : 0;
 
   return (
-    <div className="space-y-5 max-w-6xl">
-      <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+    <div className="space-y-4">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3 min-w-0">
             <div className="w-11 h-11 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-100 shrink-0">
               <Building2 size={22} className="text-white" />
@@ -114,7 +114,7 @@ export default function ConsolidatedDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
         <KpiCard icon={Building2} label="Empresas" value={tenants.length} color="indigo" sub="Locales activos" />
         <KpiCard icon={DollarSign} label="Ventas hoy" value={`$${totalVentas.toFixed(2)}`} color="emerald" sub="Consolidado USD" />
         <KpiCard icon={ShoppingCart} label="Tickets" value={totalTx} color="amber" sub="Transacciones hoy" />
@@ -122,7 +122,7 @@ export default function ConsolidatedDashboard() {
         <KpiCard icon={AlertTriangle} label="Bajo stock" value={totalLowStock} color="rose" sub="Productos en alerta" />
       </div>
 
-      <section className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center">
@@ -151,7 +151,7 @@ export default function ConsolidatedDashboard() {
             const isBest = bestTenant?.tenant_id === t.tenant_id || bestTenant?.id === t.id || bestTenant?.schema_name === t.schema_name;
             const share = totalVentas > 0 ? Math.min(100, (ventas / totalVentas) * 100) : 0;
             return (
-              <div key={t.tenant_id || t.id || i} className="p-4 hover:bg-slate-50 transition-colors">
+              <div key={t.tenant_id || t.id || i} className="p-4 transition-colors hover:bg-slate-50">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-black shrink-0 ${isBest ? 'bg-amber-500' : 'bg-indigo-500'}`}>
@@ -186,7 +186,7 @@ export default function ConsolidatedDashboard() {
                   <button
                     onClick={() => handleEnter(t)}
                     disabled={switching === (t.id || t.tenant_id)}
-                    className="lg:self-center flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-all text-sm font-bold disabled:opacity-60"
+                    className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-bold text-white transition-all hover:bg-indigo-700 disabled:opacity-60 lg:self-center"
                   >
                     {switching === (t.id || t.tenant_id)
                       ? <Wifi size={14} className="animate-pulse" />
