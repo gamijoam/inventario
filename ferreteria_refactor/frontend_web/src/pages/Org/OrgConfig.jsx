@@ -113,6 +113,7 @@ export default function OrgConfig() {
     const [activity, setActivity] = useState(null);
     const [switchingCompany, setSwitchingCompany] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(null);
 
     // Detectar si el usuario actual es dueño del grupo (desde localStorage)
     const isOrgOwner = Boolean(user?.is_superuser || user?.is_org_owner || user?.org_role === 'owner');
@@ -137,24 +138,31 @@ export default function OrgConfig() {
             }
             setOrgId(id);
 
-            // Cargar detalle de la org y la info del plan en paralelo
-            const [orgRes, planRes, tenantsRes, activityRes] = await Promise.all([
+            setLoadError(null);
+            const [orgRes, planRes, tenantsRes, activityRes] = await Promise.allSettled([
                 apiClient.get(`/organizations/${id}`),
                 apiClient.get(`/organizations/${id}/plan-info`),
                 apiClient.get(`/organizations/${id}/tenants`),
                 apiClient.get(`/organizations/${id}/activity?limit=12`),
             ]);
 
-            setOrg(orgRes.data);
-            setPlanInfo(planRes.data);
-            setCompanies(tenantsRes.data || []);
-            setActivity(activityRes.data || null);
+            if (orgRes.status === 'fulfilled') {
+                setOrg(orgRes.value.data);
+                setWaConfig({
+                    use_shared_whatsapp: orgRes.value.data.use_shared_whatsapp || false,
+                    whatsapp_instance  : orgRes.value.data.whatsapp_instance   || '',
+                });
+            } else {
+                setOrg({ id, name: consolidatedRes.data?.organization_name || 'Organizacion', plan: 'multi', is_active: true });
+                setLoadError('Algunos datos de administracion no pudieron cargarse. Puedes reintentar sin perder la sesion.');
+            }
 
-            // Sincronizar estado local de WA
-            setWaConfig({
-                use_shared_whatsapp: orgRes.data.use_shared_whatsapp || false,
-                whatsapp_instance  : orgRes.data.whatsapp_instance   || '',
-            });
+            setPlanInfo(planRes.status === 'fulfilled' ? planRes.value.data : null);
+            setCompanies(tenantsRes.status === 'fulfilled' ? (tenantsRes.value.data || []) : []);
+            setActivity(activityRes.status === 'fulfilled' ? (activityRes.value.data || null) : { events: [], total_events: 0, members_count: 0, tenants_count: 0 });
+            if ([planRes, tenantsRes, activityRes].some(r => r.status === 'rejected')) {
+                setLoadError('Una parte del portal no respondio. La pantalla sigue disponible con datos parciales.');
+            }
         } catch (err) {
             toast.error('Error al cargar la configuración del grupo');
         } finally {
@@ -212,8 +220,19 @@ export default function OrgConfig() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-                <Loader2 size={36} className="text-indigo-400 animate-spin" />
+            <div className="space-y-4">
+                <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <div className="h-11 w-11 animate-pulse rounded-lg bg-indigo-100" />
+                        <div className="flex-1 space-y-2">
+                            <div className="h-4 w-32 animate-pulse rounded bg-slate-100" />
+                            <div className="h-6 w-64 max-w-full animate-pulse rounded bg-slate-100" />
+                        </div>
+                    </div>
+                </div>
+                <div className="grid gap-4 2xl:grid-cols-2">
+                    {[1, 2, 3, 4].map(i => <div key={i} className="h-52 animate-pulse rounded-lg border border-slate-200 bg-white shadow-sm" />)}
+                </div>
             </div>
         );
     }
@@ -293,6 +312,16 @@ export default function OrgConfig() {
                     </div>
                 </div>
 
+                {loadError && (
+                    <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-2">
+                            <Info size={16} className="mt-0.5 shrink-0" />
+                            <p className="text-xs font-semibold leading-relaxed">{loadError}</p>
+                        </div>
+                        <button onClick={loadOrg} className="rounded-lg bg-white px-3 py-2 text-xs font-black text-amber-700 shadow-sm ring-1 ring-amber-100 hover:bg-amber-50">Reintentar</button>
+                    </div>
+                )}
+
                 {planInfo?.is_expired && (
                     <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-lg">
                         <Info size={16} className="text-rose-500 shrink-0" />
@@ -300,7 +329,7 @@ export default function OrgConfig() {
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[1.05fr_0.95fr] items-start">
+                <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] items-start">
                     <div className="space-y-4">
                         <SectionCard icon={Crown} title="Licencia y facturacion" subtitle="Plan, vencimiento y capacidad del grupo" color="amber">
                             <BillingSection

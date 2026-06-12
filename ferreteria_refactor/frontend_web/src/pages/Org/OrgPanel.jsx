@@ -30,11 +30,57 @@ const NAV_GROUPS = [
   },
 ];
 
+
+function CompanyList({ companies, loading, switching, onEnter, compact = false }) {
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3].map(i => <div key={i} className="h-14 animate-pulse rounded-lg bg-slate-100" />)}
+      </div>
+    );
+  }
+
+  if (companies.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-slate-200 p-5 text-center text-sm font-semibold text-slate-400">
+        No hay empresas cargadas.
+      </div>
+    );
+  }
+
+  return (
+    <div className={compact ? 'grid gap-2 sm:grid-cols-2' : ''}>
+      {companies.map(c => (
+        <button
+          key={c.id || c.tenant_id || c.schema_name}
+          onClick={() => onEnter(c)}
+          disabled={switching === (c.id || c.tenant_id)}
+          className="group mb-2 flex w-full items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-3 text-left transition-all hover:border-indigo-200 hover:bg-white hover:shadow-sm disabled:opacity-60"
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
+            <Store size={17} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-black text-slate-900">{c.name}</p>
+            <p className="truncate text-[11px] font-semibold text-slate-400">{c.schema_name}</p>
+          </div>
+          {switching === (c.id || c.tenant_id)
+            ? <Wifi size={15} className="shrink-0 animate-pulse text-indigo-500" />
+            : <ExternalLink size={15} className="shrink-0 text-slate-300 transition-colors group-hover:text-indigo-500" />
+          }
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function OrgPanel() {
   const navigate = useNavigate();
   const location = useLocation();
   const [org, setOrg] = useState(null);
   const [companies, setCompanies] = useState([]);
+  const [companiesLoading, setCompaniesLoading] = useState(true);
+  const [panelError, setPanelError] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [switching, setSwitching] = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
@@ -50,21 +96,35 @@ export default function OrgPanel() {
   const activeItem = nav.find(n => location.pathname.startsWith(n.to)) || nav[0];
 
   useEffect(() => {
-    apiClient.get('/organizations/my-org')
-      .then(r => {
+    let alive = true;
+    const loadShell = async () => {
+      setCompaniesLoading(true);
+      setPanelError(null);
+      try {
+        const r = await apiClient.get('/organizations/my-org');
+        if (!alive) return;
         if (r.data && r.data.length > 0) {
           const o = r.data[0];
           setOrg(o);
-          return apiClient.get(`/organizations/${o.id}/tenants`);
+          const tenantsRes = await apiClient.get(`/organizations/${o.id}/tenants`);
+          if (alive) setCompanies(tenantsRes.data || []);
+        } else {
+          setPanelError('No encontramos una organizacion vinculada a esta cuenta.');
         }
-      })
-      .then(r => { if (r?.data) setCompanies(r.data); })
-      .catch(() => {
+      } catch {
         try {
           const cached = JSON.parse(localStorage.getItem('org_companies') || '[]');
-          if (cached.length > 0) setCompanies(cached);
-        } catch {}
-      });
+          if (alive && cached.length > 0) setCompanies(cached);
+          if (alive) setPanelError('No se pudo refrescar el portal. Mostrando datos locales si existen.');
+        } catch {
+          if (alive) setPanelError('No se pudo cargar el portal empresarial.');
+        }
+      } finally {
+        if (alive) setCompaniesLoading(false);
+      }
+    };
+    loadShell();
+    return () => { alive = false; };
   }, []);
 
   useEffect(() => {
@@ -188,6 +248,19 @@ export default function OrgPanel() {
           <nav className="flex flex-wrap gap-2 rounded-lg bg-slate-100 p-2">
             {nav.map(item => <NavItem key={item.to} item={item} />)}
           </nav>
+          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 lg:hidden">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Empresas</p>
+              <button onClick={() => navigate('/')} className="rounded-lg bg-white px-3 py-2 text-xs font-black text-slate-600 shadow-sm ring-1 ring-slate-200">Ir al sistema</button>
+            </div>
+            <CompanyList
+              companies={companies}
+              loading={companiesLoading}
+              switching={switching}
+              onEnter={handleEnterCompany}
+              compact
+            />
+          </div>
         </div>
       </header>
 
@@ -204,41 +277,27 @@ export default function OrgPanel() {
               </div>
             </div>
           </div>
+          {panelError && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800">
+              {panelError}
+            </div>
+          )}
           <Outlet />
         </main>
 
-        <aside className="space-y-4 lg:sticky lg:top-[92px] lg:self-start">
+        <aside className="hidden space-y-4 lg:sticky lg:top-[92px] lg:block lg:self-start">
           <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-4 py-3">
               <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Empresas</p>
               <h2 className="text-base font-black text-slate-950">Acceso rapido</h2>
             </div>
             <div className="max-h-[calc(100vh-210px)] overflow-y-auto p-2">
-              {companies.length === 0 && (
-                <div className="rounded-lg border border-dashed border-slate-200 p-5 text-center text-sm font-semibold text-slate-400">
-                  No hay empresas cargadas.
-                </div>
-              )}
-              {companies.map(c => (
-                <button
-                  key={c.id || c.tenant_id || c.schema_name}
-                  onClick={() => handleEnterCompany(c)}
-                  disabled={switching === (c.id || c.tenant_id)}
-                  className="group mb-2 flex w-full items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-3 text-left transition-all hover:border-indigo-200 hover:bg-white hover:shadow-sm disabled:opacity-60"
-                >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
-                    <Store size={17} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-black text-slate-900">{c.name}</p>
-                    <p className="truncate text-[11px] font-semibold text-slate-400">{c.schema_name}</p>
-                  </div>
-                  {switching === (c.id || c.tenant_id)
-                    ? <Wifi size={15} className="shrink-0 animate-pulse text-indigo-500" />
-                    : <ExternalLink size={15} className="shrink-0 text-slate-300 transition-colors group-hover:text-indigo-500" />
-                  }
-                </button>
-              ))}
+              <CompanyList
+                companies={companies}
+                loading={companiesLoading}
+                switching={switching}
+                onEnter={handleEnterCompany}
+              />
             </div>
           </section>
         </aside>

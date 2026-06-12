@@ -37,16 +37,20 @@ export default function ConsolidatedDashboard() {
   const [data, setData] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [switching, setSwitching] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const summaryRes = await apiClient.get('/organizations/consolidated-mine');
       setData(summaryRes.data);
       setCompanies(summaryRes.data?.tenants || []);
-    } catch {
-      toast.error('Error cargando datos');
+    } catch (err) {
+      const message = err.response?.data?.detail || 'No se pudo cargar el dashboard empresarial';
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -78,8 +82,12 @@ export default function ConsolidatedDashboard() {
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center py-24">
-      <RefreshCw size={28} className="text-indigo-500 animate-spin" />
+    <div className="space-y-4">
+      <div className="h-32 animate-pulse rounded-lg border border-slate-200 bg-white shadow-sm" />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-28 animate-pulse rounded-lg border border-slate-200 bg-white shadow-sm" />)}
+      </div>
+      <div className="h-80 animate-pulse rounded-lg border border-slate-200 bg-white shadow-sm" />
     </div>
   );
 
@@ -89,6 +97,22 @@ export default function ConsolidatedDashboard() {
   const totalLowStock = Number(data?.total_low_stock ?? tenants.reduce((s, t) => s + (parseInt(t.low_stock ?? t.low_stock_alerts, 10) || 0), 0));
   const bestTenant = [...tenants].sort((a, b) => (parseFloat(b.sales_today) || 0) - (parseFloat(a.sales_today) || 0))[0];
   const avgTicket = totalTx > 0 ? totalVentas / totalTx : 0;
+
+  if (error && tenants.length === 0) {
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center shadow-sm">
+        <AlertTriangle size={34} className="mx-auto mb-3 text-amber-600" />
+        <h2 className="text-lg font-black text-amber-950">No pudimos cargar el dashboard</h2>
+        <p className="mx-auto mt-1 max-w-lg text-sm font-semibold text-amber-800">{error}</p>
+        <button
+          onClick={load}
+          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-black text-amber-700 shadow-sm ring-1 ring-amber-100 hover:bg-amber-50"
+        >
+          <RefreshCw size={15} /> Reintentar
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -114,7 +138,13 @@ export default function ConsolidatedDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
+      {error && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800">
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <KpiCard icon={Building2} label="Empresas" value={tenants.length} color="indigo" sub="Locales activos" />
         <KpiCard icon={DollarSign} label="Ventas hoy" value={`$${totalVentas.toFixed(2)}`} color="emerald" sub="Consolidado USD" />
         <KpiCard icon={ShoppingCart} label="Tickets" value={totalTx} color="amber" sub="Transacciones hoy" />
@@ -168,7 +198,7 @@ export default function ConsolidatedDashboard() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 lg:w-[360px]">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:w-[360px]">
                     <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-3">
                       <p className="text-[10px] text-emerald-600 font-black uppercase">Ventas</p>
                       <p className="text-base font-black text-emerald-700">${ventas.toFixed(2)}</p>
