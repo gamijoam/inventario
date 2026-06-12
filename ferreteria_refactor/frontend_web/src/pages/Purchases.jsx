@@ -59,7 +59,7 @@ const Purchases = () => {
 
     const handleVoid = async (purchase) => {
         const ref = purchase.invoice_number || `#${purchase.id}`;
-        if (!window.confirm(`?Anular la factura ${ref}? Esto revertir? el stock ingresado y no se puede deshacer.`)) return;
+        if (!window.confirm(`Anular la factura ${ref}? Esto revertira el stock ingresado y no se puede deshacer.`)) return;
         try {
             const res = await apiClient.delete(`/purchases/${purchase.id}`);
             toast.success(`Factura ${ref} anulada. Se revirtieron ${res.data.reversed_items?.length || 0} productos.`);

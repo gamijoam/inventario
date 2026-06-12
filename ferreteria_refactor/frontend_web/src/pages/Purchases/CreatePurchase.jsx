@@ -15,6 +15,10 @@ const formatStock = (stock) => {
     return num % 1 === 0 ? num.toFixed(0) : num.toFixed(3).replace(/\.?0+$/, '');
 };
 
+const createLineId = (prefix = 'line') => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+const toMoney = (value) => Number.parseFloat(value) || 0;
+
 const CreatePurchase = () => {
     const navigate = useNavigate();
     const help = useHelp();
@@ -131,18 +135,21 @@ const CreatePurchase = () => {
     }, [productSearch, products]);
 
     // Herramienta 2: Calcular totales con descuentos
-    const subtotalBruto = purchaseItems.reduce((s, i) => s + (i.unit_cost * i.quantity), 0);
-    const totalDescItems = purchaseItems.reduce((s, i) => s + (i.discount_amount || 0), 0);
-    const totalConDescItems = subtotalBruto - totalDescItems;
-    const descGlobal = parseFloat(globalDiscount.amount) || 0;
-    const totalFinal = totalConDescItems - descGlobal;
+    const subtotalBruto = purchaseItems.reduce((sum, item) => sum + toMoney(item.unit_cost) * toMoney(item.quantity), 0);
+    const totalDescItems = purchaseItems.reduce((sum, item) => sum + toMoney(item.discount_amount), 0);
+    const totalConDescItems = Math.max(0, subtotalBruto - totalDescItems);
+    const globalDiscountInput = Math.max(0, toMoney(globalDiscount.amount));
+    const descGlobal = globalDiscount.type === 'PERCENT'
+        ? Math.min(totalConDescItems, totalConDescItems * (globalDiscountInput / 100))
+        : Math.min(totalConDescItems, globalDiscountInput);
+    const totalFinal = Math.max(0, totalConDescItems - descGlobal);
 
     // Herramienta 1: Agregar producto rápido (sin existir en inventario)
     const handleAddQuickProduct = () => {
         if (!quickProductName.trim()) return;
-        const tempId = `quick_${Date.now()}`;
-        const cost = parseFloat(quickProductName) || 0;
+        const tempId = createLineId('quick');
         setPurchaseItems(prev => [...prev, {
+            line_id: tempId,
             product_id: null,
             quick_product: {
                 name: quickProductName.trim(),
@@ -169,13 +176,19 @@ const CreatePurchase = () => {
         const existingItem = purchaseItems.find(item => item.product_id === product.id);
 
         if (existingItem) {
-            setPurchaseItems(prev => prev.map(item =>
-                item.product_id === product.id
-                    ? { ...item, quantity: item.quantity + 1 }
-                    : item
-            ));
+            setPurchaseItems(prev => prev.map(item => {
+                if (item.product_id !== product.id) return item;
+                const quantity = toMoney(item.quantity) + 1;
+                return {
+                    ...item,
+                    quantity,
+                    subtotal: Math.max(0, quantity * toMoney(item.unit_cost) - toMoney(item.discount_amount))
+                };
+            }));
         } else {
+            const lineId = createLineId('product');
             setPurchaseItems(prev => [...prev, {
+                line_id: lineId,
                 product_id: product.id,
                 product_name: product.name,
                 quantity: 1,
@@ -194,35 +207,35 @@ const CreatePurchase = () => {
         toast.success('Producto agregado');
     };
 
+    const updateLine = (lineId, updater) => {
+        setPurchaseItems(prev => prev.map(item => {
+            if ((item.line_id || item.product_id) !== lineId) return item;
+            const next = typeof updater === 'function' ? updater(item) : { ...item, ...updater };
+            return {
+                ...next,
+                subtotal: Math.max(0, toMoney(next.quantity) * toMoney(next.unit_cost) - toMoney(next.discount_amount))
+            };
+        }));
+    };
+
     // Update item quantity
-    const handleQuantityChange = (productId, quantity) => {
-        setPurchaseItems(prev => prev.map(item =>
-            item.product_id === productId
-                ? { ...item, quantity: parseFloat(quantity) || 0, subtotal: (parseFloat(quantity) || 0) * item.unit_cost }
-                : item
-        ));
+    const handleQuantityChange = (lineId, quantity) => {
+        updateLine(lineId, item => ({ ...item, quantity: toMoney(quantity) }));
     };
 
     // Update item cost
-    const handleCostChange = (productId, cost) => {
-        const item = purchaseItems.find(i => i.product_id === productId);
-        const newCost = parseFloat(cost) || 0;
-
-        setPurchaseItems(prev => prev.map(i =>
-            i.product_id === productId
-                ? { ...i, unit_cost: newCost, subtotal: i.quantity * newCost }
-                : i
-        ));
+    const handleCostChange = (lineId, cost) => {
+        updateLine(lineId, item => ({ ...item, unit_cost: toMoney(cost) }));
     };
 
     // Remove item
-    const handleRemoveItem = (productId) => {
-        setPurchaseItems(prev => prev.filter(item => item.product_id !== productId));
+    const handleRemoveItem = (lineId) => {
+        setPurchaseItems(prev => prev.filter(item => (item.line_id || item.product_id) !== lineId));
         toast.success('Producto eliminado de la lista');
     };
 
     // Calculate total
-    const total = purchaseItems.reduce((sum, item) => sum + item.subtotal, 0);
+    const total = subtotalBruto;
 
     // Submit purchase
     const handleSubmit = async () => {
@@ -236,6 +249,12 @@ const CreatePurchase = () => {
             return;
         }
 
+        const invalidItem = purchaseItems.find(item => toMoney(item.quantity) <= 0 || toMoney(item.unit_cost) < 0);
+        if (invalidItem) {
+            toast.error('Revisa cantidades y costos: la cantidad debe ser mayor a cero y el costo no puede ser negativo.');
+            return;
+        }
+
         try {
             // Use selected warehouse or default to 1 (safeguard)
             const warehouseId = selectedWarehouse || 1;
@@ -245,15 +264,15 @@ const CreatePurchase = () => {
                 warehouse_id: warehouseId,
                 invoice_number: invoiceData.invoice_number,
                 notes: invoiceData.notes,
-                total_amount: total,
+                total_amount: totalFinal,
                 purchase_date: invoiceData.purchase_date,
                 due_date: invoiceData.due_date,
-                discount_amount: globalDiscount.amount || 0,
+                discount_amount: descGlobal || 0,
                 discount_type:   globalDiscount.type   || 'NONE',
                 discount_notes:  globalDiscount.notes  || null,
                 items: purchaseItems.map(item => ({
                     product_id:   item.product_id || null,
-                    quick_product: item.quick_product || null,
+                    quick_product: item.quick_product ? { ...item.quick_product, cost_price: toMoney(item.unit_cost) } : null,
                     quantity:     item.quantity,
                     unit_cost:    item.unit_cost,
                     discount_pct: item.discount_pct || 0,
@@ -270,39 +289,7 @@ const CreatePurchase = () => {
             navigate('/purchases');
         } catch (error) {
             console.error('Error creating purchase:', error);
-
-            // Nuclear option: Ensure errorMessage is ALWAYS a string
-            let errorMessage = 'Error al registrar compra';
-
-            try {
-                if (error.response?.data?.detail) {
-                    const detail = error.response.data.detail;
-                    if (Array.isArray(detail)) {
-                        // Handle Pydantic validation errors
-                        errorMessage += ': ' + detail.map(err => {
-                            if (typeof err === 'object' && err.msg) return err.msg;
-                            if (typeof err === 'string') return err;
-                            return JSON.stringify(err);
-                        }).join(', ');
-                    } else if (typeof detail === 'object') {
-                        errorMessage += ': ' + JSON.stringify(detail);
-                    } else {
-                        errorMessage += ': ' + String(detail);
-                    }
-                } else {
-                    errorMessage += ': ' + (error.message || 'Error desconocido');
-                }
-            } catch (e) {
-                console.error("Error parsing error message:", e);
-                errorMessage = 'Error crítico al procesar solicitud';
-            }
-
-            // Final safety check
-            if (typeof errorMessage !== 'string') {
-                errorMessage = JSON.stringify(errorMessage);
-            }
-
-            toast.error(errorMessage);
+            toast.error(getApiErrorMessage(error, 'Error al registrar compra'));
         }
     };
 
@@ -326,7 +313,7 @@ const CreatePurchase = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:w-80">
                         <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-center">
-                            <div className="text-xl font-black leading-none text-indigo-600">${Number(total).toFixed(2)}</div>
+                            <div className="text-xl font-black leading-none text-indigo-600">${Number(totalFinal).toFixed(2)}</div>
                             <div className="mt-1 text-[10px] font-black uppercase tracking-wide text-indigo-500">Total factura</div>
                         </div>
                         <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center">
@@ -510,14 +497,14 @@ const CreatePurchase = () => {
                                 purchaseItems.map(item => {
                                     const projectedPrice = item.unit_cost * (1 + (item.profit_margin || 0) / 100) * (1 + (item.tax_rate || 0) / 100);
                                     return (
-                                        <div key={item.product_id} className="bg-white rounded-xl p-3 shadow-sm border border-slate-200 relative">
+                                        <div key={item.line_id || item.product_id} className="bg-white rounded-xl p-3 shadow-sm border border-slate-200 relative">
                                             <div className="flex justify-between items-start mb-3 pr-8">
                                                 <div>
                                                     <div className="font-bold text-slate-800 text-sm line-clamp-2">{item.product_name}</div>
                                                     <div className="text-xs text-slate-400 mt-0.5">Base: ${Number(item.original_cost).toFixed(2)}</div>
                                                 </div>
                                                 <button
-                                                    onClick={() => handleRemoveItem(item.product_id)}
+                                                    onClick={() => handleRemoveItem(item.line_id || item.product_id)}
                                                     className="absolute top-2 right-2 p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                                                 >
                                                     <Trash2 size={18} />
@@ -531,7 +518,7 @@ const CreatePurchase = () => {
                                                     <input
                                                         type="number"
                                                         value={item.quantity}
-                                                        onChange={(e) => handleQuantityChange(item.product_id, e.target.value)}
+                                                        onChange={(e) => handleQuantityChange(item.line_id || item.product_id, e.target.value)}
                                                         className="w-full text-center font-bold border border-slate-200 rounded-lg py-1.5 text-sm focus:border-indigo-500 outline-none bg-slate-50"
                                                     />
                                                 </div>
@@ -544,10 +531,12 @@ const CreatePurchase = () => {
                                                         <input
                                                             type="number"
                                                             value={item.unit_cost}
-                                                            onChange={(e) => handleCostChange(item.product_id, e.target.value)}
+                                                            onChange={(e) => handleCostChange(item.line_id || item.product_id, e.target.value)}
                                                             onBlur={(e) => {
-                                                                if (item.unit_cost !== item.original_cost && item.unit_cost > 0) {
+                                                                if (item.product_id && item.unit_cost !== item.original_cost && item.unit_cost > 0) {
                                                                     setShowCostUpdateModal({
+                                                                        lineId: item.line_id || item.product_id,
+                                                                        lineId: item.line_id || item.product_id,
                                                                         productId: item.product_id,
                                                                         newCost: item.unit_cost,
                                                                         originalCost: item.original_cost,
@@ -625,7 +614,7 @@ const CreatePurchase = () => {
                                         const projectedPrice = item.unit_cost * (1 + (item.profit_margin || 0) / 100) * (1 + (item.tax_rate || 0) / 100);
 
                                         return (
-                                            <tr key={item.product_id} className="hover:bg-slate-50/80 transition-colors group">
+                                            <tr key={item.line_id || item.product_id} className="hover:bg-slate-50/80 transition-colors group">
                                                 <td className="px-4 py-3">
                                                     <div className="font-bold text-slate-800">{item.product_name}</div>
                                                     <div className="text-xs text-slate-400 mt-0.5 font-medium">
@@ -636,7 +625,7 @@ const CreatePurchase = () => {
                                                     <input
                                                         type="number"
                                                         value={item.quantity}
-                                                        onChange={(e) => handleQuantityChange(item.product_id, e.target.value)}
+                                                        onChange={(e) => handleQuantityChange(item.line_id || item.product_id, e.target.value)}
                                                         className="w-full text-center font-bold border border-slate-200 rounded-lg p-1.5 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all text-slate-700 hover:border-slate-300"
                                                     />
                                                 </td>
@@ -646,7 +635,7 @@ const CreatePurchase = () => {
                                                         <input
                                                             type="number"
                                                             value={item.unit_cost}
-                                                            onChange={(e) => handleCostChange(item.product_id, e.target.value)}
+                                                            onChange={(e) => handleCostChange(item.line_id || item.product_id, e.target.value)}
                                                             className={clsx(
                                                                 "w-full pl-5 pr-1 font-bold rounded-lg p-1.5 outline-none text-center text-sm transition-all border",
                                                                 item.unit_cost !== item.original_cost
@@ -655,8 +644,10 @@ const CreatePurchase = () => {
                                                             )}
                                                             onBlur={() => {
                                                                 // Trigger modal only when user finishes typing
-                                                                if (item.unit_cost !== item.original_cost && item.unit_cost > 0) {
+                                                                if (item.product_id && item.unit_cost !== item.original_cost && item.unit_cost > 0) {
                                                                     setShowCostUpdateModal({
+                                                                        lineId: item.line_id || item.product_id,
+                                                                        lineId: item.line_id || item.product_id,
                                                                         productId: item.product_id,
                                                                         newCost: item.unit_cost,
                                                                         originalCost: item.original_cost,
@@ -694,7 +685,7 @@ const CreatePurchase = () => {
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
                                                     <button
-                                                        onClick={() => handleRemoveItem(item.product_id)}
+                                                        onClick={() => handleRemoveItem(item.line_id || item.product_id)}
                                                         className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                                                     >
                                                         <Trash2 size={18} />
@@ -767,11 +758,23 @@ const CreatePurchase = () => {
                         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm mb-2">
                             <div className="flex justify-between mb-2 text-sm font-medium text-slate-500">
                                 <span>Subtotal</span>
-                                <span>${total.toFixed(2)}</span>
+                                <span>${subtotalBruto.toFixed(2)}</span>
                             </div>
+                            {totalDescItems > 0 && (
+                                <div className="flex justify-between mb-2 text-sm font-bold text-emerald-700">
+                                    <span>Desc. items</span>
+                                    <span>-${totalDescItems.toFixed(2)}</span>
+                                </div>
+                            )}
+                            {descGlobal > 0 && (
+                                <div className="flex justify-between mb-2 text-sm font-bold text-emerald-700">
+                                    <span>Desc. proveedor</span>
+                                    <span>-${descGlobal.toFixed(2)}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between text-xl font-black text-slate-800 pt-3 border-t border-slate-100">
                                 <span>TOTAL</span>
-                                <span>${total.toFixed(2)}</span>
+                                <span>${totalFinal.toFixed(2)}</span>
                             </div>
                         </div>
 
@@ -786,7 +789,7 @@ const CreatePurchase = () => {
                                         type="number"
                                         min="0"
                                         step="0.01"
-                                        placeholder="Monto ($)"
+                                        placeholder={globalDiscount.type === 'PERCENT' ? 'Porcentaje (%)' : 'Monto ($)'}
                                         value={globalDiscount.amount || ''}
                                         onChange={e => setGlobalDiscount(p => ({ ...p, amount: parseFloat(e.target.value) || 0 }))}
                                         className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300"
@@ -811,7 +814,7 @@ const CreatePurchase = () => {
                                 {globalDiscount.amount > 0 && globalDiscount.type !== 'NONE' && (
                                     <div className="flex justify-between text-sm font-bold text-emerald-700 bg-emerald-50 rounded-xl px-3 py-2">
                                         <span>Descuento aplicado</span>
-                                        <span>-${Number(globalDiscount.amount).toFixed(2)}</span>
+                                        <span>-${descGlobal.toFixed(2)}</span>
                                     </div>
                                 )}
                             </div>
@@ -942,7 +945,7 @@ const CreatePurchase = () => {
                             <button
                                 onClick={() => {
                                     setPurchaseItems(prev => prev.map(item =>
-                                        item.product_id === showCostUpdateModal.productId
+                                        (item.line_id || item.product_id) === showCostUpdateModal.lineId
                                             ? {
                                                 ...item,
                                                 update_cost: true,

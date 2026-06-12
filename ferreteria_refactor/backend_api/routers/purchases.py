@@ -47,12 +47,12 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
             warehouse_id=order_data.warehouse_id,
             invoice_number=order_data.invoice_number,
             notes=order_data.notes,
-            total_amount=order_data.total_amount,
+            total_amount=Decimal("0.00"),
             paid_amount=0.0,
             payment_status=models.PaymentStatus.PENDING,
             purchase_date=purchase_date,
             due_date=due_date,
-            discount_amount=order_data.discount_amount or 0,
+            discount_amount=Decimal("0.00"),
             discount_type=order_data.discount_type or "NONE",
             discount_notes=order_data.discount_notes,
         )
@@ -60,6 +60,7 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
         db.flush()  # Get purchase ID
         
         updated_products_info = []
+        calculated_items_total = Decimal("0.00")
 
         # Process items
         for item in order_data.items:
@@ -71,8 +72,8 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                 new_prod = models.Product(
                     name=qp.name.strip(),
                     sku=qp.sku.strip() if qp.sku else None,
-                    price=float(qp.sale_price or item.unit_cost),
-                    cost_price=float(item.unit_cost),
+                    price=Decimal(str(qp.sale_price or item.unit_cost)),
+                    cost_price=Decimal(str(item.unit_cost)),
                     stock=0,
                     is_active=True,
                     is_discount_active=False,
@@ -90,11 +91,14 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                 continue
 
             # ── Herramienta 2: Descuento por ítem ────────────────
-            disc_pct    = float(item.discount_pct or 0)
-            disc_amount = float(item.discount_amount or 0)
+            disc_pct = Decimal(str(item.discount_pct or 0))
+            disc_amount = Decimal(str(item.discount_amount or 0))
+            gross_line_total = Decimal(str(item.unit_cost)) * Decimal(str(item.quantity))
             if disc_pct > 0:
-                disc_amount = round(float(item.unit_cost) * float(item.quantity) * disc_pct / 100, 4)
-            subtotal = round(float(item.unit_cost) * float(item.quantity) - disc_amount, 4)
+                disc_amount = (gross_line_total * disc_pct / Decimal("100")).quantize(Decimal("0.0001"))
+            disc_amount = max(Decimal("0.00"), min(disc_amount, gross_line_total))
+            subtotal = (gross_line_total - disc_amount).quantize(Decimal("0.0001"))
+            calculated_items_total += subtotal
 
             # SAVE PURCHASE ITEM (History)
             purchase_item = models.PurchaseItem(
@@ -173,8 +177,10 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                          pass # Price stays same, margin will be updated below automatically
  
             # Auto-update profit margin (Markup) based on new values
-            if product.cost_price > 0 and product.price > 0:
-                product.profit_margin = ((product.price - product.cost_price) / product.cost_price) * 100
+            cost_value = Decimal(str(product.cost_price or 0))
+            price_value = Decimal(str(product.price or 0))
+            if cost_value > 0 and price_value > 0:
+                product.profit_margin = ((price_value - cost_value) / cost_value) * Decimal("100")
 
             # Create Kardex entry LINKED TO WAREHOUSE
             kardex = models.Kardex(
@@ -199,12 +205,17 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                 "exchange_rate_id": product.exchange_rate_id
             })
         
+        global_discount = Decimal(str(order_data.discount_amount or 0))
+        global_discount = max(Decimal("0.00"), min(global_discount, calculated_items_total))
+        purchase.discount_amount = global_discount
+        purchase.total_amount = (calculated_items_total - global_discount).quantize(Decimal("0.01"))
+
         # Update supplier balance if credit purchase
         if order_data.payment_type == 'CREDIT':
-            supplier.current_balance += order_data.total_amount
+            supplier.current_balance += purchase.total_amount
         elif order_data.payment_type == 'CASH':
             # Mark as paid immediately
-            purchase.paid_amount = order_data.total_amount
+            purchase.paid_amount = purchase.total_amount
             purchase.payment_status = models.PaymentStatus.PAID
         
         # Flush all pending items/stock/kardex writes so the re-query below sees them
@@ -229,6 +240,9 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
             })
 
         return schemas.PurchaseOrderResponse.model_validate(purchase)
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
