@@ -39,6 +39,19 @@ export const NotificationProvider = ({ children }) => {
         fetchNotifications();
 
         const unsubscribe = subscribe('system:notification', (data) => {
+            if (data?.refresh || data?.action) {
+                fetchNotifications();
+                return;
+            }
+
+            const now = Date.now();
+            const startsAt = data?.starts_at ? new Date(data.starts_at).getTime() : null;
+            const expiresAt = data?.expires_at ? new Date(data.expires_at).getTime() : null;
+            if (data?.is_active === false || (startsAt && startsAt > now) || (expiresAt && expiresAt <= now)) {
+                fetchNotifications();
+                return;
+            }
+
             const type = data.message_type ?? 'banner';
 
             if (type === 'announcement') {
