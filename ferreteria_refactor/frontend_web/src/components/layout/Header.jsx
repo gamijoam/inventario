@@ -1,4 +1,4 @@
-import { Bell, ShoppingCart, LogOut, Settings, AlertTriangle, AlertCircle, BarChart2, TrendingUp, X, ChevronDown, HelpCircle, LifeBuoy, BookOpen } from 'lucide-react';
+import { Bell, ShoppingCart, LogOut, Settings, AlertTriangle, AlertCircle, BarChart2, TrendingUp, X, ChevronDown, HelpCircle, LifeBuoy, BookOpen, Building2 } from 'lucide-react';
 // import GlobalSearch from './GlobalSearch';
 import { Link } from 'react-router-dom';
 import { useConfig } from '../../context/ConfigContext';
@@ -172,6 +172,7 @@ export default function Header() {
     const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false);
     const [isTourModalOpen, setIsTourModalOpen] = useState(false);
     const [supportUnread, setSupportUnread] = useState(0);
+    const canAccessOwnerPortal = Boolean(user?.is_superuser || user?.is_org_owner || user?.org_role === 'owner');
 
     const secondaryCurrencies = currencies.filter(c => !c.is_anchor && c.is_active);
     const primaryRate = secondaryCurrencies.find(c => c.is_default) || secondaryCurrencies[0];
@@ -452,6 +453,11 @@ export default function Header() {
                                     <p className="text-xs text-slate-500 truncate">{user?.email || user?.role}</p>
                                 </div>
                                 <div className="p-1">
+                                    {canAccessOwnerPortal && (
+                                        <Link to="/owner/dashboard" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-bold text-indigo-700 transition-colors hover:bg-indigo-50">
+                                            <Building2 size={16} /> Portal empresarial
+                                        </Link>
+                                    )}
                                     <Link to="/config-center" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-600">
                                         <Settings size={16} /> Configuración
                                     </Link>
