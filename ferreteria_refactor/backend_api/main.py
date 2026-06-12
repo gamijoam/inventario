@@ -435,6 +435,13 @@ def repair_public_schema():
                 ))
                 print(f"[REPAIR] ✅ Columna {col_name} añadida.")
 
+        try:
+            conn.execute(text("UPDATE public.system_messages SET created_at = COALESCE(starts_at, NOW()) WHERE created_at IS NULL"))
+            conn.execute(text("ALTER TABLE public.system_messages ALTER COLUMN created_at SET DEFAULT NOW()"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_public_system_messages_target_tenant_schema ON public.system_messages(target_tenant_schema)"))
+        except Exception as e:
+            print(f"[REPAIR] Could not repair system_messages metadata: {e}")
+
         # 4. Reparar esquemas de inquilinos (Añadir is_menu_item a products)
         result = conn.execute(text("""
             SELECT schema_name 
