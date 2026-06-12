@@ -68,6 +68,11 @@ def _assert_org_role(org: Organization, user: User, allowed_roles: set[str], det
     return member
 
 
+def _assert_org_owner(org: Organization, user: User, detail: str = "Solo el owner puede modificar esta configuracion"):
+    """Verifica que el usuario sea owner de la organizacion o superadmin."""
+    return _assert_org_role(org, user, {"owner"}, detail)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # CRUD DE ORGANIZACIONES
 # ══════════════════════════════════════════════════════════════════════════════
@@ -646,22 +651,21 @@ def invite_member(
 ):
     """Invitar a un usuario a la organización (solo owner o superadmin)."""
     org = _get_org_or_404(db, org_id)
-    _assert_org_access(org, current_user)
-
-    _assert_org_role(org, current_user, {"owner"}, "Solo el owner puede invitar miembros")
+    _assert_org_owner(org, current_user, "Solo el owner puede invitar miembros")
     if data.role not in {"owner", "manager", "viewer"}:
         raise HTTPException(status_code=400, detail="Rol invalido para miembro de organizacion")
 
+    member_email = data.user_email.lower().strip()
     existing = db.query(OrganizationUser).filter(
         OrganizationUser.organization_id == org_id,
-        OrganizationUser.user_email == data.user_email.lower()
+        OrganizationUser.user_email == member_email
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="Este usuario ya es miembro de la organización")
 
     member = OrganizationUser(
         organization_id = org_id,
-        user_email      = data.user_email.lower().strip(),
+        user_email      = member_email,
         role            = data.role,
         can_switch      = data.can_switch,
         accepted_at     = get_venezuela_now()  # auto-aceptar (sin flujo de email por ahora)
@@ -680,7 +684,7 @@ def remove_member(
 ):
     """Eliminar un miembro de la organización."""
     org = _get_org_or_404(db, org_id)
-    _assert_org_role(org, current_user, {"owner"}, "Solo el owner puede eliminar miembros")
+    _assert_org_owner(org, current_user, "Solo el owner puede eliminar miembros")
     member = db.query(OrganizationUser).filter(
         OrganizationUser.id == member_id,
         OrganizationUser.organization_id == org_id
@@ -872,11 +876,7 @@ def update_org_whatsapp(
     if not org:
         raise HTTPException(status_code=404, detail="Organización no encontrada")
 
-    # Verificar permiso: owner o superadmin
-    if not current_user.is_superuser:
-        member = next((m for m in org.members if m.user_email == current_user.email), None)
-        if not member or member.role != "owner":
-            raise HTTPException(status_code=403, detail="Solo el owner puede configurar WhatsApp compartido")
+    _assert_org_owner(org, current_user, "Solo el owner puede configurar WhatsApp compartido")
 
     org.use_shared_whatsapp = config.use_shared_whatsapp
     org.whatsapp_instance   = config.whatsapp_instance if config.use_shared_whatsapp else None
