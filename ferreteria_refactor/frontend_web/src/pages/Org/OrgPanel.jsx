@@ -6,7 +6,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Building2, BarChart3, ArrowLeftRight, Package,
   ChevronRight, LogOut, ExternalLink, Store, Wifi,
-  PackageSearch, ShieldCheck, ArrowLeft, Menu, X
+  PackageSearch, ShieldCheck, Menu, X
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -147,14 +147,6 @@ export default function OrgPanel() {
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex min-h-[76px] max-w-[1680px] items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="hidden h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600 sm:flex"
-              title="Volver al sistema"
-            >
-              <ArrowLeft size={18} />
-            </button>
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-lg shadow-indigo-100">
               <Building2 size={22} />
             </div>
@@ -179,7 +171,7 @@ export default function OrgPanel() {
               onClick={() => navigate('/')}
               className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-600 transition-colors hover:bg-slate-50"
             >
-              <LogOut size={16} /> Sistema
+              <LogOut size={16} /> Ir al sistema
             </button>
           </div>
 
