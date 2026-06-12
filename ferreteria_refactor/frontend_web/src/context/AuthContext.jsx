@@ -31,7 +31,10 @@ export const AuthProvider = ({ children }) => {
                 full_name: currentUser.full_name,
                 is_active: currentUser.is_active,
                 preferences: currentUser.preferences || {},
-                tenant_id: currentUser.tenant_id // NEW: Expose tenant_id to frontend components
+                tenant_id: currentUser.tenant_id, // NEW: Expose tenant_id to frontend components
+                is_superuser: currentUser.is_superuser || false,
+                org_role: currentUser.org_role || null,
+                is_org_owner: currentUser.is_org_owner || false
             };
 
             setUser(userData);
@@ -57,7 +60,7 @@ export const AuthProvider = ({ children }) => {
         const initAuth = async () => {
             // Skip auth check for public routes
             // Skip auth check for public routes
-            const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/mobile/login', '/mobile-welcome'];
+            const publicRoutes = ['/login', '/owner/login', '/forgot-password', '/reset-password', '/mobile/login', '/mobile-welcome'];
 
             // ADAPTATION FOR HASH ROUTER
             const currentHash = window.location.hash || '#/';

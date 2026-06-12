@@ -866,6 +866,9 @@ class UserRead(BaseModel):
     preferences: Optional[Dict[str, Any]] = {}
     is_onboarding_completed: Optional[bool] = False   # Optional — tolera NULL en BD
     tenant_id: Optional[int] = None
+    is_superuser: Optional[bool] = False
+    org_role: Optional[str] = None
+    is_org_owner: Optional[bool] = False
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -125,6 +125,18 @@ def get_current_user_profile(
     # I should fetch the Tenant object to get the schema_name if that's what's needed.
     
     tenant_schema = None
+    org_role = None
+    is_org_owner = False
+    try:
+        from ..models.organization import Organization, OrganizationUser
+        org = db.query(Organization).filter(Organization.owner_email == current_user.email).first()
+        member = db.query(OrganizationUser).filter(OrganizationUser.user_email == current_user.email).first()
+        org_role = member.role if member else None
+        is_org_owner = bool(org or org_role == "owner")
+    except Exception:
+        org_role = None
+        is_org_owner = False
+
     if current_user.tenant_id:
          # Lazy load or query? 
          # current_user.tenant is likely a relationship.
@@ -142,7 +154,10 @@ def get_current_user_profile(
         "preferences": current_user.preferences,
         "is_onboarding_completed": current_user.is_onboarding_completed,
         "created_at": current_user.created_at,
-        "tenant_id": tenant_schema # Return the SCHEMA NAME (e.g. comercialasiatico)
+        "tenant_id": tenant_schema, # Return the SCHEMA NAME (e.g. comercialasiatico)
+        "is_superuser": current_user.is_superuser,
+        "org_role": org_role,
+        "is_org_owner": is_org_owner
     }
 
 @router.post("/me/onboarding-completed")

@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import OwnerProtectedRoute from './components/OwnerProtectedRoute';
 import { CartProvider } from './context/CartContext';
 import { CashProvider } from './context/CashContext';
 import { ConfigProvider } from './context/ConfigContext';
@@ -292,6 +293,7 @@ function App() {
                         <Suspense fallback={SuspenseFallback}>
                         <Routes>
                           <Route path="/login" element={<Login />} />
+                          <Route path="/owner/login" element={<Login ownerMode />} />
                           <Route path="/forgot-password" element={<ForgotPassword />} />
                           <Route path="/reset-password" element={<ResetPassword />} />
 
@@ -324,15 +326,31 @@ function App() {
                             <Route path="/cash-close" element={<CashClose />} />
                           </Route>
 
+                          {/* Owner Portal Routes - outside operative dashboard layout */}
+                          <Route path="/owner" element={
+                            <OwnerProtectedRoute>
+                              <OrgPanel />
+                            </OwnerProtectedRoute>
+                          }>
+                            <Route index element={<Navigate to="dashboard" replace />} />
+                            <Route path="dashboard" element={<ConsolidatedDashboard />} />
+                            <Route path="transfers" element={<InterCompanyTransfers />} />
+                            <Route path="stock-search" element={<StockSearch />} />
+                            <Route path="catalog" element={<SharedCatalog />} />
+                            <Route path="admin" element={<OrgConfig />} />
+                            <Route path="members" element={<Navigate to="/owner/admin" replace />} />
+                            <Route path="config" element={<Navigate to="/owner/admin" replace />} />
+                          </Route>
+
                           {/* Dashboard Layout Routes */}
                           <Route element={<ProtectedRoute />}>
                             <Route element={<DashboardLayout />}>
                               <Route path="/" element={<OnboardingGate><Dashboard /></OnboardingGate>} />
                               {/* Panel Multi-Empresa con layout propio */}
                               <Route path="/org" element={
-                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <OwnerProtectedRoute>
                                   <OrgPanel />
-                                </ProtectedRoute>
+                                </OwnerProtectedRoute>
                               }>
                                 <Route index element={<ConsolidatedDashboard />} />
                                 <Route path="dashboard" element={<ConsolidatedDashboard />} />

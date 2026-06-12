@@ -14,7 +14,7 @@ import apiClient from '../config/axios';
 
 import OrgSelector from './Org/OrgSelector';
 
-const Login = () => {
+const Login = ({ ownerMode = false }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -31,15 +31,16 @@ const Login = () => {
     const { business } = useConfig();
     const navigate = useNavigate();
     const location = useLocation();
+    const ownerLogin = ownerMode || location.pathname.startsWith('/owner/login');
 
     const reason = new URLSearchParams(location.search || '').get('reason');
     const sessionExpired = reason === 'session_expired';
 
     useEffect(() => {
         if (!loading && isAuthenticated && user) {
-            navigate('/');
+            navigate(ownerLogin ? '/owner/dashboard' : '/');
         }
-    }, [isAuthenticated, user, loading]);
+    }, [isAuthenticated, user, loading, ownerLogin]);
 
     useEffect(() => {
         const handleImpersonation = async () => {
@@ -118,7 +119,7 @@ const Login = () => {
                 setOrgCompanies(loginData.org_companies);
                 setShowOrgSelector(true);
             } else {
-                navigate('/');
+                navigate(ownerLogin ? '/owner/dashboard' : '/');
             }
         } catch (err) {
             setError(err.response?.data?.detail || 'Credenciales invalidas. Por favor intenta nuevamente.');
@@ -129,7 +130,7 @@ const Login = () => {
 
     const handleOrgSelect = (company) => {
         if (company.is_current || !company.switch_url) {
-            navigate('/');
+            navigate(ownerLogin ? '/owner/dashboard' : '/');
             return;
         }
         localStorage.setItem('selected_tenant', company.schema_name);
@@ -203,7 +204,7 @@ const Login = () => {
                                     Control operativo para vender, mover y medir mejor.
                                 </h1>
                                 <p className="max-w-lg text-base leading-7 text-indigo-100">
-                                    Acceso seguro al panel de ventas, inventario, reportes y administracion empresarial en tiempo real.
+                                    {ownerLogin ? 'Centro privado para duenos: empresas, permisos, traslados y administracion global.' : 'Acceso seguro al panel de ventas, inventario, reportes y administracion empresarial en tiempo real.'}
                                 </p>
                             </div>
                             <div className="grid grid-cols-3 gap-3 max-w-lg">
@@ -251,11 +252,11 @@ const Login = () => {
                         <section className="rounded-lg border border-slate-200 bg-white shadow-xl shadow-slate-200/70 overflow-hidden">
                             <div className="border-b border-slate-100 p-6 sm:p-7">
                                 <div className="mb-5 inline-flex items-center gap-2 rounded-lg bg-indigo-50 px-3 py-2 text-xs font-black text-indigo-700 border border-indigo-100">
-                                    <ShieldCheck size={14} /> Acceso protegido
+                                    <ShieldCheck size={14} /> {ownerLogin ? 'Acceso de dueno' : 'Acceso protegido'}
                                 </div>
-                                <h2 className="text-3xl font-black text-slate-950">Bienvenido de nuevo</h2>
+                                <h2 className="text-3xl font-black text-slate-950">{ownerLogin ? 'Portal empresarial' : 'Bienvenido de nuevo'}</h2>
                                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                                    Ingresa a <span className="font-black text-indigo-600">{business?.name || 'Mi Inventario'}</span> para continuar tu operacion.
+                                    {ownerLogin ? 'Ingresa con la cuenta duena para administrar tus empresas.' : <>Ingresa a <span className="font-black text-indigo-600">{business?.name || 'Mi Inventario'}</span> para continuar tu operacion.</>}
                                 </p>
                             </div>
 

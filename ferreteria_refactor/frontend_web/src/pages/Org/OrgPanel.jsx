@@ -3,7 +3,7 @@
  * Layout contenedor con navegación lateral propia.
  * Rutas hijas: /org/dashboard | /org/transfers | /org/catalog | /org/admin
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Building2, BarChart3, ArrowLeftRight, Package,
@@ -41,6 +41,16 @@ export default function OrgPanel() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [switching, setSwitching] = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
+  const basePath = location.pathname.startsWith('/owner') ? '/owner' : '/org';
+  const navGroups = useMemo(() => NAV_GROUPS.map(group => ({
+    ...group,
+    items: group.items.map(item => ({
+      ...item,
+      to: item.to.replace('/org', basePath),
+    })),
+  })), [basePath]);
+  const nav = useMemo(() => navGroups.flatMap(group => group.items), [navGroups]);
+
 
   useEffect(() => {
     // Cargar org del usuario actual (endpoint propio sin necesitar superadmin)
@@ -159,7 +169,7 @@ export default function OrgPanel() {
 
         {/* Nav principal */}
         <nav className="flex-1 py-3 space-y-1 px-2 overflow-y-auto">
-          {NAV_GROUPS.map(group => (
+          {navGroups.map(group => (
             <div key={group.title} className="space-y-1">
               {sidebarOpen && (
                 <p className="text-[10px] font-bold text-slate-500 uppercase px-2 pb-1 pt-2 ">
@@ -251,7 +261,7 @@ export default function OrgPanel() {
             <span>{org?.name || 'Organización'}</span>
             <ChevronRight size={14} />
             <span className="font-semibold text-slate-800 capitalize">
-              {NAV.find(n => location.pathname.startsWith(n.to))?.label || 'Panel'}
+              {nav.find(n => location.pathname.startsWith(n.to))?.label || 'Panel'}
             </span>
           </div>
           <div className="flex items-center gap-2">

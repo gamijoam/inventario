@@ -10,7 +10,6 @@ import {
     Truck,
     CreditCard,
     Briefcase,
-    Building2,
     Monitor,
     Printer,
     LayoutGrid,
@@ -51,39 +50,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     const location = useLocation();
     const { user } = useAuth();
     const { modules, business } = useConfig();
-    const [hasOrg, setHasOrg] = useState(() => {
-        try { return JSON.parse(localStorage.getItem('org_companies') || '[]').length > 1 || localStorage.getItem('has_multiple_companies') === 'true'; } catch { return false; }
-    });
-
-    // Consultar si el usuario tiene org con múltiples empresas
-    useEffect(() => {
-        if (!user?.role || user.role !== 'ADMIN') return;
-        // Primero revisar localStorage para respuesta inmediata
-        try {
-            const cached = JSON.parse(localStorage.getItem('org_companies') || '[]');
-            if (cached.length > 1) { setHasOrg(true); return; }
-        } catch {}
-        // Luego consultar el backend
-        import('../../config/axios').then(({ default: apiClient }) => {
-            apiClient.get('/organizations/my-org')
-                .then(r => {
-                    if (r.data && r.data.length > 0) {
-                        setHasOrg(true);
-                        localStorage.setItem('has_multiple_companies', 'true');
-                        // Cargar los tenants de la org
-                        return apiClient.get('/organizations/' + r.data[0].id + '/tenants');
-                    }
-                })
-                .then(r => {
-                    if (r?.data && r.data.length > 0) {
-                        localStorage.setItem('org_companies', JSON.stringify(r.data));
-                    }
-                })
-                .catch(() => {});
-        });
-    }, [user?.email]);
-
-
     // En desarrollo, VITE_FORCE_ALL_MODULES=true (en .env.development) activa todos los módulos
     // para poder probarlos sin depender de los feature flags reales del backend.
     // En producción/QA la variable no existe y se usan los flags reales del tenant.
@@ -197,11 +163,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             type: 'single',
             item: { icon: Settings, label: 'Configuración', path: '/config-center' }
         }] : []),
-        // PANEL MULTI-EMPRESA — usa estado hasOrg que se consulta al backend
-        ...(isAdmin && hasOrg ? [{
-            type: 'single',
-            item: { icon: Building2, label: 'Panel Empresarial', path: '/org/dashboard' }
-        }] : [])
+        // Panel empresarial movido al portal owner (/owner/login).
     ];
 
     const [expandedGroup, setExpandedGroup] = useState(null);
@@ -214,7 +176,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         }
         if (normalizedLabel === 'Centro de Inventario') return 'Inventario';
         if (normalizedLabel === 'Finanzas') return 'Finanzas';
-        if (normalizedLabel === 'Configuracion' || normalizedLabel === 'Panel Empresarial') return 'Administraci\u00f3n';
+        if (normalizedLabel === 'Configuracion') return 'Administraci\u00f3n';
         return 'M\u00f3dulos';
     };
 
