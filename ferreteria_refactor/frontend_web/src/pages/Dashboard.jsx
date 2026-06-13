@@ -149,7 +149,7 @@ const KPICard = ({ title, value, prevValue, icon: Icon, isCurrency = true, color
             type="button"
             onClick={onClick}
             className={cn(
-                "relative min-h-[112px] w-full overflow-hidden rounded-lg border bg-white p-3 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-200",
+                "group relative min-h-[112px] w-full overflow-hidden rounded-lg border bg-white p-3 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-200",
                 active ? "border-indigo-300 ring-2 ring-indigo-100" : "border-slate-200"
             )}
         >
@@ -166,15 +166,25 @@ const KPICard = ({ title, value, prevValue, icon: Icon, isCurrency = true, color
                 </div>
             </div>
             {pct !== null ? (
-                <div className="mt-3 flex items-center gap-1.5 text-[11px]">
-                    <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-black ${up ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-                        {up ? <ArrowUpRight size={12} strokeWidth={3}/> : <ArrowDownRight size={12} strokeWidth={3}/>}
-                        {Math.abs(pct).toFixed(1)}%
+                <div className="mt-3 flex items-center justify-between gap-2 text-[11px]">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                        <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-black ${up ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                            {up ? <ArrowUpRight size={12} strokeWidth={3}/> : <ArrowDownRight size={12} strokeWidth={3}/>}
+                            {Math.abs(pct).toFixed(1)}%
+                        </span>
+                        <span className="truncate font-semibold text-slate-400">vs anterior</span>
+                    </div>
+                    <span className={cn("inline-flex shrink-0 items-center gap-0.5 font-black transition-colors", active ? "text-indigo-700" : "text-slate-400 group-hover:text-indigo-600")}>
+                        Detalle <ChevronRight size={12} />
                     </span>
-                    <span className="truncate font-semibold text-slate-400">vs anterior</span>
                 </div>
             ) : (
-                <div className="mt-3 text-[11px] font-semibold text-slate-400">Sin comparativo</div>
+                <div className="mt-3 flex items-center justify-between gap-2 text-[11px]">
+                    <span className="font-semibold text-slate-400">Sin comparativo</span>
+                    <span className={cn("inline-flex items-center gap-0.5 font-black transition-colors", active ? "text-indigo-700" : "text-slate-400 group-hover:text-indigo-600")}>
+                        Detalle <ChevronRight size={12} />
+                    </span>
+                </div>
             )}
         </button>
     );
@@ -226,16 +236,26 @@ const KPIDetailPanel = ({ detail, onClose }) => {
                     </div>
                 ))}
             </div>
-            {detail.items?.length > 0 && (
-                <div className="mt-3 grid gap-2 lg:grid-cols-2">
-                    {detail.items.slice(0, 4).map((item, idx) => (
-                        <div key={`${item.label}-${idx}`} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-white px-3 py-2">
-                            <span className="truncate text-xs font-bold text-slate-600">{item.label}</span>
-                            <span className="shrink-0 text-xs font-black text-slate-900">{item.value}</span>
-                        </div>
-                    ))}
+            <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50/70 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{detail.itemsLabel || 'Detalle relacionado'}</span>
+                    {detail.items?.length > 4 && <span className="text-[10px] font-black text-slate-400">+{detail.items.length - 4} m\u00e1s</span>}
                 </div>
-            )}
+                {detail.items?.length > 0 ? (
+                    <div className="grid gap-2 lg:grid-cols-2">
+                        {detail.items.slice(0, 4).map((item, idx) => (
+                            <div key={`${item.label}-${idx}`} className="flex items-center justify-between gap-3 rounded-md border border-slate-100 bg-white px-3 py-2 shadow-sm">
+                                <span className="truncate text-xs font-bold text-slate-600">{item.label}</span>
+                                <span className="shrink-0 text-xs font-black text-slate-900">{item.value}</span>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="rounded-md border border-dashed border-slate-200 bg-white px-3 py-4 text-center text-xs font-bold text-slate-400">
+                        Sin movimientos relacionados para este periodo.
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
@@ -490,8 +510,9 @@ const Dashboard = () => {
                 metrics: [
                     { label: 'Ingresos', value: fmt(revenue), className: 'text-emerald-600' },
                     { label: 'Periodo anterior', value: fmt(prevRevenue), hint: prevRevenue > 0 ? 'Base comparativa' : 'Sin ventas previas' },
-                    { label: 'Pagos usados', value: fmtNumber(paymentPie.length), hint: 'Metodos activos en el periodo' },
+                    { label: 'Pagos usados', value: fmtNumber(paymentPie.length), hint: 'M\u00e9todos activos en el periodo' },
                 ],
+                itemsLabel: 'M\u00e9todos de pago',
                 items: paymentPie.map(item => ({ label: item.name, value: fmt(item.value) })),
                 action: { label: 'Ver reportes', onClick: () => navigate('/reports') },
             },
@@ -506,6 +527,7 @@ const Dashboard = () => {
                     { label: 'Anterior', value: fmt(prevProfit) },
                     { label: 'Margen', value: `${marginPct.toFixed(1)}%`, className: marginPct > 0 ? 'text-emerald-600' : 'text-slate-900' },
                 ],
+                itemsLabel: 'Productos con m\u00e1s ingreso',
                 items: topProducts.map(item => ({ label: item.product_name, value: fmt(item.revenue) })),
                 action: { label: 'Top productos', onClick: () => navigate('/reports?tab=ventas') },
             },
@@ -514,12 +536,13 @@ const Dashboard = () => {
                 badge: `${fmtNumber(transactions)} ventas`,
                 icon: ShoppingCart,
                 iconClass: 'border-blue-100 bg-blue-50 text-blue-600',
-                description: 'Operaciones cerradas durante el periodo actual y lectura rapida de actividad reciente.',
+                description: 'Operaciones cerradas durante el periodo actual y lectura r\u00e1pida de actividad reciente.',
                 metrics: [
                     { label: 'Actual', value: fmtNumber(transactions), className: 'text-blue-600' },
                     { label: 'Anterior', value: fmtNumber(prevTransactions) },
                     { label: 'Ticket prom.', value: fmt(avgTicket), className: 'text-violet-600' },
                 ],
+                itemsLabel: 'Ventas recientes',
                 items: recentSales.map(item => ({ label: item.customer_name || item.client_name || `Venta #${item.id || ''}`, value: fmt(item.total || item.total_amount || 0) })),
                 action: { label: 'Abrir POS', onClick: () => navigate('/pos') },
             },
@@ -534,12 +557,13 @@ const Dashboard = () => {
                     { label: 'Ticket anterior', value: fmt(prevAvgTicket) },
                     { label: 'Transacciones', value: fmtNumber(transactions) },
                 ],
+                itemsLabel: 'Comportamiento diario',
                 items: chartData.slice(-4).map(item => ({ label: item.name, value: fmt(item.Ventas || 0) })),
                 action: { label: 'Ver ventas', onClick: () => navigate('/reports?tab=ventas') },
             },
             credits: {
-                title: 'Creditos pendientes',
-                badge: pendingCredits > 0 ? 'Por cobrar' : 'Al d?a',
+                title: 'Cr\u00e9ditos pendientes',
+                badge: pendingCredits > 0 ? 'Por cobrar' : 'Al d\u00eda',
                 icon: CreditCard,
                 iconClass: 'border-amber-100 bg-amber-50 text-amber-600',
                 description: 'Saldo por cobrar y alertas de vencimiento de clientes.',
@@ -548,19 +572,23 @@ const Dashboard = () => {
                     { label: 'Vencidos', value: fmtNumber(alerts.overdueCredits), className: alerts.overdueCredits > 0 ? 'text-rose-600' : 'text-slate-900' },
                     { label: 'Estado', value: pendingCredits > 0 ? 'Revisar' : 'OK' },
                 ],
-                action: { label: 'Ver cr?ditos', onClick: () => navigate('/accounts-receivable') },
+                itemsLabel: 'Estado de cobranza',
+                items: alerts.overdueCredits > 0 ? [{ label: 'Clientes vencidos', value: fmtNumber(alerts.overdueCredits) }] : [],
+                action: { label: 'Ver cr\u00e9ditos', onClick: () => navigate('/accounts-receivable') },
             },
             services: {
-                title: 'Ordenes de taller',
+                title: '\u00d3rdenes de taller',
                 badge: modules?.services ? 'Servicios' : 'Inactivo',
                 icon: Wrench,
                 iconClass: 'border-rose-100 bg-rose-50 text-rose-600',
-                description: 'Ordenes listas o pendientes de atencion en servicios y taller.',
+                description: '\u00d3rdenes listas o pendientes de atenci\u00f3n en servicios y taller.',
                 metrics: [
                     { label: 'Listas', value: fmtNumber(pendingServices), className: pendingServices > 0 ? 'text-rose-600' : 'text-slate-900' },
-                    { label: 'Modulo', value: modules?.services ? 'Activo' : 'Inactivo' },
-                    { label: 'Accion', value: pendingServices > 0 ? 'Cobrar' : 'Sin pendientes' },
+                    { label: 'M\u00f3dulo', value: modules?.services ? 'Activo' : 'Inactivo' },
+                    { label: 'Acci\u00f3n', value: pendingServices > 0 ? 'Cobrar' : 'Sin pendientes' },
                 ],
+                itemsLabel: 'Pendientes de servicio',
+                items: pendingServices > 0 ? [{ label: '\u00d3rdenes listas', value: fmtNumber(pendingServices) }] : [],
                 action: { label: 'Ir a servicios', onClick: () => navigate('/services') },
             },
         };
