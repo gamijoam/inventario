@@ -949,6 +949,7 @@ class PurchaseItem(Base):
     discount_pct = Column(Numeric(5, 2), default=0)
     discount_amount = Column(Numeric(18, 4), default=0)
     subtotal = Column(Numeric(18, 4), nullable=False)
+    serial_numbers = Column(Text, nullable=True)  # IMEIs/seriales recibidos en esta linea de compra
 
     # Relationships
     purchase = relationship("PurchaseOrder", back_populates="items")

@@ -19,6 +19,11 @@ const createLineId = (prefix = 'line') => `${prefix}_${Date.now()}_${Math.random
 
 const toMoney = (value) => Number.parseFloat(value) || 0;
 
+const parseSerials = (value = '') => String(value)
+    .split(/[\s,;]+/)
+    .map(v => v.trim().toUpperCase())
+    .filter(Boolean);
+
 const CreatePurchase = () => {
     const navigate = useNavigate();
     const help = useHelp();
@@ -162,6 +167,8 @@ const CreatePurchase = () => {
             original_cost: 0,
             current_price: parseFloat(quickProductSalePrice) || 0,
             subtotal: 0,
+            has_imei: false,
+            serial_text: '',
             isNew: true,
             tempId,
         }]);
@@ -197,6 +204,8 @@ const CreatePurchase = () => {
                 current_price: Number(product.price) || 0,
                 profit_margin: Number(product.profit_margin) || 0,
                 tax_rate: Number(product.tax_rate) || 0,
+                has_imei: Boolean(product.has_imei),
+                serial_text: '',
                 subtotal: Number(product.cost_price) || 0
             }]);
         }
@@ -255,6 +264,23 @@ const CreatePurchase = () => {
             return;
         }
 
+        const invalidSerialItem = purchaseItems.find(item => {
+            if (!item.has_imei) return false;
+            const qty = toMoney(item.quantity);
+            const serials = parseSerials(item.serial_text);
+            return !Number.isInteger(qty) || serials.length !== qty || new Set(serials).size !== serials.length;
+        });
+        if (invalidSerialItem) {
+            const qty = toMoney(invalidSerialItem.quantity);
+            const serials = parseSerials(invalidSerialItem.serial_text);
+            const duplicated = serials.length !== new Set(serials).size;
+            toast.error(duplicated
+                ? `Hay IMEIs duplicados en ${invalidSerialItem.product_name}`
+                : `${invalidSerialItem.product_name} requiere ${Number.isInteger(qty) ? qty : 'cantidad entera'} IMEI(s).`
+            );
+            return;
+        }
+
         try {
             // Use selected warehouse or default to 1 (safeguard)
             const warehouseId = selectedWarehouse || 1;
@@ -280,6 +306,7 @@ const CreatePurchase = () => {
                     update_cost:  item.update_cost !== undefined ? item.update_cost : (item.unit_cost !== item.original_cost),
                     update_price: item.update_price || false,
                     new_sale_price: item.new_sale_price || null,
+                    serial_numbers: item.has_imei ? parseSerials(item.serial_text) : [],
                 })),
                 payment_type: paymentType
             };
@@ -567,6 +594,18 @@ const CreatePurchase = () => {
                                                 </div>
                                             </div>
 
+                                            {item.has_imei && (
+                                                <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 p-3">
+                                                    <label className="mb-1 block text-[10px] font-black uppercase tracking-wide text-indigo-600">IMEIs / Seriales ({parseSerials(item.serial_text).length}/{toMoney(item.quantity) || 0})</label>
+                                                    <textarea
+                                                        value={item.serial_text || ''}
+                                                        onChange={(e) => updateLine(item.line_id || item.product_id, { serial_text: e.target.value })}
+                                                        className="h-20 w-full rounded-lg border border-indigo-100 bg-white px-3 py-2 font-mono text-xs outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                                        placeholder="Escanea o pega un IMEI por linea"
+                                                    />
+                                                </div>
+                                            )}
+
                                             <div className="mt-3 pt-2 border-t border-slate-100 flex justify-between items-center">
                                                 <div className="flex gap-2">
                                                     <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100">M: {item.profit_margin}%</span>
@@ -614,7 +653,8 @@ const CreatePurchase = () => {
                                         const projectedPrice = item.unit_cost * (1 + (item.profit_margin || 0) / 100) * (1 + (item.tax_rate || 0) / 100);
 
                                         return (
-                                            <tr key={item.line_id || item.product_id} className="hover:bg-slate-50/80 transition-colors group">
+                                            <React.Fragment key={item.line_id || item.product_id}>
+                                            <tr className="hover:bg-slate-50/80 transition-colors group">
                                                 <td className="px-4 py-3">
                                                     <div className="font-bold text-slate-800">{item.product_name}</div>
                                                     <div className="text-xs text-slate-400 mt-0.5 font-medium">
@@ -692,6 +732,27 @@ const CreatePurchase = () => {
                                                     </button>
                                                 </td>
                                             </tr>
+                                            {item.has_imei && (
+                                                <tr className="bg-indigo-50/50">
+                                                    <td colSpan="7" className="px-4 pb-4">
+                                                        <div className="rounded-lg border border-indigo-100 bg-white p-3">
+                                                            <div className="mb-2 flex items-center justify-between gap-3">
+                                                                <label className="text-[10px] font-black uppercase tracking-wide text-indigo-600">IMEIs / Seriales recibidos</label>
+                                                                <span className={clsx("rounded-full px-2 py-0.5 text-[10px] font-black", parseSerials(item.serial_text).length === toMoney(item.quantity) ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")}>
+                                                                    {parseSerials(item.serial_text).length}/{toMoney(item.quantity) || 0}
+                                                                </span>
+                                                            </div>
+                                                            <textarea
+                                                                value={item.serial_text || ''}
+                                                                onChange={(e) => updateLine(item.line_id || item.product_id, { serial_text: e.target.value })}
+                                                                className="h-20 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                                                                placeholder="Escanea o pega los IMEIs. Puedes separarlos por salto de linea, coma o espacio."
+                                                            />
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                            </React.Fragment>
                                         )
                                     })
                                 )}

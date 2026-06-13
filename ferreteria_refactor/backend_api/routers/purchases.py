@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from decimal import Decimal
+from collections import Counter
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
@@ -90,6 +91,26 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
             if not product:
                 continue
 
+            serial_numbers = [str(sn).strip().upper() for sn in (item.serial_numbers or []) if str(sn).strip()]
+            is_serialized = bool(getattr(product, 'has_imei', False))
+            if is_serialized:
+                if Decimal(str(item.quantity)) != Decimal(int(item.quantity)):
+                    raise HTTPException(status_code=400, detail=f"El producto {product.name} maneja IMEI y requiere cantidad entera.")
+                expected_serials = int(item.quantity)
+                if not serial_numbers:
+                    raise HTTPException(status_code=400, detail=f"El producto {product.name} maneja IMEI/Serial. Ingresa {expected_serials} IMEI(s) para registrar la compra.")
+                if len(serial_numbers) != expected_serials:
+                    raise HTTPException(status_code=400, detail=f"El producto {product.name} requiere {expected_serials} IMEI(s), pero recibio {len(serial_numbers)}.")
+                repeated = sorted([serial for serial, count in Counter(serial_numbers).items() if count > 1])
+                if repeated:
+                    raise HTTPException(status_code=400, detail=f"IMEIs duplicados en la compra: {', '.join(repeated[:5])}")
+                existing_serials = db.query(models.ProductInstance.serial_number).filter(models.ProductInstance.serial_number.in_(serial_numbers)).all()
+                if existing_serials:
+                    existing = [row[0] for row in existing_serials]
+                    raise HTTPException(status_code=400, detail=f"Estos IMEIs ya existen en inventario: {', '.join(existing[:5])}")
+            elif serial_numbers:
+                raise HTTPException(status_code=400, detail=f"El producto {product.name} no maneja IMEI/Serial. Quita los seriales de esa linea.")
+
             # ── Herramienta 2: Descuento por ítem ────────────────
             disc_pct = Decimal(str(item.discount_pct or 0))
             disc_amount = Decimal(str(item.discount_amount or 0))
@@ -109,6 +130,7 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                 discount_pct=disc_pct,
                 discount_amount=disc_amount,
                 subtotal=subtotal,
+                serial_numbers='\n'.join(serial_numbers) if serial_numbers else None,
             )
             db.add(purchase_item)
 
@@ -181,6 +203,10 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
             price_value = Decimal(str(product.price or 0))
             if cost_value > 0 and price_value > 0:
                 product.profit_margin = ((price_value - cost_value) / cost_value) * Decimal("100")
+
+            if serial_numbers:
+                for serial in serial_numbers:
+                    db.add(models.ProductInstance(product_id=product.id, warehouse_id=order_data.warehouse_id, serial_number=serial, status=models.ProductInstanceStatus.AVAILABLE, cost=item.unit_cost, created_at=purchase_date))
 
             # Create Kardex entry LINKED TO WAREHOUSE
             kardex = models.Kardex(
@@ -334,6 +360,22 @@ def void_purchase_order(
             continue
 
         qty = float(item.quantity)
+        item_serials = [s.strip().upper() for s in (item.serial_numbers or '').replace(',', '\n').split() if s.strip()]
+        if item_serials:
+            instances = db.query(models.ProductInstance).filter(
+                models.ProductInstance.product_id == product.id,
+                models.ProductInstance.warehouse_id == purchase.warehouse_id,
+                models.ProductInstance.serial_number.in_(item_serials)
+            ).all()
+            found = {inst.serial_number for inst in instances}
+            missing = sorted(set(item_serials) - found)
+            if missing:
+                raise HTTPException(status_code=400, detail=f"No se puede anular: faltan IMEIs de la compra {', '.join(missing[:5])}")
+            blocked = [inst.serial_number for inst in instances if inst.status != models.ProductInstanceStatus.AVAILABLE]
+            if blocked:
+                raise HTTPException(status_code=400, detail=f"No se puede anular: IMEIs ya no disponibles {', '.join(blocked[:5])}")
+            for inst in instances:
+                db.delete(inst)
 
         # Reverse warehouse stock
         if purchase.warehouse_id:

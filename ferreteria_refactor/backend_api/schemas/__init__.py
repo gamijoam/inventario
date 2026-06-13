@@ -1030,6 +1030,7 @@ class PurchaseItemCreate(BaseModel):
     update_cost: bool = False
     update_price: bool = False
     new_sale_price: Optional[Decimal] = None
+    serial_numbers: List[str] = Field(default_factory=list)  # IMEIs/seriales recibidos para productos serializados
     is_combo: bool = False
     is_service: bool = False
     is_barbershop_service: bool = False
@@ -1065,6 +1066,7 @@ class PurchaseItemRead(BaseModel):
     product_id: int
     quantity: Decimal
     unit_cost: Decimal
+    serial_numbers: Optional[str] = None
     product: Optional[PurchaseProductBasic] = None
 
     model_config = ConfigDict(from_attributes=True)
