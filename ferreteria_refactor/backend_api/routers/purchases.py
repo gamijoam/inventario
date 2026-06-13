@@ -24,6 +24,13 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
     - Cost price updates
     """
     try:
+        if not order_data.items:
+            raise HTTPException(status_code=400, detail="Agrega al menos un producto a la compra")
+
+        valid_payment_types = {"CASH", "CREDIT"}
+        if order_data.payment_type not in valid_payment_types:
+            raise HTTPException(status_code=400, detail="Tipo de pago invalido. Usa contado o credito.")
+
         # Get supplier
         supplier = db.query(models.Supplier).filter(models.Supplier.id == order_data.supplier_id).first()
         if not supplier:
@@ -87,9 +94,19 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                 db.flush()
                 product_id = new_prod.id
 
+            if not product_id:
+                raise HTTPException(status_code=400, detail="Cada linea de compra debe tener un producto o un producto rapido valido")
+
             product = db.query(models.Product).filter(models.Product.id == product_id).first()
             if not product:
-                continue
+                raise HTTPException(status_code=404, detail=f"Producto #{product_id} no encontrado")
+
+            quantity = Decimal(str(item.quantity or 0))
+            unit_cost = Decimal(str(item.unit_cost or 0))
+            if quantity <= 0:
+                raise HTTPException(status_code=400, detail=f"La cantidad de {product.name} debe ser mayor a cero")
+            if unit_cost < 0:
+                raise HTTPException(status_code=400, detail=f"El costo de {product.name} no puede ser negativo")
 
             serial_numbers = [str(sn).strip().upper() for sn in (item.serial_numbers or []) if str(sn).strip()]
             is_serialized = bool(getattr(product, 'has_imei', False))
@@ -114,6 +131,10 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
             # ── Herramienta 2: Descuento por ítem ────────────────
             disc_pct = Decimal(str(item.discount_pct or 0))
             disc_amount = Decimal(str(item.discount_amount or 0))
+            if disc_pct < 0 or disc_pct > 100:
+                raise HTTPException(status_code=400, detail=f"El descuento porcentual de {product.name} debe estar entre 0 y 100")
+            if disc_amount < 0:
+                raise HTTPException(status_code=400, detail=f"El descuento de {product.name} no puede ser negativo")
             gross_line_total = Decimal(str(item.unit_cost)) * Decimal(str(item.quantity))
             if disc_pct > 0:
                 disc_amount = (gross_line_total * disc_pct / Decimal("100")).quantize(Decimal("0.0001"))
@@ -234,6 +255,8 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
         global_discount = Decimal(str(order_data.discount_amount or 0))
         global_discount = max(Decimal("0.00"), min(global_discount, calculated_items_total))
         purchase.discount_amount = global_discount
+        if calculated_items_total <= 0:
+            raise HTTPException(status_code=400, detail="El total de la compra debe ser mayor a cero")
         purchase.total_amount = (calculated_items_total - global_discount).quantize(Decimal("0.01"))
 
         # Update supplier balance if credit purchase
@@ -378,30 +401,40 @@ def void_purchase_order(
                 db.delete(inst)
 
         # Reverse warehouse stock
+        qty_decimal = Decimal(str(item.quantity or 0))
         if purchase.warehouse_id:
             product_stock = db.query(models.ProductStock).filter(
                 models.ProductStock.product_id == product.id,
                 models.ProductStock.warehouse_id == purchase.warehouse_id
             ).first()
             if product_stock:
-                product_stock.quantity = max(0, float(product_stock.quantity) - qty)
+                product_stock.quantity = max(Decimal("0"), Decimal(str(product_stock.quantity or 0)) - qty_decimal)
 
         # Reverse global stock
-        product.stock = max(0, float(product.stock) - qty)
+        product.stock = max(Decimal("0"), Decimal(str(product.stock or 0)) - qty_decimal)
 
         # Kardex reversal entry
         kardex = models.Kardex(
             product_id=product.id,
             movement_type="ADJUSTMENT_OUT",
-            quantity=-qty,
+            quantity=-qty_decimal,
             balance_after=product.stock,
-            description=f"ANULACIÓN factura compra #{purchase.invoice_number or purchase.id}",
+            description=f"ANULACION factura compra #{purchase.invoice_number or purchase.id}",
             warehouse_id=purchase.warehouse_id
         )
         db.add(kardex)
         reversed_items.append({"product_id": product.id, "name": product.name, "quantity": qty})
 
     invoice_ref = purchase.invoice_number or f"#{purchase.id}"
+    supplier = db.query(models.Supplier).filter(models.Supplier.id == purchase.supplier_id).first()
+    if supplier:
+        outstanding = max(
+            Decimal("0.00"),
+            Decimal(str(purchase.total_amount or 0)) - Decimal(str(purchase.paid_amount or 0))
+        )
+        if outstanding > 0:
+            supplier.current_balance = max(Decimal("0.00"), Decimal(str(supplier.current_balance or 0)) - outstanding)
+
     db.delete(purchase)
     db.commit()
 
