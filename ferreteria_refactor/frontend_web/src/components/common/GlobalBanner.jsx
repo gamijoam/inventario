@@ -4,7 +4,7 @@ import { cn } from '../../utils/cn';
 import { useNotifications } from '../../context/NotificationContext';
 
 const GlobalBanner = () => {
-    const { notifications } = useNotifications();
+    const { notifications, markAsRead, isPopupDismissed, dismissPopup } = useNotifications();
     const [activeNotification, setActiveNotification] = useState(null);
     const [visible, setVisible] = useState(false);
 
@@ -13,14 +13,14 @@ const GlobalBanner = () => {
         // 1. If there's a LIVE (real-time) notification that hasn't been dismissed, show it.
         // 2. If there's a CRITICAL notification that hasn't been dismissed, show it.
 
-        const live = notifications.find(n => n.isLive && !n.isRead && !localStorage.getItem(`dismissed_popup_${n.id}`));
+        const live = notifications.find(n => n.isLive && !n.isRead && !isPopupDismissed(n.id));
         if (live) {
             setActiveNotification(live);
             setVisible(true);
             return;
         }
 
-        const critical = notifications.find(n => n.level === 'critical' && !n.isRead && !localStorage.getItem(`dismissed_popup_${n.id}`));
+        const critical = notifications.find(n => n.level === 'critical' && !n.isRead && !isPopupDismissed(n.id));
         if (critical) {
             setActiveNotification(critical);
             setVisible(true);
@@ -31,11 +31,12 @@ const GlobalBanner = () => {
         if (!live && !critical) {
             setVisible(false);
         }
-    }, [notifications]);
+    }, [notifications, isPopupDismissed]);
 
     const handleDismiss = () => {
         if (activeNotification) {
-            localStorage.setItem(`dismissed_popup_${activeNotification.id}`, 'true');
+            dismissPopup(activeNotification.id);
+            markAsRead(activeNotification.id);
             setVisible(false);
         }
     };
@@ -76,9 +77,6 @@ const GlobalBanner = () => {
                 styles.bg,
                 "shadow-[0_20px_50px_rgba(0,0,0,0.3)] text-white overflow-hidden relative"
             )}>
-                {/* Decorative glow */}
-                <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-
                 <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-white/20 rounded-xl">

@@ -162,8 +162,11 @@ export const AuthProvider = ({ children }) => {
                 if (
                     key &&
                     (key.startsWith('announced_') ||       // AnnouncementModal seen
+                     key.startsWith('announced:') ||       // scoped AnnouncementModal seen
                      key.startsWith('dismissed_popup_') || // GlobalBanner dismissed
-                     key === 'read_notifications')         // Notification read list
+                     key.startsWith('dismissed_popup:') || // scoped GlobalBanner dismissed
+                     key === 'read_notifications' ||       // legacy Notification read list
+                     key.startsWith('read_notifications:'))         // Notification read list
                 ) {
                     preserved[key] = localStorage.getItem(key);
                 }

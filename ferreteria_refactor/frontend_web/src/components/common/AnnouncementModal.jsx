@@ -34,7 +34,7 @@ function parseFeatures(content) {
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 export default function AnnouncementModal() {
-    const { announcements, dismissAnnouncement } = useNotifications();
+    const { announcements, dismissAnnouncement, isAnnouncementDismissed } = useNotifications();
     const [visible, setVisible]   = useState(false);
     const [closing, setClosing]   = useState(false);
     const [current, setCurrent]   = useState(null);
@@ -45,7 +45,7 @@ export default function AnnouncementModal() {
         if (!announcements || announcements.length === 0) return;
 
         const pending = announcements.find(
-            a => !localStorage.getItem(`announced_${a.id}`)
+            a => !isAnnouncementDismissed(a.id)
         );
 
         if (pending) {
@@ -55,13 +55,12 @@ export default function AnnouncementModal() {
             const t = setTimeout(() => setVisible(true), 600);
             return () => clearTimeout(t);
         }
-    }, [announcements]);
+    }, [announcements, isAnnouncementDismissed]);
 
     const handleClose = () => {
         // Mark as seen IMMEDIATELY (sync) before the animation — prevents re-show
         // if the tab closes or navigates during the 250ms closing animation.
         if (current) {
-            localStorage.setItem(`announced_${current.id}`, 'true');
             dismissAnnouncement(current.id);
         }
         setClosing(true);

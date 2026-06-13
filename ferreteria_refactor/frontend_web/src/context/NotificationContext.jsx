@@ -1,14 +1,72 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import apiClient from '../config/axios';
 import { useWebSocket } from './WebSocketContext';
+import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext(null);
+const LEGACY_READ_KEY = 'read_notifications';
+
+const resolveTenantScope = () => {
+    const hostname = window.location.hostname || 'local';
+    const parts = hostname.split('.');
+    let tenant = null;
+
+    if (parts.length >= 3 && !hostname.includes('localhost')) {
+        const subdomain = parts[0];
+        if (!['www', 'api', 'app', 'dashboard', 'admin'].includes(subdomain)) {
+            tenant = subdomain;
+        }
+    }
+
+    if (!tenant) tenant = localStorage.getItem('selected_tenant') || 'public';
+    return tenant.replace('.qa', '').trim().toLowerCase() || 'public';
+};
+
+const parseStoredList = (key) => {
+    try {
+        const value = JSON.parse(localStorage.getItem(key) || '[]');
+        return Array.isArray(value) ? value : [];
+    } catch {
+        return [];
+    }
+};
 
 export const NotificationProvider = ({ children }) => {
     const [notifications,  setNotifications]  = useState([]);  // type: banner
     const [announcements,  setAnnouncements]  = useState([]);  // type: announcement
     const [unreadCount,    setUnreadCount]    = useState(0);
     const { subscribe } = useWebSocket();
+    const { user } = useAuth();
+
+    const storageScope = useMemo(() => {
+        const tenant = resolveTenantScope();
+        const userKey = user?.id || user?.username || 'anon';
+        return `${tenant}:${userKey}`;
+    }, [user?.id, user?.username]);
+
+    const readKey = useMemo(() => `read_notifications:${storageScope}`, [storageScope]);
+    const popupKey = useCallback((id) => `dismissed_popup:${storageScope}:${id}`, [storageScope]);
+    const announcementKey = useCallback((id) => `announced:${storageScope}:${id}`, [storageScope]);
+
+    const getReadIds = useCallback(() => {
+        const scoped = parseStoredList(readKey);
+        const legacy = parseStoredList(LEGACY_READ_KEY);
+        return Array.from(new Set([...scoped, ...legacy]));
+    }, [readKey]);
+
+    const isPopupDismissed = useCallback((id) => (
+        localStorage.getItem(popupKey(id)) === 'true'
+        || localStorage.getItem(`dismissed_popup_${id}`) === 'true'
+    ), [popupKey]);
+
+    const dismissPopup = useCallback((id) => {
+        localStorage.setItem(popupKey(id), 'true');
+    }, [popupKey]);
+
+    const isAnnouncementDismissed = useCallback((id) => (
+        localStorage.getItem(announcementKey(id)) === 'true'
+        || localStorage.getItem(`announced_${id}`) === 'true'
+    ), [announcementKey]);
 
     const fetchNotifications = useCallback(async () => {
         try {
@@ -17,9 +75,9 @@ export const NotificationProvider = ({ children }) => {
 
             const all = response.data;
 
-            // ── Banners (existing behavior) ────────────────────────────────
+            // Banners: campanita y popup superior.
             const banners = all.filter(n => (n.message_type ?? 'banner') === 'banner');
-            const readIds = JSON.parse(localStorage.getItem('read_notifications') || '[]');
+            const readIds = getReadIds();
             const processedBanners = banners.map(n => ({
                 ...n,
                 isRead: readIds.includes(n.id),
@@ -27,13 +85,13 @@ export const NotificationProvider = ({ children }) => {
             setNotifications(processedBanners);
             setUnreadCount(processedBanners.filter(n => !n.isRead).length);
 
-            // ── Announcements (new: centered modal) ────────────────────────
-            const msgs = all.filter(n => n.message_type === 'announcement');
+            // Announcements: modal destacado, filtrado por empresa/usuario.
+            const msgs = all.filter(n => n.message_type === 'announcement' && !isAnnouncementDismissed(n.id));
             setAnnouncements(msgs);
         } catch (error) {
             console.error('Error fetching notifications:', error);
         }
-    }, []);
+    }, [getReadIds, isAnnouncementDismissed]);
 
     useEffect(() => {
         fetchNotifications();
@@ -55,6 +113,7 @@ export const NotificationProvider = ({ children }) => {
             const type = data.message_type ?? 'banner';
 
             if (type === 'announcement') {
+                if (isAnnouncementDismissed(data.id)) return;
                 setAnnouncements(prev => {
                     if (prev.find(n => n.id === data.id)) return prev;
                     return [{ ...data }, ...prev];
@@ -70,46 +129,43 @@ export const NotificationProvider = ({ children }) => {
         });
 
         return () => unsubscribe();
-    }, [fetchNotifications, subscribe]);
+    }, [fetchNotifications, subscribe, isAnnouncementDismissed]);
 
-    // ── Banner helpers ─────────────────────────────────────────────────────────
-    const markAsRead = (id) => {
+    const markAsRead = useCallback((id) => {
         setNotifications(prev => {
             const updated = prev.map(n => n.id === id ? { ...n, isRead: true } : n);
             const readIds = updated.filter(n => n.isRead).map(n => n.id);
-            localStorage.setItem('read_notifications', JSON.stringify(readIds));
+            localStorage.setItem(readKey, JSON.stringify(readIds));
             setUnreadCount(updated.filter(n => !n.isRead).length);
             return updated;
         });
-    };
+    }, [readKey]);
 
-    const markAllAsRead = () => {
+    const markAllAsRead = useCallback(() => {
         setNotifications(prev => {
             const updated = prev.map(n => ({ ...n, isRead: true }));
-            localStorage.setItem('read_notifications', JSON.stringify(updated.map(n => n.id)));
+            localStorage.setItem(readKey, JSON.stringify(updated.map(n => n.id)));
             setUnreadCount(0);
             return updated;
         });
-    };
+    }, [readKey]);
 
-    // ── Announcement helpers ───────────────────────────────────────────────────
-    // Called by AnnouncementModal after the user clicks "Entendido".
-    // Removes the item from state (localStorage flag already set by the modal).
-    const dismissAnnouncement = (id) => {
+    const dismissAnnouncement = useCallback((id) => {
+        localStorage.setItem(announcementKey(id), 'true');
         setAnnouncements(prev => prev.filter(a => a.id !== id));
-    };
+    }, [announcementKey]);
 
     return (
         <NotificationContext.Provider value={{
-            // banners
             notifications,
             unreadCount,
             markAsRead,
             markAllAsRead,
-            // announcements
             announcements,
             dismissAnnouncement,
-            // shared
+            isAnnouncementDismissed,
+            isPopupDismissed,
+            dismissPopup,
             refresh: fetchNotifications,
         }}>
             {children}
