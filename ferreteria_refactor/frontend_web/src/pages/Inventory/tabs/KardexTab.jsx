@@ -14,23 +14,70 @@ import { normalizeSearch } from '../../../utils/search';
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const MOVEMENT_CONFIG = {
-    SALE:           { label: 'Venta',          color: 'text-rose-600',    bg: 'bg-rose-50',    border: 'border-rose-200',    icon: ShoppingCart,    dir: 'out' },
-    PURCHASE:       { label: 'Compra',         color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: Archive,         dir: 'in'  },
-    ADJUSTMENT_IN:  { label: 'Ajuste Entrada', color: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-200',    icon: ArrowUpCircle,   dir: 'in'  },
-    ADJUSTMENT_OUT: { label: 'Ajuste Salida',  color: 'text-orange-600',  bg: 'bg-orange-50',  border: 'border-orange-200',  icon: ArrowDownCircle, dir: 'out' },
-    DAMAGED:        { label: 'Dañado',         color: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-200',     icon: AlertTriangle,   dir: 'out' },
-    INTERNAL_USE:   { label: 'Uso Interno',    color: 'text-purple-600',  bg: 'bg-purple-50',  border: 'border-purple-200',  icon: Wrench,          dir: 'out' },
-    RETURN:         { label: 'Devolución',     color: 'text-teal-600',    bg: 'bg-teal-50',    border: 'border-teal-200',    icon: RotateCcw,       dir: 'in'  },
-    OUT:            { label: 'Salida',         color: 'text-amber-600',   bg: 'bg-amber-50',   border: 'border-amber-200',   icon: TrendingDown,    dir: 'out' },
-    TRANSFER_IN:    { label: 'Transfer Entrada',color:'text-cyan-600',    bg: 'bg-cyan-50',    border: 'border-cyan-200',    icon: RefreshCw,       dir: 'in'  },
-    TRANSFER_OUT:   { label: 'Transfer Salida',color: 'text-indigo-600',  bg: 'bg-indigo-50',  border: 'border-indigo-200',  icon: RefreshCw,       dir: 'out' },
+    SALE:           { label: 'Venta',                    color: 'text-rose-600',    bg: 'bg-rose-50',    border: 'border-rose-200',    icon: ShoppingCart,    dir: 'out' },
+    SALE_MODIFIER:  { label: 'Extra de venta',           color: 'text-rose-600',    bg: 'bg-rose-50',    border: 'border-rose-200',    icon: ShoppingCart,    dir: 'out' },
+    SALE_REVERSED:  { label: 'Venta anulada',            color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: RotateCcw,       dir: 'in'  },
+    PURCHASE:       { label: 'Compra',                   color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: Archive,         dir: 'in'  },
+    ADJUSTMENT:     { label: 'Ajuste',                   color: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-200',    icon: ArrowUpCircle,   dir: 'in'  },
+    ADJUSTMENT_IN:  { label: 'Ajuste de entrada',        color: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-200',    icon: ArrowUpCircle,   dir: 'in'  },
+    ADJUSTMENT_OUT: { label: 'Ajuste de salida',         color: 'text-orange-600',  bg: 'bg-orange-50',  border: 'border-orange-200',  icon: ArrowDownCircle, dir: 'out' },
+    DAMAGED:        { label: 'Da\u00f1ado',                   color: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-200',     icon: AlertTriangle,   dir: 'out' },
+    INTERNAL_USE:   { label: 'Uso interno',              color: 'text-purple-600',  bg: 'bg-purple-50',  border: 'border-purple-200',  icon: Wrench,          dir: 'out' },
+    RETURN:         { label: 'Devoluci\u00f3n',               color: 'text-teal-600',    bg: 'bg-teal-50',    border: 'border-teal-200',    icon: RotateCcw,       dir: 'in'  },
+    OUT:            { label: 'Salida',                   color: 'text-amber-600',   bg: 'bg-amber-50',   border: 'border-amber-200',   icon: TrendingDown,    dir: 'out' },
+    TRANSFER_IN:    { label: 'Traslado recibido',        color: 'text-cyan-600',    bg: 'bg-cyan-50',    border: 'border-cyan-200',    icon: RefreshCw,       dir: 'in'  },
+    TRANSFER_OUT:   { label: 'Traslado enviado',         color: 'text-indigo-600',  bg: 'bg-indigo-50',  border: 'border-indigo-200',  icon: RefreshCw,       dir: 'out' },
+    EXTERNAL_TRANSFER_IN:  { label: 'Traslado externo recibido', color: 'text-cyan-600',   bg: 'bg-cyan-50',   border: 'border-cyan-200',   icon: RefreshCw, dir: 'in'  },
+    EXTERNAL_TRANSFER_OUT: { label: 'Traslado externo enviado',  color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200', icon: RefreshCw, dir: 'out' },
 };
+
+const humanizeMovementType = (type = '') =>
+    String(type || '').toLowerCase().split('_').filter(Boolean)
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
 
 const getConfig = (type) =>
     MOVEMENT_CONFIG[type] || {
-        label: type, color: 'text-slate-600', bg: 'bg-slate-50',
+        label: humanizeMovementType(type), color: 'text-slate-600', bg: 'bg-slate-50',
         border: 'border-slate-200', icon: Archive, dir: 'in'
     };
+
+const extractTransferRef = (desc = '') => {
+    const text = String(desc || '');
+    const hashRef = text.match(/#(\d+)/);
+    const packageRef = text.match(/trf-[a-z0-9-]+/i);
+    if (packageRef) return packageRef[0];
+    if (hashRef) return `#${hashRef[1]}`;
+    return null;
+};
+
+const friendlyDescription = (item = {}) => {
+    const desc = String(item.description || '').trim();
+    const type = String(item.movement_type || '');
+    const ref = extractTransferRef(desc);
+    const suffix = ref ? ` (${ref})` : '';
+
+    if (!desc) return '';
+    if (type === 'EXTERNAL_TRANSFER_OUT') return `Salida por traslado externo${suffix}`;
+    if (type === 'EXTERNAL_TRANSFER_IN') return `Entrada por traslado externo${suffix}`;
+    if (type === 'TRANSFER_OUT') return `Salida por traslado interno${suffix}`;
+    if (type === 'TRANSFER_IN') return `Entrada por traslado interno${suffix}`;
+    if (type === 'SALE_REVERSED') return 'Entrada por anulaci\u00f3n de venta';
+    if (type === 'SALE_MODIFIER') return 'Salida por extra o modificador de venta';
+    if (/^Transfer OUT/i.test(desc)) return `Salida por traslado externo${suffix}`;
+    if (/^Transfer IN/i.test(desc)) return `Entrada por traslado externo${suffix}`;
+    if (/Generated package/i.test(desc)) return `Paquete de traslado generado${suffix}`;
+
+    return desc
+        .replace(/Transfer OUT to External \(Generated package\)/gi, 'Salida por traslado externo')
+        .replace(/Transfer IN \(v2 - new product\) from/gi, 'Entrada por traslado externo desde')
+        .replace(/Transfer IN \(v2\) from/gi, 'Entrada por traslado externo desde')
+        .replace(/Transfer IN from/gi, 'Entrada por traslado externo desde')
+        .replace(/Transfer OUT/gi, 'Salida por traslado')
+        .replace(/Transfer IN/gi, 'Entrada por traslado')
+        .replace(/Bulk Import/gi, 'Importaci\u00f3n masiva')
+        .replace(/Units/gi, 'unidades')
+        .replace(/Sale reversed/gi, 'Venta anulada');
+};
 
 // Detecta si la descripción contiene un IMEI (15 dígitos consecutivos)
 const extractIMEI = (desc = '') => {
@@ -60,13 +107,14 @@ const KardexRow = ({ item, index }) => {
     const imei = extractIMEI(item.description || '');
     const isPhone = looksLikePhone(item.product?.name || '');
     const { date, time } = formatDateTime(item.date);
+    const displayDescription = friendlyDescription(item);
 
     // Construir descripción enriquecida
     const buildRichDescription = () => {
-        if (!item.description) return null;
+        if (!displayDescription) return null;
         // Resaltar IMEI dentro del texto
         if (imei) {
-            const parts = item.description.split(imei);
+            const parts = displayDescription.split(imei);
             return (
                 <span>
                     {parts[0]}
@@ -77,7 +125,7 @@ const KardexRow = ({ item, index }) => {
                 </span>
             );
         }
-        return item.description;
+        return displayDescription;
     };
 
     return (
@@ -131,7 +179,7 @@ const KardexRow = ({ item, index }) => {
                 {/* Descripción resumida */}
                 <td className="px-4 py-3 max-w-xs">
                     <div className="text-xs text-slate-500 italic line-clamp-1">
-                        {item.description || <span className="text-slate-300">Sin descripción</span>}
+                        {displayDescription || <span className="text-slate-300">Sin descripci\u00f3n</span>}
                     </div>
                 </td>
 
@@ -222,7 +270,7 @@ const KardexRow = ({ item, index }) => {
                         </div>
 
                         {/* Descripción completa */}
-                        {item.description && (
+                        {displayDescription && (
                             <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                                     <Info size={10} /> Descripción completa
@@ -249,6 +297,7 @@ const KardexCard = ({ item }) => {
     const imei = extractIMEI(item.description || '');
     const isPhone = looksLikePhone(item.product?.name || '');
     const { date, time } = formatDateTime(item.date);
+    const displayDescription = friendlyDescription(item);
 
     return (
         <div
@@ -289,7 +338,7 @@ const KardexCard = ({ item }) => {
                 {/* Footer */}
                 <div className="flex justify-between items-center border-t border-slate-100 pt-3">
                     <div className="text-xs text-slate-500 italic max-w-[55%] line-clamp-1">
-                        {item.description || <span className="text-slate-300">Sin descripción</span>}
+                        {displayDescription || <span className="text-slate-300">Sin descripci\u00f3n</span>}
                     </div>
                     <div className="text-right flex items-center gap-3">
                         <div>
@@ -331,12 +380,12 @@ const KardexCard = ({ item }) => {
                             <div className="text-xs font-mono font-black text-indigo-700">{imei}</div>
                         </div>
                     )}
-                    {item.description && (
+                    {displayDescription && (
                         <div className="bg-white border border-slate-200 rounded-xl p-2.5">
                             <div className="text-[10px] font-bold text-slate-400 uppercase mb-1 flex items-center gap-1">
                                 <Info size={10} /> Descripción
                             </div>
-                            <div className="text-xs text-slate-700 leading-relaxed">{item.description}</div>
+                            <div className="text-xs text-slate-700 leading-relaxed">{displayDescription}</div>
                         </div>
                     )}
                 </div>
@@ -389,7 +438,7 @@ const KardexTab = () => {
         if (!searchQuery) return true;
         const q = normalizeSearch(searchQuery);
         const name = normalizeSearch(item.product?.name || '');
-        const desc = kardexMejorado ? normalizeSearch(item.description || '') : '';
+        const desc = kardexMejorado ? normalizeSearch(`${item.description || ''} ${friendlyDescription(item)}`) : '';
         return name.includes(q) || (kardexMejorado && desc.includes(q));
     });
 
