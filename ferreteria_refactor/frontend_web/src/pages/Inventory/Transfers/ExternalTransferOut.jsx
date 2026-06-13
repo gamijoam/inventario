@@ -23,7 +23,8 @@ const ExternalTransferOut = () => {
     const hasImeiError = selectedItems.some(i => i.has_imei && (i.selected_imeis?.length || 0) !== Number(i.quantity));
     const selectedWarehouse = warehouses.find(w => String(w.id) === String(selectedWarehouseId));
     const totalUnits = selectedItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
-    const imeiItemsCount = selectedItems.filter(item => item.has_imei).length;
+    const totalSerials = selectedItems.reduce((sum, item) => sum + (item.selected_imeis?.length || 0), 0);
+    const photoCount = photos.length;
 
     // Load warehouses on mount
     useEffect(() => {
@@ -269,7 +270,7 @@ const ExternalTransferOut = () => {
             const response = await apiClient.post('/inventory/transfer/export', payload);
 
             // Create download
-            const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+            const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json;charset=utf-8' });
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
@@ -278,11 +279,22 @@ const ExternalTransferOut = () => {
             link.click();
             link.remove();
 
+            const summary = response.data || {};
+            const modelsCount = summary.models_count ?? summary.items_count ?? selectedItems.length;
+            const unitsCount = summary.units_count ?? totalUnits;
+            const serialsCount = summary.imei_count ?? totalSerials;
+            const photosCount = summary.photos_count ?? photoUrls.length;
+
             toast.dismiss(loadingToast);
-            toast.success("Paquete generado exitosamente. Stock descontado.");
+            toast.success(`Paquete generado: ${modelsCount} modelo${modelsCount !== 1 ? 's' : ''}, ${unitsCount} unidad${unitsCount !== 1 ? 'es' : ''}.`);
             setExportSummary({
-                count: selectedItems.length,
-                items: selectedItems.map(i => ({ sku: i.sku, name: i.name, quantity: i.quantity }))
+                packageId: summary.package_id,
+                models: modelsCount,
+                units: unitsCount,
+                serials: serialsCount,
+                photos: photosCount,
+                warehouse: summary.source_warehouse_name || selectedWarehouse?.name || 'almacén origen',
+                items: selectedItems.map(i => ({ sku: i.sku, name: i.name, quantity: i.quantity, serials: i.selected_imeis?.length || 0 }))
             });
             setSelectedItems([]);
             setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
@@ -328,7 +340,7 @@ const ExternalTransferOut = () => {
                 <div className="relative mb-6">
                     <input
                         type="text"
-                        placeholder="Buscar por nombre o codigo..."
+                        placeholder="Buscar por nombre o código..."
                         className="w-full pl-10 pr-4 py-3 rounded-xl border-none shadow-sm ring-1 ring-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-600"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
@@ -382,18 +394,22 @@ const ExternalTransferOut = () => {
                     Paquete de salida
                 </h2>
 
-                <div className="mb-3 grid grid-cols-3 gap-2">
+                <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-[10px] font-bold uppercase text-slate-400">Productos</p>
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Modelos</p>
                         <p className="text-lg font-black text-slate-800">{selectedItems.length}</p>
                     </div>
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-[10px] font-bold uppercase text-slate-400">Unidades</p>
-                        <p className="text-lg font-black text-slate-800">{totalUnits}</p>
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                        <p className="text-[10px] font-bold uppercase text-emerald-600">Unidades</p>
+                        <p className="text-lg font-black text-emerald-700">{totalUnits}</p>
                     </div>
                     <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                        <p className="text-[10px] font-bold uppercase text-amber-600">IMEI</p>
-                        <p className="text-lg font-black text-amber-700">{imeiItemsCount}</p>
+                        <p className="text-[10px] font-bold uppercase text-amber-600">Seriales</p>
+                        <p className="text-lg font-black text-amber-700">{totalSerials}</p>
+                    </div>
+                    <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
+                        <p className="text-[10px] font-bold uppercase text-indigo-600">Fotos</p>
+                        <p className="text-lg font-black text-indigo-700">{photoCount}</p>
                     </div>
                 </div>
 
@@ -530,7 +546,7 @@ const ExternalTransferOut = () => {
                     <div className="flex items-center justify-between mb-2">
                         <h3 className="text-sm font-bold text-slate-600 flex items-center gap-2">
                             <Camera size={16} className="text-indigo-500" />
-                            Evidencia fotografica
+                            Evidencia fotográfica
                         </h3>
                         <button
                             onClick={() => fileInputRef.current?.click()}
@@ -599,14 +615,24 @@ const ExternalTransferOut = () => {
                 <div className="mt-auto pt-4 border-t border-slate-100">
                     {/* Success banner after export */}
                     {exportSummary && (
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-emerald-800">
-                            <CheckCircle className="flex-shrink-0 text-emerald-600" size={20} />
-                            <p>
-                                Traslado generado exitosamente. Se descontaron <strong>{exportSummary.count}</strong> producto{exportSummary.count !== 1 ? 's' : ''} del inventario.
-                            </p>
-                            <button onClick={() => setExportSummary(null)} className="ml-auto text-emerald-600 hover:text-emerald-800 text-xs font-bold">
-                                Cerrar
-                            </button>
+                        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                            <div className="flex items-start gap-3">
+                                <CheckCircle className="mt-0.5 flex-shrink-0 text-emerald-600" size={20} />
+                                <div className="min-w-0 flex-1">
+                                    <p className="font-bold">Paquete generado y stock descontado.</p>
+                                    <p className="mt-0.5 text-emerald-700">
+                                        {exportSummary.models} modelo{exportSummary.models !== 1 ? 's' : ''}, {exportSummary.units} unidad{exportSummary.units !== 1 ? 'es' : ''} desde {exportSummary.warehouse}.
+                                    </p>
+                                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                                        <span className="rounded-md bg-white/70 px-2 py-1 font-bold text-emerald-800">Seriales: {exportSummary.serials}</span>
+                                        <span className="rounded-md bg-white/70 px-2 py-1 font-bold text-emerald-800">Fotos: {exportSummary.photos}</span>
+                                        <span className="truncate rounded-md bg-white/70 px-2 py-1 font-mono text-[11px] text-emerald-700">{exportSummary.packageId || 'JSON listo'}</span>
+                                    </div>
+                                </div>
+                                <button onClick={() => setExportSummary(null)} className="text-xs font-bold text-emerald-700 hover:text-emerald-900">
+                                    Cerrar
+                                </button>
+                            </div>
                         </div>
                     )}
 
@@ -627,21 +653,29 @@ const ExternalTransferOut = () => {
                         </div>
                     )}
 
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-amber-800">
-                        <AlertTriangle className="flex-shrink-0" size={20} />
-                        <p>
-                            Al generar el paquete, el stock se descontará <strong>automáticamente</strong> del almacén seleccionado ({selectedWarehouse?.name || 'sin almacen'}) como "Traspaso de salida".
-                        </p>
+                    <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                        <div className="flex gap-3">
+                            <AlertTriangle className="flex-shrink-0" size={20} />
+                            <p>
+                                Al generar el paquete, se descontarán <strong>{totalUnits}</strong> unidad{totalUnits !== 1 ? 'es' : ''} de <strong>{selectedItems.length}</strong> modelo{selectedItems.length !== 1 ? 's' : ''} desde {selectedWarehouse?.name || 'sin almacén'}.
+                            </p>
+                        </div>
                     </div>
 
                     {/* Confirmation step */}
                     {showConfirmation && (
                         <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 mb-4">
-                            <p className="font-bold text-amber-800 text-sm mb-2 flex items-center gap-2">
+                            <p className="font-bold text-amber-800 text-sm mb-3 flex items-center gap-2">
                                 <AlertTriangle size={16} />
-                                Se descontará del inventario:
+                                Confirma el paquete de salida
                             </p>
-                            <ul className="text-sm text-amber-900 space-y-1 mb-3 ml-1">
+                            <div className="mb-3 grid grid-cols-4 gap-2 text-center text-xs">
+                                <div className="rounded-lg bg-white/70 px-2 py-2"><b className="block text-base text-slate-900">{selectedItems.length}</b>Modelos</div>
+                                <div className="rounded-lg bg-white/70 px-2 py-2"><b className="block text-base text-slate-900">{totalUnits}</b>Unidades</div>
+                                <div className="rounded-lg bg-white/70 px-2 py-2"><b className="block text-base text-slate-900">{totalSerials}</b>Seriales</div>
+                                <div className="rounded-lg bg-white/70 px-2 py-2"><b className="block text-base text-slate-900">{photoCount}</b>Fotos</div>
+                            </div>
+                            <ul className="mb-3 ml-1 space-y-1 text-sm text-amber-900">
                                 {selectedItems.map(item => (
                                     <li key={item.product_id}>
                                         <span className="font-mono text-xs">{item.sku}</span> {item.name} - <strong>{item.quantity}</strong> unidades

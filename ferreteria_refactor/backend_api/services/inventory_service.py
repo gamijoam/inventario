@@ -145,7 +145,7 @@ class InventoryService:
         if not warehouse:
             warehouse = db.query(models.Warehouse).filter(models.Warehouse.is_active == True).first()
         if not warehouse:
-            raise ValueError(f"No hay almac?n configurado para revertir stock del producto '{product.name}'")
+            raise ValueError(f"No hay almacén configurado para revertir stock del producto '{product.name}'")
 
         recipes = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == product.id).all()
         qty = float(order_item.quantity)
@@ -295,7 +295,7 @@ class InventoryService:
         if instance.status != models.ProductInstanceStatus.AVAILABLE:
             return {"valid": False, "message": f"Serial no disponible (Estado: {instance.status})"}
             
-        return {"valid": True, "message": "Serial v?lido", "instance_id": instance.id}
+        return {"valid": True, "message": "Serial válido", "instance_id": instance.id}
 
     @staticmethod
     def validate_imei_for_entry(db: Session, imei: str) -> Dict[str, Any]:
@@ -417,7 +417,11 @@ class InventoryService:
         warehouse_id: Optional ID of the warehouse to deduct stock from
         """
         transfer_items = []
-        
+        source_warehouse_name = None
+        if warehouse_id:
+            warehouse = db.query(models.Warehouse).filter(models.Warehouse.id == warehouse_id).first()
+            source_warehouse_name = warehouse.name if warehouse else None
+
         for item in items_data:
             pid = item['product_id']
             qty = Decimal(str(item['quantity']))
@@ -454,14 +458,14 @@ class InventoryService:
                 if len(instances) != int(qty):
                     raise HTTPException(
                         status_code=400,
-                        detail=f"'{product.name}' requiere {qty} IMEIs AVAILABLE en el almac?n origen; recibidos/v?lidos: {len(instances)}.",
+                        detail=f"'{product.name}' requiere {qty} IMEIs disponibles en el almacén origen; recibidos/válidos: {len(instances)}.",
                     )
 
                 seen_serials = set()
                 for inst in instances:
                     serial = (inst.serial_number or "").strip().upper()
                     if serial in seen_serials:
-                        raise HTTPException(status_code=400, detail=f"IMEI duplicado en exportaci?n: {serial}")
+                        raise HTTPException(status_code=400, detail=f"IMEI duplicado en exportación: {serial}")
                     seen_serials.add(serial)
                     serial_numbers.append(serial)
             
@@ -529,12 +533,23 @@ class InventoryService:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Database error during transfer: {str(e)}")
             
+        models_count = len(transfer_items)
+        units_count = sum(float(item.get("quantity") or 0) for item in transfer_items)
+        imei_count = sum(len(item.get("serial_numbers") or []) for item in transfer_items)
+        photos_count = len(photo_urls or [])
+
         package = {
             "package_id": f"trf-{uuid.uuid4()}",
             "source_company": source_company,
             "source_warehouse_id": warehouse_id,
+            "source_warehouse_name": source_warehouse_name,
             "generated_at": datetime.now().isoformat(),
             "items": transfer_items,
+            "items_count": models_count,
+            "models_count": models_count,
+            "units_count": units_count,
+            "imei_count": imei_count,
+            "photos_count": photos_count,
             "photo_urls": photo_urls or [],
         }
         

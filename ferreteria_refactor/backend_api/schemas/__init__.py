@@ -1272,6 +1272,12 @@ class TransferPackageSchema(BaseModel):
     source_business_name: Optional[str] = None
     generated_at_friendly: Optional[str] = None
     items_count: Optional[int] = None
+    models_count: Optional[int] = None
+    units_count: Optional[float] = None
+    imei_count: Optional[int] = None
+    photos_count: Optional[int] = None
+    source_warehouse_id: Optional[int] = None
+    source_warehouse_name: Optional[str] = None
     photo_urls: Optional[List[str]] = None
 
 class TransferResultSchema(BaseModel):
