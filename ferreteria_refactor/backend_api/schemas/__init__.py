@@ -1066,6 +1066,9 @@ class PurchaseItemRead(BaseModel):
     product_id: int
     quantity: Decimal
     unit_cost: Decimal
+    discount_pct: Optional[Decimal] = Decimal("0")
+    discount_amount: Optional[Decimal] = Decimal("0")
+    subtotal: Optional[Decimal] = None
     serial_numbers: Optional[str] = None
     product: Optional[PurchaseProductBasic] = None
 

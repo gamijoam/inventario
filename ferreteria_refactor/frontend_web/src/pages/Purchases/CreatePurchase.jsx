@@ -563,7 +563,6 @@ const CreatePurchase = () => {
                                                                 if (item.product_id && item.unit_cost !== item.original_cost && item.unit_cost > 0) {
                                                                     setShowCostUpdateModal({
                                                                         lineId: item.line_id || item.product_id,
-                                                                        lineId: item.line_id || item.product_id,
                                                                         productId: item.product_id,
                                                                         newCost: item.unit_cost,
                                                                         originalCost: item.original_cost,
@@ -686,7 +685,6 @@ const CreatePurchase = () => {
                                                                 // Trigger modal only when user finishes typing
                                                                 if (item.product_id && item.unit_cost !== item.original_cost && item.unit_cost > 0) {
                                                                     setShowCostUpdateModal({
-                                                                        lineId: item.line_id || item.product_id,
                                                                         lineId: item.line_id || item.product_id,
                                                                         productId: item.product_id,
                                                                         newCost: item.unit_cost,

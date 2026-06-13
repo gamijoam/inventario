@@ -226,35 +226,67 @@ const PurchaseDetail = () => {
                                 <tr>
                                     <th className="p-4 font-bold text-slate-400 uppercase text-xs tracking-wider">Producto</th>
                                     <th className="p-4 font-bold text-slate-400 uppercase text-xs tracking-wider text-center">Cantidad</th>
-                                    <th className="p-4 font-bold text-slate-400 uppercase text-xs tracking-wider text-right">Costo Razonable</th>
+                                    <th className="p-4 font-bold text-slate-400 uppercase text-xs tracking-wider text-right">Costo unitario</th>
                                     <th className="p-4 font-bold text-slate-400 uppercase text-xs tracking-wider text-right">Subtotal</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {purchase.items && purchase.items.length > 0 ? (
-                                    purchase.items.map((item, index) => (
-                                        <tr key={index} className="hover:bg-slate-50/50 transition-colors">
-                                            <td className="p-4">
-                                                <div className="font-bold text-slate-800">
-                                                    {item.product?.name || `Producto #${item.product_id}`}
-                                                </div>
-                                                {item.product?.sku && (
-                                                    <div className="text-xs text-slate-500 font-mono mt-0.5">SKU: {item.product.sku}</div>
+                                    purchase.items.map((item, index) => {
+                                        const gross = Number(item.quantity || 0) * Number(item.unit_cost || 0);
+                                        const discount = Number(item.discount_amount || 0);
+                                        const net = item.subtotal != null ? Number(item.subtotal || 0) : Math.max(0, gross - discount);
+                                        const serials = String(item.serial_numbers || '').split(/[\n,;\s]+/).map(s => s.trim()).filter(Boolean);
+                                        return (
+                                            <React.Fragment key={item.id || index}>
+                                                <tr className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="p-4">
+                                                        <div className="font-bold text-slate-800">
+                                                            {item.product?.name || `Producto #${item.product_id}`}
+                                                        </div>
+                                                        {item.product?.sku && (
+                                                            <div className="text-xs text-slate-500 font-mono mt-0.5">SKU: {item.product.sku}</div>
+                                                        )}
+                                                        {serials.length > 0 && (
+                                                            <div className="mt-2 inline-flex items-center rounded-md border border-indigo-100 bg-indigo-50 px-2 py-1 text-[11px] font-black uppercase tracking-wide text-indigo-600">
+                                                                {serials.length} IMEI / serial{serials.length === 1 ? '' : 'es'}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4 text-center">
+                                                        <span className="bg-slate-100 text-slate-700 py-1 px-3 rounded-lg text-sm font-bold border border-slate-200">
+                                                            {item.quantity}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4 text-right text-slate-600 font-medium">
+                                                        ${Number(item.unit_cost).toFixed(2)}
+                                                    </td>
+                                                    <td className="p-4 text-right">
+                                                        <div className="font-black text-slate-800">${net.toFixed(2)}</div>
+                                                        {discount > 0 && (
+                                                            <div className="mt-1 text-[11px] font-bold text-emerald-600">
+                                                                Desc. ${discount.toFixed(2)} sobre ${gross.toFixed(2)}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                {serials.length > 0 && (
+                                                    <tr className="bg-indigo-50/40">
+                                                        <td colSpan="4" className="px-4 pb-4">
+                                                            <div className="rounded-xl border border-indigo-100 bg-white p-3">
+                                                                <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-indigo-500">Seriales recibidos</div>
+                                                                <div className="flex flex-wrap gap-1.5">
+                                                                    {serials.map(serial => (
+                                                                        <span key={serial} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-[11px] font-bold text-slate-700">{serial}</span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
                                                 )}
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                <span className="bg-slate-100 text-slate-700 py-1 px-3 rounded-lg text-sm font-bold border border-slate-200">
-                                                    {item.quantity}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-right text-slate-600 font-medium">
-                                                ${Number(item.unit_cost).toFixed(2)}
-                                            </td>
-                                            <td className="p-4 text-right font-bold text-slate-800">
-                                                ${(Number(item.quantity) * Number(item.unit_cost)).toFixed(2)}
-                                            </td>
-                                        </tr>
-                                    ))
+                                            </React.Fragment>
+                                        );
+                                    })
                                 ) : (
                                     <tr>
                                         <td colSpan="4" className="p-12 text-center text-slate-400 italic">
