@@ -713,9 +713,22 @@ class InventoryService:
             }
             preview_items.append(preview_item)
 
+        models_count = len(preview_items)
+        units_count = float(data.get("units_count") or sum(float(item.get("quantity") or 0) for item in preview_items))
+        imei_count = int(data.get("imei_count") or sum(len(item.get("serial_numbers") or []) for item in preview_items))
+        photos_count = int(data.get("photos_count") or len(data.get("photo_urls", []) or []))
+
         return {
             "package_id": InventoryService._canonical_transfer_package_id(data),
             "source_company": source_company,
+            "source_schema": data.get("source_schema"),
+            "source_warehouse_id": data.get("source_warehouse_id"),
+            "source_warehouse_name": data.get("source_warehouse_name"),
+            "items_count": models_count,
+            "models_count": models_count,
+            "units_count": units_count,
+            "imei_count": imei_count,
+            "photos_count": photos_count,
             "items": preview_items,
             "photo_urls": data.get("photo_urls", []),
         }
@@ -729,6 +742,8 @@ class InventoryService:
         success_count = 0
         failure_count = 0
         created_count = 0
+        imported_units_count = 0.0
+        imported_imei_count = 0
         errors = []
         source_company = data.get("source_company", "Unknown")
         package_id = InventoryService._canonical_transfer_package_id(data)
@@ -825,6 +840,8 @@ class InventoryService:
                         ))
 
                     success_count += 1
+                    imported_units_count += float(qty)
+                    imported_imei_count += len(serial_numbers)
 
                 elif create_new:
                     new_product = models.Product(
@@ -866,6 +883,8 @@ class InventoryService:
 
                     success_count += 1
                     created_count += 1
+                    imported_units_count += float(qty)
+                    imported_imei_count += len(serial_numbers)
 
                 else:
                     errors.append(f"Skipped '{name}' (SKU: {sku}): No target product and create_new=false")
@@ -888,6 +907,9 @@ class InventoryService:
         return {
             "package_id": package_id,
             "success_count": success_count,
+            "models_count": success_count,
+            "units_count": imported_units_count,
+            "imei_count": imported_imei_count,
             "failure_count": failure_count,
             "created_count": created_count,
             "errors": errors

@@ -131,6 +131,8 @@ const ExternalTransferIn = () => {
   const [packageId, setPackageId] = useState('');
   const [sourceCompany, setSourceCompany] = useState('');
   const [sourceSchema, setSourceSchema] = useState('');
+  const [sourceWarehouseName, setSourceWarehouseName] = useState('');
+  const [packageStats, setPackageStats] = useState({ models: 0, units: 0, imeis: 0, photos: 0 });
 
   const [warehouses, setWarehouses] = useState([]);
   const [globalWarehouseId, setGlobalWarehouseId] = useState('');
@@ -180,6 +182,7 @@ const ExternalTransferIn = () => {
       setPackageId(data.package_id || '');
       setSourceCompany(data.source_company || '');
       setSourceSchema(data.source_schema || '');
+      setSourceWarehouseName(data.source_warehouse_name || '');
       setPhotoUrls(data.photo_urls || []);
       const items = (data.items || []).map((item) => ({
         sku: item.sku,
@@ -198,9 +201,13 @@ const ExternalTransferIn = () => {
           ? { id: item.matched_product_id, sku: item.matched_sku, name: item.matched_name, stock: item.matched_stock ?? 0 }
           : null,
       }));
+      const units = Number(data.units_count ?? items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0));
+      const imeis = Number(data.imei_count ?? items.reduce((sum, item) => sum + (item.serial_numbers?.length || 0), 0));
+      const photos = Number(data.photos_count ?? (data.photo_urls || []).length);
+      setPackageStats({ models: Number(data.models_count ?? data.items_count ?? items.length), units, imeis, photos });
       setPreviewItems(items);
       setStep('preview');
-      toast.success(`${items.length} productos cargados para revision`);
+      toast.success(`${items.length} modelos cargados para revision`);
     } catch (error) {
       const detail = error.response?.data?.detail;
       const msg = typeof detail === 'string' ? detail : Array.isArray(detail) ? detail.map(d => d.msg || JSON.stringify(d)).join(', ') : 'Error al previsualizar el archivo';
@@ -237,6 +244,11 @@ const ExternalTransferIn = () => {
 
   const mappedCount = previewItems.filter((it) => it._override || it.create_new).length;
   const totalCount = previewItems.length;
+  const mappedUnits = previewItems.filter((it) => it._override || it.create_new).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+  const totalUnits = packageStats.units || previewItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+  const totalImeis = packageStats.imeis || previewItems.reduce((sum, item) => sum + (item.serial_numbers?.length || 0), 0);
+  const noMatchCount = previewItems.filter((it) => !it._override && !it.create_new).length;
+  const createNewCount = previewItems.filter((it) => it.create_new).length;
   const mappedPct = totalCount > 0 ? Math.round((mappedCount / totalCount) * 100) : 0;
 
   const handleConfirm = async () => {
@@ -289,6 +301,8 @@ const ExternalTransferIn = () => {
     setPackageId('');
     setSourceCompany('');
     setSourceSchema('');
+    setSourceWarehouseName('');
+    setPackageStats({ models: 0, units: 0, imeis: 0, photos: 0 });
     setPhotoUrls([]);
     setShowPhotoModal(false);
     setSelectedPhoto(null);
@@ -377,29 +391,35 @@ const ExternalTransferIn = () => {
         />
 
         {/* Header */}
-        <div className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">Revisión de Productos</h2>
-            {sourceCompany && (
-              <p className="text-sm text-slate-500">Origen: <span className="font-semibold">{sourceCompany}</span></p>
-            )}
+        <div className="border-b border-slate-200 bg-white px-6 py-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">Revision de traslado entrante</h2>
+              <p className="text-sm text-slate-500">
+                Origen: <span className="font-semibold text-slate-700">{sourceCompany || 'Sin origen'}</span>
+                {sourceWarehouseName && <span> / {sourceWarehouseName}</span>}
+              </p>
+              {packageId && <p className="mt-0.5 font-mono text-[11px] text-slate-400">{packageId}</p>}
+            </div>
+            <div className="min-w-0 flex-1 xl:max-w-md">
+              <div className="mb-1 flex items-center justify-between text-xs font-bold text-slate-500">
+                <span>{mappedCount} de {totalCount} modelos mapeados</span>
+                <span>{mappedPct}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                <div className="h-full rounded-full bg-emerald-500 transition-all duration-300" style={{ width: `${mappedPct}%` }} />
+              </div>
+            </div>
           </div>
-
-          <div className="flex items-center gap-4">
-            <div className="text-sm text-slate-600">
-              <span className="font-bold text-indigo-600">{mappedCount}</span> de{' '}
-              <span className="font-bold">{totalCount}</span> productos mapeados
-            </div>
-            <div className="w-32 h-2 bg-slate-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-                style={{ width: `${mappedPct}%` }}
-              />
-            </div>
-            <span className="text-xs font-bold text-slate-500">{mappedPct}%</span>
+          <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-6">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"><p className="text-[10px] font-bold uppercase text-slate-400">Modelos</p><p className="text-lg font-black text-slate-800">{packageStats.models || totalCount}</p></div>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2"><p className="text-[10px] font-bold uppercase text-emerald-600">Unidades</p><p className="text-lg font-black text-emerald-700">{totalUnits}</p></div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2"><p className="text-[10px] font-bold uppercase text-amber-600">IMEI</p><p className="text-lg font-black text-amber-700">{totalImeis}</p></div>
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2"><p className="text-[10px] font-bold uppercase text-indigo-600">Fotos</p><p className="text-lg font-black text-indigo-700">{packageStats.photos || photoUrls.length}</p></div>
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2"><p className="text-[10px] font-bold uppercase text-blue-600">A crear</p><p className="text-lg font-black text-blue-700">{createNewCount}</p></div>
+            <div className={`rounded-lg border px-3 py-2 ${noMatchCount ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'}`}><p className={`text-[10px] font-bold uppercase ${noMatchCount ? 'text-red-600' : 'text-emerald-600'}`}>Pendientes</p><p className={`text-lg font-black ${noMatchCount ? 'text-red-700' : 'text-emerald-700'}`}>{noMatchCount}</p></div>
           </div>
         </div>
-
         {warehouses.length > 0 && (
           <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-3">
             <Warehouse size={18} className="text-indigo-500 flex-shrink-0" />
@@ -493,7 +513,7 @@ const ExternalTransferIn = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-left px-4 py-3 font-semibold text-slate-600">Producto Origen</th>
+                  <th className="text-left px-4 py-3 font-semibold text-slate-600">Producto origen</th>
                   <th className="text-center px-4 py-3 font-semibold text-slate-600 w-20">Cant</th>
                   <th className="text-center px-4 py-3 font-semibold text-slate-600 w-28">Match</th>
                   <th className="text-left px-4 py-3 font-semibold text-slate-600 min-w-[240px]">Producto Local</th>
@@ -598,6 +618,9 @@ const ExternalTransferIn = () => {
           >
             Cancelar
           </button>
+          <div className="text-sm text-slate-500">
+            Listo para importar: <span className="font-bold text-slate-800">{mappedUnits}</span> de <span className="font-bold text-slate-800">{totalUnits}</span> unidades
+          </div>
           <button
             onClick={handleConfirm}
             disabled={mappedCount !== totalCount || confirming}
@@ -611,7 +634,7 @@ const ExternalTransferIn = () => {
             ) : (
               <>
                 <Package size={16} />
-                Confirmar Traslado ({mappedCount})
+                Confirmar traslado ({mappedCount} modelos / {mappedUnits} unidades)
               </>
             )}
           </button>
@@ -624,7 +647,14 @@ const ExternalTransferIn = () => {
   return (
     <div className="flex h-full bg-slate-50 items-center justify-center p-6">
       <div className="bg-white w-full max-w-lg rounded-lg shadow-xl p-8">
-        <h2 className="text-2xl font-bold text-slate-800 mb-6 text-center">Resultado del Traslado</h2>
+        <h2 className="text-2xl font-bold text-slate-800 mb-6 text-center">Resultado del traslado</h2>
+
+
+        <div className="mb-6 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3"><p className="text-[10px] font-bold uppercase text-slate-400">Modelos</p><p className="text-xl font-black text-slate-800">{result?.models_count ?? result?.success_count ?? 0}</p></div>
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3"><p className="text-[10px] font-bold uppercase text-emerald-600">Unidades</p><p className="text-xl font-black text-emerald-700">{result?.units_count ?? 0}</p></div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3"><p className="text-[10px] font-bold uppercase text-amber-600">IMEI</p><p className="text-xl font-black text-amber-700">{result?.imei_count ?? 0}</p></div>
+        </div>
 
         <div className="space-y-4 mb-8">
           {(result?.imported_count ?? result?.success_count ?? 0) > 0 && (
@@ -636,7 +666,7 @@ const ExternalTransferIn = () => {
                 <div className="text-2xl font-black text-emerald-600">
                   {result?.imported_count ?? result?.success_count ?? 0}
                 </div>
-                <div className="text-sm text-emerald-700 font-medium">Productos importados</div>
+                <div className="text-sm text-emerald-700 font-medium">Modelos importados</div>
               </div>
             </div>
           )}
@@ -648,7 +678,7 @@ const ExternalTransferIn = () => {
               </div>
               <div>
                 <div className="text-2xl font-black text-blue-600">{result.created_count}</div>
-                <div className="text-sm text-blue-700 font-medium">Productos creados</div>
+                <div className="text-sm text-blue-700 font-medium">Modelos creados</div>
               </div>
             </div>
           )}
@@ -685,7 +715,7 @@ const ExternalTransferIn = () => {
           className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-sm shadow-indigo-100 hover:bg-indigo-700 transition-all"
         >
           <RefreshCw size={18} />
-          Importar Otro
+          Importar otro
         </button>
       </div>
     </div>

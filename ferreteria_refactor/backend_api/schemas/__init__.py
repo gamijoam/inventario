@@ -1303,6 +1303,13 @@ class TransferPreviewResult(BaseModel):
     items: List[TransferPreviewItemResult]
     photo_urls: Optional[List[str]] = None
     source_schema: Optional[str] = None
+    source_warehouse_id: Optional[int] = None
+    source_warehouse_name: Optional[str] = None
+    items_count: Optional[int] = None
+    models_count: Optional[int] = None
+    units_count: Optional[float] = None
+    imei_count: Optional[int] = None
+    photos_count: Optional[int] = None
 
 class TransferImportV2Item(BaseModel):
     sku: str
