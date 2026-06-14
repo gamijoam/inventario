@@ -82,7 +82,7 @@ const Purchases = () => {
     }, {});
 
     return (
-        <div className="space-y-4 p-4 md:p-6">
+        <div id="tour-purchases-container" className="space-y-4 p-4 md:p-6">
             <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
                 <div className="flex flex-col gap-4 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="min-w-0">
@@ -117,7 +117,7 @@ const Purchases = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
+                <div id="tour-purchases-summary" className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
                     {[
                         { label: 'Compras en vista', value: purchases.length, icon: FileText, cls: 'text-slate-900' },
                         { label: 'Total comprado', value: formatMoney(totalAmount), icon: DollarSign, cls: 'text-indigo-600' },
@@ -193,7 +193,7 @@ const Purchases = () => {
                 )}
             </div>
 
-            <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:block">
+            <div id="tour-purchases-list" className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:block">
                 <table className="w-full">
                     <thead className="border-b border-slate-200 bg-slate-50">
                         <tr>

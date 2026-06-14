@@ -31,7 +31,7 @@ const MODULES = [
 const TOUR_BY_CONTEXT = {
     dashboard: 'WELCOME',
     pos: 'POS_COMPLETE',
-    purchases: 'FINANCE',
+    purchases: 'PURCHASES_LIST',
     suppliers: 'FINANCE',
     cash: 'FINANCE',
     'inventory/productos': 'INVENTORY_PRODUCTS',

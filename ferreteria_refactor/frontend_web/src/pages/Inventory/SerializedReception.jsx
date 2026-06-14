@@ -478,7 +478,7 @@ const SerializedReception = () => {
     }
 
     return (
-        <div className="h-full bg-slate-50 flex flex-col overflow-hidden">
+        <div id="tour-serialized-reception" className="h-full bg-slate-50 flex flex-col overflow-hidden">
 
             {/* Modal selector */}
             {pickerData && (
@@ -509,7 +509,7 @@ const SerializedReception = () => {
                             <Trash2 size={13} /> Limpiar
                         </button>
                     )}
-                    <select value={selectedWarehouseId} onChange={e => setSelectedWarehouseId(e.target.value)}
+                    <select id="tour-serialized-warehouse" value={selectedWarehouseId} onChange={e => setSelectedWarehouseId(e.target.value)}
                         className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium bg-white focus:outline-none focus:border-indigo-400">
                         {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                     </select>
@@ -518,7 +518,7 @@ const SerializedReception = () => {
 
             {/* Scanner */}
             <div className="px-6 py-4 bg-white border-b border-slate-100 shrink-0">
-                <div className={`flex items-center gap-3 bg-slate-50 border-2 rounded-2xl px-4 py-3 transition-all ${scanning ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200 focus-within:border-indigo-500'}`}>
+                <div id="tour-serialized-scanner" className={`flex items-center gap-3 bg-slate-50 border-2 rounded-2xl px-4 py-3 transition-all ${scanning ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200 focus-within:border-indigo-500'}`}>
                     {scanning
                         ? <Loader2 size={20} className="text-amber-500 animate-spin shrink-0" />
                         : <Barcode size={20} className="text-slate-400 shrink-0" />
@@ -553,7 +553,7 @@ const SerializedReception = () => {
             </div>
 
             {/* Carrito */}
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+            <div id="tour-serialized-groups" className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
                 {groups.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-slate-300 gap-3 py-20">
                         <Barcode size={48} strokeWidth={1} />
@@ -584,7 +584,7 @@ const SerializedReception = () => {
                             </p>
                         )}
                     </div>
-                    <button onClick={handleSave} disabled={!canSave || isSaving}
+                    <button id="tour-serialized-save" onClick={handleSave} disabled={!canSave || isSaving}
                         className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-sm transition-all ${
                             canSave && !isSaving
                                 ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 hover:-translate-y-0.5'

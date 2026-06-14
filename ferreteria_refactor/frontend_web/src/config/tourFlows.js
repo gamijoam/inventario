@@ -128,6 +128,323 @@ export const TOUR_FLOWS = {
         ]
     },
 
+
+    POS_CHECKOUT: {
+        id: 'pos_checkout',
+        title: 'Cobrar en POS',
+        description: 'Guia corta para pasar del carrito al cobro.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            {
+                element: '#tour-pos-cart',
+                popover: {
+                    title: 'Revisa el carrito',
+                    description: 'Confirma productos, cantidades, seriales si aplica y total antes de cobrar. Si falta algo, vuelve al catalogo y agregalo.',
+                    side: 'left', align: 'start'
+                }
+            },
+            {
+                element: '#tour-pos-pay-btn',
+                popover: {
+                    title: 'Abrir cobro',
+                    description: 'Presiona Cobrar o F5. Se abrira el modal de pago con cliente, metodos, pagos mixtos, credito y confirmacion.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                popover: {
+                    title: 'Dentro del modal',
+                    description: 'Selecciona metodo de pago, escribe el monto recibido y confirma solo cuando el sistema marque el pago como completo.'
+                }
+            }
+        ]
+    },
+
+    POS_MIXED_PAYMENT: {
+        id: 'pos_mixed_payment',
+        title: 'Pago mixto',
+        description: 'Cobrar una venta con dos o mas metodos de pago.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            {
+                element: '#tour-pos-pay-btn',
+                popover: {
+                    title: 'Primero abre Cobrar',
+                    description: 'El pago mixto vive dentro del modal de cobro. Abre Cobrar cuando el carrito este listo.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                element: '#tour-payment-add-row',
+                popover: {
+                    title: 'Agregar otro metodo',
+                    description: 'Usa + Agregar para dividir el pago entre efectivo, punto, transferencia, Zelle u otros metodos activos.',
+                    side: 'bottom', align: 'end'
+                }
+            },
+            {
+                element: '#tour-payment-methods',
+                popover: {
+                    title: 'Completa cada linea',
+                    description: 'En cada linea elige metodo, moneda, monto y referencia si el metodo la exige. El sistema calcula cuanto falta.',
+                    side: 'left', align: 'start'
+                }
+            },
+            {
+                element: '#tour-payment-confirm',
+                popover: {
+                    title: 'Confirmar solo cuando cuadre',
+                    description: 'Cuando el pago este completo, confirma. Si falta monto o referencia, el boton queda bloqueado para evitar errores.',
+                    side: 'top', align: 'center'
+                }
+            }
+        ]
+    },
+
+    POS_CREDIT_SALE: {
+        id: 'pos_credit_sale',
+        title: 'Venta a credito',
+        description: 'Registrar una venta que queda como cuenta por cobrar.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            {
+                element: '#tour-pos-pay-btn',
+                popover: {
+                    title: 'Abre el cobro',
+                    description: 'La venta a credito se activa desde el modal de cobro. Primero agrega productos y abre Cobrar.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                element: '#tour-payment-customer',
+                popover: {
+                    title: 'Cliente obligatorio',
+                    description: 'Busca o registra el cliente. El credito siempre debe quedar asociado a una persona o empresa.',
+                    side: 'left', align: 'start'
+                }
+            },
+            {
+                element: '#tour-payment-credit-toggle',
+                popover: {
+                    title: 'Activa Venta a Credito',
+                    description: 'Al activar credito, el sistema consulta limite, deuda y bloqueos antes de permitir registrar la venta.',
+                    side: 'left', align: 'center'
+                }
+            },
+            {
+                element: '#tour-payment-confirm',
+                popover: {
+                    title: 'Registrar credito',
+                    description: 'Confirma solo si el cliente tiene credito disponible y no esta bloqueado. La deuda aparece en Creditos CxC.',
+                    side: 'top', align: 'center'
+                }
+            }
+        ]
+    },
+
+    POS_SERIAL_SALE: {
+        id: 'pos_serial_sale',
+        title: 'Venta con IMEI o serial',
+        description: 'Seleccionar la unidad exacta al vender productos serializados.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            {
+                element: '#tour-pos-search',
+                popover: {
+                    title: 'Busca el producto serializado',
+                    description: 'Agrega el producto desde el catalogo. Si maneja IMEI o serial, el sistema abrira el selector antes de enviarlo al carrito.',
+                    side: 'bottom', align: 'start'
+                }
+            },
+            {
+                element: '#tour-serial-input',
+                popover: {
+                    title: 'Escanea o escribe el serial',
+                    description: 'Usa el lector o escribe el IMEI. Presiona Enter para validar y agregar cada unidad.',
+                    side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-serial-confirm',
+                popover: {
+                    title: 'Completa la cantidad',
+                    description: 'El boton se activa cuando escaneaste todos los seriales requeridos. Asi se descuenta la unidad exacta.',
+                    side: 'top', align: 'center'
+                }
+            }
+        ]
+    },
+
+    PURCHASES_LIST: {
+        id: 'purchases_list',
+        title: 'Compras',
+        description: 'Historial y control de facturas de proveedor.',
+        startUrl: '/purchases',
+        module: null,
+        steps: [
+            {
+                element: '#tour-purchases-container',
+                popover: {
+                    title: 'Centro de compras',
+                    description: 'Aqui ves compras, estados de pago, totales y acceso rapido a nuevas recepciones.',
+                    side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-purchases-summary',
+                popover: {
+                    title: 'Resumen de deuda y compras',
+                    description: 'Estos indicadores ayudan a ver cuanto se compro, cuanto se pago y que queda pendiente.',
+                    side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-purchases-list',
+                popover: {
+                    title: 'Historial de facturas',
+                    description: 'Revisa cada compra, abre el detalle, registra pagos o anula si necesitas revertir una recepcion.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                element: '#tour-purchases-add-btn',
+                popover: {
+                    title: 'Nueva compra',
+                    description: 'Abre la recepcion de inventario para cargar proveedor, productos, costos, IMEIs y condicion de pago.',
+                    side: 'bottom', align: 'end'
+                }
+            }
+        ]
+    },
+
+    PURCHASES_CREATE: {
+        id: 'purchases_create',
+        title: 'Nueva compra',
+        description: 'Registrar proveedor, productos, costos y condiciones.',
+        startUrl: '/purchases/new',
+        module: null,
+        steps: [
+            {
+                element: '#tour-purchase-supplier',
+                popover: {
+                    title: 'Selecciona proveedor',
+                    description: 'Toda compra debe quedar vinculada al proveedor correcto para controlar cuentas por pagar e historial de costos.',
+                    side: 'bottom', align: 'start'
+                }
+            },
+            {
+                element: '#tour-purchase-product-search',
+                popover: {
+                    title: 'Agrega productos',
+                    description: 'Busca por nombre o codigo. Tambien puedes crear un producto al vuelo si aun no existe en inventario.',
+                    side: 'bottom', align: 'start'
+                }
+            },
+            {
+                element: '#tour-purchase-items',
+                popover: {
+                    title: 'Cantidades y costos',
+                    description: 'Cada linea debe tener cantidad y costo correctos. El costo alimenta ganancia real, kardex y precio sugerido.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                element: '#tour-purchase-conditions',
+                popover: {
+                    title: 'Condicion de pago',
+                    description: 'Marca contado si ya pagaste, o credito si queda deuda con proveedor. Las notas ayudan a auditar despues.',
+                    side: 'left', align: 'start'
+                }
+            },
+            {
+                element: '#tour-purchase-submit',
+                popover: {
+                    title: 'Procesar compra',
+                    description: 'Al procesar, el stock sube, el kardex registra entrada y la deuda se crea si la compra fue a credito.',
+                    side: 'top', align: 'center'
+                }
+            }
+        ]
+    },
+
+    PURCHASES_IMEI: {
+        id: 'purchases_imei',
+        title: 'Compra con IMEI',
+        description: 'Registrar seriales al recibir productos serializados.',
+        startUrl: '/purchases/new',
+        module: null,
+        steps: [
+            {
+                element: '#tour-purchase-product-search',
+                popover: {
+                    title: 'Agrega el producto con IMEI',
+                    description: 'El producto debe tener activo el control serial. Al agregarlo, la linea mostrara el campo de IMEIs o seriales.',
+                    side: 'bottom', align: 'start'
+                }
+            },
+            {
+                element: '#tour-purchase-items',
+                popover: {
+                    title: 'Cantidad igual a seriales',
+                    description: 'Si recibes 5 unidades, debes pegar o escanear 5 IMEIs unicos. Si no coincide, la compra no debe procesarse.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                element: '#tour-purchase-submit',
+                popover: {
+                    title: 'Validacion final',
+                    description: 'Antes de procesar, revisa que no haya duplicados y que cada IMEI pertenezca al producto correcto.',
+                    side: 'top', align: 'center'
+                }
+            }
+        ]
+    },
+
+    SERIALIZED_RECEPTION: {
+        id: 'serialized_reception',
+        title: 'Recepcion serializada',
+        description: 'Ingreso rapido de IMEIs con asignacion de producto.',
+        startUrl: '/inventory/serialized-reception',
+        module: null,
+        steps: [
+            {
+                element: '#tour-serialized-warehouse',
+                popover: {
+                    title: 'Almacen destino',
+                    description: 'Elige donde entraran fisicamente las unidades antes de empezar a escanear.',
+                    side: 'bottom', align: 'end'
+                }
+            },
+            {
+                element: '#tour-serialized-scanner',
+                popover: {
+                    title: 'Scanner de IMEI',
+                    description: 'Escanea o escribe el IMEI y presiona Enter. Cada codigo se agrupa para luego guardar la entrada.',
+                    side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-serialized-groups',
+                popover: {
+                    title: 'Grupos y asignacion',
+                    description: 'Si alguna unidad queda sin producto asignado, toca la tarjeta y vincula el modelo correcto antes de guardar.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                popover: {
+                    title: 'Guardar entrada',
+                    description: 'Cuando todos los IMEIs esten asignados, Guardar todo crea las entradas, suma stock y deja trazabilidad por serial.'
+                }
+            }
+        ]
+    },
+
     // =============================================
     // TOUR 3: INVENTARIO COMPLETO (Core)
     // =============================================

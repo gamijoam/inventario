@@ -322,7 +322,7 @@ const CreatePurchase = () => {
 
     return (
         <>
-        <div className="flex flex-col min-h-[calc(100vh-64px)] bg-slate-50 gap-4 p-3 md:p-4 pb-32 md:pb-4">
+        <div id="tour-purchase-create" className="flex flex-col min-h-[calc(100vh-64px)] bg-slate-50 gap-4 p-3 md:p-4 pb-32 md:pb-4">
             {/* TOP HEADER: Invoice & Supplier Info */}
             <div className="rounded-lg border border-slate-200 bg-white shadow-sm flex-shrink-0 z-30">
                 <div className="flex flex-col gap-4 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
@@ -351,7 +351,7 @@ const CreatePurchase = () => {
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 p-4 lg:grid-cols-[minmax(220px,1.2fr)_minmax(180px,0.8fr)_minmax(160px,0.7fr)_minmax(260px,1fr)]">
-                    <div className="relative">
+                    <div id="tour-purchase-supplier" className="relative">
                         <label className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
                             <FileText size={12} /> Proveedor
                         </label>
@@ -466,13 +466,14 @@ const CreatePurchase = () => {
                     <div className="p-4 border-b border-slate-100 bg-slate-50/50 z-20">
                         {/* Botón producto nuevo */}
                         <button
+                            id="tour-purchase-new-product"
                             type="button"
                             onClick={() => setShowQuickProduct(true)}
                             className="mb-3 flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold transition-all shadow-sm"
                         >
                             ➕ Producto nuevo
                         </button>
-                        <div className="relative">
+                        <div id="tour-purchase-product-search" className="relative">
                             <Search className="absolute left-4 top-3.5 text-slate-400" size={20} />
                             <input
                                 ref={productSearchRef}
@@ -511,7 +512,7 @@ const CreatePurchase = () => {
                     </div>
 
                     {/* Table */}
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-0 bg-slate-50 md:bg-white">
+                    <div id="tour-purchase-items" className="flex-1 overflow-y-auto custom-scrollbar p-0 bg-slate-50 md:bg-white">
                         {/* MOBILE CARD LIST */}
                         <div className="md:hidden space-y-3 p-3">
                             {purchaseItems.length === 0 ? (
@@ -594,7 +595,7 @@ const CreatePurchase = () => {
                                             </div>
 
                                             {item.has_imei && (
-                                                <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 p-3">
+                                                <div id="tour-purchase-imei-lines" className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 p-3">
                                                     <label className="mb-1 block text-[10px] font-black uppercase tracking-wide text-indigo-600">IMEIs / Seriales ({parseSerials(item.serial_text).length}/{toMoney(item.quantity) || 0})</label>
                                                     <textarea
                                                         value={item.serial_text || ''}
@@ -771,7 +772,7 @@ const CreatePurchase = () => {
 
                 {/* RIGHT SIDEBAR: Actions & Payment */}
                 <div className={`flex flex-col gap-4 overflow-y-auto pb-2 ${activeTab === 'SUMMARY' ? 'flex w-full md:w-80' : 'hidden md:flex md:w-80'}`}>
-                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                    <div id="tour-purchase-conditions" className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                         <h3 className="text-xs font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
                             <ArrowRight size={14} className="text-indigo-600" /> Condiciones
                         </h3>
@@ -838,7 +839,7 @@ const CreatePurchase = () => {
                         </div>
 
                         {/* ── Descuento global del proveedor ── */}
-                        <div className="bg-white border border-slate-200 rounded-xl p-4 mb-3">
+                        <div id="tour-purchase-discount" className="bg-white border border-slate-200 rounded-xl p-4 mb-3">
                             <p className="text-xs font-black text-slate-600 uppercase tracking-wide mb-3">
                                 🏷️ Descuento del proveedor
                             </p>
@@ -880,6 +881,7 @@ const CreatePurchase = () => {
                         </div>
 
                         <button
+                            id="tour-purchase-submit"
                             onClick={handleSubmit}
                             disabled={!selectedSupplier || purchaseItems.length === 0}
                             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-indigo-200 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-y-0 flex items-center justify-center gap-2 active:scale-95"

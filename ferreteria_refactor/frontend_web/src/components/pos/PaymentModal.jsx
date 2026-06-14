@@ -616,7 +616,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3"
             style={{ background: 'rgba(15,23,42,0.62)', backdropFilter: 'blur(6px)' }}>
 
-            <div className="bg-white w-full max-w-xl rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
+            <div id="tour-payment-modal" className="bg-white w-full max-w-xl rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
                 style={{ maxHeight: '94vh' }}>
 
                 {/* ── TOP: Total destacado ──────────────────────────────────── */}
@@ -732,7 +732,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 </div>
 
                 {/* ── BODY scrollable ──────────────────────────────────────── */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+                <div id="tour-payment-body" className="flex-1 overflow-y-auto p-3 space-y-2.5">
 
                     {isFinancingMode ? (
                         <FinancingStep
@@ -743,7 +743,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     ) : <>
 
                     {/* Cliente */}
-                    <div>
+                    <div id="tour-payment-customer">
                         <div className="flex items-center justify-between mb-1">
                             <p className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                                 <User size={12} /> Cliente {isCreditSale && <span className="text-rose-500">*</span>}
@@ -791,7 +791,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     </div>
 
                     {/* Toggle crédito */}
-                    <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all select-none ${isCreditSale ? 'border-indigo-400 bg-indigo-50/50' : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'}`}>
+                    <label id="tour-payment-credit-toggle" className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all select-none ${isCreditSale ? 'border-indigo-400 bg-indigo-50/50' : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'}`}>
                         <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${isCreditSale ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
                             {isCreditSale && <CheckCircle size={12} className="text-white" strokeWidth={4} />}
                         </div>
@@ -829,12 +829,12 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
                     {/* Métodos de pago */}
                     {!isCreditSale && (
-                        <div>
+                        <div id="tour-payment-methods">
                             <div className="flex items-center justify-between mb-2">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                                     <Layers size={10} /> Métodos de Pago
                                 </p>
-                                <button onClick={addPaymentRow} className="text-[10px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-1 rounded-md transition-all">
+                                <button id="tour-payment-add-row" onClick={addPaymentRow} className="text-[10px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-1 rounded-md transition-all">
                                     + Agregar
                                 </button>
                             </div>
@@ -930,6 +930,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                         Cancelar
                     </button>
                     <button
+                        id="tour-payment-confirm"
                         onClick={handleConfirm}
                         disabled={processing || (!isCreditSale && !isComplete && !isFinancingMode) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))}
                         className={cn(

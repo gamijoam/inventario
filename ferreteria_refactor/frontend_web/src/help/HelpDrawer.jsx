@@ -22,7 +22,7 @@ import { createHashSupportHref } from './supportContext';
 const TOUR_BY_CONTEXT = {
     dashboard: 'WELCOME',
     pos: 'POS_COMPLETE',
-    purchases: 'FINANCE',
+    purchases: 'PURCHASES_LIST',
     suppliers: 'FINANCE',
     cash: 'FINANCE',
     'inventory/productos': 'INVENTORY_PRODUCTS',
@@ -48,6 +48,22 @@ const TOUR_BY_CONTEXT = {
     'config/auditoria': 'SYSTEM',
     'services/dashboard': 'SERVICES',
     'services/order-detail': 'SERVICES',
+};
+
+
+const TASK_TOURS = {
+    pos: [
+        { label: 'Cobrar', tour: 'POS_CHECKOUT' },
+        { label: 'Pago mixto', tour: 'POS_MIXED_PAYMENT' },
+        { label: 'Venta a credito', tour: 'POS_CREDIT_SALE' },
+        { label: 'Producto con IMEI', tour: 'POS_SERIAL_SALE' },
+    ],
+    purchases: [
+        { label: 'Lista de compras', tour: 'PURCHASES_LIST' },
+        { label: 'Nueva compra', tour: 'PURCHASES_CREATE' },
+        { label: 'Compra con IMEI', tour: 'PURCHASES_IMEI' },
+        { label: 'Recepcion serializada', tour: 'SERIALIZED_RECEPTION' },
+    ],
 };
 
 const COMMON_ISSUES = {
@@ -123,6 +139,7 @@ const HelpDrawer = ({ contextKey, onClose }) => {
     const tourKey = TOUR_BY_CONTEXT[contextKey];
     const issues = useMemo(() => getIssueList(contextKey, content), [contextKey, content]);
     const quickActions = useMemo(() => (content?.actions || []).slice(0, 4), [content?.actions]);
+    const taskTours = TASK_TOURS[contextKey] || [];
 
     const filteredSteps = useMemo(() => {
         const steps = content?.steps || [];
@@ -139,6 +156,11 @@ const HelpDrawer = ({ contextKey, onClose }) => {
         if (!tourKey) return;
         onClose?.();
         setTimeout(() => startTour(tourKey), 250);
+    };
+
+    const startTaskTour = (flowId) => {
+        onClose?.();
+        setTimeout(() => startTour(flowId), 250);
     };
 
     return createPortal(
@@ -237,6 +259,27 @@ const HelpDrawer = ({ contextKey, onClose }) => {
                                     </div>
                                 </div>
                             </div>
+
+                            {taskTours.length > 0 && (
+                                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Tareas guiadas</p>
+                                        <Zap size={15} className="text-indigo-500" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {taskTours.map((task) => (
+                                            <button
+                                                key={task.tour}
+                                                type="button"
+                                                onClick={() => startTaskTour(task.tour)}
+                                                className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-2 text-xs font-black text-indigo-700 transition-colors hover:border-indigo-300 hover:bg-indigo-100"
+                                            >
+                                                <PlayCircle size={14} /> {task.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {filteredSteps.length === 0 ? (
                                 <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm font-bold text-slate-400">No encontre pasos con esa busqueda.</div>
