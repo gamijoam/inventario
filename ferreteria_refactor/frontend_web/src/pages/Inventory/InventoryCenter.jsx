@@ -4,10 +4,8 @@ import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
 import { useSearchParams } from 'react-router-dom';
 import {
-    Package, Tags, Archive, ArrowRightLeft, Warehouse, Barcode, PlayCircle
+    Package, Tags, Archive, ArrowRightLeft, Warehouse, Barcode
 } from 'lucide-react';
-import { useOnboardingVideo } from '../../hooks/useOnboardingVideo';
-import OnboardingVideoModal from '../../components/common/OnboardingVideoModal';
 
 const ProductsTab = lazy(() => import('./tabs/ProductsTab'));
 const CategoriesTab = lazy(() => import('./tabs/CategoriesTab'));
@@ -156,15 +154,6 @@ const InventoryCenter = () => {
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                                {videoConfig && (
-                                    <button
-                                        onClick={openVideo}
-                                        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition-colors"
-                                    >
-                                        <PlayCircle size={15} />
-                                        <span className="hidden sm:inline">Tutorial</span>
-                                    </button>
-                                )}
                                 {helpKey && <HelpButton contextKey={helpKey} onClick={help.open} />}
                             </div>
                         </div>
@@ -217,13 +206,6 @@ const InventoryCenter = () => {
 
             {help.isOpen && helpKey && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
 
-            {showVideoModal && videoConfig && (
-                <OnboardingVideoModal
-                    videoId={videoConfig.videoId}
-                    title={videoConfig.title}
-                    onClose={dismissVideo}
-                />
-            )}
         </div>
     );
 };

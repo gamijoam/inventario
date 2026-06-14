@@ -453,7 +453,7 @@ const KardexTab = () => {
     };
 
     return (
-        <div className="space-y-4">
+        <div id="tour-inventory-add-btn" className="space-y-4">
             <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="min-w-0">

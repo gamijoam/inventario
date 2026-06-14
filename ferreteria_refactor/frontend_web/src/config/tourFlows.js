@@ -135,7 +135,7 @@ export const TOUR_FLOWS = {
         id: 'inventory_complete',
         title: 'Gestión de Inventario',
         description: 'Productos, categorías, almacenes y movimientos de stock.',
-        startUrl: '/products',
+        startUrl: '/inventory-center?tab=productos',
         module: null,
         steps: [
             {
@@ -153,7 +153,7 @@ export const TOUR_FLOWS = {
                 }
             },
             {
-                navigate: '/categories',
+                navigate: '/inventory-center?tab=categorias',
                 element: '#tour-categories-add-btn',
                 popover: {
                     title: 'Categorías',
@@ -162,7 +162,7 @@ export const TOUR_FLOWS = {
                 }
             },
             {
-                navigate: '/warehouses',
+                navigate: '/inventory-center?tab=almacenes',
                 element: '#tour-warehouses-add-btn',
                 popover: {
                     title: 'Almacenes',
@@ -171,7 +171,7 @@ export const TOUR_FLOWS = {
                 }
             },
             {
-                navigate: '/transfers',
+                navigate: '/inventory-center?tab=traslados',
                 element: '#tour-transfers-add-btn',
                 popover: {
                     title: 'Traslados',
@@ -180,7 +180,7 @@ export const TOUR_FLOWS = {
                 }
             },
             {
-                navigate: '/inventory',
+                navigate: '/inventory-center?tab=kardex',
                 element: '#tour-inventory-add-btn',
                 popover: {
                     title: 'Ajustes de Inventario (Kardex)',
