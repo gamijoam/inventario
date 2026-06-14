@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
     CheckCircle,
     ChevronDown,
@@ -93,6 +94,7 @@ const getTicketMeta = (ticket) => ({
 const normalize = (value) => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 const SupportTickets = () => {
+    const [searchParams] = useSearchParams();
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -100,9 +102,33 @@ const SupportTickets = () => {
     const [ticketFilter, setTicketFilter] = useState('');
     const [formData, setFormData] = useState(INITIAL_FORM);
 
+    const hasHelpContext = searchParams.get('source') === 'help';
+    const helpContext = searchParams.get('context') || '';
     const selectedModule = MODULE_OPTIONS.find(module => module.id === formData.module) || MODULE_OPTIONS[0];
     const selectedIssue = ISSUE_TYPES.find(issue => issue.id === formData.issueType) || ISSUE_TYPES[0];
     const SelectedModuleIcon = selectedModule.icon;
+
+    useEffect(() => {
+        const moduleParam = searchParams.get('module');
+        const issueParam = searchParams.get('issueType');
+        const subjectParam = searchParams.get('subject');
+        const validModule = MODULE_OPTIONS.some(module => module.id === moduleParam) ? moduleParam : null;
+        const validIssue = ISSUE_TYPES.some(issue => issue.id === issueParam) ? issueParam : null;
+
+        if (!validModule && !validIssue && !subjectParam) return;
+
+        setFormData(prev => {
+            const nextIssue = validIssue || prev.issueType;
+            const issue = ISSUE_TYPES.find(item => item.id === nextIssue);
+            return {
+                ...prev,
+                module: validModule || prev.module,
+                issueType: nextIssue,
+                priority: issue?.priority || prev.priority,
+                subject: subjectParam || prev.subject,
+            };
+        });
+    }, [searchParams]);
 
     useEffect(() => {
         fetchTickets();
@@ -369,6 +395,20 @@ const SupportTickets = () => {
                                     required
                                 />
                             </div>
+
+                            {hasHelpContext && (
+                                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                                    <div className="flex items-start gap-3">
+                                        <CheckCircle className="mt-0.5 shrink-0 text-emerald-600" size={18} />
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-black text-emerald-950">Contexto cargado desde ayuda</p>
+                                            <p className="mt-1 text-xs font-semibold leading-5 text-emerald-800">
+                                                Ya sabemos que vienes de {helpContext || 'una guia del sistema'}. Completa solo el detalle del problema.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                                 <div className="flex items-start gap-3">

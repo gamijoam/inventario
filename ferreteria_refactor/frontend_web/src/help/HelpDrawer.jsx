@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { HELP_CONTENT } from './helpContent';
 import { useAppTour } from '../hooks/useAppTour';
+import { createHashSupportHref } from './supportContext';
 
 const TOUR_BY_CONTEXT = {
     dashboard: 'WELCOME',
@@ -172,7 +173,7 @@ const HelpDrawer = ({ contextKey, onClose }) => {
                             <PlayCircle size={17} /> Mostrarme
                         </button>
                         <a
-                            href="/#/support"
+                            href={createHashSupportHref(contextKey, content.title)}
                             onClick={onClose}
                             className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                         >

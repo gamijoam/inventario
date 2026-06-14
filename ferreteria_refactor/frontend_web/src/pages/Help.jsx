@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { HELP_CONTENT } from '../help/helpContent';
 import { useAppTour } from '../hooks/useAppTour';
+import { createSupportPath } from '../help/supportContext';
 import clsx from 'clsx';
 
 const MODULES = [
@@ -152,7 +153,7 @@ const Help = () => {
                         >
                             <PlayCircle size={17} /> Iniciar tour
                         </button>
-                        <Link to="/support" className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                        <Link to={createSupportPath(selectedTopic?.key, selectedTopic?.title)} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
                             <LifeBuoy size={17} /> Soporte
                         </Link>
                     </div>
@@ -310,7 +311,7 @@ const Help = () => {
                                     >
                                         <PlayCircle size={16} /> Mostrarme
                                     </button>
-                                    <Link to="/support" className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-black text-slate-700 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                                    <Link to={createSupportPath(selectedTopic?.key, selectedTopic?.title)} className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-black text-slate-700 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
                                         <LifeBuoy size={16} /> Ticket
                                     </Link>
                                 </div>
