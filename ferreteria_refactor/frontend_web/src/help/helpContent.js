@@ -234,10 +234,10 @@ export const HELP_CONTENT = {
       { title: 'Agregar imagen', desc: 'En la ficha del producto, haz clic en el área de imagen para cargar una foto. Acepta JPG y PNG. Una imagen de 500x500 píxeles es suficiente. La imagen aparece en el POS para que el cajero identifique el producto visualmente.' },
       { title: 'Activar control de serial/IMEI', desc: 'Para productos como celulares donde cada unidad tiene un identificador único, activa "Requiere Serial" en la ficha. Al vender, el sistema pedirá confirmar el número de serial específico de la unidad.' },
       { title: 'Buscar y filtrar el catálogo', desc: 'Usa la barra de búsqueda para buscar por nombre o código. Filtra por: Categoría (dropdown), Almacén (dropdown), Estado del stock (Todos / En stock / Bajo stock / Agotado), y usa "Ordenar por" para organizar la vista.' },
-      { title: 'Recibir mercancía nueva', desc: 'Cuando llega un pedido, haz clic en "Recepción". Busca cada producto recibido, ingresa la cantidad y el costo de compra (si cambió). El stock se suma automáticamente y el costo promedio se recalcula. El movimiento queda en el Kardex.' },
+      { title: 'Recibir mercanc?a nueva', desc: 'Cuando llega un pedido, usa Recepci?n IMEI si manejas seriales o registra la entrada desde Compras/Recepci?n seg?n tu flujo. Busca cada producto, ingresa cantidad y costo. El stock se suma autom?ticamente y el movimiento queda en el Kardex.' },
       { title: 'Ajustar stock manualmente', desc: 'Si hay diferencia entre el sistema y el físico, haz clic en el producto → "Ajustar Stock". Selecciona si es un ajuste positivo (inventario físico tiene más) o negativo (tiene menos). Escribe el motivo — queda registrado en el Kardex para auditoría.' },
-      { title: 'Importar productos masivamente', desc: 'Si tienes muchos productos, descarga la plantilla de Excel con el botón "Plantilla", llénala con tus datos y súbela con "Importar". El sistema crea o actualiza los productos automáticamente. Formato de la plantilla: nombre, sku, precio_costo, precio_venta, stock, categoria.' },
-      { title: 'Exportar el catálogo', desc: 'El botón "Excel" y "PDF" generan el catálogo completo con stock, costos y precios. Útil para inventarios físicos y para compartir con tu contador.' },
+      { title: 'Importar productos masivamente', desc: 'Si tienes muchos productos, abre el men? Acciones y usa Importar Excel. Descarga la plantilla, ll?nala con tus datos y s?bela. El sistema crea o actualiza productos autom?ticamente.' },
+      { title: 'Exportar el cat?logo', desc: 'Desde Acciones puedes generar salidas del cat?logo o usar reportes para inventarios f?sicos y contabilidad. Revisa filtros antes de exportar para llevar exactamente lo que necesitas.' },
     ],
     tips: [
       'El stock mínimo activa la alerta en el Dashboard. Ponlo en el nivel de reposición ideal — si tardas 3 días en recibir mercancía, el mínimo debe cubrir 3 días de ventas.',
@@ -253,7 +253,7 @@ export const HELP_CONTENT = {
     icon: '🏷️',
     description: 'Las categorías organizan el catálogo y habilitan funciones avanzadas como descuentos automáticos por tipo de producto y reportes segmentados.',
     steps: [
-      { title: 'Crear una categoría', desc: 'Haz clic en "Nueva Categoría". Escribe un nombre claro y corto (ej: Celulares, Accesorios, Repuestos, Servicios). Puedes agregar una descripción y asignar un color para identificarla visualmente en el POS.' },
+      { title: 'Crear una categor?a', desc: 'Haz clic en "Nueva Categor?a". Escribe un nombre claro y corto (ej: Celulares, Accesorios, Repuestos, Servicios). Puedes agregar una descripci?n y, si aplica, seleccionar una categor?a padre para organizar subcategor?as.' },
       { title: 'Organizar en subcategorías', desc: 'Si tienes muchos productos, puedes crear subcategorías. Por ejemplo: Categoría "Celulares" → subcategorías "iPhone", "Samsung", "Xiaomi". Esto mejora la navegación en el POS y los reportes de ventas.' },
       { title: 'Asignar a productos', desc: 'La categoría se asigna desde la ficha de cada producto. No se puede hacer desde aquí masivamente — ve a Productos e importa con Excel si tienes que cambiar categorías en cantidad.' },
       { title: 'Usar en comisiones', desc: 'Si usas el sistema de comisiones, puedes crear reglas específicas por categoría. Ve a Configuración → Comisiones → Reglas por Categoría. Por ejemplo: 8% de comisión en Celulares, 5% en Accesorios.' },
@@ -272,18 +272,18 @@ export const HELP_CONTENT = {
     icon: '📋',
     description: 'Registro histórico de todos los movimientos de inventario. Te permite rastrear exactamente qué pasó con cada unidad de cada producto: entradas, salidas, ajustes y traslados.',
     steps: [
-      { title: 'Buscar el historial de un producto', desc: 'Selecciona el producto del dropdown. Verás la lista cronológica de todos sus movimientos: fecha, tipo, cantidad, responsable, y el saldo después de cada movimiento.' },
+      { title: 'Buscar movimientos', desc: 'Usa el buscador y los filtros para ubicar movimientos por producto, tipo o fecha. Ver?s la lista cronol?gica con fecha, tipo, cantidad, responsable y saldo despu?s de cada movimiento.' },
       { title: 'Entender los tipos de movimiento', desc: 'ENTRADA: mercancía recibida por compra o ajuste positivo. El stock sube. SALIDA: producto vendido en el POS o ajuste negativo. El stock baja. TRASLADO SALIDA: salió hacia otro almacén. TRASLADO ENTRADA: llegó desde otro almacén. AJUSTE: corrección manual de inventario — siempre muestra quién lo hizo y el motivo.' },
       { title: 'Filtrar por fecha', desc: 'Usa el selector de fechas para ver un período específico. Por ejemplo: los movimientos del último mes para el cuadre con el contador.' },
       { title: 'Investigar diferencias de stock', desc: 'Si el stock del sistema no coincide con el físico: 1) Busca el producto en el Kardex. 2) Revisa los movimientos de los últimos días. 3) Busca algún ajuste sin motivo claro o una salida sin venta correspondiente. 4) El campo "Usuario" te dice quién hizo cada movimiento.' },
-      { title: 'Exportar para auditoría', desc: 'El botón de exportar genera un Excel con todos los movimientos del período seleccionado. Ideal para presentar al contador o para auditorías internas.' },
+      { title: 'Auditar diferencias', desc: 'Usa los filtros y el detalle de cada movimiento para documentar diferencias antes de hacer un ajuste manual. Si necesitas exportar, usa el m?dulo de reportes correspondiente.' },
     ],
     tips: [
       'El Kardex es la herramienta de auditoría más importante — úsalo siempre que haya diferencias de stock.',
       'Cada movimiento tiene un usuario responsable. Si hay ajustes sospechosos, puedes ver exactamente quién los hizo.',
       'Haz un conteo físico mensual y compara con el Kardex para detectar mermas o errores a tiempo.',
     ],
-    actions: ['Buscar producto', 'Filtrar por fecha', 'Ver responsable por movimiento', 'Exportar Excel'],
+    actions: ['Buscar movimientos', 'Filtrar por fecha', 'Ver responsable por movimiento', 'Crear ajuste manual'],
   },
 
   'inventory/traslados': {
@@ -293,7 +293,7 @@ export const HELP_CONTENT = {
     steps: [
       { title: 'Traslado interno (entre tus propios almacenes)', desc: 'Haz clic en "Nuevo Traslado". Selecciona: Almacén de origen (de dónde sale), Almacén de destino (a dónde llega). Agrega los productos y las cantidades a trasladar. Revisa y confirma.' },
       { title: 'Qué pasa al confirmar', desc: 'El stock se descuenta del almacén origen inmediatamente. El stock aparece en el almacén destino inmediatamente. El movimiento queda registrado en el Kardex de ambos almacenes con el tipo "TRASLADO". No hay forma de revertir — si te equivocas, crea un traslado inverso.' },
-      { title: 'Traslado externo (a otra sucursal o sistema)', desc: 'Para sucursales que manejan sistemas separados, usa "Traslado Externo de Salida". Genera un documento con los productos y cantidades. La sucursal destino lo importa desde su sistema con "Traslado Externo de Entrada".' },
+      { title: 'Exportar a otra empresa', desc: 'Para empresas o tenants separados, usa el modo "Exportar". El sistema descuenta del origen y genera un archivo con productos, cantidades y seriales si aplica. La empresa destino lo carga desde el modo "Importar".' },
       { title: 'Ver el historial de traslados', desc: 'La lista principal muestra todos los traslados con fecha, origen, destino, quién lo hizo y el estado. Puedes hacer clic en cualquiera para ver el detalle de qué productos se movieron.' },
     ],
     tips: [
@@ -301,7 +301,7 @@ export const HELP_CONTENT = {
       'Si tienes un local y una bodega, trabaja con el almacén "Local" activo en el POS y traslada desde Bodega cuando necesites reabastecer.',
       'Los traslados externos son útiles para exportar el movimiento a un sistema externo de contabilidad.',
     ],
-    actions: ['Nuevo Traslado interno', 'Traslado externo salida', 'Ver historial', 'Ver detalle por traslado'],
+    actions: ['Nuevo traslado interno', 'Exportar archivo', 'Importar archivo', 'Ver historial', 'Ver detalle por traslado'],
   },
 
   'inventory/almacenes': {
@@ -309,7 +309,7 @@ export const HELP_CONTENT = {
     icon: '🏭',
     description: 'Los almacenes son los espacios físicos donde guardas inventario. Puedes tener desde un local único hasta múltiples bodegas y sucursales.',
     steps: [
-      { title: 'Crear un almacén', desc: 'Haz clic en "Nuevo Almacén". Nombre (ej: "Local Principal", "Bodega", "Sucursal Centro"). Dirección física si aplica. Tipo: Principal o Secundario.' },
+      { title: 'Crear un almac?n', desc: 'Haz clic en "Nuevo Almac?n". Escribe un nombre claro (ej: "Local Principal", "Bodega", "Sucursal Centro"), direcci?n si aplica y marca si ser? el almac?n principal.' },
       { title: 'Asignar el almacén al POS', desc: 'Cada estación de caja vende del almacén que le asignes. Ve a Configuración → Estación POS → Almacén Activo y selecciona el que corresponde a esa computadora. Si tienes 2 cajas, cada una puede vender de un almacén diferente.' },
       { title: 'Ver el stock por almacén', desc: 'En la vista de Productos, usa el filtro de Almacén para ver qué hay en cada uno. También puedes ver el stock de cada almacén desde el detalle de cualquier producto.' },
       { title: 'Controlar con traslados', desc: 'Cuando un almacén se queda sin stock, crea un traslado desde el almacén con mercancía disponible. El stock se mueve instantáneamente en el sistema.' },

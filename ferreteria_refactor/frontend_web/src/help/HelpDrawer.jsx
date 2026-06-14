@@ -122,6 +122,7 @@ const HelpDrawer = ({ contextKey, onClose }) => {
 
     const tourKey = TOUR_BY_CONTEXT[contextKey];
     const issues = useMemo(() => getIssueList(contextKey, content), [contextKey, content]);
+    const quickActions = useMemo(() => (content?.actions || []).slice(0, 4), [content?.actions]);
 
     const filteredSteps = useMemo(() => {
         const steps = content?.steps || [];
@@ -221,9 +222,18 @@ const HelpDrawer = ({ contextKey, onClose }) => {
                             <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-3">
                                 <div className="flex items-start gap-2">
                                     <ListChecks className="mt-0.5 shrink-0 text-indigo-600" size={18} />
-                                    <div>
+                                    <div className="min-w-0">
                                         <p className="text-sm font-black text-slate-900">Lo esencial de esta pantalla</p>
                                         <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-600">Empieza por estos pasos. La guia completa queda disponible sin interrumpir tu trabajo.</p>
+                                        {quickActions.length > 0 && (
+                                            <div className="mt-3 flex flex-wrap gap-1.5">
+                                                {quickActions.map((action) => (
+                                                    <span key={action} className="inline-flex rounded-md border border-indigo-200 bg-white px-2 py-1 text-[11px] font-black text-indigo-700 shadow-sm">
+                                                        {action}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

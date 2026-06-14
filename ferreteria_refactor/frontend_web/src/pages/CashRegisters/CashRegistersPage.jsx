@@ -368,7 +368,7 @@ const CashRegistersPage = () => {
     const totalActive = registers.filter(r => r.is_active).length;
 
     return (
-        <div className="p-6 max-w-5xl mx-auto">
+        <div id="tour-cash-container" className="p-6 max-w-5xl mx-auto">
             {/* Page Header */}
             <div className="flex items-start justify-between mb-6">
                 <div>

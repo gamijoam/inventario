@@ -192,6 +192,15 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         );
     };
 
+    const getTourIdForItem = (label) => {
+        const normalized = label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        if (normalized === 'resumen') return 'sidebar-dashboard';
+        if (normalized === 'centro de ventas') return 'sidebar-group-ventas';
+        if (normalized === 'centro de inventario') return 'sidebar-group-inventario';
+        if (normalized === 'configuracion') return 'sidebar-group-sistema';
+        return undefined;
+    };
+
     const CollapsedTooltip = ({ label }) => (
         <span className="pointer-events-none absolute left-[58px] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 opacity-0 shadow-lg shadow-slate-200/70 transition-opacity group-hover:block group-hover:opacity-100">
             {label}
@@ -280,7 +289,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                                 <div className={cn("relative", isCollapsed && "group")}>
                                     <Link
                                         to={group.item.path}
-                                        id={group.item.label === 'Resumen' ? 'sidebar-dashboard' : undefined}
+                                        id={getTourIdForItem(group.item.label)}
                                         onClick={closeMobileMenu}
                                         className={cn(
                                             "flex items-center px-4 py-3 rounded-lg text-sm transition-colors relative mb-1",

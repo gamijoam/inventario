@@ -125,7 +125,7 @@ const SalesCenter = () => {
     // MAIN RENDER
     // ============================================================
     return (
-        <div className="min-h-screen bg-slate-50/50">
+        <div id="tour-sales-container" className="min-h-screen bg-slate-50/50">
             {/* Header */}
             <div className="bg-white border-b border-slate-200 sticky top-0 z-30">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">

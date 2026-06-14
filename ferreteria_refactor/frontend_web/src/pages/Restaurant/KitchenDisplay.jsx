@@ -193,7 +193,7 @@ const KitchenDisplay = () => {
     );
 
     return (
-        <div className={containerClass}>
+        <div id="tour-restaurant-kitchen" className={containerClass}>
             {/* Fullscreen header */}
             {isFullscreen ? (
                 <div className="flex justify-between items-center px-4 py-2 bg-slate-800 border-b border-slate-700 shrink-0">

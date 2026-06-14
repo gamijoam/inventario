@@ -598,7 +598,7 @@ const Dashboard = () => {
 
     /* ── RENDER ── */
     return (
-        <div className="space-y-3 animate-in fade-in duration-300 max-w-[1540px] mx-auto pb-8 px-1">
+        <div id="tour-dashboard-container" className="space-y-3 animate-in fade-in duration-300 max-w-[1540px] mx-auto pb-8 px-1">
 
             {/* ── HEADER ── */}
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
