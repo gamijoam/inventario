@@ -917,7 +917,7 @@ const SerialsTab = () => {
     const transitCount = allInstances.filter(item => item.status === 'TRANSIT').length;
 
     return (
-        <div className="flex flex-col h-full gap-4">
+        <div id="tour-serials-panel" className="flex flex-col h-full gap-4">
             {/* Header */}
             <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -936,7 +936,7 @@ const SerialsTab = () => {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         {!selectedProduct && (
-                            <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+                            <div id="tour-serials-modes" className="flex rounded-lg border border-slate-200 bg-slate-50 p-1">
                                 {[
                                     { value: 'catalog', label: 'Catalogo', count: catalog.length },
                                     { value: 'transit', label: 'En transito', count: transitCount },

@@ -133,32 +133,60 @@ export const TOUR_FLOWS = {
     // =============================================
     INVENTORY_COMPLETE: {
         id: 'inventory_complete',
-        title: 'Gestión de Inventario',
-        description: 'Productos, categorías, almacenes y movimientos de stock.',
+        title: 'Gestion de Inventario',
+        description: 'Vista general de productos, categorias, kardex, traslados y almacenes.',
         startUrl: '/inventory-center?tab=productos',
         module: null,
         steps: [
             {
-                element: '#tour-products-add-btn',
+                element: '#tour-inventory-tabs',
                 popover: {
-                    title: 'Crear Producto',
-                    description: 'Haz clic aquí para registrar un nuevo producto. Podrás definir nombre, precio, stock inicial, categoría, código de barras y hasta múltiples presentaciones (ej: unidad, caja, paquete).',
-                    side: 'bottom', align: 'end'
+                    title: 'Centro de Inventario',
+                    description: 'Estas pestanas separan el trabajo diario: catalogo, categorias, kardex, traslados, almacenes y seriales cuando el negocio los usa.',
+                    side: 'bottom', align: 'center'
                 }
             },
             {
+                element: '#tour-products-search',
                 popover: {
-                    title: 'Tipos de Productos',
-                    description: 'Puedes crear:\n• Productos con stock — Mercancía física que se descuenta al vender\n• Servicios — Sin control de stock (ej: reparación, corte)\n• Kits/Combos — Agrupan varios productos en un precio especial',
+                    title: 'Buscar productos',
+                    description: 'Busca por nombre, SKU o serial. Es la forma mas rapida de ubicar productos antes de editar, revisar stock o diagnosticar precios.',
+                    side: 'bottom', align: 'start'
+                }
+            },
+            {
+                element: '#tour-products-add-btn',
+                popover: {
+                    title: 'Crear producto',
+                    description: 'Aqui registras productos nuevos con precio, costo, categoria, stock, IMEI/serial, servicios o combos segun corresponda.',
+                    side: 'bottom', align: 'end'
                 }
             },
             {
                 navigate: '/inventory-center?tab=categorias',
                 element: '#tour-categories-add-btn',
                 popover: {
-                    title: 'Categorías',
-                    description: 'Organiza tu inventario en categorías y subcategorías. Esto te ayudará a filtrar productos en el POS y generar reportes más detallados.',
+                    title: 'Categorias',
+                    description: 'Organiza el catalogo para filtrar mejor en inventario y POS. Crea categorias simples o subcategorias si necesitas mas orden.',
                     side: 'bottom', align: 'end'
+                }
+            },
+            {
+                navigate: '/inventory-center?tab=kardex',
+                element: '#tour-kardex-adjust-btn',
+                popover: {
+                    title: 'Kardex y ajustes',
+                    description: 'El Kardex muestra entradas, salidas, ventas, compras, traslados y ajustes. Usa Nuevo ajuste manual solo para correcciones controladas.',
+                    side: 'bottom', align: 'end'
+                }
+            },
+            {
+                navigate: '/inventory-center?tab=traslados',
+                element: '#tour-transfers-modes',
+                popover: {
+                    title: 'Traslados',
+                    description: 'Elige entre traslados internos, exportar inventario a otra empresa o importar un paquete recibido. Cada modo tiene su flujo propio.',
+                    side: 'bottom', align: 'center'
                 }
             },
             {
@@ -166,32 +194,198 @@ export const TOUR_FLOWS = {
                 element: '#tour-warehouses-add-btn',
                 popover: {
                     title: 'Almacenes',
-                    description: 'Si tienes varias bodegas o sucursales, créalas aquí. Cada almacén maneja su propio stock de forma independiente.',
-                    side: 'bottom', align: 'end'
-                }
-            },
-            {
-                navigate: '/inventory-center?tab=traslados',
-                element: '#tour-transfers-add-btn',
-                popover: {
-                    title: 'Traslados',
-                    description: 'Mueve mercancía entre almacenes de forma controlada. Selecciona origen, destino, productos y cantidades.',
-                    side: 'bottom', align: 'end'
-                }
-            },
-            {
-                navigate: '/inventory-center?tab=kardex',
-                element: '#tour-inventory-add-btn',
-                popover: {
-                    title: 'Ajustes de Inventario (Kardex)',
-                    description: 'Aquí puedes ver el historial completo de entradas y salidas (Kardex). También puedes registrar ajustes manuales: entradas por conteo físico, salidas por daño, uso interno, etc.',
+                    description: 'Administra ubicaciones de stock. Define almacen principal, revisa inventario por ubicacion y crea almacenes cuando el negocio crezca.',
                     side: 'bottom', align: 'end'
                 }
             },
             {
                 popover: {
-                    title: 'Alertas de Stock Bajo',
-                    description: 'El sistema te alertará automáticamente en el Dashboard cuando un producto baje de su stock mínimo. Configura el stock mínimo al crear o editar cada producto.',
+                    title: 'Listo para operar',
+                    description: 'Usa la ayuda contextual de cada pesta?a cuando necesites pasos especificos. Si algo no cuadra, abre soporte desde la ayuda y se enviara con contexto.',
+                }
+            }
+        ]
+    },
+
+    INVENTORY_PRODUCTS: {
+        id: 'inventory_products',
+        title: 'Productos de Inventario',
+        description: 'Busqueda, filtros, diagnostico y creacion de productos.',
+        startUrl: '/inventory-center?tab=productos',
+        module: null,
+        steps: [
+            {
+                element: '#tour-products-search',
+                popover: {
+                    title: 'Busqueda rapida',
+                    description: 'Busca por nombre, SKU o serial. La lista se actualiza para encontrar rapido lo que quieres editar o revisar.',
+                    side: 'bottom', align: 'start'
+                }
+            },
+            {
+                element: '#tour-products-filters-btn',
+                popover: {
+                    title: 'Filtros y diagnostico',
+                    description: 'Filtra por categoria, almacen, tipo de producto o problemas como precio cero, SKU faltante o listas pendientes.',
+                    side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-products-list',
+                popover: {
+                    title: 'Catalogo operativo',
+                    description: 'Cada fila resume producto, categoria, precios, stock y estado. Desde aqui puedes editar y corregir datos sin entrar al POS.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                element: '#tour-products-add-btn',
+                popover: {
+                    title: 'Nuevo producto',
+                    description: 'Abre el formulario compacto para crear o editar la ficha completa: datos principales, precio, inventario, imagen y opciones avanzadas.',
+                    side: 'bottom', align: 'end'
+                }
+            }
+        ]
+    },
+
+    INVENTORY_CATEGORIES: {
+        id: 'inventory_categories',
+        title: 'Categorias de Inventario',
+        description: 'Organizacion del catalogo para busqueda y POS.',
+        startUrl: '/inventory-center?tab=categorias',
+        module: null,
+        steps: [
+            {
+                element: '#tour-categories-add-btn',
+                popover: {
+                    title: 'Nueva categoria',
+                    description: 'Crea categorias para ordenar productos y facilitar filtros en inventario y punto de venta.',
+                    side: 'bottom', align: 'end'
+                }
+            },
+            {
+                popover: {
+                    title: 'Buenas practicas',
+                    description: 'Usa nombres cortos y claros. Evita duplicar categorias parecidas porque eso hace mas dificil buscar productos en el POS.'
+                }
+            }
+        ]
+    },
+
+    INVENTORY_KARDEX: {
+        id: 'inventory_kardex',
+        title: 'Kardex de Inventario',
+        description: 'Auditoria de entradas, salidas y ajustes.',
+        startUrl: '/inventory-center?tab=kardex',
+        module: null,
+        steps: [
+            {
+                element: '#tour-kardex-panel',
+                popover: {
+                    title: 'Historial de movimientos',
+                    description: 'Aqui se audita todo lo que entra y sale: ventas, compras, traslados, devoluciones y ajustes manuales.',
+                    side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-kardex-adjust-btn',
+                popover: {
+                    title: 'Ajuste manual',
+                    description: 'Usalo para conteos fisicos, correcciones autorizadas o salidas por merma. Siempre deja una descripcion clara.',
+                    side: 'bottom', align: 'end'
+                }
+            }
+        ]
+    },
+
+    INVENTORY_TRANSFERS: {
+        id: 'inventory_transfers',
+        title: 'Traslados de Inventario',
+        description: 'Movimientos internos y entre empresas.',
+        startUrl: '/inventory-center?tab=traslados',
+        module: null,
+        steps: [
+            {
+                element: '#tour-transfers-modes',
+                popover: {
+                    title: 'Modos de traslado',
+                    description: 'Internos mueve entre almacenes del mismo negocio. Exportar descuenta y genera archivo. Importar recibe el archivo en la empresa destino.',
+                    side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-transfers-mode-internal',
+                popover: {
+                    title: 'Traslado interno',
+                    description: 'Usalo cuando el inventario sigue dentro del mismo tenant, por ejemplo de deposito a tienda.',
+                    side: 'bottom', align: 'start'
+                }
+            },
+            {
+                element: '#tour-transfers-mode-export',
+                popover: {
+                    title: 'Exportar a otra empresa',
+                    description: 'Genera un paquete para otra empresa y descuenta las cantidades. Si hay IMEI, selecciona los seriales exactos.',
+                    side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-transfers-mode-import',
+                popover: {
+                    title: 'Importar paquete',
+                    description: 'Carga el archivo recibido para sumar productos al destino. Revisa el resumen antes de aceptar.',
+                    side: 'bottom', align: 'end'
+                }
+            }
+        ]
+    },
+
+    INVENTORY_WAREHOUSES: {
+        id: 'inventory_warehouses',
+        title: 'Almacenes',
+        description: 'Ubicaciones y control por almacen.',
+        startUrl: '/inventory-center?tab=almacenes',
+        module: null,
+        steps: [
+            {
+                element: '#tour-warehouses-add-btn',
+                popover: {
+                    title: 'Nuevo almacen',
+                    description: 'Crea ubicaciones de stock cuando tienes tienda, deposito, vitrina o sucursales internas.',
+                    side: 'bottom', align: 'end'
+                }
+            },
+            {
+                popover: {
+                    title: 'Almacen principal',
+                    description: 'Mantener un almacen principal claro ayuda al POS y a los reportes. Evita tener stock disperso sin necesidad.'
+                }
+            }
+        ]
+    },
+
+    INVENTORY_SERIALS: {
+        id: 'inventory_serials',
+        title: 'Seriales e IMEI',
+        description: 'Control individual de unidades serializadas.',
+        startUrl: '/inventory-center?tab=seriales',
+        module: null,
+        steps: [
+            {
+                element: '#tour-serials-panel',
+                popover: {
+                    title: 'Equipos serializados',
+                    description: 'Esta vista compara productos que manejan IMEI con las unidades disponibles, vendidas o en transito.',
+                    side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-serials-modes',
+                popover: {
+                    title: 'Catalogo y transitos',
+                    description: 'Catalogo muestra modelos y unidades. En transito ayuda a auditar IMEIs movidos entre empresas.',
+                    side: 'bottom', align: 'end'
                 }
             }
         ]

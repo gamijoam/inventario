@@ -453,7 +453,7 @@ const KardexTab = () => {
     };
 
     return (
-        <div id="tour-inventory-add-btn" className="space-y-4">
+        <div id="tour-kardex-panel" className="space-y-4">
             <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="min-w-0">
@@ -478,6 +478,7 @@ const KardexTab = () => {
                             {filterType !== 'ALL' && <span className="h-2 w-2 rounded-full bg-amber-400" />}
                         </button>
                         <button
+                            id="tour-kardex-adjust-btn"
                             onClick={() => setIsSheetOpen(true)}
                             className="inline-flex h-10 items-center gap-2 rounded-md bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm shadow-indigo-100 transition-colors hover:bg-indigo-700"
                         >

@@ -596,13 +596,13 @@ const ProductsTab = () => {
     };
 
     return (
-        <div className="space-y-4 animate-in fade-in duration-300">
+        <div id="tour-products-panel" className="space-y-4 animate-in fade-in duration-300">
 
             {/* Toolbar */}
             <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-                        <div className="min-w-[220px] flex-1 lg:max-w-md">
+                        <div id="tour-products-search" className="min-w-[220px] flex-1 lg:max-w-md">
                             <SearchWithScanner
                                 value={searchTerm}
                                 onChange={setSearchTerm}
@@ -611,6 +611,7 @@ const ProductsTab = () => {
                             />
                         </div>
                         <button
+                            id="tour-products-filters-btn"
                             onClick={() => setShowFilters(f => !f)}
                             className={cn(
                                 'inline-flex h-10 items-center justify-center gap-2 rounded-md border px-3 text-sm font-bold transition-colors',
@@ -815,7 +816,7 @@ const ProductsTab = () => {
                 ))}
             </div>
             {/* Tabla Desktop */}
-            <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:block">
+            <div id="tour-products-list" className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:block">
                 <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-4 py-3">
                     <div>
                         <p className="text-xs font-black uppercase tracking-wide text-slate-400">Catalogo</p>

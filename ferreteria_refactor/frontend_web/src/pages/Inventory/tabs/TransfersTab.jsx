@@ -14,14 +14,15 @@ const TransfersTab = () => {
   const [activeTab, setActiveTab] = useState('internal');
 
   return (
-    <div className="space-y-4">
+    <div id="tour-transfers-panel" className="space-y-4">
       {/* Sub-tab selector */}
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+      <div id="tour-transfers-modes" className="grid grid-cols-1 gap-2 md:grid-cols-3">
         {SUB_TABS.map(({ key, label, icon: Icon, hint }) => {
           const isActive = activeTab === key;
           return (
             <button
               key={key}
+              id={`tour-transfers-mode-${key}`}
               onClick={() => setActiveTab(key)}
               className={`
                 flex min-h-[68px] items-center gap-3 rounded-lg border px-4 text-left transition-colors

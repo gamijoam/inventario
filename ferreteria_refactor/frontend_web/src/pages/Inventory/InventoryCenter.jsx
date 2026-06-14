@@ -73,9 +73,6 @@ const InventoryCenter = () => {
         seriales:   'inventory/seriales',
     }[activeTab] || null;
 
-    // Onboarding: clave dinámica según la pestaña activa
-    const onboardingKey = `inventory:${activeTab}`;
-    const { showModal: showVideoModal, dismiss: dismissVideo, open: openVideo, videoConfig } = useOnboardingVideo(onboardingKey);
 
     const setActiveTab = (tabId) => {
         setSearchParams({ tab: tabId });
@@ -158,13 +155,14 @@ const InventoryCenter = () => {
                             </div>
                         </div>
 
-                        <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide" role="tablist" aria-label="Secciones de inventario">
+                        <div id="tour-inventory-tabs" className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide" role="tablist" aria-label="Secciones de inventario">
                             {TABS.map(tab => {
                                 const TabIcon = tab.icon;
                                 const isActive = activeTab === tab.id;
                                 return (
                                     <button
                                         key={tab.id}
+                                        id={`tour-inventory-tab-${tab.id}`}
                                         type="button"
                                         role="tab"
                                         aria-selected={isActive}
