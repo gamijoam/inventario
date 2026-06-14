@@ -1,4 +1,4 @@
-import { Bell, ShoppingCart, LogOut, Settings, AlertTriangle, AlertCircle, BarChart2, TrendingUp, X, ChevronDown, HelpCircle, LifeBuoy, BookOpen, Building2 } from 'lucide-react';
+import { Bell, ShoppingCart, LogOut, Settings, AlertTriangle, AlertCircle, BarChart2, TrendingUp, X, ChevronDown, HelpCircle, LifeBuoy, BookOpen, Building2, Sparkles } from 'lucide-react';
 // import GlobalSearch from './GlobalSearch';
 import { Link } from 'react-router-dom';
 import { useConfig } from '../../context/ConfigContext';
@@ -195,7 +195,7 @@ export default function Header() {
         return () => clearInterval(interval);
     }, [fetchUnreadCount]);
 
-    const openManual = () => {
+    const openTours = () => {
         setIsHelpMenuOpen(false);
         setIsTourModalOpen(true);
     };

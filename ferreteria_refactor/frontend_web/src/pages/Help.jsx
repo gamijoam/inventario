@@ -1,187 +1,344 @@
-import { useState } from 'react';
-import { helpContent } from '../data/helpContent';
-import { Search, ChevronDown, ChevronRight, HelpCircle, BookOpen, ExternalLink, Mail } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+    AlertTriangle,
+    ArrowRight,
+    BookOpen,
+    CheckCircle,
+    ClipboardList,
+    HelpCircle,
+    LifeBuoy,
+    PlayCircle,
+    Search,
+    Sparkles,
+    X,
+} from 'lucide-react';
+import { HELP_CONTENT } from '../help/helpContent';
+import { useAppTour } from '../hooks/useAppTour';
 import clsx from 'clsx';
 
+const MODULES = [
+    { id: 'general', label: 'Inicio', match: ['dashboard'], color: 'indigo' },
+    { id: 'pos', label: 'Punto de Venta', match: ['pos'], color: 'emerald' },
+    { id: 'inventory', label: 'Inventario', prefix: 'inventory/', color: 'blue' },
+    { id: 'sales', label: 'Ventas', prefix: 'sales/', color: 'violet' },
+    { id: 'finance', label: 'Finanzas', match: ['purchases', 'suppliers', 'cash'], color: 'amber' },
+    { id: 'config', label: 'Configuracion', prefix: 'config/', color: 'slate' },
+    { id: 'services', label: 'Servicios', prefix: 'services/', color: 'rose' },
+];
+
+const TOUR_BY_CONTEXT = {
+    dashboard: 'WELCOME',
+    pos: 'POS_COMPLETE',
+    purchases: 'FINANCE',
+    suppliers: 'FINANCE',
+    cash: 'FINANCE',
+    'inventory/productos': 'INVENTORY_COMPLETE',
+    'inventory/categorias': 'INVENTORY_COMPLETE',
+    'inventory/kardex': 'INVENTORY_COMPLETE',
+    'inventory/traslados': 'INVENTORY_COMPLETE',
+    'inventory/almacenes': 'INVENTORY_COMPLETE',
+    'inventory/seriales': 'INVENTORY_COMPLETE',
+    'sales/cotizaciones': 'SALES_CLIENTS',
+    'sales/clientes': 'SALES_CLIENTS',
+    'sales/devoluciones': 'SALES_CLIENTS',
+    'sales/garantias': 'SALES_CLIENTS',
+    'sales/creditos': 'SALES_CLIENTS',
+    'config/general': 'SYSTEM',
+    'config/usuarios': 'SYSTEM',
+    'config/monedas': 'SYSTEM',
+    'config/comisiones': 'SYSTEM',
+    'config/pagos': 'SYSTEM',
+    'config/impuestos': 'SYSTEM',
+    'config/impresoras': 'SYSTEM',
+    'config/garantias': 'SYSTEM',
+    'config/pos': 'SYSTEM',
+    'config/auditoria': 'SYSTEM',
+    'services/dashboard': 'SERVICES',
+    'services/order-detail': 'SERVICES',
+};
+
+const QUICK_ISSUES = [
+    { title: 'No puedo cobrar', desc: 'Confirma que la caja este abierta y que el carrito tenga productos validos.', context: 'pos' },
+    { title: 'Producto no aparece en POS', desc: 'Revisa si esta activo, tiene stock o si el control serial esta configurado.', context: 'inventory/productos' },
+    { title: 'IMEI no cuadra', desc: 'Compara disponibles, vendidos y en transito desde Seriales.', context: 'inventory/seriales' },
+    { title: 'Compra no guarda', desc: 'Valida proveedor, cantidades, costos y seriales si el producto maneja IMEI.', context: 'purchases' },
+    { title: 'Tasa desactualizada', desc: 'Actualiza monedas/tasa antes de vender o revisar precios en moneda local.', context: 'config/monedas' },
+];
+
+const colorClasses = {
+    indigo: 'border-indigo-200 bg-indigo-50 text-indigo-700',
+    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    blue: 'border-blue-200 bg-blue-50 text-blue-700',
+    violet: 'border-violet-200 bg-violet-50 text-violet-700',
+    amber: 'border-amber-200 bg-amber-50 text-amber-700',
+    slate: 'border-slate-200 bg-slate-50 text-slate-700',
+    rose: 'border-rose-200 bg-rose-50 text-rose-700',
+};
+
+const normalize = (value) => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+const getModuleId = (key) => {
+    const found = MODULES.find(module => {
+        if (module.match?.includes(key)) return true;
+        return module.prefix && key.startsWith(module.prefix);
+    });
+    return found?.id || 'general';
+};
+
+const stripStepTitle = (title) => String(title || '').replace(/^\d+\.\s*/, '');
+
 const Help = () => {
+    const { startTour } = useAppTour();
     const [searchTerm, setSearchTerm] = useState('');
-    const [expandedSections, setExpandedSections] = useState({});
+    const [activeModule, setActiveModule] = useState('all');
+    const [selectedKey, setSelectedKey] = useState('dashboard');
 
-    // Toggle section expansion
-    const toggleSection = (moduleId, sectionId) => {
-        const key = `${moduleId}-${sectionId}`;
-        setExpandedSections(prev => ({
-            ...prev,
-            [key]: !prev[key]
-        }));
-    };
+    const topics = useMemo(() => Object.entries(HELP_CONTENT).map(([key, content]) => ({
+        key,
+        moduleId: getModuleId(key),
+        title: content.title,
+        description: content.description,
+        steps: content.steps || [],
+        tips: content.tips || [],
+        actions: content.actions || [],
+        tourKey: TOUR_BY_CONTEXT[key],
+    })), []);
 
-    // Filter content based on search
-    const filteredContent = helpContent.map(module => {
-        if (!searchTerm) return module;
+    const selectedTopic = topics.find(topic => topic.key === selectedKey) || topics[0];
 
-        const filteredSections = module.sections.filter(section =>
-            section.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            section.steps.some(step => step.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            section.tips?.some(tip => tip.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
+    const filteredTopics = useMemo(() => {
+        const query = normalize(searchTerm);
+        return topics.filter(topic => {
+            const moduleMatch = activeModule === 'all' || topic.moduleId === activeModule;
+            if (!moduleMatch) return false;
+            if (!query) return true;
+            const haystack = normalize([
+                topic.title,
+                topic.description,
+                ...topic.steps.map(step => `${step.title} ${step.desc}`),
+                ...topic.tips,
+                ...topic.actions,
+            ].join(' '));
+            return haystack.includes(query);
+        });
+    }, [activeModule, searchTerm, topics]);
 
-        return filteredSections.length > 0 ? { ...module, sections: filteredSections } : null;
-    }).filter(Boolean);
-
-    const colorClasses = {
-        blue: 'bg-blue-100 text-blue-600',
-        green: 'bg-emerald-100 text-emerald-600',
-        yellow: 'bg-amber-100 text-amber-600',
-        purple: 'bg-purple-100 text-purple-600',
-        indigo: 'bg-indigo-100 text-indigo-600',
-        gray: 'bg-slate-100 text-slate-600'
+    const startSelectedTour = (topic = selectedTopic) => {
+        if (!topic?.tourKey) return;
+        startTour(topic.tourKey);
     };
 
     return (
-        <div className="h-[calc(100vh-64px)] flex flex-col bg-slate-50 p-6 overflow-hidden">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-6 flex-shrink-0">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-                        <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
+        <div className="min-h-[calc(100vh-64px)] bg-slate-50">
+            <div className="border-b border-slate-200 bg-white">
+                <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm shadow-indigo-100">
                             <BookOpen size={24} />
                         </div>
-                        Centro de Ayuda
-                    </h1>
-                    <p className="text-slate-500 font-medium ml-12">Documentación y guías de uso</p>
-                </div>
-            </div>
-
-            {/* Search Bar */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 flex-shrink-0">
-                <div className="relative max-w-2xl mx-auto">
-                    <Search className="absolute left-4 top-4 text-slate-400" size={20} />
-                    <input
-                        type="text"
-                        placeholder="Buscar en la documentación (ej: 'caja', 'devolución')..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-12 pr-12 py-3.5 border border-slate-200 rounded-xl text-lg outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-700 shadow-sm"
-                    />
-                    {searchTerm && (
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Centro de ayuda</p>
+                            <h1 className="text-2xl font-black tracking-tight text-slate-950">Guias, errores y tours</h1>
+                            <p className="text-sm font-medium text-slate-500">Ayuda practica para resolver tareas dentro del sistema.</p>
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
                         <button
-                            onClick={() => setSearchTerm('')}
-                            className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full p-1"
+                            type="button"
+                            onClick={() => startSelectedTour()}
+                            disabled={!selectedTopic?.tourKey}
+                            className="inline-flex h-10 items-center gap-2 rounded-md bg-indigo-600 px-4 text-sm font-black text-white shadow-sm shadow-indigo-100 transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
                         >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            <PlayCircle size={17} /> Iniciar tour
                         </button>
-                    )}
+                        <Link to="/support" className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                            <LifeBuoy size={17} /> Soporte
+                        </Link>
+                    </div>
                 </div>
             </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto">
-                {filteredContent.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-200 border-dashed">
-                        <HelpCircle size={64} className="text-slate-200 mb-4" />
-                        <p className="text-slate-500 text-lg font-bold">
-                            No se encontraron resultados para "{searchTerm}"
-                        </p>
-                        <p className="text-slate-400 text-sm mt-1">Intenta con otros términos</p>
-                    </div>
-                ) : (
-                    <div className="space-y-8 pb-10">
-                        {filteredContent.map(module => (
-                            <div key={module.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                                {/* Module Header */}
-                                <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center gap-4">
-                                    <div className={clsx("w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-sm", colorClasses[module.color])}>
-                                        {module.icon}
-                                    </div>
-                                    <h2 className="text-xl font-bold text-slate-800">{module.title}</h2>
-                                </div>
+            <main className="mx-auto grid max-w-7xl gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[320px_1fr]">
+                <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+                    <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-2.5 text-slate-400" size={17} />
+                            <input
+                                value={searchTerm}
+                                onChange={(event) => setSearchTerm(event.target.value)}
+                                placeholder="Buscar guia, error o tarea..."
+                                className="h-10 w-full rounded-md border border-slate-200 bg-slate-50 pl-9 pr-9 text-sm font-semibold text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                            />
+                            {searchTerm && (
+                                <button type="button" onClick={() => setSearchTerm('')} className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Limpiar busqueda">
+                                    <X size={15} />
+                                </button>
+                            )}
+                        </div>
+                    </section>
 
-                                {/* Sections */}
-                                <div className="divide-y divide-slate-100">
-                                    {module.sections.map(section => {
-                                        const key = `${module.id}-${section.id}`;
-                                        const isExpanded = expandedSections[key];
+                    <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                        <p className="px-2 pb-2 text-xs font-black uppercase tracking-widest text-slate-400">Modulos</p>
+                        <div className="space-y-1">
+                            <button
+                                type="button"
+                                onClick={() => setActiveModule('all')}
+                                className={clsx('flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-black transition-colors', activeModule === 'all' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950')}
+                            >
+                                Todos <span>{topics.length}</span>
+                            </button>
+                            {MODULES.map(module => {
+                                const count = topics.filter(topic => topic.moduleId === module.id).length;
+                                return (
+                                    <button
+                                        key={module.id}
+                                        type="button"
+                                        onClick={() => setActiveModule(module.id)}
+                                        className={clsx('flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-black transition-colors', activeModule === module.id ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-700')}
+                                    >
+                                        {module.label} <span>{count}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </section>
 
-                                        return (
-                                            <div key={section.id} className="group">
-                                                {/* Section Header */}
-                                                <button
-                                                    onClick={() => toggleSection(module.id, section.id)}
-                                                    className="w-full px-6 py-5 flex items-center justify-between hover:bg-slate-50 transition-colors text-left"
-                                                >
-                                                    <h3 className="text-base font-bold text-slate-700 group-hover:text-indigo-600 transition-colors">
-                                                        {section.title}
-                                                    </h3>
-                                                    <span className={clsx("text-slate-400 transition-transform", isExpanded && "rotate-90 text-indigo-500")}>
-                                                        {isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-                                                    </span>
-                                                </button>
-
-                                                {/* Section Content */}
-                                                {isExpanded && (
-                                                    <div className="px-6 pb-6 animate-in fade-in slide-in-from-top-2 duration-200">
-                                                        {/* Steps */}
-                                                        <div className="ml-2 pl-4 border-l-2 border-slate-100">
-                                                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
-                                                                Pasos a seguir
-                                                            </h4>
-                                                            <ol className="space-y-4">
-                                                                {section.steps.map((step, idx) => (
-                                                                    <li key={idx} className="flex gap-4">
-                                                                        <span className="flex-shrink-0 w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-md shadow-indigo-200">
-                                                                            {idx + 1}
-                                                                        </span>
-                                                                        <span className="text-slate-600 font-medium text-sm pt-0.5 leading-relaxed">
-                                                                            {step}
-                                                                        </span>
-                                                                    </li>
-                                                                ))}
-                                                            </ol>
-                                                        </div>
-
-                                                        {/* Tips */}
-                                                        {section.tips && section.tips.length > 0 && (
-                                                            <div className="mt-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-xl">
-                                                                <h4 className="font-bold text-blue-800 mb-2 flex items-center gap-2 text-sm">
-                                                                    💡 Consejos Útiles
-                                                                </h4>
-                                                                <ul className="space-y-2">
-                                                                    {section.tips.map((tip, idx) => (
-                                                                        <li key={idx} className="text-blue-700 text-sm flex gap-2">
-                                                                            <span className="text-blue-400">•</span>
-                                                                            {tip}
-                                                                        </li>
-                                                                    ))}
-                                                                </ul>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                    <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                        <div className="flex gap-3">
+                            <AlertTriangle className="mt-0.5 shrink-0 text-amber-600" size={18} />
+                            <div>
+                                <p className="text-sm font-black text-amber-950">Errores frecuentes</p>
+                                <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">Busca primero aqui si algo no guarda, no aparece o no cuadra.</p>
                             </div>
-                        ))}
-                    </div>
-                )}
+                        </div>
+                    </section>
+                </aside>
 
-                <div className="mt-6 bg-slate-900 rounded-2xl p-8 text-center text-white relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-8 opacity-10">
-                        <HelpCircle size={120} />
+                <section className="space-y-4">
+                    <div className="grid gap-3 md:grid-cols-3">
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Guias</p>
+                                <BookOpen size={18} className="text-indigo-600" />
+                            </div>
+                            <p className="mt-2 text-2xl font-black text-slate-950">{topics.length}</p>
+                            <p className="text-xs font-semibold text-slate-500">pantallas documentadas</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Tours</p>
+                                <PlayCircle size={18} className="text-emerald-600" />
+                            </div>
+                            <p className="mt-2 text-2xl font-black text-slate-950">{topics.filter(topic => topic.tourKey).length}</p>
+                            <p className="text-xs font-semibold text-slate-500">flujos interactivos</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Soporte</p>
+                                <LifeBuoy size={18} className="text-rose-600" />
+                            </div>
+                            <p className="mt-2 text-2xl font-black text-slate-950">24/7</p>
+                            <p className="text-xs font-semibold text-slate-500">tickets desde el sistema</p>
+                        </div>
                     </div>
-                    <p className="text-indigo-200 font-bold mb-2 uppercase text-xs tracking-wider">¿Necesitas más ayuda?</p>
-                    <p className="text-xl font-bold mb-6">Estamos aquí para ayudarte a gestionar tu negocio</p>
-                    <a
-                        href="mailto:soporte@invensoft.lat"
-                        className="inline-flex items-center gap-2 bg-white text-slate-900 px-6 py-3 rounded-xl font-bold hover:bg-slate-100 transition-colors shadow-lg active:scale-95"
-                    >
-                        <Mail size={18} />
-                        Contactar Soporte
-                    </a>
-                </div>
-            </div>
+
+                    <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
+                        <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                            <div className="border-b border-slate-100 px-4 py-3">
+                                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Temas encontrados</p>
+                                <h2 className="text-lg font-black text-slate-950">{filteredTopics.length} resultados</h2>
+                            </div>
+                            <div className="divide-y divide-slate-100">
+                                {filteredTopics.length === 0 ? (
+                                    <div className="p-10 text-center">
+                                        <HelpCircle className="mx-auto text-slate-200" size={48} />
+                                        <p className="mt-3 text-sm font-black text-slate-500">No encontre resultados</p>
+                                        <p className="text-xs font-semibold text-slate-400">Prueba con producto, caja, IMEI, compra o tasa.</p>
+                                    </div>
+                                ) : filteredTopics.map(topic => {
+                                    const module = MODULES.find(item => item.id === topic.moduleId) || MODULES[0];
+                                    const selected = selectedTopic?.key === topic.key;
+                                    return (
+                                        <button
+                                            key={topic.key}
+                                            type="button"
+                                            onClick={() => setSelectedKey(topic.key)}
+                                            className={clsx('flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-slate-50', selected && 'bg-indigo-50/70')}
+                                        >
+                                            <div className={clsx('mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border', colorClasses[module.color])}>
+                                                <ClipboardList size={17} />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <p className="text-sm font-black text-slate-950">{topic.title}</p>
+                                                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">{module.label}</span>
+                                                </div>
+                                                <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">{topic.description}</p>
+                                            </div>
+                                            <ArrowRight size={16} className={clsx('mt-2 text-slate-300', selected && 'text-indigo-500')} />
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <article className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                                <div className="border-b border-slate-100 p-4">
+                                    <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Guia seleccionada</p>
+                                    <h2 className="mt-1 text-xl font-black text-slate-950">{selectedTopic?.title}</h2>
+                                    <p className="mt-1 text-sm leading-6 text-slate-500">{selectedTopic?.description}</p>
+                                </div>
+                                <div className="space-y-3 p-4">
+                                    {(selectedTopic?.steps || []).slice(0, 5).map((step, index) => (
+                                        <div key={`${step.title}-${index}`} className="flex gap-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-900 text-xs font-black text-white">{index + 1}</span>
+                                            <div>
+                                                <p className="text-sm font-black text-slate-900">{stripStepTitle(step.title)}</p>
+                                                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{step.desc}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex gap-2 border-t border-slate-100 p-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => startSelectedTour()}
+                                        disabled={!selectedTopic?.tourKey}
+                                        className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-indigo-600 px-3 text-sm font-black text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                                    >
+                                        <PlayCircle size={16} /> Mostrarme
+                                    </button>
+                                    <Link to="/support" className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-black text-slate-700 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                                        <LifeBuoy size={16} /> Ticket
+                                    </Link>
+                                </div>
+                            </article>
+
+                            <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                                <div className="mb-3 flex items-center gap-2">
+                                    <Sparkles size={17} className="text-amber-500" />
+                                    <h3 className="text-sm font-black text-slate-950">Atajos de solucion</h3>
+                                </div>
+                                <div className="space-y-2">
+                                    {QUICK_ISSUES.map(issue => (
+                                        <button
+                                            key={issue.title}
+                                            type="button"
+                                            onClick={() => setSelectedKey(issue.context)}
+                                            className="w-full rounded-md border border-slate-100 bg-slate-50 p-3 text-left transition-colors hover:border-amber-200 hover:bg-amber-50"
+                                        >
+                                            <p className="text-sm font-black text-slate-900">{issue.title}</p>
+                                            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{issue.desc}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+                </section>
+            </main>
         </div>
     );
 };
