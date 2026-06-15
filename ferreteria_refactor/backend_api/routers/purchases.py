@@ -667,29 +667,51 @@ def register_payment(
         raise HTTPException(status_code=400, detail="La compra ya esta pagada por completo")
     
     try:
+        payment_amount = Decimal(str(payment_data.amount or 0))
+        if payment_amount <= 0:
+            raise HTTPException(status_code=400, detail="El monto del pago debe ser mayor a cero")
+
+        currency = (payment_data.currency or "USD").upper()
+        exchange_rate = Decimal(str(payment_data.exchange_rate or 1))
+        if currency != "USD" and exchange_rate <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="La tasa de cambio debe ser mayor a cero para pagos en moneda distinta a USD"
+            )
+
+        amount_usd = payment_amount if currency == "USD" else payment_amount / exchange_rate
+        amount_usd = amount_usd.quantize(Decimal("0.01"))
+        outstanding = max(
+            Decimal("0.00"),
+            Decimal(str(purchase.total_amount or 0)) - Decimal(str(purchase.paid_amount or 0))
+        )
+        if amount_usd > outstanding + Decimal("0.01"):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"El pago excede el saldo pendiente de la compra. "
+                    f"Saldo disponible: ${outstanding:.2f}"
+                )
+            )
+
         # Create payment record
         payment = models.PurchasePayment(
             purchase_id=purchase_id,
-            amount=payment_data.amount,
+            amount=payment_amount,
             payment_method=payment_data.payment_method,
             reference=payment_data.reference,
             notes=payment_data.notes,
-            currency=payment_data.currency,
-            exchange_rate=payment_data.exchange_rate
+            currency=currency,
+            exchange_rate=float(exchange_rate)
         )
         db.add(payment)
-        
-        # Calculate Amount in USD (Anchor) for debt reduction
-        amount_usd = float(payment_data.amount)
-        if payment_data.currency != "USD":
-            rate = float(payment_data.exchange_rate) if payment_data.exchange_rate and payment_data.exchange_rate > 0 else 1.0
-            amount_usd = amount_usd / rate
+        db.flush()
 
         # Update purchase paid amount (in USD)
-        purchase.paid_amount += Decimal(amount_usd)
+        purchase.paid_amount = Decimal(str(purchase.paid_amount or 0)) + amount_usd
         
         # Update payment status
-        # Allow small floating point tolerance
+        # Allow small tolerance for cents and currency conversions.
         if purchase.paid_amount >= (purchase.total_amount - Decimal('0.01')):
             purchase.payment_status = models.PaymentStatus.PAID
             purchase.paid_amount = purchase.total_amount # Cap at total
@@ -699,10 +721,6 @@ def register_payment(
         # Recalculate supplier balance
         supplier = db.query(models.Supplier).filter(models.Supplier.id == purchase.supplier_id).first()
         if supplier:
-            # Recalculate total debt from all pending purchases
-            # IMPORTANT: We can't just sum(total - paid) because paid_amount is now updated.
-            # Ideally we re-query freely.
-            
             pending_purchases = db.query(models.PurchaseOrder).filter(
                 models.PurchaseOrder.supplier_id == supplier.id,
                 models.PurchaseOrder.payment_status.in_([models.PaymentStatus.PENDING, models.PaymentStatus.PARTIAL])
@@ -721,6 +739,9 @@ def register_payment(
         db.commit()
 
         return schemas.PurchasePaymentResponse.model_validate(payment)
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
