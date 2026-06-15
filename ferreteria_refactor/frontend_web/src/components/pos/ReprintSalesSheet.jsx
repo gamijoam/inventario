@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, Printer, ReceiptText, RefreshCw, Search, ShieldCheck } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../ui/sheet';
@@ -8,6 +8,7 @@ import { Badge } from '../ui/badge';
 import apiClient from '../../config/axios';
 import printerService from '../../services/printerService';
 import { getApiErrorMessage } from '../../utils/apiErrors';
+import { useWebSocket } from '../../context/WebSocketContext';
 
 const money = (value, currency = 'USD') => {
     const amount = Number(value || 0);
@@ -28,45 +29,61 @@ const formatDate = (value) => {
     }
 };
 
-const ReprintSalesSheet = ({ open, onOpenChange, session, currentRegister }) => {
+const ReprintSalesSheet = ({ open, onOpenChange, currentRegister, onRemoteSale }) => {
     const [sales, setSales] = useState([]);
     const [query, setQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const [busySaleId, setBusySaleId] = useState(null);
+    const { subscribe } = useWebSocket();
+    const openRef = useRef(open);
+
+    useEffect(() => {
+        openRef.current = open;
+    }, [open]);
 
     const params = useMemo(() => {
         const next = { limit: 30 };
-        if (session?.id) next.session_id = session.id;
-        else if (currentRegister?.id) next.register_id = currentRegister.id;
         if (query.trim()) next.q = query.trim();
         return next;
-    }, [session?.id, currentRegister?.id, query]);
+    }, [query]);
 
-    const loadSales = async () => {
-        setLoading(true);
+    const loadSales = useCallback(async ({ silent = false } = {}) => {
+        if (!silent) setLoading(true);
         try {
             const res = await apiClient.get('/products/sales/reprintable/recent', { params });
             setSales(Array.isArray(res.data) ? res.data : []);
         } catch (error) {
-            toast.error(getApiErrorMessage(error, 'No se pudieron cargar las ventas'));
-            setSales([]);
+            if (!silent) {
+                toast.error(getApiErrorMessage(error, 'No se pudieron cargar las ventas'));
+                setSales([]);
+            }
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
-    };
+    }, [params]);
 
     useEffect(() => {
         if (!open) return;
         loadSales();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, params.session_id, params.register_id]);
+    }, [open, loadSales]);
 
     useEffect(() => {
         if (!open) return;
-        const timer = setTimeout(loadSales, 350);
+        const timer = setTimeout(() => loadSales(), 350);
         return () => clearTimeout(timer);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [query]);
+    }, [query, open, loadSales]);
+
+    useEffect(() => {
+        const unsubscribe = subscribe('sale:completed', (sale) => {
+            if (openRef.current) {
+                loadSales({ silent: true });
+                toast.success(`Nueva venta #${sale?.id || ''} disponible para reimprimir`, { duration: 2500 });
+            } else if (onRemoteSale) {
+                onRemoteSale(sale);
+            }
+        });
+        return () => unsubscribe && unsubscribe();
+    }, [subscribe, loadSales, onRemoteSale]);
 
     const handleTicket = async (sale) => {
         setBusySaleId(sale.id);

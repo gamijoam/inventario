@@ -111,6 +111,7 @@ const POS = () => {
     const currentTheme = POS_THEMES.find(t => t.id === themeId) || DEFAULT_THEME;
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isReprintOpen, setIsReprintOpen] = useState(false);
+    const [newReprintCount, setNewReprintCount] = useState(0);
 
     // Express Mode State
     const isExpressMode = user?.preferences?.pos_mode === 'express';
@@ -969,12 +970,20 @@ const POS = () => {
                         id="tour-pos-reprint"
                         variant="outline"
                         size="sm"
-                        onClick={() => setIsReprintOpen(true)}
-                        className="hidden md:flex h-9 gap-2 rounded-xl border-slate-200 bg-white px-3 font-black text-slate-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                        onClick={() => {
+                            setIsReprintOpen(true);
+                            setNewReprintCount(0);
+                        }}
+                        className="relative hidden md:flex h-9 gap-2 rounded-xl border-slate-200 bg-white px-3 font-black text-slate-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                         title="Reimprimir tickets y garantias"
                     >
                         <ReceiptText size={16} />
                         Tickets
+                        {newReprintCount > 0 && (
+                            <span className="ml-1 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] leading-none text-white">
+                                {newReprintCount > 9 ? '9+' : newReprintCount}
+                            </span>
+                        )}
                     </Button>
 
                     {/* Buscador rapido F1 - siempre visible */}
@@ -1042,9 +1051,12 @@ const POS = () => {
 
             <ReprintSalesSheet
                 open={isReprintOpen}
-                onOpenChange={setIsReprintOpen}
-                session={session}
+                onOpenChange={(nextOpen) => {
+                    setIsReprintOpen(nextOpen);
+                    if (nextOpen) setNewReprintCount(0);
+                }}
                 currentRegister={currentRegister}
+                onRemoteSale={() => setNewReprintCount((count) => Math.min(count + 1, 99))}
             />
 
             {/* BANNER VENTA PAUSADA */}

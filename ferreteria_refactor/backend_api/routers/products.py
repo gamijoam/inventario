@@ -1642,7 +1642,8 @@ def get_recent_reprintable_sales(
 ):
     """
     POS-safe sale lookup for reprinting tickets/warranties.
-    Cashiers only see sales from their own cash sessions; admins can filter by current terminal.
+    Cashiers and admins can see recent tenant sales so another register can reprint
+    a ticket or warranty without granting access to the full reports module.
     """
     role_value = getattr(getattr(current_user, "role", None), "value", getattr(current_user, "role", None))
     role_text = str(role_value).upper()
@@ -1654,18 +1655,18 @@ def get_recent_reprintable_sales(
         joinedload(models.Sale.cash_session).joinedload(models.CashSession.register),
     )
 
-    if session_id:
-        query = query.filter(models.Sale.session_id == session_id)
-    elif register_id:
-        query = query.filter(models.Sale.cash_session.has(models.CashSession.register_id == register_id))
-    else:
-        # Keep the default list small and operational for the POS.
-        query = query.filter(models.Sale.date >= datetime.now() - timedelta(days=7))
-
-    if not is_admin:
-        query = query.filter(models.Sale.cash_session.has(models.CashSession.user_id == current_user.id))
-
     search = (q or "").strip()
+
+    # Always keep the POS lookup operational and bounded. We intentionally avoid
+    # restricting cashiers to their own session: a cashier at caja 2 may need to
+    # reprint a ticket or warranty for a sale completed at caja 1.
+    query = query.filter(models.Sale.date >= datetime.now() - timedelta(days=7))
+
+    if session_id and not search:
+        query = query.filter(models.Sale.session_id == session_id)
+    elif register_id and not search:
+        query = query.filter(models.Sale.cash_session.has(models.CashSession.register_id == register_id))
+
     if search:
         lowered = f"%{search.lower()}%"
         conditions = []
