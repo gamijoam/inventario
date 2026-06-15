@@ -50,6 +50,13 @@ export const CashProvider = ({ children }) => {
         if (register) persistStationRegister(register);
     };
 
+    const selectStationRegister = async (register) => {
+        if (!register?.id) return false;
+        setActiveRegister(register);
+        await checkStatus(0, registers);
+        return true;
+    };
+
     const fetchRegisters = async () => {
         try {
             // _silentNetworkError + _silent403: CashContext handles its own errors;
@@ -65,6 +72,7 @@ export const CashProvider = ({ children }) => {
             const storedRegister = storedRegisterId ? list.find(r => Number(r.id) === storedRegisterId) : null;
             if (storedRegister) {
                 setActiveRegisterState(storedRegister);
+                persistStationRegister(storedRegister);
             } else if (list.length === 1) {
                 setActiveRegister(list[0]);
             }
@@ -289,6 +297,7 @@ export const CashProvider = ({ children }) => {
             registers,
             activeRegister,
             setActiveRegister,
+            selectStationRegister,
             fetchRegisters,
         }}>
             {children}

@@ -3,7 +3,7 @@ import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
 import { useHelp } from '../help/useHelp';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2, LayoutGrid, Image, Search, ChevronDown } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2, LayoutGrid, Image, Search, ChevronDown, CheckCircle2, Printer } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -54,7 +54,7 @@ const formatStock = (stock) => {
 const POS = () => {
     const { user, updateUserPreferences } = useAuth();
     const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart, overwriteCart } = useCart();
-    const { isSessionOpen, openSession, loading: isCashLoading, session, activeRegister } = useCash();
+    const { isSessionOpen, openSession, loading: isCashLoading, session, activeRegister, registers, selectStationRegister } = useCash();
     const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency, posSettings, priceLists, posCategories, posWarehouses } = useConfig();
     const { subscribe } = useWebSocket();
     const {
@@ -878,6 +878,38 @@ const POS = () => {
                             <DropdownMenuLabel className="px-2 py-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
                                 Acciones de caja
                             </DropdownMenuLabel>
+                            {registers?.length > 0 && (
+                                <>
+                                    <DropdownMenuLabel className="px-2 pt-2 pb-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                        Caja de esta terminal
+                                    </DropdownMenuLabel>
+                                    {registers.map((reg) => {
+                                        const selected = Number(currentRegister?.id || activeRegister?.id) === Number(reg.id);
+                                        const hasPrinter = Boolean(reg.hardware_client_id);
+                                        return (
+                                            <DropdownMenuItem
+                                                key={reg.id}
+                                                onClick={async () => {
+                                                    await selectStationRegister(reg);
+                                                    toast.success(`Esta terminal usara ${reg.code || reg.name}${reg.hardware_client_id ? ' / ' + reg.hardware_client_id : ''}`);
+                                                }}
+                                                className="cursor-pointer rounded-lg py-2 font-bold text-slate-700 focus:bg-indigo-50 focus:text-indigo-700"
+                                            >
+                                                {selected ? (
+                                                    <CheckCircle2 size={15} className="mr-2 text-emerald-500" />
+                                                ) : (
+                                                    <Printer size={15} className={hasPrinter ? 'mr-2 text-indigo-500' : 'mr-2 text-slate-300'} />
+                                                )}
+                                                <span className="min-w-0 flex-1 truncate">{reg.code || reg.name}</span>
+                                                <span className={`ml-2 rounded-md px-1.5 py-0.5 text-[10px] font-black ${hasPrinter ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'}`}>
+                                                    {reg.hardware_client_id || 'sin impresora'}
+                                                </span>
+                                            </DropdownMenuItem>
+                                        );
+                                    })}
+                                    <DropdownMenuSeparator />
+                                </>
+                            )}
                             {!(isCashier && showCajeroRestringido) && (
                                 <>
                                     <DropdownMenuItem
