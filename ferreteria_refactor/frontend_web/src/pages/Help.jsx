@@ -32,7 +32,7 @@ const TOUR_BY_CONTEXT = {
     dashboard: 'WELCOME',
     pos: 'POS_COMPLETE',
     purchases: 'PURCHASES_LIST',
-    suppliers: 'FINANCE',
+    suppliers: 'SUPPLIERS',
     cash: 'FINANCE',
     'inventory/productos': 'INVENTORY_PRODUCTS',
     'inventory/categorias': 'INVENTORY_CATEGORIES',
@@ -65,7 +65,8 @@ const QUICK_ISSUES = [
     { title: 'Stock no cuadra', desc: 'Empieza por Kardex y compara compras, ventas, traslados y ajustes.', context: 'inventory/kardex' },
     { title: 'IMEI no cuadra', desc: 'Compara disponibles, vendidos y en transito desde Seriales.', context: 'inventory/seriales' },
     { title: 'Traslado incompleto', desc: 'Si exportaste, el origen descuenta; el destino suma solo al importar el archivo.', context: 'inventory/traslados' },
-    { title: 'Compra no guarda', desc: 'Valida proveedor, cantidades, costos y seriales si el producto maneja IMEI.', context: 'purchases' },
+    { title: 'Compra no guarda', desc: 'Valida proveedor, cantidades, costos, factura y seriales si maneja IMEI.', context: 'purchases' },
+    { title: 'Deuda proveedor no cuadra', desc: 'Revisa compras a credito, pagos parciales y proveedor duplicado.', context: 'suppliers' },
     { title: 'Tasa desactualizada', desc: 'Actualiza monedas/tasa antes de vender o revisar precios en moneda local.', context: 'config/monedas' },
 ];
 

@@ -102,7 +102,7 @@ const Suppliers = () => {
     );
 
     return (
-        <div className="p-6 max-w-[1600px] mx-auto min-h-screen flex flex-col space-y-6">
+        <div id="tour-suppliers-container" className="p-6 max-w-[1600px] mx-auto min-h-screen flex flex-col space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
@@ -120,7 +120,7 @@ const Suppliers = () => {
             </div>
 
             {/* Search Bar */}
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
+            <div id="tour-suppliers-search" className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
                 <div className="relative flex-1 group">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
                     <input
@@ -138,7 +138,7 @@ const Suppliers = () => {
             </div>
 
             {/* Suppliers Table (Desktop) */}
-            <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div id="tour-suppliers-list" className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <table className="w-full">
                     <thead className="bg-slate-50/50 border-b border-slate-200">
                         <tr>
@@ -322,6 +322,7 @@ const Suppliers = () => {
             {/* Sheet for Create/Edit */}
             <Sheet open={showModal} onOpenChange={setShowModal}>
                 <SheetContent
+                    id="tour-suppliers-form"
                     side="right"
                     className="w-full sm:max-w-md flex flex-col"
                 >

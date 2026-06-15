@@ -23,7 +23,7 @@ const TOUR_BY_CONTEXT = {
     dashboard: 'WELCOME',
     pos: 'POS_COMPLETE',
     purchases: 'PURCHASES_LIST',
-    suppliers: 'FINANCE',
+    suppliers: 'SUPPLIERS',
     cash: 'FINANCE',
     'inventory/productos': 'INVENTORY_PRODUCTS',
     'inventory/categorias': 'INVENTORY_CATEGORIES',
@@ -63,6 +63,11 @@ const TASK_TOURS = {
         { label: 'Nueva compra', tour: 'PURCHASES_CREATE' },
         { label: 'Compra con IMEI', tour: 'PURCHASES_IMEI' },
         { label: 'Recepcion serializada', tour: 'SERIALIZED_RECEPTION' },
+    ],
+    suppliers: [
+        { label: 'Directorio', tour: 'SUPPLIERS' },
+        { label: 'Nueva compra', tour: 'PURCHASES_CREATE' },
+        { label: 'Cuentas por pagar', tour: 'FINANCE' },
     ],
     'inventory/productos': [
         { label: 'Catalogo', tour: 'INVENTORY_PRODUCTS' },
@@ -114,9 +119,15 @@ const COMMON_ISSUES = {
         'Si el cliente paga en bolivares, verifica que la tasa del dia este actualizada.',
     ],
     purchases: [
-        'Si un producto maneja IMEI, la cantidad debe coincidir con los seriales ingresados.',
-        'Si la deuda del proveedor no cuadra, revisa si la compra fue contado o credito.',
-        'Si el costo cambio, decide si tambien deseas actualizar el precio de venta.',
+        'Proveedor faltante: selecciona o crea proveedor antes de guardar.',
+        'IMEI incompleto: cantidad y seriales deben coincidir.',
+        'Costo cero: corrige costo antes de confirmar para no da?ar ganancia real.',
+        'Factura duplicada: revisa numero de factura, proveedor y fecha.',
+    ],
+    suppliers: [
+        'Proveedor duplicado: busca por nombre/contacto antes de crear.',
+        'Deuda no cuadra: revisa compras a credito y pagos registrados.',
+        'Pago no baja saldo: confirma que se aplico a la compra/proveedor correcto.',
     ],
     'inventory/productos': [
         'SKU duplicado: edita el producto existente o cambia el codigo.',

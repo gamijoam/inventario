@@ -973,6 +973,22 @@ export const TOUR_FLOWS = {
         ]
     },
 
+
+    SUPPLIERS: {
+        id: 'suppliers',
+        title: 'Proveedores',
+        description: 'Directorio, terminos de credito y saldos por proveedor.',
+        startUrl: '/suppliers',
+        module: null,
+        steps: [
+            { element: '#tour-suppliers-container', popover: { title: 'Directorio de proveedores', description: 'Aqui administras contactos, condiciones de credito, limite y deuda actual de cada proveedor.', side: 'bottom', align: 'center' } },
+            { element: '#tour-suppliers-search', popover: { title: 'Buscar antes de crear', description: 'Busca por nombre o contacto para evitar proveedores duplicados y saldos divididos.', side: 'bottom', align: 'start' } },
+            { element: '#tour-suppliers-add-btn', popover: { title: 'Nuevo proveedor', description: 'Registra datos de contacto y terminos de pago antes de cargar compras a credito.', side: 'bottom', align: 'end' } },
+            { element: '#tour-suppliers-list', popover: { title: 'Deuda y condiciones', description: 'La lista muestra plazo, limite y deuda actual. Si el saldo no cuadra, revisa compras pendientes y pagos.', side: 'top', align: 'center' } },
+            { popover: { title: 'Pagos e historial', description: 'Los pagos se registran desde compras o reportes de proveedores. No corrijas deuda con ajustes manuales si puedes registrar el abono real.' } }
+        ]
+    },
+
     // =============================================
     // TOUR 6: SISTEMA Y SEGURIDAD (Core)
     // =============================================
