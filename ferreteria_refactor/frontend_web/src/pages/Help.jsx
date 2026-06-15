@@ -61,8 +61,10 @@ const TOUR_BY_CONTEXT = {
 
 const QUICK_ISSUES = [
     { title: 'No puedo cobrar', desc: 'Confirma que la caja este abierta y que el carrito tenga productos validos.', context: 'pos' },
-    { title: 'Producto no aparece en POS', desc: 'Revisa si esta activo, tiene stock o si el control serial esta configurado.', context: 'inventory/productos' },
+    { title: 'Producto no aparece en POS', desc: 'Revisa si esta activo, tiene stock, precio y almacen correcto.', context: 'inventory/productos' },
+    { title: 'Stock no cuadra', desc: 'Empieza por Kardex y compara compras, ventas, traslados y ajustes.', context: 'inventory/kardex' },
     { title: 'IMEI no cuadra', desc: 'Compara disponibles, vendidos y en transito desde Seriales.', context: 'inventory/seriales' },
+    { title: 'Traslado incompleto', desc: 'Si exportaste, el origen descuenta; el destino suma solo al importar el archivo.', context: 'inventory/traslados' },
     { title: 'Compra no guarda', desc: 'Valida proveedor, cantidades, costos y seriales si el producto maneja IMEI.', context: 'purchases' },
     { title: 'Tasa desactualizada', desc: 'Actualiza monedas/tasa antes de vender o revisar precios en moneda local.', context: 'config/monedas' },
 ];

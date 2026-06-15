@@ -64,6 +64,30 @@ const TASK_TOURS = {
         { label: 'Compra con IMEI', tour: 'PURCHASES_IMEI' },
         { label: 'Recepcion serializada', tour: 'SERIALIZED_RECEPTION' },
     ],
+    'inventory/productos': [
+        { label: 'Catalogo', tour: 'INVENTORY_PRODUCTS' },
+        { label: 'Recepcion IMEI', tour: 'SERIALIZED_RECEPTION' },
+        { label: 'Trasladar stock', tour: 'INVENTORY_TRANSFERS' },
+    ],
+    'inventory/categorias': [
+        { label: 'Organizar categorias', tour: 'INVENTORY_CATEGORIES' },
+    ],
+    'inventory/kardex': [
+        { label: 'Auditar movimientos', tour: 'INVENTORY_KARDEX' },
+        { label: 'Revisar traslados', tour: 'INVENTORY_TRANSFERS' },
+    ],
+    'inventory/traslados': [
+        { label: 'Traslados', tour: 'INVENTORY_TRANSFERS' },
+        { label: 'Seriales en transito', tour: 'INVENTORY_SERIALS' },
+    ],
+    'inventory/almacenes': [
+        { label: 'Almacenes', tour: 'INVENTORY_WAREHOUSES' },
+        { label: 'Trasladar entre almacenes', tour: 'INVENTORY_TRANSFERS' },
+    ],
+    'inventory/seriales': [
+        { label: 'Auditar seriales', tour: 'INVENTORY_SERIALS' },
+        { label: 'Recepcion serializada', tour: 'SERIALIZED_RECEPTION' },
+    ],
     'sales/cotizaciones': [
         { label: 'Crear cotizacion', tour: 'SALES_QUOTES_CREATE' },
         { label: 'Facturar cotizacion', tour: 'SALES_QUOTES_INVOICE' },
@@ -95,19 +119,34 @@ const COMMON_ISSUES = {
         'Si el costo cambio, decide si tambien deseas actualizar el precio de venta.',
     ],
     'inventory/productos': [
-        'Si un SKU ya existe, usa otro codigo o edita el producto existente.',
-        'Si el precio sale en cero, revisa precio de venta y listas de precios.',
-        'Si no aparece en POS, confirma que el producto este activo y tenga stock si aplica.',
+        'SKU duplicado: edita el producto existente o cambia el codigo.',
+        'Precio en cero: revisa precio base y listas de precios antes de vender.',
+        'No aparece en POS: confirma activo, stock disponible y almacen correcto.',
+    ],
+    'inventory/categorias': [
+        'Categoria repetida: consolida nombres y reasigna productos antes de eliminar.',
+        'No aparece en filtros: confirma que tenga productos asociados.',
+        'POS saturado: reduce categorias principales y usa nombres cortos.',
+    ],
+    'inventory/kardex': [
+        'Stock no cuadra: revisa movimientos recientes antes de ajustar.',
+        'Movimiento raro: valida usuario, fecha, tipo y saldo posterior.',
+        'Producto con IMEI: compara Kardex con Seriales disponibles/en transito.',
     ],
     'inventory/traslados': [
-        'Si el traslado tiene IMEI, cada unidad debe tener serial seleccionado.',
-        'Si importas en destino, usa el archivo generado por la sucursal origen.',
-        'Si las cantidades no cuadran, revisa productos normales vs serializados por separado.',
+        'IMEI faltante: puede estar vendido, en transito o en otro almacen.',
+        'Archivo externo: el origen descuenta al exportar; destino suma al importar.',
+        'Cantidad confusa: revisa unidades totales, no solo modelos distintos.',
+    ],
+    'inventory/almacenes': [
+        'POS descuenta del sitio errado: revisa almacen activo de la estacion.',
+        'Stock dividido: usa traslados para reubicar, no ajustes manuales.',
+        'Almacen viejo: desactivalo si tiene historial en vez de eliminarlo.',
     ],
     'inventory/seriales': [
-        'Si el stock no cuadra con IMEIs, compara disponibles, vendidos y en transito.',
-        'Si un IMEI no aparece, verifica que el producto tenga activo el control serial.',
-        'Si un serial no se puede anular, puede estar vendido o no disponible.',
+        'Stock vs IMEI no cuadra: compara disponibles, vendidos y en transito.',
+        'IMEI no aparece: revisa si el producto tiene activo control serial.',
+        'Serial no vendible: puede estar vendido, reservado, en transito o no disponible.',
     ],
     dashboard: [
         'Si ingresos salen en cero, revisa el periodo seleccionado y la caja activa.',
@@ -118,7 +157,7 @@ const COMMON_ISSUES = {
 
 const getIssueList = (contextKey, content) => {
     if (COMMON_ISSUES[contextKey]) return COMMON_ISSUES[contextKey];
-    if (contextKey?.startsWith('inventory/')) return COMMON_ISSUES['inventory/productos'];
+    if (contextKey?.startsWith('inventory/')) return COMMON_ISSUES[contextKey] || COMMON_ISSUES['inventory/productos'];
     if (contextKey?.startsWith('sales/')) return [
         'Si una venta no aparece, revisa el rango de fechas o el filtro de estado.',
         'Si un cliente no aparece, confirma que este activo y busca por cedula o telefono.',
