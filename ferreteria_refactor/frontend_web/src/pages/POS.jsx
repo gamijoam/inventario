@@ -54,7 +54,7 @@ const formatStock = (stock) => {
 const POS = () => {
     const { user, updateUserPreferences } = useAuth();
     const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart, overwriteCart } = useCart();
-    const { isSessionOpen, openSession, loading: isCashLoading } = useCash();
+    const { isSessionOpen, openSession, loading: isCashLoading, session, activeRegister } = useCash();
     const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency, posSettings, priceLists, posCategories, posWarehouses } = useConfig();
     const { subscribe } = useWebSocket();
     const {
@@ -64,6 +64,7 @@ const POS = () => {
         mergeProductUpdate, applyStockUpdate, removeProductFromCatalog
     } = usePOSCatalog();
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
+    const currentRegister = session?.register || activeRegister || null;
 
     // Toggle por moneda: { VES: true, COP: false } — default ON para todas
     const help = useHelp();
@@ -845,9 +846,14 @@ const POS = () => {
                     <div className="hidden md:flex flex-col">
                         <h1 className="text-base font-black text-slate-800 tracking-tight leading-none">Punto de Venta</h1>
                         {user && (
-                            <span className="text-sm font-bold text-slate-500 mt-1 flex items-center gap-1.5">
+                            <span className="text-sm font-bold text-slate-500 mt-1 flex flex-wrap items-center gap-1.5">
                                 <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
                                 {user.full_name || user.username || user.email}
+                                {currentRegister && (
+                                    <span className="ml-1 rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-black uppercase tracking-wide text-indigo-700">
+                                        {currentRegister.code || currentRegister.name} / {currentRegister.hardware_client_id || 'sin impresora'}
+                                    </span>
+                                )}
                             </span>
                         )}
                     </div>
@@ -864,7 +870,7 @@ const POS = () => {
                                 className="hidden md:flex h-9 gap-2 rounded-xl border-slate-200 bg-white px-3 font-black text-slate-700 hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200"
                             >
                                 <Banknote size={16} />
-                                Caja
+                                {currentRegister?.code || 'Caja'}
                                 <ChevronDown size={14} className="text-slate-400" />
                             </Button>
                         </DropdownMenuTrigger>

@@ -3,19 +3,15 @@ import toast from 'react-hot-toast';
 
 /**
  * Get Hardware Bridge Client ID from localStorage
- * Prompts user to configure on first use
+ * Reads the station printer route selected by the active cash register.
  */
 function getHardwareClientId() {
-    let clientId = localStorage.getItem('hardware_client_id');
+    const clientId = localStorage.getItem('hardware_client_id');
 
     if (!clientId) {
-        // First time on this PC - prompt user to configure
-        // Electron does not support prompt(). Use default or configurable ID.
-        console.warn('⚠️ No Hardware ID found. Defaulting to "caja-1". Configure via Settings if needed.');
-        clientId = 'caja-1';
-
-        // Save to localStorage
-        localStorage.setItem('hardware_client_id', clientId);
+        throw new Error(
+            'Esta estacion no tiene una impresora vinculada. Selecciona o abre la caja correcta, o configura el ID de impresora en Gestion de Cajas.'
+        );
     }
 
     return clientId;
@@ -43,7 +39,7 @@ const printerService = {
      */
     printTicket: async (saleId) => {
         const clientId = getHardwareClientId(); // Read fresh from localStorage on each call
-        console.log(`🖨️ printTicket — Client ID: ${clientId}`);
+        console.log(`printTicket - Client ID: ${clientId}`);
         try {
             // Send print command to backend, which forwards to Hardware Bridge via WebSocket
             const response = await apiClient.post(`/products/print/remote`, {

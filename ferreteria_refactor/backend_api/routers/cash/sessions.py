@@ -175,6 +175,7 @@ def get_registers_status(
             "session_id": open_session.id if open_session else None,
             "opened_by": open_session.user.username if open_session and open_session.user else None,
             "opened_at": open_session.start_time.isoformat() if open_session else None,
+            "hardware_client_id": reg.hardware_client_id,
         })
     return result
 
@@ -370,7 +371,9 @@ def get_current_session(
     print(f"💰 [DEBUG] Checking for OPEN session. user={current_user.username}, register_id={register_id}")
     # ADMIN ve cualquier sesión abierta (no solo la suya)
     # Cajero normal solo ve su propia sesión para multi-caja
-    is_admin = (getattr(current_user, 'role', None) in ["ADMIN", "UserRole.ADMIN"]
+    role_value = getattr(getattr(current_user, 'role', None), 'value', getattr(current_user, 'role', None))
+    is_admin = (str(role_value).upper() == "ADMIN"
+                or str(getattr(current_user, 'role', '')).upper() == "USERROLE.ADMIN"
                 or getattr(current_user, 'is_superuser', False))
     if is_admin:
         query = db.query(models.CashSession).filter(
@@ -391,8 +394,9 @@ def get_current_session(
     ).first()
     print(f"💰 [DEBUG] Found session: {session.id if session else 'None'}")
 
-    # Si no hay sesión propia y es ADMIN, devolver cualquier sesión abierta del tenant
-    if not session and current_user.role in ["ADMIN"] or getattr(current_user, 'is_superuser', False):
+    # Si no hay sesion propia y es ADMIN, devolver cualquier sesion abierta del tenant.
+    # Importante: si register_id fue enviado, nunca reemplazar la sesion encontrada por otra caja.
+    if not session and register_id is None and is_admin:
         session = db.query(models.CashSession).filter(
             models.CashSession.status == "OPEN"
         ).options(
@@ -400,7 +404,7 @@ def get_current_session(
             joinedload(models.CashSession.currencies),
         ).first()
         if session:
-            print(f"💰 [DEBUG] Admin fallback session: {session.id}")
+            print(f"[DEBUG] Admin fallback session: {session.id}")
 
     if not session:
         return None
