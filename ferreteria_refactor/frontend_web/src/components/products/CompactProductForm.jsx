@@ -20,6 +20,7 @@ import { getApiErrorMessage } from '../../utils/apiErrors';
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
 import ProductImageUploader from './ProductImageUploader';
+import ProductUnitManager from './ProductUnitManager';
 import toast from 'react-hot-toast';
 
 const defaultForm = {
@@ -142,7 +143,27 @@ const mapInitialProduct = (product) => {
         is_commissionable: !!product.is_commissionable,
         warehouse_stocks: Array.isArray(product.stocks) ? product.stocks : (Array.isArray(product.warehouse_stocks) ? product.warehouse_stocks : []),
         prices,
-        units: Array.isArray(product.units) ? product.units : [],
+        units: Array.isArray(product.units)
+            ? product.units.map(unit => {
+                const factor = Number(unit.conversion_factor) || 1;
+                const isPacking = factor >= 1;
+                return {
+                    id: unit.id,
+                    unit_name: unit.unit_name || '',
+                    user_input: isPacking ? factor : (factor > 0 ? 1 / factor : 1),
+                    conversion_factor: factor,
+                    type: isPacking ? 'packing' : 'fraction',
+                    barcode: unit.barcode || '',
+                    cost_price: unit.cost_price ?? 0,
+                    profit_margin: unit.profit_margin ?? '',
+                    price_usd: unit.price_usd ?? '',
+                    discount_percentage: unit.discount_percentage ?? 0,
+                    is_discount_active: !!unit.is_discount_active,
+                    is_default: !!unit.is_default,
+                    exchange_rate_id: unit.exchange_rate_id || '',
+                };
+            })
+            : [],
         combo_items: Array.isArray(product.combo_items) ? product.combo_items : [],
         warranty_policy_id: product.warranty_policy_id || null,
         image_url: product.image_url || '',
@@ -279,7 +300,23 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
             commission_amount: formData.commission_amount ? parseFloat(formData.commission_amount) : null,
             commission_percentage: formData.commission_percentage ? parseFloat(formData.commission_percentage) : null,
             warehouse_stocks: productType === 'physical' ? formData.warehouse_stocks : [],
-            units: Array.isArray(formData.units) ? formData.units : [],
+            units: Array.isArray(formData.units)
+                ? formData.units.map(unit => ({
+                    ...(unit.id && typeof unit.id === 'number' && unit.id <= 10_000_000 ? { id: unit.id } : {}),
+                    unit_name: unit.unit_name,
+                    conversion_factor: unit.type === 'fraction'
+                        ? (Number(unit.user_input) ? 1 / parseFloat(unit.user_input) : 0)
+                        : parseFloat(unit.user_input || unit.conversion_factor || 1),
+                    barcode: unit.barcode || '',
+                    cost_price: unit.cost_price !== '' && unit.cost_price !== null && unit.cost_price !== undefined ? parseFloat(unit.cost_price) : null,
+                    price_usd: unit.price_usd !== '' && unit.price_usd !== null && unit.price_usd !== undefined ? parseFloat(unit.price_usd) : null,
+                    profit_margin: unit.profit_margin !== '' && unit.profit_margin !== null && unit.profit_margin !== undefined ? parseFloat(unit.profit_margin) : null,
+                    discount_percentage: parseFloat(unit.discount_percentage) || 0,
+                    is_discount_active: !!unit.is_discount_active,
+                    is_default: !!unit.is_default,
+                    exchange_rate_id: unit.exchange_rate_id ? parseInt(unit.exchange_rate_id, 10) : null,
+                }))
+                : [],
             combo_items: formData.is_combo ? (formData.combo_items || []) : [],
             prices: pricesArray,
             image_url: formData.image_url || '',
@@ -469,6 +506,24 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                                             </div>
                                         </div>
                                     </Panel>
+
+
+                                    {!formData.is_service && !formData.is_combo && (
+                                        <Panel
+                                            title="Presentaciones y unidades"
+                                            eyebrow={formData.units.length > 0 ? `${formData.units.length} configuradas` : 'Opcional'}
+                                        >
+                                            <ProductUnitManager
+                                                units={formData.units}
+                                                onUnitsChange={units => setFormData(prev => ({ ...prev, units }))}
+                                                baseUnitType={formData.unit_type}
+                                                basePrice={formData.price}
+                                                baseCost={formData.cost}
+                                                exchangeRates={exchangeRates}
+                                                productExchangeRateId={formData.exchange_rate_id}
+                                            />
+                                        </Panel>
+                                    )}
                                 </div>
                             )}
 
