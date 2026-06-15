@@ -3,13 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { Vault, ArrowRight, CheckCircle2, Lock, AlertCircle } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import { useCash } from '../../context/CashContext';
+import { useAuth } from '../../context/AuthContext';
 import { Button } from '../ui/button';
 import apiClient from '../../config/axios';
 
 const CashOpeningModal = ({ onOpen }) => {
     const navigate = useNavigate();
     const { getActiveCurrencies } = useConfig();
-    const { registers } = useCash();
+    const { selectStationRegister } = useCash();
+    const { user } = useAuth();
+    const roleValue = String(user?.role || '').toUpperCase();
+    const isAdmin = user?.is_superuser || roleValue === 'ADMIN' || roleValue === 'USERROLE.ADMIN';
 
     // Step: 'register' | 'amounts'
     const [step, setStep] = useState('register');
@@ -29,10 +33,13 @@ const CashOpeningModal = ({ onOpen }) => {
                 const res = await apiClient.get('/cash/registers/status');
                 const list = Array.isArray(res.data) ? res.data : [];
                 setRegistersStatus(list);
-                // Auto-select if only one available register
-                const available = list.filter(r => r.session_status === 'CLOSED');
-                if (available.length === 1) {
-                    setSelectedRegister(available[0]);
+                // Cajeros abren cajas libres; administradores tambien pueden tomar una caja ya abierta
+                // para esta terminal sin cerrar la sesion del cajero que la abrio.
+                const selectable = isAdmin
+                    ? list.filter(r => r.session_status === 'OPEN' || r.session_status === 'CLOSED')
+                    : list.filter(r => r.session_status === 'CLOSED');
+                if (selectable.length === 1) {
+                    setSelectedRegister(selectable[0]);
                 }
             } catch (e) {
                 console.error('Error loading registers:', e);
@@ -42,7 +49,7 @@ const CashOpeningModal = ({ onOpen }) => {
             }
         };
         load();
-    }, []);
+    }, [isAdmin]);
 
     // Build currency list when moving to step 2
     useEffect(() => {
@@ -67,12 +74,20 @@ const CashOpeningModal = ({ onOpen }) => {
     }, [step]);
 
     const handleSelectRegister = (reg) => {
-        if (reg.session_status === 'OPEN') return;
+        if (reg.session_status === 'OPEN' && !isAdmin) return;
         setSelectedRegister(reg);
     };
 
-    const handleContinue = () => {
+    const handleContinue = async () => {
         if (!selectedRegister) return;
+
+        if (selectedRegister.session_status === 'OPEN' && isAdmin) {
+            setIsSubmitting(true);
+            await selectStationRegister(selectedRegister);
+            setIsSubmitting(false);
+            return;
+        }
+
         setStep('amounts');
     };
 
@@ -103,11 +118,11 @@ const CashOpeningModal = ({ onOpen }) => {
                     </div>
                     <div className="space-y-1">
                         <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                            Apertura de Turno
+                            {isAdmin && step === 'register' ? 'Caja de esta terminal' : 'Apertura de Turno'}
                         </h2>
                         <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto">
                             {step === 'register'
-                                ? 'Selecciona la caja que vas a operar.'
+                                ? (isAdmin ? 'Elige una caja abierta para imprimir desde esta computadora, o una caja libre para abrir turno.' : 'Selecciona la caja que vas a operar.')
                                 : `${selectedRegister?.name} · ${selectedRegister?.code}`
                             }
                         </p>
@@ -133,15 +148,16 @@ const CashOpeningModal = ({ onOpen }) => {
                             <div className="space-y-2">
                                 {registersStatus.map(reg => {
                                     const isOccupied = reg.session_status === 'OPEN';
+                                    const canSelect = !isOccupied || isAdmin;
                                     const isSelected = selectedRegister?.id === reg.id;
                                     return (
                                         <button
                                             key={reg.id}
                                             type="button"
-                                            disabled={isOccupied}
+                                            disabled={!canSelect}
                                             onClick={() => handleSelectRegister(reg)}
                                             className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all text-left
-                                                ${isOccupied
+                                                ${!canSelect
                                                     ? 'border-zinc-100 bg-zinc-50 opacity-60 cursor-not-allowed'
                                                     : isSelected
                                                         ? 'border-blue-500 bg-blue-50'
@@ -153,14 +169,17 @@ const CashOpeningModal = ({ onOpen }) => {
                                                 <p className="text-xs text-zinc-400">{reg.code}</p>
                                                 {isOccupied && (
                                                     <p className="text-xs text-amber-600 mt-0.5">
-                                                        Usada por {reg.opened_by || 'otro usuario'}
+                                                        {isAdmin ? 'Abierta por' : 'Usada por'} {reg.opened_by || 'otro usuario'}
                                                     </p>
+                                                )}
+                                                {reg.hardware_client_id && (
+                                                    <p className="text-xs text-zinc-400 mt-0.5">Impresora: {reg.hardware_client_id}</p>
                                                 )}
                                             </div>
                                             <div className="flex items-center gap-2 ml-3 flex-shrink-0">
                                                 {isOccupied ? (
-                                                    <span className="flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded-full">
-                                                        <Lock size={11} /> Ocupada
+                                                    <span className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${isAdmin ? 'text-emerald-700 bg-emerald-100' : 'text-amber-600 bg-amber-100'}`}>
+                                                        <Lock size={11} /> {isAdmin ? 'Usar abierta' : 'Ocupada'}
                                                     </span>
                                                 ) : isSelected ? (
                                                     <CheckCircle2 size={22} className="text-blue-500" />
@@ -184,7 +203,7 @@ const CashOpeningModal = ({ onOpen }) => {
                                 onClick={handleContinue}
                                 className="w-full h-14 text-base font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 rounded-xl disabled:opacity-50"
                             >
-                                Continuar <ArrowRight className="ml-2 h-5 w-5" />
+                                {selectedRegister?.session_status === 'OPEN' && isAdmin ? 'Usar esta caja' : 'Continuar'} <ArrowRight className="ml-2 h-5 w-5" />
                             </Button>
                             <Button
                                 type="button"
