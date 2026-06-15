@@ -120,11 +120,11 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                     raise HTTPException(status_code=400, detail=f"El producto {product.name} requiere {expected_serials} IMEI(s), pero recibio {len(serial_numbers)}.")
                 repeated = sorted([serial for serial, count in Counter(serial_numbers).items() if count > 1])
                 if repeated:
-                    raise HTTPException(status_code=400, detail=f"IMEIs duplicados en la compra: {', '.join(repeated[:5])}")
+                    raise HTTPException(status_code=400, detail=f"{product.name}: hay IMEIs/seriales repetidos en esta linea: {', '.join(repeated[:5])}")
                 existing_serials = db.query(models.ProductInstance.serial_number).filter(models.ProductInstance.serial_number.in_(serial_numbers)).all()
                 if existing_serials:
                     existing = [row[0] for row in existing_serials]
-                    raise HTTPException(status_code=400, detail=f"Estos IMEIs ya existen en inventario: {', '.join(existing[:5])}")
+                    raise HTTPException(status_code=400, detail=f"{product.name}: estos IMEIs/seriales ya existen en inventario: {', '.join(existing[:5])}")
             elif serial_numbers:
                 raise HTTPException(status_code=400, detail=f"El producto {product.name} no maneja IMEI/Serial. Quita los seriales de esa linea.")
 

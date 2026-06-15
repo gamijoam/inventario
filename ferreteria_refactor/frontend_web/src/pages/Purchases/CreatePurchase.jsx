@@ -24,6 +24,21 @@ const parseSerials = (value = '') => String(value)
     .map(v => v.trim().toUpperCase())
     .filter(Boolean);
 
+const getSerialMeta = (item) => {
+    const expected = Number.isInteger(toMoney(item.quantity)) ? toMoney(item.quantity) : 0;
+    const serials = parseSerials(item.serial_text);
+    const duplicates = serials.filter((serial, index) => serials.indexOf(serial) !== index);
+    const uniqueDuplicates = [...new Set(duplicates)];
+    const missing = Math.max(expected - serials.length, 0);
+    return {
+        expected,
+        captured: serials.length,
+        missing,
+        duplicates: uniqueDuplicates,
+        complete: expected > 0 && serials.length === expected && uniqueDuplicates.length === 0,
+    };
+};
+
 const CreatePurchase = () => {
     const navigate = useNavigate();
     const help = useHelp();
@@ -535,6 +550,7 @@ const CreatePurchase = () => {
                             ) : (
                                 purchaseItems.map(item => {
                                     const projectedPrice = item.unit_cost * (1 + (item.profit_margin || 0) / 100) * (1 + (item.tax_rate || 0) / 100);
+                                    const serialMeta = item.has_imei ? getSerialMeta(item) : null;
                                     return (
                                         <div key={item.line_id || item.product_id} className="bg-white rounded-xl p-3 shadow-sm border border-slate-200 relative">
                                             <div className="flex justify-between items-start mb-3 pr-8">
@@ -606,14 +622,32 @@ const CreatePurchase = () => {
                                             </div>
 
                                             {item.has_imei && (
-                                                <div id="tour-purchase-imei-lines" className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 p-3">
-                                                    <label className="mb-1 block text-[10px] font-black uppercase tracking-wide text-indigo-600">IMEIs / Seriales ({parseSerials(item.serial_text).length}/{toMoney(item.quantity) || 0})</label>
+                                                <div id="tour-purchase-imei-lines" className={clsx(
+                                                    "mt-3 rounded-xl border p-3",
+                                                    serialMeta.complete ? "border-emerald-200 bg-emerald-50" : serialMeta.duplicates.length ? "border-rose-200 bg-rose-50" : "border-indigo-100 bg-indigo-50"
+                                                )}>
+                                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                                        <label className="text-[10px] font-black uppercase tracking-wide text-indigo-700">IMEIs / Seriales</label>
+                                                        <span className={clsx("rounded-full px-2 py-0.5 text-[10px] font-black", serialMeta.complete ? "bg-emerald-100 text-emerald-700" : serialMeta.duplicates.length ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700")}>
+                                                            {serialMeta.captured}/{serialMeta.expected || toMoney(item.quantity) || 0}
+                                                        </span>
+                                                    </div>
+                                                    <div className="mb-2 grid grid-cols-3 gap-1.5 text-center text-[10px] font-black">
+                                                        <div className="rounded-lg bg-white px-2 py-1 text-slate-500">Esperados <span className="text-slate-900">{toMoney(item.quantity) || 0}</span></div>
+                                                        <div className="rounded-lg bg-white px-2 py-1 text-emerald-600">Capturados <span>{serialMeta.captured}</span></div>
+                                                        <div className={clsx("rounded-lg bg-white px-2 py-1", serialMeta.missing ? "text-amber-600" : "text-emerald-600")}>Faltan <span>{serialMeta.missing}</span></div>
+                                                    </div>
                                                     <textarea
                                                         value={item.serial_text || ''}
                                                         onChange={(e) => updateLine(item.line_id || item.product_id, { serial_text: e.target.value })}
-                                                        className="h-20 w-full rounded-lg border border-indigo-100 bg-white px-3 py-2 font-mono text-xs outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                                        className="h-24 w-full rounded-lg border border-white bg-white px-3 py-2 font-mono text-xs outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                                                         placeholder="Escanea o pega un IMEI por linea"
                                                     />
+                                                    {serialMeta.duplicates.length > 0 && (
+                                                        <div className="mt-2 rounded-lg bg-white px-3 py-2 text-xs font-bold text-rose-600">
+                                                            Duplicados: {serialMeta.duplicates.slice(0, 3).join(', ')}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
 
@@ -662,6 +696,7 @@ const CreatePurchase = () => {
                                     purchaseItems.map(item => {
                                         // Calculate projected price for display
                                         const projectedPrice = item.unit_cost * (1 + (item.profit_margin || 0) / 100) * (1 + (item.tax_rate || 0) / 100);
+                                        const serialMeta = item.has_imei ? getSerialMeta(item) : null;
 
                                         return (
                                             <React.Fragment key={item.line_id || item.product_id}>
@@ -745,19 +780,33 @@ const CreatePurchase = () => {
                                             {item.has_imei && (
                                                 <tr className="bg-indigo-50/50">
                                                     <td colSpan="7" className="px-4 pb-4">
-                                                        <div className="rounded-lg border border-indigo-100 bg-white p-3">
-                                                            <div className="mb-2 flex items-center justify-between gap-3">
-                                                                <label className="text-[10px] font-black uppercase tracking-wide text-indigo-600">IMEIs / Seriales recibidos</label>
-                                                                <span className={clsx("rounded-full px-2 py-0.5 text-[10px] font-black", parseSerials(item.serial_text).length === toMoney(item.quantity) ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")}>
-                                                                    {parseSerials(item.serial_text).length}/{toMoney(item.quantity) || 0}
-                                                                </span>
+                                                        <div className={clsx(
+                                                            "rounded-xl border bg-white p-3 shadow-sm",
+                                                            serialMeta.complete ? "border-emerald-200" : serialMeta.duplicates.length ? "border-rose-200" : "border-indigo-100"
+                                                        )}>
+                                                            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                                                                <div>
+                                                                    <label className="text-[10px] font-black uppercase tracking-wide text-indigo-600">IMEIs / Seriales recibidos</label>
+                                                                    <p className="mt-0.5 text-xs font-semibold text-slate-500">Escanea, pega o separa por coma, espacio o salto de linea.</p>
+                                                                </div>
+                                                                <div className="flex flex-wrap gap-1.5">
+                                                                    <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">Esperados: {toMoney(item.quantity) || 0}</span>
+                                                                    <span className="rounded-md bg-emerald-100 px-2 py-1 text-[10px] font-black text-emerald-700">Capturados: {serialMeta.captured}</span>
+                                                                    <span className={clsx("rounded-md px-2 py-1 text-[10px] font-black", serialMeta.missing ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700")}>Faltan: {serialMeta.missing}</span>
+                                                                </div>
                                                             </div>
                                                             <textarea
                                                                 value={item.serial_text || ''}
                                                                 onChange={(e) => updateLine(item.line_id || item.product_id, { serial_text: e.target.value })}
-                                                                className="h-20 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-                                                                placeholder="Escanea o pega los IMEIs. Puedes separarlos por salto de linea, coma o espacio."
+                                                                className="h-24 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                                                                placeholder="Ej: 353791682868853 353791682872913"
                                                             />
+                                                            {serialMeta.duplicates.length > 0 && (
+                                                                <div className="mt-2 flex items-start gap-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
+                                                                    <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                                                                    <span>Duplicados detectados: {serialMeta.duplicates.slice(0, 5).join(', ')}</span>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
