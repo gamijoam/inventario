@@ -252,7 +252,7 @@ const COMMON_ISSUES = {
     purchases: [
         'Proveedor faltante: selecciona o crea proveedor antes de guardar.',
         'IMEI incompleto: cantidad y seriales deben coincidir.',
-        'Costo cero: corrige costo antes de confirmar para no da?ar ganancia real.',
+        'Costo cero: corrige costo antes de confirmar para no danar ganancia real.',
         'Factura duplicada: revisa numero de factura, proveedor y fecha.',
     ],
     suppliers: [

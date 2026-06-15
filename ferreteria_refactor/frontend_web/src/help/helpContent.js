@@ -226,7 +226,7 @@ export const HELP_CONTENT = {
   ══════════════════════════════════════════════════ */
   'inventory/productos': {
     title: 'Productos - Guia operativa',
-    icon: '??',
+    icon: 'PR',
     description: 'Catalogo central del negocio: precios, costos, stock, listas de precios, imagenes, SKU, productos fisicos, servicios, combos y seriales/IMEI.',
     steps: [
       { title: '1. Buscar antes de crear', desc: 'Antes de registrar un producto, busca por nombre, SKU o codigo de barras. Asi evitas duplicados y errores de stock repartido entre dos fichas.' },
@@ -249,7 +249,7 @@ export const HELP_CONTENT = {
 
   'inventory/categorias': {
     title: 'Categorias - Orden del catalogo',
-    icon: '???',
+    icon: 'CT',
     description: 'Organiza productos para busqueda, POS y reportes. Una buena categoria reduce errores del cajero y hace mas utiles los reportes de venta.',
     steps: [
       { title: '1. Crear categorias simples', desc: 'Usa nombres cortos y faciles de reconocer: Celulares, Accesorios, Repuestos, Servicios. Evita nombres largos o repetidos.' },
@@ -267,7 +267,7 @@ export const HELP_CONTENT = {
 
   'inventory/kardex': {
     title: 'Kardex - Auditoria de inventario',
-    icon: '??',
+    icon: 'KD',
     description: 'Historial cronologico de entradas, salidas, ventas, compras, traslados, devoluciones y ajustes. Es la primera pantalla para investigar diferencias de stock.',
     steps: [
       { title: '1. Buscar el producto', desc: 'Filtra por producto, fecha, tipo de movimiento o usuario. Empieza por los ultimos movimientos antes de hacer un ajuste.' },
@@ -278,7 +278,7 @@ export const HELP_CONTENT = {
     ],
     tips: [
       'Un ajuste sin motivo claro es dificil de auditar despues.',
-      'Si el producto maneja IMEI, compara Kardex con la pesta?a Seriales.',
+      'Si el producto maneja IMEI, compara Kardex con la pestana Seriales.',
       'Para diferencias recurrentes, revisa el almacen activo del POS y traslados pendientes.',
     ],
     actions: ['Buscar movimiento', 'Filtrar por tipo', 'Filtrar por fecha', 'Nuevo ajuste manual', 'Ver responsable'],
@@ -286,7 +286,7 @@ export const HELP_CONTENT = {
 
   'inventory/traslados': {
     title: 'Traslados - Movimiento entre almacenes o empresas',
-    icon: '??',
+    icon: 'TR',
     description: 'Mueve inventario de forma trazable. Puede ser interno entre almacenes del mismo tenant o externo exportando/importando un archivo.',
     steps: [
       { title: '1. Elegir el tipo correcto', desc: 'Interno mueve stock entre almacenes propios. Exportar descuenta del origen y genera archivo. Importar recibe el archivo en el destino.' },
@@ -307,7 +307,7 @@ export const HELP_CONTENT = {
 
   'inventory/almacenes': {
     title: 'Almacenes - Ubicaciones de stock',
-    icon: '??',
+    icon: 'AL',
     description: 'Representan locales, bodegas, vitrinas o sucursales internas. El almacen activo del POS define de donde se descuenta la venta.',
     steps: [
       { title: '1. Crear solo los necesarios', desc: 'Si tienes un solo local, un almacen principal basta. Crea mas cuando realmente tengas bodega, vitrina o sucursal separada.' },
@@ -326,7 +326,7 @@ export const HELP_CONTENT = {
 
   'inventory/seriales': {
     title: 'Seriales / IMEI - Trazabilidad por unidad',
-    icon: '??',
+    icon: 'IM',
     description: 'Controla cada unidad individual de productos serializados. Ideal para celulares, laptops, consolas, equipos y mercancia con garantia por serial.',
     steps: [
       { title: '1. Confirmar que el producto maneja serial', desc: 'El flag IMEI/Serial debe estar activo en la ficha del producto. Si no esta activo, el sistema lo tratara como stock normal.' },
@@ -350,7 +350,7 @@ export const HELP_CONTENT = {
   ══════════════════════════════════════════════════ */
   'reports/resumen': {
     title: 'Resumen de Reportes - Lectura ejecutiva',
-    icon: '??',
+    icon: 'RP',
     description: 'Vista para entender ventas, ganancia, pagos, clientes y productos del periodo seleccionado antes de entrar al detalle.',
     steps: [
       { title: '1. Define el periodo', desc: 'Usa los presets o fechas manuales. Todos los reportes dependen de ese rango, asi que valida fechas antes de comparar numeros.' },
@@ -369,7 +369,7 @@ export const HELP_CONTENT = {
 
   'reports/ventas': {
     title: 'Reporte de Ventas - Auditoria comercial',
-    icon: '??',
+    icon: 'VT',
     description: 'Detalle de ventas por fecha, cliente, vendedor, producto, metodo de pago, descuentos, anulaciones y devoluciones.',
     steps: [
       { title: '1. Filtra por fecha', desc: 'Selecciona el periodo exacto. Para cierre diario, inicio y fin deben ser el mismo dia.' },
@@ -388,7 +388,7 @@ export const HELP_CONTENT = {
 
   'reports/caja': {
     title: 'Reporte de Caja - Cuadre de dinero',
-    icon: '??',
+    icon: 'CJ',
     description: 'Control de aperturas, cierres, ingresos, egresos, metodos de pago y diferencias entre sistema y dinero contado.',
     steps: [
       { title: '1. Elige el turno o periodo', desc: 'Filtra por fecha y cajero si aplica. Un cierre de caja debe analizarse por turno, no solo por dia.' },
@@ -407,7 +407,7 @@ export const HELP_CONTENT = {
 
   'reports/creditos': {
     title: 'Reporte de Creditos - Cuentas por cobrar',
-    icon: '??',
+    icon: 'CX',
     description: 'Seguimiento de clientes que deben dinero, antiguedad de deuda, abonos y saldos pendientes.',
     steps: [
       { title: '1. Lee deuda total', desc: 'Muestra cuanto falta por cobrar. Si sube mucho, revisa ventas a credito recientes.' },
@@ -426,7 +426,7 @@ export const HELP_CONTENT = {
 
   'reports/proveedores': {
     title: 'Reporte de Proveedores - Cuentas por pagar',
-    icon: '??',
+    icon: 'PV',
     description: 'Controla compras a credito, pagos parciales, deuda actual y relacion con proveedores.',
     steps: [
       { title: '1. Revisa deuda por proveedor', desc: 'La deuda debe salir de compras a credito menos pagos registrados.' },
@@ -445,7 +445,7 @@ export const HELP_CONTENT = {
 
   'reports/inventario': {
     title: 'Reporte de Inventario - Valoracion y riesgo',
-    icon: '??',
+    icon: 'IN',
     description: 'Valor actual del inventario por costo, precio de venta, margen, stock bajo y productos sin movimiento.',
     steps: [
       { title: '1. Lee costo total', desc: 'Representa dinero invertido en stock. Si se ve bajo, revisa productos con costo cero.' },
@@ -464,7 +464,7 @@ export const HELP_CONTENT = {
 
   'reports/comisiones': {
     title: 'Comisiones - Liquidacion del equipo',
-    icon: '??',
+    icon: 'CM',
     description: 'Controla comisiones generadas, pendientes, pagadas y ajustes por devoluciones o anulaciones.',
     steps: [
       { title: '1. Filtra periodo', desc: 'Usa el rango correspondiente a la liquidacion semanal, quincenal o mensual.' },
@@ -533,7 +533,7 @@ export const HELP_CONTENT = {
 
   purchases: {
     title: 'Compras - Recepcion y costos',
-    icon: '???',
+    icon: 'CP',
     description: 'Registra mercancia recibida, actualiza inventario, controla costos reales y crea cuentas por pagar cuando la compra queda a credito.',
     steps: [
       { title: '1. Elegir proveedor', desc: 'Toda compra debe tener proveedor. Si no existe, crea el proveedor antes o desde el flujo disponible. Esto permite ver deudas, historial y precios por proveedor.' },
@@ -558,7 +558,7 @@ export const HELP_CONTENT = {
 
   suppliers: {
     title: 'Proveedores - Contactos y saldos',
-    icon: '??',
+    icon: 'PV',
     description: 'Directorio de proveedores con datos de contacto, condiciones de credito, limite, deuda actual e historial para cuentas por pagar.',
     steps: [
       { title: '1. Crear proveedor', desc: 'Registra nombre comercial, contacto, telefono, correo y direccion. Mientras mas completa la ficha, mas facil sera comprar, reclamar o pagar.' },
@@ -818,7 +818,7 @@ export const HELP_CONTENT = {
       { title: '2. Preparar plantillas', desc: 'Usa mensajes claros para pagos, ordenes listas, garantias o seguimiento. Evita textos largos.' },
       { title: '3. Probar con un numero propio', desc: 'Antes de usarlo con clientes, envia una prueba y verifica formato, acentos y enlaces.' },
     ],
-    tips: ['No prometas automatizacion si la conexion no esta verificada.', 'Mant?n mensajes cortos y con accion clara.', 'Prueba despues de cambiar plantillas.'],
+    tips: ['No prometas automatizacion si la conexion no esta verificada.', 'Manten mensajes cortos y con accion clara.', 'Prueba despues de cambiar plantillas.'],
     actions: ['Ver conexion', 'Editar plantilla', 'Enviar prueba'],
   },
 
@@ -828,7 +828,7 @@ export const HELP_CONTENT = {
     description: 'Conecta servicios externos como BloqueCelular u otros aliados. Cambios aqui pueden afectar validaciones fuera del sistema.',
     steps: [
       { title: '1. Revisar credenciales', desc: 'Confirma que token, usuario o endpoint correspondan al ambiente correcto.' },
-      { title: '2. Activar solo lo necesario', desc: 'Mant?n apagadas integraciones que no uses para evitar errores o demoras innecesarias.' },
+      { title: '2. Activar solo lo necesario', desc: 'Manten apagadas integraciones que no uses para evitar errores o demoras innecesarias.' },
       { title: '3. Probar operacion real', desc: 'Despues de guardar, realiza una prueba pequena y revisa respuesta del proveedor externo.' },
     ],
     tips: ['No mezcles credenciales de QA y produccion.', 'Documenta quien tiene acceso a cada token.', 'Si falla, revisa primero conexion y credenciales.'],
@@ -871,7 +871,7 @@ export const HELP_CONTENT = {
       { title: '5. Asociar estacion e impresora', desc: 'Si usas impresoras por caja, el ID debe coincidir con el Client ID configurado en Invensoft Bridge.' },
     ],
     tips: [
-      'Mant?n C01 como caja principal y crea cajas adicionales para otros puntos de venta.',
+      'Manten C01 como caja principal y crea cajas adicionales para otros puntos de venta.',
       'No desactives una caja con historial si solo quieres dejar de usarla temporalmente.',
       'Si una caja se bloquea seguido, revisa si el cajero esta cerrando turno correctamente.',
     ],

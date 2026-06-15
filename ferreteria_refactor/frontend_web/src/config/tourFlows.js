@@ -450,8 +450,8 @@ export const TOUR_FLOWS = {
     // =============================================
     INVENTORY_COMPLETE: {
         id: 'inventory_complete',
-        title: 'Gesti?n de Inventario',
-        description: 'Vista general de productos, categor?as, kardex, traslados y almacenes.',
+        title: 'Gestion de Inventario',
+        description: 'Vista general de productos, categorias, kardex, traslados y almacenes.',
         startUrl: '/inventory-center?tab=productos',
         module: null,
         steps: [
@@ -459,7 +459,7 @@ export const TOUR_FLOWS = {
                 element: '#tour-inventory-tabs',
                 popover: {
                     title: 'Centro de Inventario',
-                    description: 'Estas pesta?as separan el trabajo diario: cat?logo, categor?as, kardex, traslados, almacenes y seriales cuando el negocio los usa.',
+                    description: 'Estas pestanas separan el trabajo diario: catalogo, categorias, kardex, traslados, almacenes y seriales cuando el negocio los usa.',
                     side: 'bottom', align: 'center'
                 }
             },
@@ -467,7 +467,7 @@ export const TOUR_FLOWS = {
                 element: '#tour-products-search',
                 popover: {
                     title: 'Buscar productos',
-                    description: 'Busca por nombre, SKU o serial. Es la forma m?s r?pida de ubicar productos antes de editar, revisar stock o diagnosticar precios.',
+                    description: 'Busca por nombre, SKU o serial. Es la forma mas rapida de ubicar productos antes de editar, revisar stock o diagnosticar precios.',
                     side: 'bottom', align: 'start'
                 }
             },
@@ -475,7 +475,7 @@ export const TOUR_FLOWS = {
                 element: '#tour-products-add-btn',
                 popover: {
                     title: 'Crear producto',
-                    description: 'Aqu? registras productos nuevos con precio, costo, categor?a, stock, IMEI/serial, servicios o combos seg?n corresponda.',
+                    description: 'Aqui registras productos nuevos con precio, costo, categoria, stock, IMEI/serial, servicios o combos segun corresponda.',
                     side: 'bottom', align: 'end'
                 }
             },
@@ -483,8 +483,8 @@ export const TOUR_FLOWS = {
                 navigate: '/inventory-center?tab=categorias',
                 element: '#tour-categories-add-btn',
                 popover: {
-                    title: 'Categor?as',
-                    description: 'Organiza el cat?logo para filtrar mejor en inventario y POS. Crea categor?as simples o subcategor?as si necesitas m?s orden.',
+                    title: 'Categorias',
+                    description: 'Organiza el catalogo para filtrar mejor en inventario y POS. Crea categorias simples o subcategorias si necesitas mas orden.',
                     side: 'bottom', align: 'end'
                 }
             },
@@ -511,14 +511,14 @@ export const TOUR_FLOWS = {
                 element: '#tour-warehouses-add-btn',
                 popover: {
                     title: 'Almacenes',
-                    description: 'Administra ubicaciones de stock. Define almac?n principal, revisa inventario por ubicaci?n y crea almacenes cuando el negocio crezca.',
+                    description: 'Administra ubicaciones de stock. Define almacen principal, revisa inventario por ubicacion y crea almacenes cuando el negocio crezca.',
                     side: 'bottom', align: 'end'
                 }
             },
             {
                 popover: {
                     title: 'Listo para operar',
-                    description: 'Usa la ayuda contextual de cada pesta?a cuando necesites pasos espec?ficos. Si algo no cuadra, abre soporte desde la ayuda y se enviar? con contexto.',
+                    description: 'Usa la ayuda contextual de cada pestana cuando necesites pasos especificos. Si algo no cuadra, abre soporte desde la ayuda y se enviara con contexto.',
                 }
             }
         ]
@@ -534,24 +534,24 @@ export const TOUR_FLOWS = {
             {
                 element: '#tour-products-search',
                 popover: {
-                    title: 'B?squeda r?pida',
-                    description: 'Busca por nombre, SKU o serial. La lista se actualiza para encontrar r?pido lo que quieres editar o revisar.',
+                    title: 'Busqueda rapida',
+                    description: 'Busca por nombre, SKU o serial. La lista se actualiza para encontrar rapido lo que quieres editar o revisar.',
                     side: 'bottom', align: 'start'
                 }
             },
             {
                 element: '#tour-products-filters-btn',
                 popover: {
-                    title: 'Filtros y diagn?stico',
-                    description: 'Filtra por categor?a, almac?n, tipo de producto o problemas como precio cero, SKU faltante o listas pendientes.',
+                    title: 'Filtros y diagnostico',
+                    description: 'Filtra por categoria, almacen, tipo de producto o problemas como precio cero, SKU faltante o listas pendientes.',
                     side: 'bottom', align: 'center'
                 }
             },
             {
                 element: '#tour-products-panel',
                 popover: {
-                    title: 'Cat?logo operativo',
-                    description: 'El panel resume productos, categor?a, precios, stock y estado. Desde aqu? puedes editar y corregir datos sin entrar al POS.',
+                    title: 'Catalogo operativo',
+                    description: 'El panel resume productos, categoria, precios, stock y estado. Desde aqui puedes editar y corregir datos sin entrar al POS.',
                     side: 'top', align: 'center'
                 }
             },
@@ -568,23 +568,23 @@ export const TOUR_FLOWS = {
 
     INVENTORY_CATEGORIES: {
         id: 'inventory_categories',
-        title: 'Categor?as de Inventario',
-        description: 'Organizaci?n del cat?logo para b?squeda y POS.',
+        title: 'Categorias de Inventario',
+        description: 'Organizacion del catalogo para busqueda y POS.',
         startUrl: '/inventory-center?tab=categorias',
         module: null,
         steps: [
             {
                 element: '#tour-categories-add-btn',
                 popover: {
-                    title: 'Nueva categor?a',
-                    description: 'Crea categor?as para ordenar productos y facilitar filtros en inventario y punto de venta.',
+                    title: 'Nueva categoria',
+                    description: 'Crea categorias para ordenar productos y facilitar filtros en inventario y punto de venta.',
                     side: 'bottom', align: 'end'
                 }
             },
             {
                 popover: {
                     title: 'Buenas practicas',
-                    description: 'Usa nombres cortos y claros. Evita duplicar categor?as parecidas porque eso hace m?s dif?cil buscar productos en el POS.'
+                    description: 'Usa nombres cortos y claros. Evita duplicar categorias parecidas porque eso hace mas dificil buscar productos en el POS.'
                 }
             }
         ]
@@ -593,7 +593,7 @@ export const TOUR_FLOWS = {
     INVENTORY_KARDEX: {
         id: 'inventory_kardex',
         title: 'Kardex de Inventario',
-        description: 'Auditor?a de entradas, salidas y ajustes.',
+        description: 'Auditoria de entradas, salidas y ajustes.',
         startUrl: '/inventory-center?tab=kardex',
         module: null,
         steps: [
@@ -601,7 +601,7 @@ export const TOUR_FLOWS = {
                 element: '#tour-kardex-panel',
                 popover: {
                     title: 'Historial de movimientos',
-                    description: 'Aqu? se audita todo lo que entra y sale: ventas, compras, traslados, devoluciones y ajustes manuales.',
+                    description: 'Aqui se audita todo lo que entra y sale: ventas, compras, traslados, devoluciones y ajustes manuales.',
                     side: 'bottom', align: 'center'
                 }
             },
@@ -609,7 +609,7 @@ export const TOUR_FLOWS = {
                 element: '#tour-kardex-adjust-btn',
                 popover: {
                     title: 'Ajuste manual',
-                    description: '?salo para conteos f?sicos, correcciones autorizadas o salidas por merma. Siempre deja una descripci?n clara.',
+                    description: 'Usalo para conteos fisicos, correcciones autorizadas o salidas por merma. Siempre deja una descripcion clara.',
                     side: 'bottom', align: 'end'
                 }
             }
@@ -700,8 +700,8 @@ export const TOUR_FLOWS = {
             {
                 element: '#tour-serials-modes',
                 popover: {
-                    title: 'Cat?logo y tr?nsitos',
-                    description: 'Cat?logo muestra modelos y unidades. En tr?nsito ayuda a auditar IMEIs movidos entre empresas.',
+                    title: 'Catalogo y transitos',
+                    description: 'Catalogo muestra modelos y unidades. En transito ayuda a auditar IMEIs movidos entre empresas.',
                     side: 'bottom', align: 'end'
                 }
             }
