@@ -88,6 +88,7 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                     is_box=False,
                     is_combo=False,
                     is_service=False,
+                    has_imei=bool(qp.has_imei),
                     category_id=qp.category_id,
                 )
                 db.add(new_prod)

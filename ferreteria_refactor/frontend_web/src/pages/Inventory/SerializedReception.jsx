@@ -5,7 +5,7 @@ import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import {
     Barcode, Loader2, Trash2, Save, X, Search, ExternalLink,
-    Smartphone, AlertCircle, CheckCircle2, Zap, ArrowLeft
+    Smartphone, AlertCircle, CheckCircle2, Zap, ArrowLeft, Receipt
 } from 'lucide-react';
 
 const IMEI_API_KEY = '7c1c33d3-0604-43b8-b09e-41226ee7eacd';
@@ -479,6 +479,16 @@ const SerializedReception = () => {
 
     return (
         <div id="tour-serialized-reception" className="h-full bg-slate-50 flex flex-col overflow-hidden">
+
+            <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 shadow-sm">
+                <div className="flex items-start gap-3">
+                    <Receipt size={18} className="mt-0.5 shrink-0" />
+                    <div>
+                        <p className="text-sm font-black">Usa esta pantalla solo para recepciones sin factura de compra.</p>
+                        <p className="mt-0.5 text-xs font-semibold text-amber-700">Si ya registraste una compra y pegaste los IMEIs en esa compra, no los ingreses aqui otra vez: se duplicaria el stock.</p>
+                    </div>
+                </div>
+            </div>
 
             {/* Modal selector */}
             {pickerData && (

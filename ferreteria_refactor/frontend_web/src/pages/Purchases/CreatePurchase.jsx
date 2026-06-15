@@ -73,6 +73,7 @@ const CreatePurchase = () => {
     const [quickProductName,    setQuickProductName]    = useState('');
     const [quickProductSku,     setQuickProductSku]     = useState('');
     const [quickProductSalePrice, setQuickProductSalePrice] = useState('');
+    const [quickProductHasImei, setQuickProductHasImei] = useState(false);
     // ── Herramienta 2: Descuento global del proveedor ───────────
     const [globalDiscount, setGlobalDiscount] = useState({ amount: 0, type: 'NONE', notes: '' });
 
@@ -175,14 +176,15 @@ const CreatePurchase = () => {
                 name: quickProductName.trim(),
                 sku: quickProductSku.trim() || null,
                 sale_price: parseFloat(quickProductSalePrice) || null,
+                has_imei: quickProductHasImei,
             },
-            product_name: quickProductName.trim() + ' ⭐ Nuevo',
+            product_name: quickProductName.trim() + (quickProductHasImei ? ' - Serial - Nuevo' : ' - Nuevo'),
             quantity: 1,
             unit_cost: 0,
             original_cost: 0,
             current_price: parseFloat(quickProductSalePrice) || 0,
             subtotal: 0,
-            has_imei: false,
+            has_imei: quickProductHasImei,
             serial_text: '',
             isNew: true,
             tempId,
@@ -190,6 +192,7 @@ const CreatePurchase = () => {
         setQuickProductName('');
         setQuickProductSku('');
         setQuickProductSalePrice('');
+        setQuickProductHasImei(false);
         setShowQuickProduct(false);
     };
 
@@ -1179,8 +1182,26 @@ const CreatePurchase = () => {
                                 className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-300 outline-none"
                             />
                         </div>
-                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
-                            💡 El costo se tomará del campo "Costo unitario" que ingreses en la tabla.
+                        <button
+                            type="button"
+                            onClick={() => setQuickProductHasImei(prev => !prev)}
+                            className={clsx(
+                                "flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left transition-all",
+                                quickProductHasImei ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-slate-50 text-slate-600 hover:border-indigo-200"
+                            )}
+                        >
+                            <span>
+                                <span className="block text-sm font-black">Maneja IMEI / Serial</span>
+                                <span className="block text-xs font-semibold opacity-80">Para telefonos, laptops o equipos unitarios.</span>
+                            </span>
+                            <span className={clsx("h-6 w-11 rounded-full p-0.5 transition-all", quickProductHasImei ? "bg-indigo-600" : "bg-slate-300")}>
+                                <span className={clsx("block h-5 w-5 rounded-full bg-white transition-transform", quickProductHasImei && "translate-x-5")} />
+                            </span>
+                        </button>
+                        <div className={clsx("rounded-xl border p-3 text-xs font-semibold", quickProductHasImei ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-amber-200 bg-amber-50 text-amber-700")}>
+                            {quickProductHasImei
+                                ? 'Al agregarlo, la linea pedira los IMEIs aqui mismo y la compra creara el stock serializado.'
+                                : 'El costo se tomara del campo Costo unitario que ingreses en la tabla.'}
                         </div>
                     </div>
                     <div className="flex gap-2 mt-5">

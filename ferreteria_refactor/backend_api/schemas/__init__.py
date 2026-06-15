@@ -1019,6 +1019,7 @@ class QuickProductCreate(BaseModel):
     cost_price: Decimal             # precio de costo inicial
     sale_price: Optional[Decimal] = None  # precio de venta sugerido
     category_id: Optional[int] = None
+    has_imei: bool = False  # crear como producto serializado/IMEI desde compras
 
 class PurchaseItemCreate(BaseModel):
     product_id: Optional[int] = None      # None si se crea producto nuevo
