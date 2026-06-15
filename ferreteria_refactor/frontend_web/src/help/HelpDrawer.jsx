@@ -95,29 +95,29 @@ const TASK_TOURS = {
         { label: 'Cuentas por pagar', tour: 'REPORTS_SUPPLIERS' },
     ],
     'config/general': [
-        { label: 'Datos del negocio', tour: 'CONFIG_GENERAL' },
-        { label: 'Logo y tickets', tour: 'CONFIG_GENERAL' },
+        { label: 'Datos visibles', tour: 'CONFIG_GENERAL' },
+        { label: 'Probar ticket', tour: 'CONFIG_GENERAL' },
     ],
     'config/usuarios': [
         { label: 'Crear usuario', tour: 'CONFIG_USERS' },
-        { label: 'Permisos', tour: 'CONFIG_USERS' },
-        { label: 'Auditar actividad', tour: 'CONFIG_AUDIT' },
+        { label: 'Roles y permisos', tour: 'CONFIG_USERS' },
+        { label: 'Auditar cambios', tour: 'CONFIG_AUDIT' },
     ],
     'config/monedas': [
         { label: 'Actualizar tasa', tour: 'CONFIG_CURRENCY' },
-        { label: 'POS en Bs', tour: 'CONFIG_CURRENCY' },
+        { label: 'Validar POS en Bs', tour: 'CONFIG_CURRENCY' },
     ],
     'config/pagos': [
         { label: 'Metodos POS', tour: 'CONFIG_PAYMENTS' },
-        { label: 'Referencias', tour: 'CONFIG_PAYMENTS' },
+        { label: 'Probar cobro', tour: 'CONFIG_PAYMENTS' },
     ],
     'config/impresoras': [
-        { label: 'Ticket termico', tour: 'CONFIG_PRINTERS' },
+        { label: 'Bridge abierto', tour: 'CONFIG_PRINTERS' },
         { label: 'Prueba impresion', tour: 'CONFIG_PRINTERS' },
     ],
     'config/pos': [
-        { label: 'Estacion POS', tour: 'CONFIG_POS' },
-        { label: 'Almacen activo', tour: 'CONFIG_POS' },
+        { label: 'Caja local', tour: 'CONFIG_POS' },
+        { label: 'Almacen e impresora', tour: 'CONFIG_POS' },
     ],
     'config/auditoria': [
         { label: 'Investigar cambios', tour: 'CONFIG_AUDIT' },
