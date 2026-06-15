@@ -767,6 +767,74 @@ export const HELP_CONTENT = {
   /* ══════════════════════════════════════════════════
      CAJA
   ══════════════════════════════════════════════════ */
+
+  'config/precios': {
+    title: 'Precios masivos - Ajustes controlados',
+    icon: 'PM',
+    description: 'Actualiza costos, margenes o precios de muchos productos con cuidado. Es una herramienta potente para corregir catalogo sin editar ficha por ficha.',
+    steps: [
+      { title: '1. Filtrar antes de aplicar', desc: 'Selecciona categoria, marca o grupo de productos. Evita cambios globales si solo necesitas ajustar una linea.' },
+      { title: '2. Revisar margen', desc: 'Antes de guardar, valida que el margen resultante sea rentable. Un costo mal cargado puede arrastrar precios incorrectos.' },
+      { title: '3. Medir impacto', desc: 'Piensa en POS, listas de precios y clientes con precios especiales. El cambio puede afectar ventas inmediatas.' },
+      { title: '4. Guardar y verificar', desc: 'Despues de aplicar, abre uno o dos productos de muestra y confirma precio base, lista de precios y precio en Bs.' },
+    ],
+    tips: ['Usa esta pantalla fuera de horas pico.', 'Exporta o revisa una muestra antes de cambios grandes.', 'Si algo se ve raro, no sigas aplicando lotes; revisa primero costos.'],
+    actions: ['Filtrar productos', 'Aplicar margen', 'Revisar muestra', 'Guardar cambios'],
+  },
+
+  'config/financiadoras': {
+    title: 'Financiadoras - Credito externo',
+    icon: 'FN',
+    description: 'Configura empresas externas de financiamiento para vender con planes como Cashea, Krece u otros aliados.',
+    steps: [
+      { title: '1. Crear financiadora', desc: 'Registra nombre, estado activo y condiciones basicas. Usa nombres claros para que el cajero la identifique rapido.' },
+      { title: '2. Definir reglas', desc: 'Configura porcentajes, comisiones o datos requeridos segun la financiadora. Esto evita ventas con informacion incompleta.' },
+      { title: '3. Validar en POS', desc: 'Haz una prueba controlada para confirmar que aparece como metodo o flujo esperado y que el reporte queda entendible.' },
+    ],
+    tips: ['No mezcles pagos normales con financiamiento externo.', 'Conserva referencia o aprobacion del aliado.', 'Revisa reportes para cuadrar lo cobrado por la financiadora.'],
+    actions: ['Crear financiadora', 'Activar/desactivar', 'Revisar reglas', 'Probar POS'],
+  },
+
+  'config/catalogo': {
+    title: 'Catalogo publico - Venta compartida',
+    icon: 'CP',
+    description: 'Controla el catalogo visible para clientes: enlace publico, QR, productos publicados y opciones de carrito.',
+    steps: [
+      { title: '1. Revisar estado', desc: 'Confirma si el catalogo esta activo. Si esta inactivo, los clientes no deberian poder comprar desde el enlace.' },
+      { title: '2. Validar productos visibles', desc: 'Los productos deben tener precio, stock e imagen si quieres una experiencia clara para el cliente.' },
+      { title: '3. Compartir enlace o QR', desc: 'Usa el link publico o QR solo despues de revisar precios y disponibilidad.' },
+      { title: '4. Revisar pedidos', desc: 'Si el catalogo permite carrito, define quien revisa pedidos y como se confirman pagos.' },
+    ],
+    tips: ['No publiques productos sin precio o sin stock.', 'Revisa el catalogo desde una ventana externa.', 'Usa imagenes limpias para productos principales.'],
+    actions: ['Activar catalogo', 'Copiar enlace', 'Ver QR', 'Revisar productos'],
+  },
+
+  'config/whatsapp': {
+    title: 'WhatsApp - Mensajes y avisos',
+    icon: 'WA',
+    description: 'Configura comunicacion por WhatsApp para avisos, soporte, pedidos o notificaciones del negocio.',
+    steps: [
+      { title: '1. Revisar conexion', desc: 'Confirma que la integracion este activa y autorizada antes de depender de mensajes automaticos.' },
+      { title: '2. Preparar plantillas', desc: 'Usa mensajes claros para pagos, ordenes listas, garantias o seguimiento. Evita textos largos.' },
+      { title: '3. Probar con un numero propio', desc: 'Antes de usarlo con clientes, envia una prueba y verifica formato, acentos y enlaces.' },
+    ],
+    tips: ['No prometas automatizacion si la conexion no esta verificada.', 'Mant?n mensajes cortos y con accion clara.', 'Prueba despues de cambiar plantillas.'],
+    actions: ['Ver conexion', 'Editar plantilla', 'Enviar prueba'],
+  },
+
+  'config/integraciones': {
+    title: 'Integraciones - Sistemas externos',
+    icon: 'IN',
+    description: 'Conecta servicios externos como BloqueCelular u otros aliados. Cambios aqui pueden afectar validaciones fuera del sistema.',
+    steps: [
+      { title: '1. Revisar credenciales', desc: 'Confirma que token, usuario o endpoint correspondan al ambiente correcto.' },
+      { title: '2. Activar solo lo necesario', desc: 'Mant?n apagadas integraciones que no uses para evitar errores o demoras innecesarias.' },
+      { title: '3. Probar operacion real', desc: 'Despues de guardar, realiza una prueba pequena y revisa respuesta del proveedor externo.' },
+    ],
+    tips: ['No mezcles credenciales de QA y produccion.', 'Documenta quien tiene acceso a cada token.', 'Si falla, revisa primero conexion y credenciales.'],
+    actions: ['Actualizar credenciales', 'Activar/desactivar', 'Probar conexion'],
+  },
+
   cash: {
     title: 'Apertura y Cierre de Caja — Guía Completa',
     icon: '🏧',

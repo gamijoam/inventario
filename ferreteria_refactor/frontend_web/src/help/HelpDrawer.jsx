@@ -43,16 +43,21 @@ const TOUR_BY_CONTEXT = {
     'sales/devoluciones': 'SALES_RETURNS',
     'sales/garantias': 'SALES_WARRANTIES',
     'sales/creditos': 'SALES_CREDITS',
-    'config/general': 'SYSTEM',
-    'config/usuarios': 'SYSTEM',
-    'config/monedas': 'SYSTEM',
-    'config/comisiones': 'SYSTEM',
-    'config/pagos': 'SYSTEM',
-    'config/impuestos': 'SYSTEM',
-    'config/impresoras': 'SYSTEM',
-    'config/garantias': 'SYSTEM',
-    'config/pos': 'SYSTEM',
-    'config/auditoria': 'SYSTEM',
+    'config/general': 'CONFIG_GENERAL',
+    'config/usuarios': 'CONFIG_USERS',
+    'config/monedas': 'CONFIG_CURRENCY',
+    'config/comisiones': 'CONFIG_COMMISSIONS',
+    'config/pagos': 'CONFIG_PAYMENTS',
+    'config/impuestos': 'CONFIG_TAXES',
+    'config/impresoras': 'CONFIG_PRINTERS',
+    'config/garantias': 'CONFIG_WARRANTIES',
+    'config/pos': 'CONFIG_POS',
+    'config/auditoria': 'CONFIG_AUDIT',
+    'config/precios': 'CONFIG_PRICES',
+    'config/financiadoras': 'CONFIG_FINANCERS',
+    'config/catalogo': 'CONFIG_CATALOG',
+    'config/whatsapp': 'CONFIG_WHATSAPP',
+    'config/integraciones': 'CONFIG_INTEGRATIONS',
     'services/dashboard': 'SERVICES',
     'services/order-detail': 'SERVICES',
 };
@@ -75,6 +80,63 @@ const TASK_TOURS = {
         { label: 'Directorio', tour: 'SUPPLIERS' },
         { label: 'Nueva compra', tour: 'PURCHASES_CREATE' },
         { label: 'Cuentas por pagar', tour: 'REPORTS_SUPPLIERS' },
+    ],
+    'config/general': [
+        { label: 'Datos del negocio', tour: 'CONFIG_GENERAL' },
+        { label: 'Logo y tickets', tour: 'CONFIG_GENERAL' },
+    ],
+    'config/usuarios': [
+        { label: 'Crear usuario', tour: 'CONFIG_USERS' },
+        { label: 'Permisos', tour: 'CONFIG_USERS' },
+        { label: 'Auditar actividad', tour: 'CONFIG_AUDIT' },
+    ],
+    'config/monedas': [
+        { label: 'Actualizar tasa', tour: 'CONFIG_CURRENCY' },
+        { label: 'POS en Bs', tour: 'CONFIG_CURRENCY' },
+    ],
+    'config/pagos': [
+        { label: 'Metodos POS', tour: 'CONFIG_PAYMENTS' },
+        { label: 'Referencias', tour: 'CONFIG_PAYMENTS' },
+    ],
+    'config/impresoras': [
+        { label: 'Ticket termico', tour: 'CONFIG_PRINTERS' },
+        { label: 'Prueba impresion', tour: 'CONFIG_PRINTERS' },
+    ],
+    'config/pos': [
+        { label: 'Estacion POS', tour: 'CONFIG_POS' },
+        { label: 'Almacen activo', tour: 'CONFIG_POS' },
+    ],
+    'config/auditoria': [
+        { label: 'Investigar cambios', tour: 'CONFIG_AUDIT' },
+        { label: 'Usuarios', tour: 'CONFIG_USERS' },
+    ],
+    'config/comisiones': [
+        { label: 'Reglas', tour: 'CONFIG_COMMISSIONS' },
+        { label: 'Reporte', tour: 'REPORTS_COMMISSIONS' },
+    ],
+    'config/garantias': [
+        { label: 'Politicas', tour: 'CONFIG_WARRANTIES' },
+        { label: 'Garantias ventas', tour: 'SALES_WARRANTY_PROCESS' },
+    ],
+    'config/precios': [
+        { label: 'Precios masivos', tour: 'CONFIG_PRICES' },
+        { label: 'Productos', tour: 'INVENTORY_PRODUCTS' },
+    ],
+    'config/financiadoras': [
+        { label: 'Financiadoras', tour: 'CONFIG_FINANCERS' },
+        { label: 'Reportes', tour: 'REPORTS' },
+    ],
+    'config/catalogo': [
+        { label: 'Catalogo publico', tour: 'CONFIG_CATALOG' },
+        { label: 'Productos', tour: 'INVENTORY_PRODUCTS' },
+    ],
+    'config/whatsapp': [
+        { label: 'WhatsApp', tour: 'CONFIG_WHATSAPP' },
+        { label: 'Soporte', tour: 'CONFIG_WHATSAPP' },
+    ],
+    'config/integraciones': [
+        { label: 'Integraciones', tour: 'CONFIG_INTEGRATIONS' },
+        { label: 'Auditoria', tour: 'CONFIG_AUDIT' },
     ],
     'reports/resumen': [
         { label: 'Leer resumen', tour: 'REPORTS' },
@@ -173,6 +235,76 @@ const COMMON_ISSUES = {
         'Proveedor duplicado: busca por nombre/contacto antes de crear.',
         'Deuda no cuadra: revisa compras a credito y pagos registrados.',
         'Pago no baja saldo: confirma que se aplico a la compra/proveedor correcto.',
+    ],
+    'config/general': [
+        'Ticket con datos viejos: guarda cambios y vuelve a imprimir una prueba.',
+        'Logo no aparece: verifica formato, peso y que la carga haya terminado.',
+        'Nombre incorrecto en login/tickets: actualiza nombre comercial.',
+    ],
+    'config/usuarios': [
+        'Empleado no puede entrar: revisa estado activo, usuario y contrasena.',
+        'Cajero ve demasiado: ajusta rol/permisos y evita compartir admin.',
+        'Comision no genera: revisa porcentaje del usuario y modulo de comisiones.',
+    ],
+    'config/monedas': [
+        'Precios en Bs no se ven: confirma tasa activa y moneda visible.',
+        'Monto en Bs raro: actualiza tasa del dia y refresca POS.',
+        'Tasa vieja: revisa automatizacion o carga manual.',
+    ],
+    'config/pagos': [
+        'Metodo no aparece en POS: confirma que este activo.',
+        'Referencia faltante: activa referencia obligatoria para pagos digitales.',
+        'Pago mal clasificado: revisa nombre y tipo del metodo.',
+    ],
+    'config/impresoras': [
+        'No imprime: confirma Bridge abierto, impresora detectada y papel correcto.',
+        'Texto cortado: revisa ancho 58mm/80mm.',
+        'Imprime en otra caja: revisa impresora predeterminada de la estacion.',
+    ],
+    'config/pos': [
+        'POS descuenta del almacen errado: revisa almacen activo de esta estacion.',
+        'Otra PC se ve diferente: esta configuracion puede ser local por estacion.',
+        'No abre pantalla completa: revisa permisos del navegador.',
+    ],
+    'config/auditoria': [
+        'Cambio sospechoso: filtra por usuario, fecha y tipo de accion.',
+        'Precio cambio sin permiso: revisa auditoria y rol del usuario.',
+        'Inventario no cuadra: cruza auditoria con Kardex.',
+    ],
+    'config/comisiones': [
+        'Comision no aparece: confirma modulo activo, porcentaje y venta cerrada.',
+        'Monto raro: revisa reglas por categoria y usuario.',
+        'Doble pago: valida reporte antes de liquidar.',
+    ],
+    'config/garantias': [
+        'Garantia no sale: producto debe tener politica asignada.',
+        'Periodo incorrecto: revisa dias de la politica predeterminada.',
+        'Cliente reclama: busca garantia desde Centro de Ventas.',
+    ],
+    'config/precios': [
+        'Precio masivo peligroso: filtra antes de aplicar cambios grandes.',
+        'Margen raro: revisa costos cero o mal cargados.',
+        'Precio en Bs raro: revisa tasa despues de actualizar precios.',
+    ],
+    'config/financiadoras': [
+        'Financiadora no aparece: revisa que este activa.',
+        'Cobro no cuadra: separa pago externo de metodo normal.',
+        'Falta respaldo: guarda referencia o aprobacion del aliado.',
+    ],
+    'config/catalogo': [
+        'Producto no se ve: confirma activo, stock, precio y publicacion.',
+        'Cliente ve precio viejo: refresca catalogo y revisa lista aplicada.',
+        'Link no abre: confirma catalogo activo y dominio correcto.',
+    ],
+    'config/whatsapp': [
+        'Mensaje no sale: revisa conexion/autorizacion.',
+        'Texto mal formado: envia prueba antes de usarlo con clientes.',
+        'Numero incorrecto: verifica formato internacional.',
+    ],
+    'config/integraciones': [
+        'Conexion falla: revisa token, endpoint y ambiente.',
+        'Respuesta lenta: desactiva integraciones que no uses.',
+        'Credencial expuesta: rota token y revisa auditoria.',
     ],
     'reports/resumen': [
         'Ventas en cero: revisa rango de fechas, caja y ventas anuladas.',

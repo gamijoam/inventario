@@ -162,6 +162,7 @@ const ConfigCenter = () => {
                                 const active = activeTab === item.id;
                                 return (
                                     <button key={item.id} onClick={() => setTab(item.id)}
+                                        id={`tour-config-side-${item.id}`}
                                         className={`group flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
                                             active
                                                 ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'
@@ -182,7 +183,7 @@ const ConfigCenter = () => {
 
 
     const DesktopTabs = () => (
-        <div className="hidden border-b border-slate-200 bg-white md:block">
+        <div id="tour-config-tabs" className="hidden border-b border-slate-200 bg-white md:block">
             <div className="space-y-3 px-5 py-4">
                 {visibleGroups.map(group => (
                     <div key={group.label} className="grid gap-2 lg:grid-cols-[96px_minmax(0,1fr)] lg:items-center">
@@ -197,6 +198,7 @@ const ConfigCenter = () => {
                                     <button
                                         key={item.id}
                                         onClick={() => setTab(item.id)}
+                                        id={`tour-config-tab-${item.id}`}
                                         className={`group inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-bold transition-colors ${
                                             active
                                                 ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-200'
@@ -216,10 +218,10 @@ const ConfigCenter = () => {
     );
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div id="tour-config-container" className="min-h-screen bg-slate-50">
 
             {/* Header del centro de configuración */}
-            <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm shadow-slate-200/40 backdrop-blur-md">
+            <div id="tour-config-header" className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm shadow-slate-200/40 backdrop-blur-md">
                 <div className="flex items-center gap-4 px-4 py-4 sm:px-6">
                     <button onClick={() => setMobileOpen(true)}
                         className="-ml-1 rounded-md p-2 transition-colors hover:bg-slate-100 md:hidden">
@@ -238,7 +240,7 @@ const ConfigCenter = () => {
                         </p>
                     </div>
 
-                    <div className="hidden min-w-0 items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-700 lg:flex">
+                    <div id="tour-config-active-tab" className="hidden min-w-0 items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-700 lg:flex">
                         <CurrentIcon size={16} />
                         <span className="truncate">{currentItem?.label || 'General'}</span>
                     </div>
@@ -261,7 +263,7 @@ const ConfigCenter = () => {
 
             <DesktopTabs />
 
-            <main className="min-w-0 p-4 sm:p-6">
+            <main id="tour-config-content" className="min-w-0 p-4 sm:p-6">
                 <div className="mx-auto w-full max-w-7xl">
                     <div className="mb-4 flex items-center gap-3 md:hidden">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-indigo-100 bg-indigo-50">

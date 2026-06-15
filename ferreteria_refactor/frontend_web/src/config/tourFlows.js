@@ -1083,40 +1083,134 @@ export const TOUR_FLOWS = {
     // =============================================
     SYSTEM: {
         id: 'system',
-        title: 'Sistema y Seguridad',
-        description: 'Usuarios, roles, auditoría y configuración general.',
-        startUrl: '/users',
+        title: 'Configuracion del sistema',
+        description: 'Ajustes del negocio, usuarios, monedas, pagos, impresoras y seguridad.',
+        startUrl: '/config-center',
         module: null,
         steps: [
-            {
-                element: '#tour-users-add-btn',
-                popover: {
-                    title: 'Crear Usuarios',
-                    description: 'Crea cuentas para tu personal. Cada usuario tiene un rol que define qué puede hacer en el sistema.',
-                    side: 'bottom', align: 'end'
-                }
-            },
-            {
-                popover: {
-                    title: 'Roles Disponibles',
-                    description: '• Admin — Control total del sistema\n• Cajero — Solo POS y caja\n• Almacén — Solo inventario y movimientos\n• Mesero — Solo toma de pedidos (restaurante)\n• Cocina — Solo pantalla de cocina (KDS)',
-                }
-            },
-            {
-                navigate: '/settings',
-                element: '#tour-settings-container',
-                popover: {
-                    title: 'Configuración General',
-                    description: 'Ajusta los datos de tu empresa (nombre, logo, dirección), configura impuestos, métodos de pago, monedas y tasas de cambio.',
-                    side: 'bottom', align: 'center'
-                }
-            },
-            {
-                popover: {
-                    title: 'Impresión y Hardware',
-                    description: 'Conecta tu impresora térmica con la aplicación Invensoft Bridge para Windows. Soporta impresoras de 58mm y 80mm vía USB o red.',
-                }
-            }
+            { element: '#tour-config-container', popover: { title: 'Centro de configuracion', description: 'Aqui estan los ajustes que afectan POS, reportes, caja, tickets y permisos.', side: 'bottom', align: 'center' } },
+            { element: '#tour-config-tabs', popover: { title: 'Pestanas por area', description: 'Negocio, finanzas y sistema estan separados para que el admin cambie solo lo necesario.', side: 'bottom', align: 'center' } },
+            { element: '#tour-config-content', popover: { title: 'Contenido activo', description: 'Cada pestana tiene sus propios campos. Antes de guardar, revisa que entiendes que modulo se vera afectado.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_GENERAL: {
+        id: 'config-general', title: 'Datos del negocio', description: 'Nombre, RIF, direccion, logo y datos impresos.', startUrl: '/config-center?tab=general', module: null,
+        steps: [
+            { element: '#tour-config-tab-general', popover: { title: 'General', description: 'Datos visibles en tickets, facturas, reportes y login.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Ficha del negocio', description: 'Actualiza nombre comercial, identificacion fiscal, contacto, direccion y logo. Imprime una prueba despues de cambios importantes.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_USERS: {
+        id: 'config-users', title: 'Usuarios y permisos', description: 'Cuentas, roles, PIN y acceso del personal.', startUrl: '/config-center?tab=usuarios', module: null,
+        steps: [
+            { element: '#tour-config-tab-usuarios', popover: { title: 'Usuarios', description: 'Administra quien entra al sistema y con que permisos.', side: 'bottom', align: 'start' } },
+            { element: '#tour-users-add-btn', popover: { title: 'Nuevo usuario', description: 'Crea cuentas individuales. Evita compartir el admin con cajeros o empleados.', side: 'bottom', align: 'end' } },
+            { element: '#tour-config-content', popover: { title: 'Roles y seguridad', description: 'Revisa rol, estado activo, PIN, contrasena y comisiones. Desactiva usuarios que ya no trabajan en el negocio.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_CURRENCY: {
+        id: 'config-currency', title: 'Monedas y tasa', description: 'Tasa del dia y conversiones del POS.', startUrl: '/config-center?tab=monedas', module: null,
+        steps: [
+            { element: '#tour-config-tab-monedas', popover: { title: 'Monedas', description: 'Controla la tasa que usa el POS para mostrar y cobrar en Bs u otras monedas.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Actualizar tasa', description: 'Si los precios en Bs no aparecen o se ven mal, revisa aqui que la moneda este activa y la tasa sea la del dia.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_PAYMENTS: {
+        id: 'config-payments', title: 'Metodos de pago', description: 'Formas de cobro disponibles en POS.', startUrl: '/config-center?tab=pagos', module: null,
+        steps: [
+            { element: '#tour-config-tab-pagos', popover: { title: 'Metodos de pago', description: 'Solo los metodos activos aparecen al cobrar en POS.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Referencia y datos', description: 'Activa referencia obligatoria en pagos digitales y guarda datos bancarios claros para el cajero.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_TAXES: {
+        id: 'config-taxes', title: 'Impuestos', description: 'IVA, IGTF y exenciones.', startUrl: '/config-center?tab=impuestos', module: null,
+        steps: [
+            { element: '#tour-config-content', popover: { title: 'Impuestos', description: 'Activa impuestos solo con criterio contable. Estos cambios afectan el total cobrado y reportes.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_PRINTERS: {
+        id: 'config-printers', title: 'Impresoras', description: 'Bridge, papel y pruebas de ticket.', startUrl: '/config-center?tab=impresoras', module: null,
+        steps: [
+            { element: '#tour-config-tab-impresoras', popover: { title: 'Impresoras', description: 'Configura impresora termica y ancho de papel.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Prueba de impresion', description: 'Si no imprime, revisa Bridge abierto, impresora detectada y ancho 58mm/80mm.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_WARRANTIES: {
+        id: 'config-warranties', title: 'Politicas de garantia', description: 'Periodos y reglas de garantia.', startUrl: '/config-center?tab=garantias', module: null,
+        steps: [
+            { element: '#tour-config-tab-garantias', popover: { title: 'Garantias', description: 'Define periodos de garantia que luego se asignan a productos.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Politicas', description: 'Crea politicas claras como Sin garantia, 30 dias o 90 dias. Revisa la predeterminada.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_POS: {
+        id: 'config-pos', title: 'Estacion POS', description: 'Ajustes locales de la caja.', startUrl: '/config-center?tab=pos', module: null,
+        steps: [
+            { element: '#tour-config-tab-pos', popover: { title: 'Estacion POS', description: 'Afecta esta caja o computadora: almacen activo, tema, impresora y modo de uso.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Almacen activo', description: 'Si el POS descuenta de un lugar errado, revisa aqui el almacen asignado a esta estacion.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_AUDIT: {
+        id: 'config-audit', title: 'Auditoria', description: 'Rastrea cambios y acciones por usuario.', startUrl: '/config-center?tab=auditoria', module: null,
+        steps: [
+            { element: '#tour-config-tab-auditoria', popover: { title: 'Auditoria', description: 'Investiga cambios de precios, eliminaciones, descuentos y accesos.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Filtros de investigacion', description: 'Filtra por usuario, fecha y tipo de accion. Cruza con Kardex si el problema es inventario.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_COMMISSIONS: {
+        id: 'config-commissions', title: 'Comisiones', description: 'Reglas de vendedores y tecnicos.', startUrl: '/config-center?tab=comisiones', module: null,
+        steps: [
+            { element: '#tour-config-tab-comisiones', popover: { title: 'Comisiones', description: 'Activa modulos y porcentajes antes de esperar calculos automaticos.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Reglas', description: 'Revisa reglas por usuario y categoria. Los cambios suelen aplicar a ventas futuras.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_PRICES: {
+        id: 'config-prices', title: 'Precios masivos', description: 'Ajustes grandes de precios.', startUrl: '/config-center?tab=precios', module: null,
+        steps: [
+            { element: '#tour-config-tab-precios', popover: { title: 'Precios masivos', description: 'Usa filtros antes de aplicar margenes o precios en lote.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Cambios con cuidado', description: 'Verifica una muestra despues de guardar para confirmar precio base, listas y conversion en Bs.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_FINANCERS: {
+        id: 'config-financers', title: 'Financiadoras', description: 'Credito externo y aliados.', startUrl: '/config-center?tab=financiadoras', module: null,
+        steps: [
+            { element: '#tour-config-tab-financiadoras', popover: { title: 'Financiadoras', description: 'Configura aliados de credito externo y sus condiciones.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Validacion', description: 'Haz una prueba controlada en POS y conserva referencias de aprobacion.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_CATALOG: {
+        id: 'config-catalog', title: 'Catalogo publico', description: 'Link publico, QR y carrito.', startUrl: '/config-center?tab=catalogo', module: null,
+        steps: [
+            { element: '#tour-config-tab-catalogo', popover: { title: 'Catalogo publico', description: 'Controla que productos y precios ve el cliente desde el enlace publico.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Antes de compartir', description: 'Revisa stock, precio, imagen y estado activo del catalogo.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_WHATSAPP: {
+        id: 'config-whatsapp', title: 'WhatsApp', description: 'Mensajes y notificaciones.', startUrl: '/config-center?tab=whatsapp', module: null,
+        steps: [
+            { element: '#tour-config-tab-whatsapp', popover: { title: 'WhatsApp', description: 'Configura conexion y mensajes que salen hacia clientes.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Prueba primero', description: 'Envia una prueba a un numero propio antes de usar plantillas con clientes.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_INTEGRATIONS: {
+        id: 'config-integrations', title: 'Integraciones', description: 'Servicios externos y credenciales.', startUrl: '/config-center?tab=integraciones', module: null,
+        steps: [
+            { element: '#tour-config-tab-integraciones', popover: { title: 'Integraciones', description: 'Conecta sistemas externos solo cuando las credenciales y ambiente sean correctos.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Credenciales', description: 'No mezcles QA con produccion. Si falla, revisa token, endpoint y estado del proveedor.', side: 'top', align: 'center' } }
         ]
     },
 
