@@ -973,6 +973,101 @@ export const TOUR_FLOWS = {
         ]
     },
 
+    CASH_OVERVIEW: {
+        id: 'cash-overview',
+        title: 'Caja operativa',
+        description: 'Apertura, movimientos, cierre y cuadre.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            { element: '#tour-pos-cash-menu', popover: { title: 'Menu de caja', description: 'Desde el POS se manejan movimientos, avances y cierre. Si la caja esta cerrada, primero aparece el modal de apertura.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Regla clave', description: 'Caja registra dinero por turno. Las ventas digitales, pagos mixtos, creditos, devoluciones y egresos deben revisarse por separado al cuadrar.' } },
+            { navigate: '/reports?tab=caja', element: '#tour-reports-content', popover: { title: 'Reporte de caja', description: 'Usa este reporte para revisar cierres, movimientos y diferencias por periodo.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CASH_REGISTERS: {
+        id: 'cash-registers',
+        title: 'Gestion de cajas',
+        description: 'Cajas disponibles, abiertas, cerradas y bloqueadas.',
+        startUrl: '/cash-registers',
+        module: null,
+        steps: [
+            { element: '#tour-cash-container', popover: { title: 'Gestion de cajas', description: 'Aqui administras las cajas registradoras disponibles para el POS.', side: 'bottom', align: 'center' } },
+            { element: '#tour-cash-registers-summary', popover: { title: 'Estado general', description: 'Revisa cuantas cajas estan activas, abiertas y cerradas antes de operar.', side: 'bottom', align: 'center' } },
+            { element: '#tour-cash-new-register', popover: { title: 'Nueva caja', description: 'Crea una caja para cada punto de venta o estacion fisica. Usa codigos cortos como C01, C02 o NORTE.', side: 'bottom', align: 'end' } },
+            { element: '#tour-cash-registers-list', popover: { title: 'Lista de cajas', description: 'Cada tarjeta muestra si la caja esta abierta, cerrada y quien la tiene en uso.', side: 'top', align: 'center' } },
+            { element: '#tour-cash-registers-rules', popover: { title: 'Reglas de operacion', description: 'No edites ni desactives cajas abiertas. Forzar cierre solo debe usarse para sesiones bloqueadas.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CASH_OPENING: {
+        id: 'cash-opening',
+        title: 'Abrir caja',
+        description: 'Selecciona caja libre e ingresa fondo inicial.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            { popover: { title: 'Apertura de turno', description: 'Si no hay caja abierta, el POS muestra un modal. Selecciona una caja libre y continua.' } },
+            { popover: { title: 'Fondo inicial', description: 'Cuenta el efectivo real disponible por moneda. Ese monto se suma al efectivo esperado del cierre.' } },
+            { popover: { title: 'Cajas ocupadas', description: 'Una caja abierta por otro cajero aparece ocupada. No la uses si no eres responsable de ese turno.' } }
+        ]
+    },
+
+    CASH_POS_ACTIONS: {
+        id: 'cash-pos-actions',
+        title: 'Acciones de caja en POS',
+        description: 'Movimientos, avances y cierre desde el menu Caja.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            { element: '#tour-pos-cash-menu', popover: { title: 'Menu Caja', description: 'Abre este menu para movimientos, avances y cierre de turno.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Movimientos', description: 'Usa movimiento para entradas o salidas que no son ventas. Siempre escribe una descripcion clara.' } },
+            { popover: { title: 'Avances', description: 'Avance registra salida de efectivo y entrada bancaria con comision. Requiere referencia.' } },
+            { popover: { title: 'Cerrar caja', description: 'Al cerrar, cuenta fisicamente el efectivo y escribe observacion si hay diferencia.' } }
+        ]
+    },
+
+    CASH_MOVEMENTS: {
+        id: 'cash-movements',
+        title: 'Movimientos de caja',
+        description: 'Entradas, salidas y retiros no asociados a ventas.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            { element: '#tour-pos-cash-menu', popover: { title: 'Abrir menu Caja', description: 'Desde aqui se abre Movimiento de Caja.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Movimiento de caja', description: 'Selecciona entrada o salida, moneda, monto y descripcion. El sistema valida saldo para salidas.' } },
+            { popover: { title: 'Descripcion obligatoria', description: 'La descripcion debe explicar el motivo real: insumos, reposicion, retiro autorizado o ingreso extra.' } }
+        ]
+    },
+
+    CASH_CLOSING: {
+        id: 'cash-closing',
+        title: 'Cerrar caja',
+        description: 'Arqueo fisico y verificacion de diferencias.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            { element: '#tour-pos-cash-menu', popover: { title: 'Cerrar desde Caja', description: 'El cierre se inicia desde el menu Caja del POS.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Cierre de turno', description: 'Cuenta el efectivo fisico por moneda e ingresa el monto contado. Pagos digitales aparecen separados.' } },
+            { popover: { title: 'Antes de confirmar', description: 'Si hay diferencia, revisa movimientos, avances, devoluciones y pagos mixtos. Agrega observacion si aun queda descuadre.' } }
+        ]
+    },
+
+    CASH_RECONCILE: {
+        id: 'cash-reconcile',
+        title: 'Investigar diferencias',
+        description: 'Como revisar faltantes y sobrantes sin perder trazabilidad.',
+        startUrl: '/reports?tab=caja',
+        module: null,
+        steps: [
+            { element: '#tour-reports-content', popover: { title: 'Reporte de caja', description: 'Empieza por el mismo turno/rango horario del cierre. No compares todo el dia si hubo varios turnos.', side: 'top', align: 'center' } },
+            { navigate: '/reports?tab=ventas', element: '#tour-reports-content', popover: { title: 'Ventas del periodo', description: 'Compara ventas, pagos mixtos, creditos, devoluciones y anulaciones del mismo rango.', side: 'top', align: 'center' } },
+            { navigate: '/pos', element: '#tour-pos-cash-menu', popover: { title: 'Movimientos y avances', description: 'Un egreso no registrado casi siempre aparece como faltante. Un ingreso no registrado suele verse como sobrante.', side: 'bottom', align: 'end' } }
+        ]
+    },
+
+
 
     SUPPLIERS: {
         id: 'suppliers',

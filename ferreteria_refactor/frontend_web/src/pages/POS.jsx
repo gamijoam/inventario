@@ -858,6 +858,7 @@ const POS = () => {
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button
+                                id="tour-pos-cash-menu"
                                 variant="outline"
                                 size="sm"
                                 className="hidden md:flex h-9 gap-2 rounded-xl border-slate-200 bg-white px-3 font-black text-slate-700 hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200"
@@ -874,6 +875,7 @@ const POS = () => {
                             {!(isCashier && showCajeroRestringido) && (
                                 <>
                                     <DropdownMenuItem
+                                        id="tour-pos-cash-movement"
                                         onClick={() => setIsMovementOpen(true)}
                                         className="cursor-pointer rounded-lg py-2 font-bold text-slate-700 focus:bg-indigo-50 focus:text-indigo-700"
                                     >
@@ -881,6 +883,7 @@ const POS = () => {
                                         Movimientos
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
+                                        id="tour-pos-cash-advance"
                                         onClick={() => setIsAdvanceOpen(true)}
                                         className="cursor-pointer rounded-lg py-2 font-bold text-slate-700 focus:bg-emerald-50 focus:text-emerald-700"
                                     >
@@ -906,6 +909,7 @@ const POS = () => {
                                 <>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
+                                        id="tour-pos-cash-close"
                                         onClick={() => {
                                             if (window.confirm('Desea cerrar la caja actual? Se generara un resumen de ventas.')) {
                                                 setIsClosingOpen(true);

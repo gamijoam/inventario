@@ -110,7 +110,7 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 backdrop-blur-md">
+        <div id="tour-cash-advance-modal" className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 backdrop-blur-md">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
 
                 {/* Header */}

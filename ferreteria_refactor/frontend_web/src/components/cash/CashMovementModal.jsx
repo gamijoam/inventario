@@ -81,7 +81,7 @@ const CashMovementModal = ({ isOpen, onClose, onSuccess }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 backdrop-blur-sm">
+        <div id="tour-cash-movement-modal" className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200">
                 <div className="flex justify-between items-center p-5 border-b border-slate-100">
                     <h3 className="font-bold text-slate-800 text-lg">Movimiento de Caja</h3>

@@ -93,7 +93,7 @@ const CashOpeningModal = ({ onOpen }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200">
+        <div id="tour-cash-opening-modal" className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200">
             <div className="bg-white dark:bg-zinc-950 rounded-xl shadow-2xl w-full sm:max-w-[425px] overflow-hidden flex flex-col border border-zinc-200 dark:border-zinc-800">
 
                 {/* Header */}

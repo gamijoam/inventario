@@ -24,7 +24,8 @@ const TOUR_BY_CONTEXT = {
     pos: 'POS_COMPLETE',
     purchases: 'PURCHASES_LIST',
     suppliers: 'SUPPLIERS',
-    cash: 'FINANCE',
+    cash: 'CASH_OVERVIEW',
+    'cash/registers': 'CASH_REGISTERS',
     'inventory/productos': 'INVENTORY_PRODUCTS',
     'inventory/categorias': 'INVENTORY_CATEGORIES',
     'inventory/kardex': 'INVENTORY_KARDEX',
@@ -69,6 +70,18 @@ const TASK_TOURS = {
         { label: 'Pago mixto', tour: 'POS_MIXED_PAYMENT' },
         { label: 'Venta a credito', tour: 'POS_CREDIT_SALE' },
         { label: 'Producto con IMEI', tour: 'POS_SERIAL_SALE' },
+        { label: 'Caja POS', tour: 'CASH_POS_ACTIONS' },
+    ],
+    cash: [
+        { label: 'Abrir caja', tour: 'CASH_OPENING' },
+        { label: 'Movimientos', tour: 'CASH_MOVEMENTS' },
+        { label: 'Cerrar caja', tour: 'CASH_CLOSING' },
+        { label: 'Investigar diferencia', tour: 'CASH_RECONCILE' },
+    ],
+    'cash/registers': [
+        { label: 'Gestionar cajas', tour: 'CASH_REGISTERS' },
+        { label: 'Abrir caja', tour: 'CASH_OPENING' },
+        { label: 'Cerrar caja', tour: 'CASH_CLOSING' },
     ],
     purchases: [
         { label: 'Lista de compras', tour: 'PURCHASES_LIST' },
@@ -224,6 +237,17 @@ const COMMON_ISSUES = {
         'Si no puedes cobrar, confirma que la caja este abierta.',
         'Si no aparece un producto, revisa stock disponible y que este activo.',
         'Si el cliente paga en bolivares, verifica que la tasa del dia este actualizada.',
+    ],
+    cash: [
+        'Caja cerrada: abre turno desde POS seleccionando una caja libre.',
+        'Faltante: revisa egresos, avances, devoluciones y vuelto antes de cerrar.',
+        'Sobrante: busca ingresos no registrados o cobros de mas.',
+        'Caja vs ventas no cuadra: compara por metodo de pago y rango horario exacto.',
+    ],
+    'cash/registers': [
+        'Caja ocupada: otro usuario tiene sesion abierta.',
+        'No se puede editar: primero cierra la sesion activa.',
+        'Forzar cierre: usalo solo para sesiones bloqueadas sin cajero activo.',
     ],
     purchases: [
         'Proveedor faltante: selecciona o crea proveedor antes de guardar.',
