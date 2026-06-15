@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Package, ShoppingCart, LayoutDashboard, Layers, DollarSign, Settings, UtensilsCrossed, Scissors, Shirt, Wrench, CheckCircle, RotateCcw } from 'lucide-react';
+import { X, Package, ShoppingCart, LayoutDashboard, Layers, DollarSign, Settings, UtensilsCrossed, Scissors, Shirt, Wrench, CheckCircle, RotateCcw, ReceiptText, WalletCards } from 'lucide-react';
 import { useAppTour, isTourCompleted, resetTourProgress } from '../../hooks/useAppTour';
 import { useConfig } from '../../context/ConfigContext';
 import { TOUR_FLOWS } from '../../config/tourFlows';
@@ -36,6 +36,18 @@ const TOUR_OPTIONS = [
         icon: DollarSign,
         color: 'bg-amber-50',
         textColor: 'text-amber-700'
+    },
+    {
+        flowKey: 'PURCHASES_LIST',
+        icon: ReceiptText,
+        color: 'bg-sky-50',
+        textColor: 'text-sky-700'
+    },
+    {
+        flowKey: 'CASH_REGISTERS',
+        icon: WalletCards,
+        color: 'bg-emerald-50',
+        textColor: 'text-emerald-700'
     },
     {
         flowKey: 'SYSTEM',
@@ -168,7 +180,7 @@ export default function TourSelectionModal({ isOpen, onClose }) {
                 <div className="overflow-y-auto flex-1 p-6 space-y-6">
                     {/* Core Tours */}
                     <div>
-                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Tours Principales</h3>
+                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Guias principales</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {coreTours.map(renderTourCard)}
                         </div>

@@ -67,62 +67,70 @@ export const TOUR_FLOWS = {
     POS_COMPLETE: {
         id: 'pos_complete',
         title: 'Punto de Venta (POS)',
-        description: 'Aprende a facturar, buscar productos, pausar ventas y cobrar.',
+        description: 'Vender rapido: caja activa, catalogo, carrito, cobro e impresion.',
         startUrl: '/pos',
         module: null,
         steps: [
             {
                 element: '#tour-pos-container',
                 popover: {
-                    title: 'Tu Terminal de Ventas',
-                    description: 'Este es el Punto de Venta. Está dividido en dos secciones: el catálogo de productos a la izquierda y el carrito de compras a la derecha.',
+                    title: 'Terminal de venta',
+                    description: 'Esta pantalla se usa durante la atencion al cliente. A la izquierda eliges productos y a la derecha controlas carrito, total y cobro.',
                     side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-pos-cash-menu',
+                popover: {
+                    title: 'Caja y estacion',
+                    description: 'Antes de cobrar confirma que la caja este abierta y corresponda a esta estacion. Si aparece sin impresora, revisa la configuracion antes de facturar.',
+                    side: 'bottom', align: 'end'
                 }
             },
             {
                 element: '#tour-pos-search',
                 popover: {
-                    title: 'Buscar Productos (F3)',
-                    description: 'Escribe el nombre o código del producto para buscarlo. También puedes escanear un código de barras con el ícono de la cámara. Presiona F3 para enfocar este campo rápidamente.',
+                    title: 'Buscar o escanear',
+                    description: 'Busca por nombre, SKU o codigo. Con lector de barras, el campo recibe el codigo y agrega el producto sin navegar por categorias.',
                     side: 'bottom', align: 'start'
                 }
             },
             {
                 element: '#tour-pos-cart',
                 popover: {
-                    title: 'Carrito de Compras',
-                    description: 'Los productos agregados aparecen aquí con su cantidad y precio. Puedes editar cantidades con +/-, hacer clic en un ítem para editar su precio, o eliminarlo con el ícono de basura.',
+                    title: 'Carrito',
+                    description: 'Revisa cantidades, precio, descuentos, cliente y seriales antes de cobrar. Si el producto tiene IMEI, debe quedar seleccionada la unidad exacta.',
                     side: 'left', align: 'start'
                 }
             },
             {
                 element: '#tour-pos-hold-btn',
                 popover: {
-                    title: 'Pausar Venta (F6)',
-                    description: '¿El cliente olvidó su billetera? Presiona "Pausar" para guardar la venta actual temporalmente. Puedes atender a otro cliente y luego retomar la venta pausada.',
+                    title: 'Pausar venta',
+                    description: 'Usa Pausar cuando el cliente se detiene y necesitas atender a otro. Luego retomas la venta sin reconstruir el carrito.',
                     side: 'bottom', align: 'center'
                 }
             },
             {
                 element: '#tour-pos-pay-btn',
                 popover: {
-                    title: 'Cobrar (F5)',
-                    description: 'Cuando estés listo para cobrar, presiona este botón o F5. Se abrirá el modal de pago donde podrás seleccionar el método (efectivo, tarjeta, transferencia), calcular el vuelto y completar la venta.',
+                    title: 'Cobrar',
+                    description: 'Abre el cobro con F5 o este boton. El modal valida metodo, referencia, credito, vuelto y pago completo antes de confirmar.',
                     side: 'top', align: 'center'
                 }
             },
             {
                 element: '#tour-pos-settings',
                 popover: {
-                    title: 'Configuración de Estación',
-                    description: 'Personaliza tu terminal: cambia el tema visual, el almacén desde el que vendes y otras preferencias de tu estación de trabajo.',
+                    title: 'Configuracion de estacion',
+                    description: 'Aqui ajustas almacen activo, preferencias visuales y datos locales de la estacion. Es clave cuando una PC vende desde otro almacen.',
                     side: 'bottom', align: 'end'
                 }
             },
             {
                 popover: {
-                    title: 'Atajos de Teclado',
-                    description: 'Domina el POS con estos atajos:\n• F2 — Nueva venta (limpiar carrito)\n• F3 — Buscar producto\n• F4 — Editar último ítem\n• F5 — Cobrar\n• F6 — Pausar/Retomar venta\n• ↑↓ — Navegar productos\n• Enter — Agregar seleccionado',
+                    title: 'Atajos utiles',
+                    description: 'F2 limpia venta, F3 busca producto, F5 cobra y F6 pausa o retoma. En horas pico estos atajos reducen pasos del cajero.',
                 }
             }
         ]
@@ -281,127 +289,45 @@ export const TOUR_FLOWS = {
 
     PURCHASES_LIST: {
         id: 'purchases_list',
-        title: 'Compras',
-        description: 'Historial y control de facturas de proveedor.',
+        title: 'Compras y recepcion',
+        description: 'Historial, facturas de proveedor, costos, pagos e inventario recibido.',
         startUrl: '/purchases',
         module: null,
         steps: [
-            {
-                element: '#tour-purchases-container',
-                popover: {
-                    title: 'Centro de compras',
-                    description: 'Aqui ves compras, estados de pago, totales y acceso rapido a nuevas recepciones.',
-                    side: 'bottom', align: 'center'
-                }
-            },
-            {
-                element: '#tour-purchases-summary',
-                popover: {
-                    title: 'Resumen de deuda y compras',
-                    description: 'Estos indicadores ayudan a ver cuanto se compro, cuanto se pago y que queda pendiente.',
-                    side: 'bottom', align: 'center'
-                }
-            },
-            {
-                element: '#tour-purchases-list',
-                popover: {
-                    title: 'Historial de facturas',
-                    description: 'Revisa cada compra, abre el detalle, registra pagos o anula si necesitas revertir una recepcion.',
-                    side: 'top', align: 'center'
-                }
-            },
-            {
-                element: '#tour-purchases-add-btn',
-                popover: {
-                    title: 'Nueva compra',
-                    description: 'Abre la recepcion de inventario para cargar proveedor, productos, costos, IMEIs y condicion de pago.',
-                    side: 'bottom', align: 'end'
-                }
-            }
+            { element: '#tour-purchases-container', popover: { title: 'Centro de compras', description: 'Aqui controlas lo recibido de proveedores: facturas, deuda, pagos y anulaciones.', side: 'bottom', align: 'center' } },
+            { element: '#tour-purchases-summary', popover: { title: 'Resumen rapido', description: 'Mira cuanto se compro, cuanto se pago y que sigue pendiente. Es la primera alerta antes de revisar proveedor por proveedor.', side: 'bottom', align: 'center' } },
+            { element: '#tour-purchases-list', popover: { title: 'Historial auditable', description: 'Cada compra debe poder explicarse: proveedor, productos, costos, seriales si aplica, condicion de pago y estado.', side: 'top', align: 'center' } },
+            { element: '#tour-purchases-add-btn', popover: { title: 'Nueva recepcion', description: 'Usa este boton cuando llega mercancia. Si recibes celulares o equipos con IMEI, captura los seriales dentro de la misma compra.', side: 'bottom', align: 'end' } }
         ]
     },
 
     PURCHASES_CREATE: {
         id: 'purchases_create',
         title: 'Nueva compra',
-        description: 'Registrar proveedor, productos, costos y condiciones.',
+        description: 'Registrar proveedor, productos, costos, IMEIs y pago.',
         startUrl: '/purchases/new',
         module: null,
         steps: [
-            {
-                element: '#tour-purchase-supplier',
-                popover: {
-                    title: 'Selecciona proveedor',
-                    description: 'Toda compra debe quedar vinculada al proveedor correcto para controlar cuentas por pagar e historial de costos.',
-                    side: 'bottom', align: 'start'
-                }
-            },
-            {
-                element: '#tour-purchase-product-search',
-                popover: {
-                    title: 'Agrega productos',
-                    description: 'Busca por nombre o codigo. Tambien puedes crear un producto al vuelo si aun no existe en inventario.',
-                    side: 'bottom', align: 'start'
-                }
-            },
-            {
-                element: '#tour-purchase-items',
-                popover: {
-                    title: 'Cantidades y costos',
-                    description: 'Cada linea debe tener cantidad y costo correctos. El costo alimenta ganancia real, kardex y precio sugerido.',
-                    side: 'top', align: 'center'
-                }
-            },
-            {
-                element: '#tour-purchase-conditions',
-                popover: {
-                    title: 'Condicion de pago',
-                    description: 'Marca contado si ya pagaste, o credito si queda deuda con proveedor. Las notas ayudan a auditar despues.',
-                    side: 'left', align: 'start'
-                }
-            },
-            {
-                element: '#tour-purchase-submit',
-                popover: {
-                    title: 'Procesar compra',
-                    description: 'Al procesar, el stock sube, el kardex registra entrada y la deuda se crea si la compra fue a credito.',
-                    side: 'top', align: 'center'
-                }
-            }
+            { element: '#tour-purchase-supplier', popover: { title: 'Proveedor correcto', description: 'Selecciona el proveedor real antes de cargar productos. Asi la deuda, historial y pagos quedan unidos al mismo contacto.', side: 'bottom', align: 'start' } },
+            { element: '#tour-purchase-product-search', popover: { title: 'Agregar productos', description: 'Busca por nombre, SKU o codigo. Usa producto nuevo solo si verificaste que no existe para evitar duplicados de stock.', side: 'bottom', align: 'start' } },
+            { element: '#tour-purchase-new-product', popover: { title: 'Crear al vuelo', description: 'Si el producto no existe, crealo desde aqui con nombre, SKU, costo, precio y tipo correcto. Para telefonos, activa serial/IMEI desde la ficha.', side: 'bottom', align: 'end' } },
+            { element: '#tour-purchase-items', popover: { title: 'Cantidad y costo', description: 'La cantidad suma inventario y el costo alimenta ganancia real. No proceses lineas con costo cero salvo una excepcion documentada.', side: 'top', align: 'center' } },
+            { element: '#tour-purchase-conditions', popover: { title: 'Contado o credito', description: 'Contado no genera deuda. Credito crea cuenta por pagar al proveedor. Revisa factura, fecha y referencia antes de guardar.', side: 'left', align: 'start' } },
+            { element: '#tour-purchase-submit', popover: { title: 'Procesar', description: 'Al procesar sube stock, se crea Kardex y se registran seriales si aplica. Revisa el resumen antes de confirmar.', side: 'top', align: 'center' } }
         ]
     },
 
     PURCHASES_IMEI: {
         id: 'purchases_imei',
         title: 'Compra con IMEI',
-        description: 'Registrar seriales al recibir productos serializados.',
+        description: 'Recibir equipos serializados sin duplicar stock.',
         startUrl: '/purchases/new',
         module: null,
         steps: [
-            {
-                element: '#tour-purchase-product-search',
-                popover: {
-                    title: 'Agrega el producto con IMEI',
-                    description: 'El producto debe tener activo el control serial. Al agregarlo, la linea mostrara el campo de IMEIs o seriales.',
-                    side: 'bottom', align: 'start'
-                }
-            },
-            {
-                element: '#tour-purchase-items',
-                popover: {
-                    title: 'Cantidad igual a seriales',
-                    description: 'Si recibes 5 unidades, debes pegar o escanear 5 IMEIs unicos. Si no coincide, la compra no debe procesarse.',
-                    side: 'top', align: 'center'
-                }
-            },
-            {
-                element: '#tour-purchase-submit',
-                popover: {
-                    title: 'Validacion final',
-                    description: 'Antes de procesar, revisa que no haya duplicados y que cada IMEI pertenezca al producto correcto.',
-                    side: 'top', align: 'center'
-                }
-            }
+            { element: '#tour-purchase-product-search', popover: { title: 'Producto serializado', description: 'Agrega el modelo que maneja IMEI. Si no esta marcado como serializado, corrigelo en la ficha antes de recibir.', side: 'bottom', align: 'start' } },
+            { element: '#tour-purchase-items', popover: { title: 'Cantidad fisica', description: 'La cantidad de la linea debe ser la misma cantidad de equipos que tienes en mano.', side: 'top', align: 'center' } },
+            { element: '#tour-purchase-imei-lines', popover: { title: 'Capturar IMEIs', description: 'Escanea o pega los IMEIs de esta linea. El sistema debe validar cantidad, duplicados y seriales ya registrados antes de procesar.', side: 'top', align: 'center' } },
+            { element: '#tour-purchase-submit', popover: { title: 'Guardar recepcion', description: 'Al confirmar, el stock sube una vez y cada IMEI queda disponible para venta o traslado. No lo vuelvas a cargar desde Seriales.', side: 'top', align: 'center' } }
         ]
     },
 
@@ -976,28 +902,28 @@ export const TOUR_FLOWS = {
     CASH_OVERVIEW: {
         id: 'cash-overview',
         title: 'Caja operativa',
-        description: 'Apertura, movimientos, cierre y cuadre.',
+        description: 'Abrir turno, movimientos, avances, cierre y cuadre.',
         startUrl: '/pos',
         module: null,
         steps: [
-            { element: '#tour-pos-cash-menu', popover: { title: 'Menu de caja', description: 'Desde el POS se manejan movimientos, avances y cierre. Si la caja esta cerrada, primero aparece el modal de apertura.', side: 'bottom', align: 'end' } },
-            { popover: { title: 'Regla clave', description: 'Caja registra dinero por turno. Las ventas digitales, pagos mixtos, creditos, devoluciones y egresos deben revisarse por separado al cuadrar.' } },
-            { navigate: '/reports?tab=caja', element: '#tour-reports-content', popover: { title: 'Reporte de caja', description: 'Usa este reporte para revisar cierres, movimientos y diferencias por periodo.', side: 'top', align: 'center' } }
+            { element: '#tour-pos-cash-menu', popover: { title: 'Menu Caja', description: 'Desde aqui abres movimientos, avances y cierre. Si no hay caja abierta, el POS pide seleccionar una caja libre antes de vender.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Responsabilidad por turno', description: 'Cada turno queda asociado a caja, usuario y estacion. No uses una caja abierta por otra persona si no eres responsable de ese dinero.' } },
+            { navigate: '/reports?tab=caja', element: '#tour-reports-content', popover: { title: 'Reporte de caja', description: 'Usa el reporte para cuadrar ventas, efectivo, pagos digitales, avances, devoluciones y diferencias por el mismo rango horario.', side: 'top', align: 'center' } }
         ]
     },
 
     CASH_REGISTERS: {
         id: 'cash-registers',
         title: 'Gestion de cajas',
-        description: 'Cajas disponibles, abiertas, cerradas y bloqueadas.',
+        description: 'Cajas fisicas, sesiones activas, bloqueo e impresora por estacion.',
         startUrl: '/cash-registers',
         module: null,
         steps: [
-            { element: '#tour-cash-container', popover: { title: 'Gestion de cajas', description: 'Aqui administras las cajas registradoras disponibles para el POS.', side: 'bottom', align: 'center' } },
-            { element: '#tour-cash-registers-summary', popover: { title: 'Estado general', description: 'Revisa cuantas cajas estan activas, abiertas y cerradas antes de operar.', side: 'bottom', align: 'center' } },
-            { element: '#tour-cash-new-register', popover: { title: 'Nueva caja', description: 'Crea una caja para cada punto de venta o estacion fisica. Usa codigos cortos como C01, C02 o NORTE.', side: 'bottom', align: 'end' } },
-            { element: '#tour-cash-registers-list', popover: { title: 'Lista de cajas', description: 'Cada tarjeta muestra si la caja esta abierta, cerrada y quien la tiene en uso.', side: 'top', align: 'center' } },
-            { element: '#tour-cash-registers-rules', popover: { title: 'Reglas de operacion', description: 'No edites ni desactives cajas abiertas. Forzar cierre solo debe usarse para sesiones bloqueadas.', side: 'top', align: 'center' } }
+            { element: '#tour-cash-container', popover: { title: 'Cajas del negocio', description: 'Administra las cajas disponibles para cada punto de venta. Cada caja puede tener su propia estacion e impresora.', side: 'bottom', align: 'center' } },
+            { element: '#tour-cash-registers-summary', popover: { title: 'Estado general', description: 'Antes de operar revisa cuantas cajas estan abiertas, cerradas o bloqueadas. Una caja abierta ya tiene responsable.', side: 'bottom', align: 'center' } },
+            { element: '#tour-cash-new-register', popover: { title: 'Crear caja', description: 'Crea una caja por punto fisico: C01, C02, Mostrador, Taller. Usa nombres cortos que el cajero reconozca.', side: 'bottom', align: 'end' } },
+            { element: '#tour-cash-registers-list', popover: { title: 'Sesion activa', description: 'La tarjeta indica usuario, estado y datos de estacion. Si esta abierta, primero debe cerrarse antes de editarla.', side: 'top', align: 'center' } },
+            { element: '#tour-cash-registers-rules', popover: { title: 'Reglas de seguridad', description: 'Forzar cierre es solo para emergencias. Para problemas de impresion, revisa el ID de estacion/Bridge antes de culpar la caja.', side: 'top', align: 'center' } }
         ]
     },
 

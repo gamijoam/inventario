@@ -66,11 +66,11 @@ const TOUR_BY_CONTEXT = {
 
 const TASK_TOURS = {
     pos: [
-        { label: 'Cobrar', tour: 'POS_CHECKOUT' },
+        { label: 'Cobrar venta', tour: 'POS_CHECKOUT' },
         { label: 'Pago mixto', tour: 'POS_MIXED_PAYMENT' },
         { label: 'Venta a credito', tour: 'POS_CREDIT_SALE' },
-        { label: 'Producto con IMEI', tour: 'POS_SERIAL_SALE' },
-        { label: 'Caja POS', tour: 'CASH_POS_ACTIONS' },
+        { label: 'Vender IMEI', tour: 'POS_SERIAL_SALE' },
+        { label: 'Caja del turno', tour: 'CASH_POS_ACTIONS' },
     ],
     cash: [
         { label: 'Abrir caja', tour: 'CASH_OPENING' },
@@ -85,13 +85,13 @@ const TASK_TOURS = {
     ],
     purchases: [
         { label: 'Lista de compras', tour: 'PURCHASES_LIST' },
-        { label: 'Nueva compra', tour: 'PURCHASES_CREATE' },
-        { label: 'Compra con IMEI', tour: 'PURCHASES_IMEI' },
+        { label: 'Registrar compra', tour: 'PURCHASES_CREATE' },
+        { label: 'Recibir IMEI', tour: 'PURCHASES_IMEI' },
         { label: 'Recepcion serializada', tour: 'SERIALIZED_RECEPTION' },
     ],
     suppliers: [
         { label: 'Directorio', tour: 'SUPPLIERS' },
-        { label: 'Nueva compra', tour: 'PURCHASES_CREATE' },
+        { label: 'Registrar compra', tour: 'PURCHASES_CREATE' },
         { label: 'Cuentas por pagar', tour: 'REPORTS_SUPPLIERS' },
     ],
     'config/general': [
@@ -170,7 +170,7 @@ const TASK_TOURS = {
     ],
     'reports/proveedores': [
         { label: 'Cuentas por pagar', tour: 'REPORTS_SUPPLIERS' },
-        { label: 'Nueva compra', tour: 'PURCHASES_CREATE' },
+        { label: 'Registrar compra', tour: 'PURCHASES_CREATE' },
     ],
     'reports/inventario': [
         { label: 'Valoracion', tour: 'REPORTS_INVENTORY' },
@@ -234,15 +234,15 @@ const TASK_TOURS = {
 
 const COMMON_ISSUES = {
     pos: [
-        'Si no puedes cobrar, confirma que la caja este abierta.',
-        'Si no aparece un producto, revisa stock disponible y que este activo.',
-        'Si el cliente paga en bolivares, verifica que la tasa del dia este actualizada.',
+        'No puedes cobrar: confirma caja abierta, carrito con productos y pago completo.',
+        'Producto no aparece: revisa activo, stock, almacen del POS y codigo/SKU.',
+        'Precio en Bs raro: actualiza tasa del dia y refresca el POS.',
     ],
     cash: [
-        'Caja cerrada: abre turno desde POS seleccionando una caja libre.',
+        'Caja cerrada: abre turno desde POS y selecciona una caja libre.',
         'Faltante: revisa egresos, avances, devoluciones y vuelto antes de cerrar.',
         'Sobrante: busca ingresos no registrados o cobros de mas.',
-        'Caja vs ventas no cuadra: compara por metodo de pago y rango horario exacto.',
+        'Caja vs ventas no cuadra: compara por metodo de pago, usuario y rango horario exacto.',
     ],
     'cash/registers': [
         'Caja ocupada: otro usuario tiene sesion abierta.',
@@ -250,10 +250,10 @@ const COMMON_ISSUES = {
         'Forzar cierre: usalo solo para sesiones bloqueadas sin cajero activo.',
     ],
     purchases: [
-        'Proveedor faltante: selecciona o crea proveedor antes de guardar.',
-        'IMEI incompleto: cantidad y seriales deben coincidir.',
-        'Costo cero: corrige costo antes de confirmar para no danar ganancia real.',
-        'Factura duplicada: revisa numero de factura, proveedor y fecha.',
+        'Proveedor faltante: selecciona o crea proveedor antes de procesar.',
+        'IMEI incompleto: la cantidad de la linea debe coincidir con seriales validos.',
+        'Costo cero: corrige antes de confirmar para no danar ganancia real.',
+        'Factura duplicada: revisa proveedor, numero de factura y fecha.',
     ],
     suppliers: [
         'Proveedor duplicado: busca por nombre/contacto antes de crear.',
