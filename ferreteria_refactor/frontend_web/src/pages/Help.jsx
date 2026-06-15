@@ -23,7 +23,8 @@ const MODULES = [
     { id: 'pos', label: 'Punto de Venta', match: ['pos'], color: 'emerald' },
     { id: 'inventory', label: 'Inventario', prefix: 'inventory/', color: 'blue' },
     { id: 'sales', label: 'Ventas', prefix: 'sales/', color: 'violet' },
-    { id: 'finance', label: 'Finanzas', match: ['purchases', 'suppliers', 'cash'], color: 'amber' },
+    { id: 'reports', label: 'Reportes', prefix: 'reports/', color: 'cyan' },
+    { id: 'finance', label: 'Finanzas', match: ['purchases', 'suppliers', 'cash'], prefix: 'cash/', color: 'amber' },
     { id: 'config', label: 'Configuracion', prefix: 'config/', color: 'slate' },
     { id: 'services', label: 'Servicios', prefix: 'services/', color: 'rose' },
 ];
@@ -83,6 +84,18 @@ const QUICK_ISSUES = [
     { title: 'Tasa desactualizada', desc: 'Actualiza monedas/tasa antes de vender o revisar precios en moneda local.', context: 'config/monedas' },
     { title: 'Ventas no cuadran con caja', desc: 'Compara ventas, pagos mixtos, creditos, devoluciones y cierre del mismo periodo.', context: 'reports/caja' },
     { title: 'Ganancia baja o rara', desc: 'Revisa productos con costo cero, compras mal cargadas y descuentos.', context: 'reports/resumen' },
+    { title: 'Caja cerrada', desc: 'Abre turno desde POS y selecciona una caja libre antes de vender.', context: 'cash' },
+    { title: 'No imprime ticket', desc: 'Revisa Bridge, impresora detectada, ancho de papel y estacion POS.', context: 'config/impresoras' },
+    { title: 'Usuario no puede entrar', desc: 'Verifica usuario activo, rol, contrasena y permisos.', context: 'config/usuarios' },
+];
+
+const CRITICAL_WORKFLOWS = [
+    { title: 'Vender y cobrar', desc: 'Producto, carrito, pagos y ticket.', context: 'pos', tour: 'POS_CHECKOUT' },
+    { title: 'Cuadrar caja', desc: 'Apertura, movimientos, cierre y diferencias.', context: 'cash', tour: 'CASH_CLOSING' },
+    { title: 'Registrar compra', desc: 'Proveedor, costos, stock y seriales.', context: 'purchases', tour: 'PURCHASES_CREATE' },
+    { title: 'Trasladar inventario', desc: 'Productos normales, seriales e importacion.', context: 'inventory/traslados', tour: 'INVENTORY_TRANSFERS' },
+    { title: 'Actualizar tasa', desc: 'Precios en Bs y cobros en moneda local.', context: 'config/monedas', tour: 'CONFIG_CURRENCY' },
+    { title: 'Revisar reportes', desc: 'Ventas, caja, creditos e inventario.', context: 'reports/resumen', tour: 'REPORTS' },
 ];
 
 const colorClasses = {
@@ -93,6 +106,7 @@ const colorClasses = {
     amber: 'border-amber-200 bg-amber-50 text-amber-700',
     slate: 'border-slate-200 bg-slate-50 text-slate-700',
     rose: 'border-rose-200 bg-rose-50 text-rose-700',
+    cyan: 'border-cyan-200 bg-cyan-50 text-cyan-700',
 };
 
 const normalize = (value) => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -100,7 +114,8 @@ const normalize = (value) => String(value || '').toLowerCase().normalize('NFD').
 const getModuleId = (key) => {
     const found = MODULES.find(module => {
         if (module.match?.includes(key)) return true;
-        return module.prefix && key.startsWith(module.prefix);
+        if (module.prefix && key.startsWith(module.prefix)) return true;
+        return false;
     });
     return found?.id || 'general';
 };
@@ -261,6 +276,32 @@ const Help = () => {
                             <p className="text-xs font-semibold text-slate-500">tickets desde el sistema</p>
                         </div>
                     </div>
+
+                    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Flujos criticos</p>
+                                <h2 className="text-lg font-black text-slate-950">Accesos rapidos para operar sin perderse</h2>
+                            </div>
+                            <CheckCircle size={20} className="text-emerald-600" />
+                        </div>
+                        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                            {CRITICAL_WORKFLOWS.map(flow => (
+                                <button
+                                    key={flow.title}
+                                    type="button"
+                                    onClick={() => {
+                                        setSelectedKey(flow.context);
+                                        if (flow.tour) startTour(flow.tour);
+                                    }}
+                                    className="rounded-md border border-slate-200 bg-slate-50 p-3 text-left transition-colors hover:border-indigo-200 hover:bg-indigo-50"
+                                >
+                                    <p className="text-sm font-black text-slate-900">{flow.title}</p>
+                                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{flow.desc}</p>
+                                </button>
+                            ))}
+                        </div>
+                    </section>
 
                     <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
                         <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
