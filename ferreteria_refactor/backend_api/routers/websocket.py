@@ -220,8 +220,10 @@ async def hardware_connect(
                 else:
                     print(f"📥 [WS] Received unexpected data from {client_id}: {data}")
             except asyncio.TimeoutError:
-                print(f"⚠️ [WS] Connection timeout for '{client_id}'. No ping received.")
-                break # Exit loop to trigger disconnect
+                # Some deployed Bridge versions do not send heartbeat pings reliably.
+                # Keep the socket registered and let send_to_client validate it when a print job arrives.
+                print(f"[WS] Bridge {client_id!r} idle without ping; keeping connection registered.")
+                continue
                 
     except WebSocketDisconnect as e:
         print(f"🔌 [WS] Client '{client_id}' disconnected normally (Code: {e.code})")
