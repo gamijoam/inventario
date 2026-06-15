@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from decimal import Decimal
@@ -14,6 +14,194 @@ router = APIRouter(
     prefix="/purchases",
     tags=["purchases"]
 )
+
+
+
+def _str_cell(row: dict, *keys, default: str = "") -> str:
+    for key in keys:
+        value = row.get(key)
+        if value is not None and str(value).strip() != "":
+            return str(value).strip()
+    return default
+
+
+def _decimal_cell(row: dict, *keys, default="0") -> Decimal:
+    raw = _str_cell(row, *keys, default=str(default)).replace(",", ".")
+    try:
+        return Decimal(raw)
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"Valor numerico invalido: {raw}")
+
+
+def _bool_cell(row: dict, *keys) -> bool:
+    value = _str_cell(row, *keys).lower()
+    return value in {"1", "true", "si", "s?", "yes", "y", "imei", "serial", "serializado"}
+
+
+def _parse_import_date(value):
+    from datetime import datetime
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    raw = str(value).strip()
+    if not raw:
+        return None
+    raw = raw.replace("Z", "+00:00")
+    for fmt in (None, "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
+        try:
+            return datetime.fromisoformat(raw) if fmt is None else datetime.strptime(raw, fmt)
+        except Exception:
+            continue
+    raise HTTPException(status_code=400, detail=f"Fecha invalida: {value}")
+
+
+def _parse_serials_cell(value) -> list[str]:
+    import re
+    return [part.strip().upper() for part in re.split(r"[\s,;|]+", str(value or "")) if part.strip()]
+
+
+def _find_or_create_supplier(db: Session, name: str):
+    supplier = db.query(models.Supplier).filter(models.Supplier.name.ilike(name)).first()
+    if supplier:
+        return supplier
+    supplier = models.Supplier(name=name, is_active=True, payment_terms=30, current_balance=Decimal("0.00"))
+    db.add(supplier)
+    db.flush()
+    return supplier
+
+
+def _resolve_import_warehouse(db: Session, name: str | None):
+    query = db.query(models.Warehouse).filter(models.Warehouse.is_active == True)
+    if name:
+        warehouse = query.filter(models.Warehouse.name.ilike(name)).first()
+        if warehouse:
+            return warehouse
+        raise HTTPException(status_code=400, detail=f"Almacen no encontrado: {name}")
+    warehouse = query.order_by(models.Warehouse.is_main.desc(), models.Warehouse.id).first()
+    if not warehouse:
+        raise HTTPException(status_code=400, detail="No hay almacenes activos para importar la compra")
+    return warehouse
+
+
+def _find_product_for_import(db: Session, sku: str, name: str):
+    if sku:
+        product = db.query(models.Product).filter(models.Product.sku == sku).first()
+        if product:
+            return product
+    if name:
+        return db.query(models.Product).filter(models.Product.name.ilike(name)).first()
+    return None
+
+
+@router.post("/import-batch")
+async def import_purchase_batch(rows: List[dict] = Body(...), db: Session = Depends(get_db)):
+    """Importa compras desde Excel como recepcion real: stock, kardex e IMEIs."""
+    if not rows:
+        raise HTTPException(status_code=400, detail="El archivo no tiene filas para importar")
+
+    grouped = {}
+    for idx, row in enumerate(rows, start=2):
+        supplier_name = _str_cell(row, "proveedor", "supplier")
+        product_name = _str_cell(row, "producto", "product", "nombre")
+        if not supplier_name:
+            raise HTTPException(status_code=400, detail=f"Fila {idx}: falta proveedor")
+        if not product_name:
+            raise HTTPException(status_code=400, detail=f"Fila {idx}: falta producto")
+        invoice = _str_cell(row, "nro_factura", "factura", "invoice", default=f"IMPORT-{idx}")
+        date_raw = _str_cell(row, "fecha", "purchase_date")
+        warehouse_name = _str_cell(row, "almacen", "bodega", "warehouse", default="")
+        key = (supplier_name.lower(), invoice, date_raw, warehouse_name.lower())
+        grouped.setdefault(key, {"supplier": supplier_name, "invoice": invoice, "date": date_raw, "warehouse": warehouse_name, "rows": []})["rows"].append((idx, row))
+
+    imported = []
+    for group in grouped.values():
+        supplier = _find_or_create_supplier(db, group["supplier"])
+        warehouse = _resolve_import_warehouse(db, group["warehouse"] or None)
+        items = []
+        for idx, row in group["rows"]:
+            product_name = _str_cell(row, "producto", "product", "nombre")
+            sku = _str_cell(row, "sku", "codigo", "codigo_producto")
+            qty = _decimal_cell(row, "cantidad", "qty", default="0")
+            unit_cost = _decimal_cell(row, "costo_unitario", "costo", "unit_cost", default="0")
+            sale_price = _decimal_cell(row, "precio_venta", "pvp", "sale_price", default=unit_cost)
+            serials = _parse_serials_cell(_str_cell(row, "imeis", "seriales", "serial_numbers"))
+            has_imei = _bool_cell(row, "maneja_imei", "has_imei", "serializado") or bool(serials)
+            if qty <= 0:
+                raise HTTPException(status_code=400, detail=f"Fila {idx}: cantidad debe ser mayor a cero")
+            if unit_cost < 0:
+                raise HTTPException(status_code=400, detail=f"Fila {idx}: costo no puede ser negativo")
+            if has_imei and serials and qty != Decimal(len(serials)):
+                raise HTTPException(status_code=400, detail=f"Fila {idx}: cantidad {qty} no coincide con {len(serials)} IMEI(s)")
+
+            product = _find_product_for_import(db, sku, product_name)
+            item = {
+                "product_id": product.id if product else None,
+                "quick_product": None if product else {
+                    "name": product_name,
+                    "sku": sku or None,
+                    "cost_price": unit_cost,
+                    "sale_price": sale_price,
+                    "has_imei": has_imei,
+                },
+                "quantity": qty,
+                "unit_cost": unit_cost,
+                "discount_pct": _decimal_cell(row, "descuento_pct", default="0"),
+                "discount_amount": Decimal("0"),
+                "update_cost": True,
+                "update_price": False,
+                "serial_numbers": serials,
+            }
+            items.append(schemas.PurchaseItemCreate(**item))
+
+        order_data = schemas.PurchaseOrderCreate(
+            supplier_id=supplier.id,
+            warehouse_id=warehouse.id,
+            invoice_number=group["invoice"],
+            notes="Importado desde Excel",
+            total_amount=Decimal("0"),
+            purchase_date=_parse_import_date(group["date"]),
+            items=items,
+            payment_type=_str_cell(group["rows"][0][1], "tipo_pago", "payment_type", default="CREDIT").upper(),
+        )
+        purchase = await create_purchase_order(order_data, db)
+        imported.append({"id": purchase.id, "invoice_number": purchase.invoice_number, "items": len(items)})
+
+    return {"imported": len(imported), "purchases": imported}
+
+
+@router.post("/import-row")
+async def import_purchase_row(row: dict = Body(...), db: Session = Depends(get_db)):
+    return await import_purchase_batch([row], db)
+
+
+@router.post("/import-payable")
+def import_purchase_payable(row: dict = Body(...), db: Session = Depends(get_db)):
+    supplier_name = _str_cell(row, "proveedor", "supplier")
+    if not supplier_name:
+        raise HTTPException(status_code=400, detail="Falta proveedor")
+    supplier = _find_or_create_supplier(db, supplier_name)
+    total = _decimal_cell(row, "monto_total", "total", default="0")
+    paid = _decimal_cell(row, "monto_pagado", "pagado", default="0")
+    invoice = _str_cell(row, "nro_factura", "factura")
+    purchase_date = _parse_import_date(_str_cell(row, "fecha_factura", "fecha"))
+    due_date = _parse_import_date(_str_cell(row, "fecha_vencimiento", "vence"))
+    status = models.PaymentStatus.PAID if paid >= total else (models.PaymentStatus.PARTIAL if paid > 0 else models.PaymentStatus.PENDING)
+    purchase = models.PurchaseOrder(
+        supplier_id=supplier.id,
+        invoice_number=invoice,
+        notes=_str_cell(row, "notas", "notes"),
+        total_amount=total,
+        paid_amount=paid,
+        payment_status=status,
+        purchase_date=purchase_date,
+        due_date=due_date,
+    )
+    supplier.current_balance = Decimal(str(supplier.current_balance or 0)) + max(Decimal("0"), total - paid)
+    db.add(purchase)
+    db.commit()
+    db.refresh(purchase)
+    return {"id": purchase.id, "message": "Cuenta por pagar importada"}
 
 @router.post("", response_model=schemas.PurchaseOrderResponse)
 async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Session = Depends(get_db)):

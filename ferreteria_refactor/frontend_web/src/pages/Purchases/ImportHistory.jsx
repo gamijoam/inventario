@@ -16,17 +16,17 @@ import { useNavigate } from 'react-router-dom';
 const TEMPLATES = {
     compras: {
         label: 'Historial de Compras',
-        icon: '📦',
-        desc: 'Compras realizadas a proveedores con sus productos',
-        columns: ['fecha', 'proveedor', 'nro_factura', 'producto', 'cantidad',
-                  'costo_unitario', 'descuento_pct', 'tipo_pago', 'notas'],
+        icon: 'CSV',
+        desc: 'Recepcion real: stock, costos, kardex e IMEI si aplica',
+        columns: ['fecha', 'proveedor', 'nro_factura', 'almacen', 'producto', 'sku', 'cantidad',
+                  'costo_unitario', 'precio_venta', 'descuento_pct', 'tipo_pago', 'maneja_imei', 'imeis', 'notas'],
         example: [
-            { fecha: '2026-01-15', proveedor: 'Distribuidora ABC', nro_factura: 'F-0001',
-              producto: 'Filtro Aceite Toyota', cantidad: 10, costo_unitario: 5.50,
-              descuento_pct: 5, tipo_pago: 'CREDIT', notas: 'Compra inicial' },
-            { fecha: '2026-01-20', proveedor: 'Distribuidora ABC', nro_factura: 'F-0001',
-              producto: 'Bujía NGK', cantidad: 20, costo_unitario: 3.00,
-              descuento_pct: 0, tipo_pago: 'CREDIT', notas: '' },
+            { fecha: '2026-01-15', proveedor: 'Distribuidora ABC', nro_factura: 'F-0001', almacen: '',
+              producto: 'Filtro Aceite Toyota', sku: 'FILT-TOY-24', cantidad: 10, costo_unitario: 5.50,
+              precio_venta: 8.00, descuento_pct: 5, tipo_pago: 'CREDIT', maneja_imei: 'NO', imeis: '', notas: 'Compra inicial' },
+            { fecha: '2026-01-15', proveedor: 'Distribuidora ABC', nro_factura: 'F-0001', almacen: '',
+              producto: 'Telefono Demo A15', sku: 'TEL-A15', cantidad: 2, costo_unitario: 80.00,
+              precio_venta: 120.00, descuento_pct: 0, tipo_pago: 'CREDIT', maneja_imei: 'SI', imeis: '356000000000001 356000000000002', notas: 'Serializado' },
         ]
     },
     cuentas_pagar: {
@@ -89,13 +89,37 @@ export default function ImportHistory() {
         reader.readAsBinaryString(file);
     };
 
+    const parseSerials = (value = '') => String(value)
+        .split(/[\s,;|]+/)
+        .map(v => v.trim().toUpperCase())
+        .filter(Boolean);
+
+    const isTruthy = (value) => ['1', 'true', 'si', 'yes', 'imei', 'serial', 'serializado'].includes(String(value || '').trim().toLowerCase());
+
     const validate = () => {
         const tpl  = TEMPLATES[type];
         const errs = [];
+        const requiredByType = {
+            compras: ['fecha', 'proveedor', 'nro_factura', 'producto', 'cantidad', 'costo_unitario', 'tipo_pago'],
+            cuentas_pagar: tpl.columns,
+            cuentas_cobrar: tpl.columns,
+        };
         rows.forEach((row, i) => {
-            const missing = tpl.columns.filter(col => !row[col] && row[col] !== 0);
+            const missing = (requiredByType[type] || tpl.columns).filter(col => !row[col] && row[col] !== 0);
             if (missing.length > 0) {
-                errs.push(`Fila ${i + 2}: faltan columnas — ${missing.join(', ')}`);
+                errs.push(`Fila ${i + 2}: faltan campos - ${missing.join(', ')}`);
+            }
+            if (type === 'compras') {
+                const qty = Number(row.cantidad || 0);
+                const serials = parseSerials(row.imeis);
+                if (qty <= 0) errs.push(`Fila ${i + 2}: la cantidad debe ser mayor a cero`);
+                if (Number(row.costo_unitario || 0) < 0) errs.push(`Fila ${i + 2}: el costo no puede ser negativo`);
+                if ((isTruthy(row.maneja_imei) || serials.length > 0) && serials.length !== qty) {
+                    errs.push(`Fila ${i + 2}: cantidad ${qty} no coincide con ${serials.length} IMEI(s)`);
+                }
+                if (serials.length !== new Set(serials).size) {
+                    errs.push(`Fila ${i + 2}: hay IMEIs duplicados en la misma fila`);
+                }
             }
         });
         setErrors(errs);
@@ -109,20 +133,28 @@ export default function ImportHistory() {
         const errs = [];
         let count  = 0;
 
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
+        if (type === 'compras') {
             try {
-                if (type === 'compras') {
-                    await apiClient.post('/purchases/import-row', { ...row, tipo: type });
-                } else if (type === 'cuentas_pagar') {
-                    await apiClient.post('/purchases/import-payable', row);
-                } else {
-                    await apiClient.post('/customers/import-receivable', row);
-                }
-                count++;
+                const { data } = await apiClient.post('/purchases/import-batch', rows);
+                count = Number(data?.imported || 0);
                 setImported(count);
             } catch (e) {
-                errs.push(`Fila ${i + 2}: ${getApiErrorMessage(e, 'No se pudo importar la fila')}`);
+                errs.push(getApiErrorMessage(e, 'No se pudo importar el archivo de compras'));
+            }
+        } else {
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                try {
+                    if (type === 'cuentas_pagar') {
+                        await apiClient.post('/purchases/import-payable', row);
+                    } else {
+                        await apiClient.post('/customers/import-receivable', row);
+                    }
+                    count++;
+                    setImported(count);
+                } catch (e) {
+                    errs.push(`Fila ${i + 2}: ${getApiErrorMessage(e, 'No se pudo importar la fila')}`);
+                }
             }
         }
 
@@ -172,7 +204,7 @@ export default function ImportHistory() {
                 <AlertCircle size={18} className="text-amber-600 shrink-0" />
                 <div className="flex-1">
                     <p className="text-sm font-bold text-amber-800">Usa la plantilla correcta</p>
-                    <p className="text-xs text-amber-700">El archivo debe tener exactamente las columnas indicadas.</p>
+                    <p className="text-xs text-amber-700">Para compras, cada fila es un producto; las filas con la misma factura se agrupan en una sola compra real.</p>
                 </div>
                 <button onClick={() => downloadTemplate(type)}
                     className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all">
