@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Trash2, Save, X, AlertCircle, Package, DollarSign, Calendar, FileText, ChevronDown, Check, ArrowRight } from 'lucide-react';
+import { Search, Plus, Trash2, Save, X, AlertCircle, Package, DollarSign, Calendar, FileText, ChevronDown, Check, ArrowRight, Barcode, ScanLine } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
@@ -39,6 +39,205 @@ const getSerialMeta = (item) => {
     };
 };
 
+
+const SerialCaptureModal = ({ item, onClose, onSave }) => {
+    const inputRef = useRef(null);
+    const [serials, setSerials] = useState(() => parseSerials(item?.serial_text || ''));
+    const [inputValue, setInputValue] = useState('');
+    const [message, setMessage] = useState('');
+
+    const expected = Number.isInteger(toMoney(item?.quantity)) ? toMoney(item.quantity) : 0;
+    const duplicates = serials.filter((serial, index) => serials.indexOf(serial) !== index);
+    const uniqueDuplicates = [...new Set(duplicates)];
+    const missing = Math.max(expected - serials.length, 0);
+    const complete = expected > 0 && serials.length === expected && uniqueDuplicates.length === 0;
+
+    useEffect(() => {
+        inputRef.current?.focus();
+    }, []);
+
+    const addSerialTokens = (rawValue) => {
+        const tokens = parseSerials(rawValue);
+        if (tokens.length === 0) return;
+
+        setSerials(prev => {
+            const next = [...prev];
+            const rejected = [];
+            for (const token of tokens) {
+                if (next.includes(token)) {
+                    rejected.push(token);
+                    continue;
+                }
+                if (expected && next.length >= expected) {
+                    rejected.push(token);
+                    continue;
+                }
+                next.push(token);
+            }
+
+            if (rejected.length > 0) {
+                setMessage(expected && next.length >= expected
+                    ? 'Ya capturaste la cantidad esperada. Ajusta la cantidad si llegaron mas unidades.'
+                    : `Duplicados omitidos: ${rejected.slice(0, 3).join(', ')}`
+                );
+            } else {
+                setMessage('');
+            }
+            return next;
+        });
+        setInputValue('');
+        requestAnimationFrame(() => inputRef.current?.focus());
+    };
+
+    const handleKeyDown = (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            addSerialTokens(inputValue);
+        }
+    };
+
+    const handlePaste = (event) => {
+        const pasted = event.clipboardData?.getData('text') || '';
+        if (parseSerials(pasted).length > 1) {
+            event.preventDefault();
+            addSerialTokens(pasted);
+        }
+    };
+
+    const removeSerial = (serial) => {
+        setSerials(prev => prev.filter(value => value !== serial));
+        setMessage('');
+        requestAnimationFrame(() => inputRef.current?.focus());
+    };
+
+    const handleSave = () => {
+        if (!complete) {
+            setMessage(uniqueDuplicates.length > 0
+                ? 'Hay IMEIs duplicados. Elimina los repetidos antes de guardar.'
+                : `Faltan ${missing} IMEI(s) para completar esta linea.`
+            );
+            inputRef.current?.focus();
+            return;
+        }
+        onSave(serials);
+    };
+
+    return (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in zoom-in-95 duration-150">
+                <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-4">
+                    <div className="flex min-w-0 items-start gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                            <Barcode size={22} />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-[11px] font-black uppercase tracking-wide text-indigo-500">Captura serializada</p>
+                            <h3 className="truncate text-lg font-black text-slate-900">{item.product_name}</h3>
+                            <p className="text-sm font-semibold text-slate-500">Escanea o escribe un IMEI y presiona Enter para continuar.</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 border-b border-slate-100 bg-slate-50 p-3 text-center">
+                    <div className="rounded-xl bg-white px-3 py-2 shadow-sm">
+                        <div className="text-xl font-black text-slate-900">{expected || 0}</div>
+                        <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Esperados</div>
+                    </div>
+                    <div className="rounded-xl bg-white px-3 py-2 shadow-sm">
+                        <div className="text-xl font-black text-emerald-600">{serials.length}</div>
+                        <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Capturados</div>
+                    </div>
+                    <div className="rounded-xl bg-white px-3 py-2 shadow-sm">
+                        <div className={clsx('text-xl font-black', missing ? 'text-amber-600' : 'text-emerald-600')}>{missing}</div>
+                        <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Faltan</div>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4">
+                    <div className="rounded-2xl border-2 border-indigo-100 bg-indigo-50/40 p-3 focus-within:border-indigo-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-100">
+                        <div className="flex items-center gap-2">
+                            <ScanLine size={22} className="shrink-0 text-indigo-500" />
+                            <input
+                                ref={inputRef}
+                                value={inputValue}
+                                onChange={(event) => setInputValue(event.target.value.toUpperCase())}
+                                onKeyDown={handleKeyDown}
+                                onPaste={handlePaste}
+                                disabled={expected > 0 && serials.length >= expected}
+                                className="min-w-0 flex-1 bg-transparent px-1 py-2 font-mono text-base font-black text-slate-900 outline-none placeholder:font-semibold placeholder:text-slate-400"
+                                placeholder="Escanear IMEI y Enter"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => addSerialTokens(inputValue)}
+                                disabled={!inputValue.trim() || (expected > 0 && serials.length >= expected)}
+                                className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                Agregar
+                            </button>
+                        </div>
+                    </div>
+
+                    {message && (
+                        <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-700">
+                            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                            <span>{message}</span>
+                        </div>
+                    )}
+
+                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50">
+                        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                            <div>
+                                <p className="text-sm font-black text-slate-900">IMEIs capturados</p>
+                                <p className="text-xs font-semibold text-slate-500">Puedes eliminar uno si el scanner leyo algo incorrecto.</p>
+                            </div>
+                            {serials.length > 0 && (
+                                <button onClick={() => setSerials([])} className="text-xs font-black text-rose-600 hover:text-rose-700">Limpiar</button>
+                            )}
+                        </div>
+                        <div className="max-h-64 overflow-y-auto p-3">
+                            {serials.length === 0 ? (
+                                <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm font-bold text-slate-400">
+                                    Aun no hay IMEIs capturados.
+                                </div>
+                            ) : (
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    {serials.map(serial => {
+                                        const duplicated = uniqueDuplicates.includes(serial);
+                                        return (
+                                            <div key={serial} className={clsx('flex items-center justify-between gap-2 rounded-xl border bg-white px-3 py-2 font-mono text-sm font-black', duplicated ? 'border-rose-200 text-rose-700' : 'border-slate-200 text-slate-800')}>
+                                                <span className="min-w-0 truncate">{serial}</span>
+                                                <button onClick={() => removeSerial(serial)} className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-2 border-t border-slate-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className={clsx('text-sm font-black', complete ? 'text-emerald-600' : 'text-slate-500')}>
+                        {complete ? 'Linea completa para registrar la compra.' : 'Completa los IMEIs esperados para poder guardar.'}
+                    </div>
+                    <div className="flex gap-2">
+                        <button onClick={onClose} className="rounded-xl border border-slate-200 bg-white px-4 py-2 font-black text-slate-600 hover:bg-slate-50">Cancelar</button>
+                        <button onClick={handleSave} disabled={!complete} className="rounded-xl bg-indigo-600 px-5 py-2 font-black text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none">
+                            Guardar IMEIs
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const CreatePurchase = () => {
     const navigate = useNavigate();
     const help = useHelp();
@@ -55,6 +254,7 @@ const CreatePurchase = () => {
     const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
     const [paymentType, setPaymentType] = useState('CASH'); // CASH or CREDIT
     const [showCostUpdateModal, setShowCostUpdateModal] = useState(null);
+    const [serialCaptureLineId, setSerialCaptureLineId] = useState(null);
     const [activeTab, setActiveTab] = useState('ITEMS'); // 'ITEMS' | 'SUMMARY'
 
     const [invoiceData, setInvoiceData] = useState({
@@ -263,6 +463,7 @@ const CreatePurchase = () => {
 
     // Calculate total
     const total = subtotalBruto;
+    const serialCaptureItem = purchaseItems.find(item => (item.line_id || item.product_id) === serialCaptureLineId);
 
     // Submit purchase
     const handleSubmit = async () => {
@@ -640,12 +841,21 @@ const CreatePurchase = () => {
                                                         <div className="rounded-lg bg-white px-2 py-1 text-emerald-600">Capturados <span>{serialMeta.captured}</span></div>
                                                         <div className={clsx("rounded-lg bg-white px-2 py-1", serialMeta.missing ? "text-amber-600" : "text-emerald-600")}>Faltan <span>{serialMeta.missing}</span></div>
                                                     </div>
-                                                    <textarea
-                                                        value={item.serial_text || ''}
-                                                        onChange={(e) => updateLine(item.line_id || item.product_id, { serial_text: e.target.value })}
-                                                        className="h-24 w-full rounded-lg border border-white bg-white px-3 py-2 font-mono text-xs outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                                                        placeholder="Escanea o pega un IMEI por linea"
-                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSerialCaptureLineId(item.line_id || item.product_id)}
+                                                        className={clsx(
+                                                            "flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-black transition",
+                                                            serialMeta.complete ? "border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50" : serialMeta.duplicates.length ? "border-rose-200 bg-white text-rose-700 hover:bg-rose-50" : "border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50"
+                                                        )}
+                                                    >
+                                                        <Barcode size={16} /> Capturar IMEIs
+                                                    </button>
+                                                    {parseSerials(item.serial_text).length > 0 && (
+                                                        <div className="mt-2 line-clamp-2 rounded-lg bg-white px-3 py-2 font-mono text-[11px] font-bold text-slate-500">
+                                                            {parseSerials(item.serial_text).slice(0, 4).join(' | ')}{parseSerials(item.serial_text).length > 4 ? '...' : ''}
+                                                        </div>
+                                                    )}
                                                     {serialMeta.duplicates.length > 0 && (
                                                         <div className="mt-2 rounded-lg bg-white px-3 py-2 text-xs font-bold text-rose-600">
                                                             Duplicados: {serialMeta.duplicates.slice(0, 3).join(', ')}
@@ -798,12 +1008,23 @@ const CreatePurchase = () => {
                                                                     <span className={clsx("rounded-md px-2 py-1 text-[10px] font-black", serialMeta.missing ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700")}>Faltan: {serialMeta.missing}</span>
                                                                 </div>
                                                             </div>
-                                                            <textarea
-                                                                value={item.serial_text || ''}
-                                                                onChange={(e) => updateLine(item.line_id || item.product_id, { serial_text: e.target.value })}
-                                                                className="h-24 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-                                                                placeholder="Ej: 353791682868853 353791682872913"
-                                                            />
+                                                            <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+                                                                <div className="min-h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs font-bold text-slate-500">
+                                                                    {parseSerials(item.serial_text).length > 0
+                                                                        ? `${parseSerials(item.serial_text).slice(0, 6).join(' | ')}${parseSerials(item.serial_text).length > 6 ? '...' : ''}`
+                                                                        : 'Sin IMEIs capturados todavia.'}
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setSerialCaptureLineId(item.line_id || item.product_id)}
+                                                                    className={clsx(
+                                                                        "inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-black transition",
+                                                                        serialMeta.complete ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : serialMeta.duplicates.length ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100" : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                                                                    )}
+                                                                >
+                                                                    <Barcode size={16} /> Capturar IMEIs
+                                                                </button>
+                                                            </div>
                                                             {serialMeta.duplicates.length > 0 && (
                                                                 <div className="mt-2 flex items-start gap-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
                                                                     <AlertCircle size={14} className="mt-0.5 shrink-0" />
@@ -960,6 +1181,18 @@ const CreatePurchase = () => {
                     </div>
                 </div>
             </div>
+
+            {serialCaptureItem && (
+                <SerialCaptureModal
+                    item={serialCaptureItem}
+                    onClose={() => setSerialCaptureLineId(null)}
+                    onSave={(serials) => {
+                        updateLine(serialCaptureLineId, { serial_text: serials.join('\n') });
+                        setSerialCaptureLineId(null);
+                        toast.success('IMEIs capturados');
+                    }}
+                />
+            )}
 
             {/* Price/Cost Update Modal */}
             {showCostUpdateModal && (
