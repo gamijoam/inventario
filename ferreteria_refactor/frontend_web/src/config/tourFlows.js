@@ -811,114 +811,74 @@ export const TOUR_FLOWS = {
     // =============================================
     FINANCE: {
         id: 'finance',
-        title: 'Finanzas y Caja',
-        description: 'Caja, compras, proveedores y cuentas por pagar/cobrar.',
+        title: 'Finanzas y caja',
+        description: 'Dinero operativo: caja, compras, proveedores, cuentas por pagar y cuentas por cobrar.',
         startUrl: '/cash-registers',
         module: null,
         steps: [
-            {
-                element: '#tour-cash-container',
-                popover: {
-                    title: 'Historial de Caja',
-                    description: 'Cada cajero debe abrir y cerrar su caja diariamente. Aquí ves el historial de todos los cierres: ventas totales, efectivo esperado vs contado, y diferencias.',
-                    side: 'bottom', align: 'center'
-                }
-            },
-            {
-                popover: {
-                    title: 'Apertura y Cierre de Caja',
-                    description: 'Al entrar al POS se te pedirá abrir caja con un monto inicial. Al cerrar, el sistema compara lo esperado con lo contado y genera un reporte Z automático.',
-                }
-            },
-            {
-                navigate: '/purchases',
-                element: '#tour-purchases-add-btn',
-                popover: {
-                    title: 'Registrar Compras',
-                    description: 'Cuando recibes mercancía de un proveedor, regístrala aquí. El stock se actualiza automáticamente y se genera la cuenta por pagar.',
-                    side: 'bottom', align: 'end'
-                }
-            },
-            {
-                navigate: '/suppliers',
-                element: '#tour-suppliers-add-btn',
-                popover: {
-                    title: 'Directorio de Proveedores',
-                    description: 'Registra tus proveedores con nombre, teléfono, email y condiciones de crédito (días de plazo). Asocia cada compra a un proveedor para llevar el control.',
-                    side: 'bottom', align: 'end'
-                }
-            },
-            {
-                navigate: '/reports?tab=proveedores',
-                popover: {
-                    title: 'Cuentas por Pagar',
-                    description: 'Monitorea cuánto debes a cada proveedor. Ve las facturas pendientes, vencidas y registra pagos parciales o totales.',
-                    side: 'bottom', align: 'center'
-                }
-            },
-            {
-                navigate: '/reports?tab=creditos',
-                popover: {
-                    title: 'Cuentas por Cobrar',
-                    description: 'Controla las ventas a crédito de tus clientes. Ve facturas pendientes, registra abonos y mantén el balance actualizado.',
-                    side: 'bottom', align: 'center'
-                }
-            }
+            { element: '#tour-cash-container', popover: { title: 'Punto de control financiero', description: 'Aqui revisas cajas y sesiones. Es el primer lugar para validar si cada venta quedo asociada a la caja correcta.', side: 'bottom', align: 'center' } },
+            { element: '#tour-cash-registers-summary', popover: { title: 'Estado antes de operar', description: 'Confirma cajas abiertas, cerradas u ocupadas antes de iniciar turno. Una caja abierta ya tiene responsable.', side: 'bottom', align: 'center' } },
+            { navigate: '/reports?tab=caja', element: '#tour-reports-content', popover: { title: 'Reporte de caja', description: 'Cuadra efectivo, pagos digitales, devoluciones, avances y movimientos usando el mismo turno o rango horario.', side: 'top', align: 'center' } },
+            { navigate: '/purchases', element: '#tour-purchases-add-btn', popover: { title: 'Compras y recepcion', description: 'Las compras aumentan stock y pueden crear cuentas por pagar. En productos con IMEI, registra seriales desde la recepcion.', side: 'bottom', align: 'end' } },
+            { navigate: '/reports?tab=proveedores', popover: { title: 'Cuentas por pagar', description: 'Revisa compras a credito, vencimientos y pagos a proveedores para que la deuda no quede fuera del flujo de caja.' } },
+            { navigate: '/reports?tab=creditos', popover: { title: 'Cuentas por cobrar', description: 'Controla ventas a credito, abonos y clientes vencidos. Venta a credito no es efectivo disponible en caja.' } }
         ]
     },
 
     CASH_OVERVIEW: {
         id: 'cash-overview',
         title: 'Caja operativa',
-        description: 'Abrir turno, movimientos, avances, cierre y cuadre.',
+        description: 'Abrir turno, cobrar, registrar movimientos, cerrar e investigar diferencias.',
         startUrl: '/pos',
         module: null,
         steps: [
-            { element: '#tour-pos-cash-menu', popover: { title: 'Menu Caja', description: 'Desde aqui abres movimientos, avances y cierre. Si no hay caja abierta, el POS pide seleccionar una caja libre antes de vender.', side: 'bottom', align: 'end' } },
-            { popover: { title: 'Responsabilidad por turno', description: 'Cada turno queda asociado a caja, usuario y estacion. No uses una caja abierta por otra persona si no eres responsable de ese dinero.' } },
-            { navigate: '/reports?tab=caja', element: '#tour-reports-content', popover: { title: 'Reporte de caja', description: 'Usa el reporte para cuadrar ventas, efectivo, pagos digitales, avances, devoluciones y diferencias por el mismo rango horario.', side: 'top', align: 'center' } }
+            { element: '#tour-pos-cash-menu', popover: { title: 'Menu Caja', description: 'Desde aqui abres movimientos, avances y cierre. Si no hay caja abierta, el POS pedira seleccionar una caja libre antes de vender.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Responsabilidad del turno', description: 'Cada turno queda unido a caja, usuario y estacion. No vendas desde una caja abierta por otra persona.' } },
+            { popover: { title: 'Pagos por metodo', description: 'Efectivo se cuenta fisicamente. Punto, transferencia, pago movil y Zelle se cuadran por referencia y reporte.' } },
+            { navigate: '/reports?tab=caja', element: '#tour-reports-content', popover: { title: 'Cuadre posterior', description: 'Usa Reportes > Caja para comparar contado contra esperado por el mismo rango, usuario y caja.', side: 'top', align: 'center' } }
         ]
     },
 
     CASH_REGISTERS: {
         id: 'cash-registers',
         title: 'Gestion de cajas',
-        description: 'Cajas fisicas, sesiones activas, bloqueo e impresora por estacion.',
+        description: 'Cajas fisicas, sesiones activas, bloqueo, estacion e impresora.',
         startUrl: '/cash-registers',
         module: null,
         steps: [
-            { element: '#tour-cash-container', popover: { title: 'Cajas del negocio', description: 'Administra las cajas disponibles para cada punto de venta. Cada caja puede tener su propia estacion e impresora.', side: 'bottom', align: 'center' } },
-            { element: '#tour-cash-registers-summary', popover: { title: 'Estado general', description: 'Antes de operar revisa cuantas cajas estan abiertas, cerradas o bloqueadas. Una caja abierta ya tiene responsable.', side: 'bottom', align: 'center' } },
-            { element: '#tour-cash-new-register', popover: { title: 'Crear caja', description: 'Crea una caja por punto fisico: C01, C02, Mostrador, Taller. Usa nombres cortos que el cajero reconozca.', side: 'bottom', align: 'end' } },
-            { element: '#tour-cash-registers-list', popover: { title: 'Sesion activa', description: 'La tarjeta indica usuario, estado y datos de estacion. Si esta abierta, primero debe cerrarse antes de editarla.', side: 'top', align: 'center' } },
-            { element: '#tour-cash-registers-rules', popover: { title: 'Reglas de seguridad', description: 'Forzar cierre es solo para emergencias. Para problemas de impresion, revisa el ID de estacion/Bridge antes de culpar la caja.', side: 'top', align: 'center' } }
+            { element: '#tour-cash-container', popover: { title: 'Mapa de cajas', description: 'Administra las cajas disponibles para cada punto de venta. Crea una caja por mostrador o equipo que maneje dinero.', side: 'bottom', align: 'center' } },
+            { element: '#tour-cash-registers-summary', popover: { title: 'Estado general', description: 'Revisa abiertas, cerradas y bloqueadas. Una caja abierta esta ocupada por un usuario y no deberia reutilizarse.', side: 'bottom', align: 'center' } },
+            { element: '#tour-cash-new-register', popover: { title: 'Crear caja', description: 'Usa codigos cortos: C01, C02, Taller. Si hay impresora por caja, documenta el Client ID del bridge.', side: 'bottom', align: 'end' } },
+            { element: '#tour-cash-registers-list', popover: { title: 'Sesion activa', description: 'La tarjeta muestra usuario, estado, caja y estacion. Si esta abierta, primero debe cerrarse antes de editar.', side: 'top', align: 'center' } },
+            { element: '#tour-cash-registers-rules', popover: { title: 'Cierre forzado', description: 'Forzar cierre es emergencia: equipo apagado, sesion trabada o cajero ausente. Registra motivo y revisa reporte despues.', side: 'top', align: 'center' } }
         ]
     },
 
     CASH_OPENING: {
         id: 'cash-opening',
         title: 'Abrir caja',
-        description: 'Selecciona caja libre e ingresa fondo inicial.',
+        description: 'Seleccionar caja libre, contar fondo inicial y validar estacion.',
         startUrl: '/pos',
         module: null,
         steps: [
-            { popover: { title: 'Apertura de turno', description: 'Si no hay caja abierta, el POS muestra un modal. Selecciona una caja libre y continua.' } },
-            { popover: { title: 'Fondo inicial', description: 'Cuenta el efectivo real disponible por moneda. Ese monto se suma al efectivo esperado del cierre.' } },
-            { popover: { title: 'Cajas ocupadas', description: 'Una caja abierta por otro cajero aparece ocupada. No la uses si no eres responsable de ese turno.' } }
+            { popover: { title: 'Apertura obligatoria', description: 'Antes de cobrar, el POS necesita una caja abierta. Selecciona una caja libre, no una ocupada por otro usuario.' } },
+            { popover: { title: 'Fondo inicial real', description: 'Cuenta el efectivo fisico por moneda. Ese monto entra al esperado del cierre y sirve para dar vuelto.' } },
+            { popover: { title: 'Estacion correcta', description: 'Confirma que esta computadora tenga almacen e impresora correctos en Configuracion > Estacion POS.' } },
+            { popover: { title: 'Prueba rapida', description: 'Si es una caja nueva, realiza una venta pequena o prueba controlada para confirmar caja, almacen e impresion.' } }
         ]
     },
 
     CASH_POS_ACTIONS: {
         id: 'cash-pos-actions',
         title: 'Acciones de caja en POS',
-        description: 'Movimientos, avances y cierre desde el menu Caja.',
+        description: 'Movimientos, avances, cierre y diagnostico desde el menu Caja.',
         startUrl: '/pos',
         module: null,
         steps: [
-            { element: '#tour-pos-cash-menu', popover: { title: 'Menu Caja', description: 'Abre este menu para movimientos, avances y cierre de turno.', side: 'bottom', align: 'end' } },
-            { popover: { title: 'Movimientos', description: 'Usa movimiento para entradas o salidas que no son ventas. Siempre escribe una descripcion clara.' } },
-            { popover: { title: 'Avances', description: 'Avance registra salida de efectivo y entrada bancaria con comision. Requiere referencia.' } },
-            { popover: { title: 'Cerrar caja', description: 'Al cerrar, cuenta fisicamente el efectivo y escribe observacion si hay diferencia.' } }
+            { element: '#tour-pos-cash-menu', popover: { title: 'Menu Caja', description: 'Desde aqui registras lo que afecta el turno: movimientos, avances y cierre.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Movimientos', description: 'Entrada o salida que no es venta: gasto, retiro autorizado, reposicion, ingreso externo. Siempre deja descripcion clara.' } },
+            { popover: { title: 'Avances', description: 'Un avance mueve efectivo a banco o punto con comision. Requiere referencia para poder cuadrar despues.' } },
+            { popover: { title: 'Cierre', description: 'Cuenta efectivo fisico por moneda. Si hay diferencia, revisa movimientos, avances, devoluciones y pagos mixtos antes de confirmar.' } }
         ]
     },
 
@@ -929,38 +889,40 @@ export const TOUR_FLOWS = {
         startUrl: '/pos',
         module: null,
         steps: [
-            { element: '#tour-pos-cash-menu', popover: { title: 'Abrir menu Caja', description: 'Desde aqui se abre Movimiento de Caja.', side: 'bottom', align: 'end' } },
-            { popover: { title: 'Movimiento de caja', description: 'Selecciona entrada o salida, moneda, monto y descripcion. El sistema valida saldo para salidas.' } },
-            { popover: { title: 'Descripcion obligatoria', description: 'La descripcion debe explicar el motivo real: insumos, reposicion, retiro autorizado o ingreso extra.' } }
+            { element: '#tour-pos-cash-menu', popover: { title: 'Abrir menu Caja', description: 'Desde el menu Caja abre Movimiento de Caja cuando el dinero entra o sale sin venta.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Tipo correcto', description: 'Entrada aumenta caja; salida disminuye caja. Elige moneda y monto exacto.' } },
+            { popover: { title: 'Motivo auditable', description: 'Escribe una descripcion concreta: compra de insumos, retiro autorizado, reposicion de fondo o correccion aprobada.' } },
+            { popover: { title: 'Impacto en cierre', description: 'Un movimiento mal registrado se convierte en sobrante o faltante al cerrar. Registra en el momento.' } }
         ]
     },
 
     CASH_CLOSING: {
         id: 'cash-closing',
         title: 'Cerrar caja',
-        description: 'Arqueo fisico y verificacion de diferencias.',
+        description: 'Arqueo fisico, comparacion por metodo y observacion de diferencias.',
         startUrl: '/pos',
         module: null,
         steps: [
-            { element: '#tour-pos-cash-menu', popover: { title: 'Cerrar desde Caja', description: 'El cierre se inicia desde el menu Caja del POS.', side: 'bottom', align: 'end' } },
-            { popover: { title: 'Cierre de turno', description: 'Cuenta el efectivo fisico por moneda e ingresa el monto contado. Pagos digitales aparecen separados.' } },
-            { popover: { title: 'Antes de confirmar', description: 'Si hay diferencia, revisa movimientos, avances, devoluciones y pagos mixtos. Agrega observacion si aun queda descuadre.' } }
+            { element: '#tour-pos-cash-menu', popover: { title: 'Cerrar desde Caja', description: 'El cierre se inicia desde el menu Caja del POS. No cierres si todavia quedan ventas por cobrar.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Cuenta efectivo', description: 'Cuenta billetes y monedas por divisa. Pagos digitales no se suman como efectivo fisico.' } },
+            { popover: { title: 'Compara esperado', description: 'El sistema calcula fondo inicial + ventas en efectivo + entradas - salidas - devoluciones/avances.' } },
+            { popover: { title: 'Diferencias', description: 'Si hay faltante o sobrante, revisa pagos mixtos, vuelto, egresos, avances, devoluciones y ventas anuladas. Deja observacion.' } }
         ]
     },
 
     CASH_RECONCILE: {
         id: 'cash-reconcile',
         title: 'Investigar diferencias',
-        description: 'Como revisar faltantes y sobrantes sin perder trazabilidad.',
+        description: 'Revisar faltantes y sobrantes sin perder trazabilidad.',
         startUrl: '/reports?tab=caja',
         module: null,
         steps: [
-            { element: '#tour-reports-content', popover: { title: 'Reporte de caja', description: 'Empieza por el mismo turno/rango horario del cierre. No compares todo el dia si hubo varios turnos.', side: 'top', align: 'center' } },
-            { navigate: '/reports?tab=ventas', element: '#tour-reports-content', popover: { title: 'Ventas del periodo', description: 'Compara ventas, pagos mixtos, creditos, devoluciones y anulaciones del mismo rango.', side: 'top', align: 'center' } },
-            { navigate: '/pos', element: '#tour-pos-cash-menu', popover: { title: 'Movimientos y avances', description: 'Un egreso no registrado casi siempre aparece como faltante. Un ingreso no registrado suele verse como sobrante.', side: 'bottom', align: 'end' } }
+            { element: '#tour-reports-content', popover: { title: 'Mismo turno', description: 'Empieza por el cierre exacto: misma caja, cajero y rango horario. No mezcles turnos.', side: 'top', align: 'center' } },
+            { navigate: '/reports?tab=ventas', element: '#tour-reports-content', popover: { title: 'Ventas del periodo', description: 'Compara ventas, anulaciones, devoluciones, creditos, pagos mixtos y metodo de pago.', side: 'top', align: 'center' } },
+            { navigate: '/pos', element: '#tour-pos-cash-menu', popover: { title: 'Movimientos y avances', description: 'Un egreso no registrado suele ser faltante; un ingreso no registrado suele ser sobrante. Revisa referencias.', side: 'bottom', align: 'end' } },
+            { navigate: '/config-center?tab=pos', element: '#tour-config-content', popover: { title: 'Caja equivocada', description: 'Si la venta o impresion salio por otra caja, revisa estacion POS, impresora local y caja seleccionada antes de seguir vendiendo.', side: 'top', align: 'center' } }
         ]
     },
-
 
 
     SUPPLIERS: {

@@ -73,15 +73,15 @@ const TASK_TOURS = {
         { label: 'Caja del turno', tour: 'CASH_POS_ACTIONS' },
     ],
     cash: [
-        { label: 'Abrir caja', tour: 'CASH_OPENING' },
-        { label: 'Movimientos', tour: 'CASH_MOVEMENTS' },
+        { label: 'Abrir turno', tour: 'CASH_OPENING' },
+        { label: 'Movimiento/avance', tour: 'CASH_POS_ACTIONS' },
         { label: 'Cerrar caja', tour: 'CASH_CLOSING' },
         { label: 'Investigar diferencia', tour: 'CASH_RECONCILE' },
     ],
     'cash/registers': [
         { label: 'Gestionar cajas', tour: 'CASH_REGISTERS' },
-        { label: 'Abrir caja', tour: 'CASH_OPENING' },
-        { label: 'Cerrar caja', tour: 'CASH_CLOSING' },
+        { label: 'Caja por estacion', tour: 'CONFIG_POS' },
+        { label: 'Investigar bloqueo', tour: 'CASH_RECONCILE' },
     ],
     purchases: [
         { label: 'Lista de compras', tour: 'PURCHASES_LIST' },
@@ -242,14 +242,16 @@ const COMMON_ISSUES = {
     ],
     cash: [
         'Caja cerrada: abre turno desde POS y selecciona una caja libre.',
-        'Faltante: revisa egresos, avances, devoluciones y vuelto antes de cerrar.',
-        'Sobrante: busca ingresos no registrados o cobros de mas.',
-        'Caja vs ventas no cuadra: compara por metodo de pago, usuario y rango horario exacto.',
+        'Faltante: revisa egresos, avances, devoluciones, pagos mixtos y vuelto.',
+        'Sobrante: busca ingresos no registrados o cobros duplicados.',
+        'Venta sale por otra caja: revisa Estacion POS, usuario activo e impresora local.',
+        'Caja vs ventas no cuadra: compara metodo de pago, usuario, caja y rango exacto.',
     ],
     'cash/registers': [
         'Caja ocupada: otro usuario tiene sesion abierta.',
         'No se puede editar: primero cierra la sesion activa.',
-        'Forzar cierre: usalo solo para sesiones bloqueadas sin cajero activo.',
+        'Forzar cierre: usalo solo para sesiones bloqueadas sin cajero activo y deja motivo.',
+        'Imprime en caja equivocada: valida Client ID/bridge y Estacion POS.',
     ],
     purchases: [
         'Proveedor faltante: selecciona o crea proveedor antes de procesar.',
