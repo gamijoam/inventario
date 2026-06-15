@@ -409,7 +409,7 @@ const ServicesUnified = () => {
     // LEFT PANEL — Order List
     // ============================================================
     const renderOrderList = () => (
-        <div className="flex flex-col h-full">
+        <div id="tour-services-list" className="flex flex-col h-full">
             {/* Header */}
             <div className="p-4 border-b border-slate-200 flex-shrink-0">
                 <div className="flex items-center justify-between mb-3">
@@ -420,6 +420,7 @@ const ServicesUnified = () => {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => setShowTemplatesManager(true)}
+                            id="tour-services-templates"
                             className="flex items-center gap-1.5 px-3 py-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 text-sm font-semibold rounded-lg shadow-sm border border-yellow-200 transition-colors"
                             title="Gestionar plantillas de servicio"
                         >
@@ -427,6 +428,7 @@ const ServicesUnified = () => {
                         </button>
                         <button
                             onClick={() => setShowNewOrderModal(true)}
+                            id="tour-services-new-order"
                             className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
                         >
                             <Plus size={16} /> Nueva
@@ -435,7 +437,7 @@ const ServicesUnified = () => {
                 </div>
 
                 {/* Status filter pills */}
-                <div className="flex flex-wrap gap-1.5 pb-1">
+                <div id="tour-services-filters" className="flex flex-wrap gap-1.5 pb-1">
                     {FILTER_STATUSES.map((f) => (
                         <button
                             key={f.value}
@@ -540,7 +542,7 @@ const ServicesUnified = () => {
         const paymentStatus = getPaymentStatus();
 
         return (
-            <div className="flex flex-col h-full overflow-y-auto">
+            <div id="tour-services-detail" className="flex flex-col h-full overflow-y-auto">
                 {/* Section 1: Header */}
                 <div className="p-4 border-b border-slate-200 flex-shrink-0 bg-white">
                     {/* Mobile back button */}
@@ -609,12 +611,12 @@ const ServicesUnified = () => {
                 </div>
 
                 {/* Section 2: Status Stepper */}
-                <div className="px-4 py-3 border-b border-slate-200 flex-shrink-0 bg-slate-50">
+                <div id="tour-services-status" className="px-4 py-3 border-b border-slate-200 flex-shrink-0 bg-slate-50">
                     {renderStatusStepper()}
                 </div>
 
                 {/* Section 3: Items / Parts */}
-                <div className="px-4 pt-4 pb-2 flex-shrink-0">
+                <div id="tour-services-items" className="px-4 pt-4 pb-2 flex-shrink-0">
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
                         <div className="flex items-center justify-between p-3 border-b border-slate-100">
                             <h3 className="font-semibold text-slate-800 text-sm flex items-center gap-2">
@@ -834,7 +836,7 @@ const ServicesUnified = () => {
                 </div>
 
                 {/* Section 4: Payment Section */}
-                <div className="px-4 py-2 flex-shrink-0">
+                <div id="tour-services-payments" className="px-4 py-2 flex-shrink-0">
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
                         <h3 className="font-semibold text-slate-800 text-sm flex items-center gap-2 mb-3">
                             <DollarSign size={16} className="text-emerald-600" />
@@ -1002,7 +1004,7 @@ const ServicesUnified = () => {
                 </div>
 
                 {/* Section 5: Diagnosis Notes */}
-                <div className="px-4 py-2 pb-4 flex-shrink-0">
+                <div id="tour-services-diagnosis" className="px-4 py-2 pb-4 flex-shrink-0">
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
                         <div className="flex items-center justify-between mb-2">
                             <h3 className="font-semibold text-slate-800 text-sm flex items-center gap-2">
@@ -1036,7 +1038,7 @@ const ServicesUnified = () => {
     // Main Layout
     // ============================================================
     return (
-        <div className="h-[calc(100vh-64px)] flex flex-col md:flex-row bg-slate-100">
+        <div id="tour-services-container" className="h-[calc(100vh-64px)] flex flex-col md:flex-row bg-slate-100">
             {/* LEFT PANEL — Order List */}
             <div className={`md:w-[420px] lg:w-[460px] md:flex-shrink-0 md:border-r border-slate-200 bg-white md:flex md:flex-col h-full
                 ${mobileView === 'list' ? 'flex flex-col' : 'hidden md:flex md:flex-col'}`}

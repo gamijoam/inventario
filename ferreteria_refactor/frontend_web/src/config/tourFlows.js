@@ -1259,35 +1259,147 @@ export const TOUR_FLOWS = {
     // =============================================
     SERVICES: {
         id: 'services',
-        title: 'Servicios Técnicos',
-        description: 'Recepción de equipos, diagnóstico y reparación.',
-        startUrl: '/laundry',
+        title: 'Servicios / Taller',
+        description: 'Recepcion, diagnostico, repuestos, pagos y entrega.',
+        startUrl: '/services',
         module: 'services',
         steps: [
             {
                 element: '#tour-services-container',
                 popover: {
-                    title: 'Tablero de Servicios',
-                    description: 'Gestiona las órdenes de servicio técnico: recepción de equipos, diagnóstico, aprobación del presupuesto y entrega al cliente.',
+                    title: 'Tablero de servicios',
+                    description: 'Aqui controlas las ordenes desde que el cliente deja el equipo hasta que se cobra y entrega.',
                     side: 'bottom', align: 'center'
                 }
             },
             {
+                element: '#tour-services-list',
                 popover: {
-                    title: 'Nueva Recepción',
-                    description: 'Registra el equipo que trae el cliente: tipo, marca, modelo, problema reportado, accesorios que deja y una foto del estado inicial.',
+                    title: 'Lista de ordenes',
+                    description: 'La columna izquierda es la cola de trabajo. Cada orden muestra cliente, equipo, estado y si tiene pagos registrados.',
+                    side: 'right', align: 'start'
+                }
+            },
+            {
+                element: '#tour-services-filters',
+                popover: {
+                    title: 'Filtra por estado',
+                    description: 'Usa estos filtros para trabajar por prioridad: recibidas, en diagnostico, reparando, listas o entregadas.',
+                    side: 'bottom', align: 'start'
+                }
+            },
+            {
+                element: '#tour-services-detail',
+                popover: {
+                    title: 'Detalle de la orden',
+                    description: 'Al seleccionar una orden, aqui revisas la ficha completa: cliente, falla, estado, items, pagos y diagnostico.',
+                    side: 'left', align: 'start'
+                }
+            }
+        ]
+    },
+
+    SERVICES_CREATE_ORDER: {
+        id: 'services-create-order',
+        title: 'Crear orden de servicio',
+        description: 'Registra un equipo de forma ordenada y trazable.',
+        startUrl: '/services',
+        module: 'services',
+        steps: [
+            {
+                element: '#tour-services-new-order',
+                popover: {
+                    title: 'Nueva orden',
+                    description: 'Comienza aqui cuando el cliente deja un equipo. Registra cliente, equipo, falla, serial/IMEI y accesorios recibidos.',
+                    side: 'bottom', align: 'end'
+                }
+            },
+            {
+                element: '#tour-services-templates',
+                popover: {
+                    title: 'Plantillas',
+                    description: 'Si repites servicios, crea plantillas para cargar mano de obra y repuestos frecuentes con menos errores.',
+                    side: 'bottom', align: 'end'
                 }
             },
             {
                 popover: {
-                    title: 'Diagnóstico y Presupuesto',
-                    description: 'El técnico examina el equipo, registra el diagnóstico y crea un presupuesto con los repuestos y mano de obra necesarios. El cliente aprueba o rechaza.',
+                    title: 'Datos que no deben faltar',
+                    description: 'Confirma telefono del cliente, falla reportada, condicion fisica y accesorios. Esa informacion evita reclamos al entregar.'
+                }
+            }
+        ]
+    },
+
+    SERVICES_ORDER_FLOW: {
+        id: 'services-order-flow',
+        title: 'Gestionar una orden',
+        description: 'Avanza estados y carga repuestos o mano de obra.',
+        startUrl: '/services',
+        module: 'services',
+        steps: [
+            {
+                element: '#tour-services-detail',
+                popover: {
+                    title: 'Selecciona una orden',
+                    description: 'Abre una orden para ver la informacion completa del cliente, equipo y falla reportada.',
+                    side: 'left', align: 'start'
+                }
+            },
+            {
+                element: '#tour-services-status',
+                popover: {
+                    title: 'Estados de trabajo',
+                    description: 'Actualiza el estado segun avance real: recibido, diagnostico, reparacion, listo y entregado.',
+                    side: 'bottom', align: 'start'
+                }
+            },
+            {
+                element: '#tour-services-items',
+                popover: {
+                    title: 'Repuestos y mano de obra',
+                    description: 'Carga repuestos desde inventario para que baje el stock. Usa servicio manual para mano de obra o diagnosticos.',
+                    side: 'top', align: 'start'
+                }
+            },
+            {
+                element: '#tour-services-diagnosis',
+                popover: {
+                    title: 'Diagnostico y notas',
+                    description: 'Documenta hallazgos, autorizaciones y observaciones tecnicas. Guarda despues de editar.',
+                    side: 'top', align: 'start'
+                }
+            }
+        ]
+    },
+
+    SERVICES_PAYMENT: {
+        id: 'services-payment',
+        title: 'Pagos y entrega',
+        description: 'Controla abonos, saldo pendiente y cierre de la orden.',
+        startUrl: '/services',
+        module: 'services',
+        steps: [
+            {
+                element: '#tour-services-payments',
+                popover: {
+                    title: 'Pagos de la orden',
+                    description: 'Aqui ves total, abonado y pendiente. Registra cada abono con metodo y referencia para que el cierre cuadre.',
+                    side: 'top', align: 'start'
+                }
+            },
+            {
+                element: '#tour-services-status',
+                popover: {
+                    title: 'Antes de entregar',
+                    description: 'La orden deberia estar lista y con el pendiente claro. Si falta cobrar, confirma si se pagara ahora o si queda autorizado como credito.',
+                    side: 'bottom', align: 'start'
                 }
             },
             {
                 popover: {
-                    title: 'Reparación y Entrega',
-                    description: 'Una vez aprobado, el técnico trabaja en la reparación. Al terminar, la orden se marca como "Lista" y cuando el cliente recoge, se envía al POS para cobrar.',
+                    title: 'Cierre correcto',
+                    description: 'Al cobrar, verifica abonos previos y cobra solo el pendiente. Luego entrega el equipo y deja el historial limpio.'
                 }
             }
         ]

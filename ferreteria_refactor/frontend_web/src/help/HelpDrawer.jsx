@@ -145,6 +145,16 @@ const TASK_TOURS = {
     'sales/creditos': [
         { label: 'Registrar abono', tour: 'SALES_CREDIT_PAYMENT' },
     ],
+    'services/dashboard': [
+        { label: 'Tablero taller', tour: 'SERVICES' },
+        { label: 'Crear orden', tour: 'SERVICES_CREATE_ORDER' },
+        { label: 'Gestionar orden', tour: 'SERVICES_ORDER_FLOW' },
+        { label: 'Cobro y entrega', tour: 'SERVICES_PAYMENT' },
+    ],
+    'services/order-detail': [
+        { label: 'Gestionar orden', tour: 'SERVICES_ORDER_FLOW' },
+        { label: 'Cobro y entrega', tour: 'SERVICES_PAYMENT' },
+    ],
 };
 
 const COMMON_ISSUES = {
@@ -228,6 +238,16 @@ const COMMON_ISSUES = {
         'Stock vs IMEI no cuadra: compara disponibles, vendidos y en transito.',
         'IMEI no aparece: revisa si el producto tiene activo control serial.',
         'Serial no vendible: puede estar vendido, reservado, en transito o no disponible.',
+    ],
+    'services/dashboard': [
+        'Orden sin cliente/equipo: completa la recepcion antes de diagnosticar.',
+        'No aparece para cobrar: confirma que tenga items y saldo pendiente.',
+        'Trabajo estancado: filtra por estado y actualiza diagnostico o contacto.',
+    ],
+    'services/order-detail': [
+        'Total no cuadra: revisa items duplicados, cantidades y abonos registrados.',
+        'Stock no baja: carga el repuesto desde inventario, no como servicio manual.',
+        'No se puede entregar: revisa saldo pendiente y estado actual de la orden.',
     ],
     dashboard: [
         'Si ingresos salen en cero, revisa el periodo seleccionado y la caja activa.',
