@@ -84,15 +84,15 @@ const TASK_TOURS = {
         { label: 'Investigar bloqueo', tour: 'CASH_RECONCILE' },
     ],
     purchases: [
-        { label: 'Lista de compras', tour: 'PURCHASES_LIST' },
+        { label: 'Historial compras', tour: 'PURCHASES_LIST' },
         { label: 'Registrar compra', tour: 'PURCHASES_CREATE' },
-        { label: 'Recibir IMEI', tour: 'PURCHASES_IMEI' },
-        { label: 'Recepcion serializada', tour: 'SERIALIZED_RECEPTION' },
+        { label: 'Compra con IMEI', tour: 'PURCHASES_IMEI' },
+        { label: 'Validar seriales', tour: 'SERIALIZED_RECEPTION' },
     ],
     suppliers: [
         { label: 'Directorio', tour: 'SUPPLIERS' },
         { label: 'Registrar compra', tour: 'PURCHASES_CREATE' },
-        { label: 'Cuentas por pagar', tour: 'REPORTS_SUPPLIERS' },
+        { label: 'Deuda proveedor', tour: 'REPORTS_SUPPLIERS' },
     ],
     'config/general': [
         { label: 'Datos visibles', tour: 'CONFIG_GENERAL' },
@@ -255,14 +255,16 @@ const COMMON_ISSUES = {
     ],
     purchases: [
         'Proveedor faltante: selecciona o crea proveedor antes de procesar.',
-        'IMEI incompleto: la cantidad de la linea debe coincidir con seriales validos.',
+        'Producto telefonico no pide IMEI: revisa que este marcado como Serial/IMEI.',
+        'IMEI incompleto: cantidad de la linea debe coincidir con seriales validos.',
         'Costo cero: corrige antes de confirmar para no danar ganancia real.',
         'Factura duplicada: revisa proveedor, numero de factura y fecha.',
     ],
     suppliers: [
         'Proveedor duplicado: busca por nombre/contacto antes de crear.',
-        'Deuda no cuadra: revisa compras a credito y pagos registrados.',
+        'Deuda no cuadra: revisa compras a credito, facturas duplicadas y pagos registrados.',
         'Pago no baja saldo: confirma que se aplico a la compra/proveedor correcto.',
+        'Compra contado aparece como deuda: revisa condicion de pago de la compra.',
     ],
     'config/general': [
         'Ticket con datos viejos: guarda cambios y vuelve a imprimir una prueba.',

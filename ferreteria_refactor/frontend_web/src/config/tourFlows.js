@@ -290,44 +290,47 @@ export const TOUR_FLOWS = {
     PURCHASES_LIST: {
         id: 'purchases_list',
         title: 'Compras y recepcion',
-        description: 'Historial, facturas de proveedor, costos, pagos e inventario recibido.',
+        description: 'Historial de compras, recepciones, costos, pagos, stock recibido e IMEIs.',
         startUrl: '/purchases',
         module: null,
         steps: [
-            { element: '#tour-purchases-container', popover: { title: 'Centro de compras', description: 'Aqui controlas lo recibido de proveedores: facturas, deuda, pagos y anulaciones.', side: 'bottom', align: 'center' } },
-            { element: '#tour-purchases-summary', popover: { title: 'Resumen rapido', description: 'Mira cuanto se compro, cuanto se pago y que sigue pendiente. Es la primera alerta antes de revisar proveedor por proveedor.', side: 'bottom', align: 'center' } },
-            { element: '#tour-purchases-list', popover: { title: 'Historial auditable', description: 'Cada compra debe poder explicarse: proveedor, productos, costos, seriales si aplica, condicion de pago y estado.', side: 'top', align: 'center' } },
-            { element: '#tour-purchases-add-btn', popover: { title: 'Nueva recepcion', description: 'Usa este boton cuando llega mercancia. Si recibes celulares o equipos con IMEI, captura los seriales dentro de la misma compra.', side: 'bottom', align: 'end' } }
+            { element: '#tour-purchases-container', popover: { title: 'Centro de compras', description: 'Aqui controlas mercancia recibida, facturas de proveedor, pagos, anulaciones y deuda pendiente.', side: 'bottom', align: 'center' } },
+            { element: '#tour-purchases-summary', popover: { title: 'Resumen financiero', description: 'Compara comprado, pagado y pendiente. Si pendiente crece, revisa compras a credito y vencimientos.', side: 'bottom', align: 'center' } },
+            { element: '#tour-purchases-list', popover: { title: 'Historial auditable', description: 'Cada compra debe explicar proveedor, factura, productos, costos, seriales si aplica, condicion de pago y estado.', side: 'top', align: 'center' } },
+            { element: '#tour-purchases-add-btn', popover: { title: 'Nueva recepcion', description: 'Usa Nueva Compra cuando llega mercancia. Para telefonos/equipos con IMEI, captura seriales dentro de la misma compra.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Despues de procesar', description: 'Valida detalle, Kardex, stock y deuda del proveedor. Si algo no cuadra, corrige la causa antes de cargar otra compra.' } }
         ]
     },
 
     PURCHASES_CREATE: {
         id: 'purchases_create',
         title: 'Nueva compra',
-        description: 'Registrar proveedor, productos, costos, IMEIs y pago.',
+        description: 'Registrar proveedor, factura, productos, costos, IMEIs y forma de pago.',
         startUrl: '/purchases/new',
         module: null,
         steps: [
-            { element: '#tour-purchase-supplier', popover: { title: 'Proveedor correcto', description: 'Selecciona el proveedor real antes de cargar productos. Asi la deuda, historial y pagos quedan unidos al mismo contacto.', side: 'bottom', align: 'start' } },
-            { element: '#tour-purchase-product-search', popover: { title: 'Agregar productos', description: 'Busca por nombre, SKU o codigo. Usa producto nuevo solo si verificaste que no existe para evitar duplicados de stock.', side: 'bottom', align: 'start' } },
-            { element: '#tour-purchase-new-product', popover: { title: 'Crear al vuelo', description: 'Si el producto no existe, crealo desde aqui con nombre, SKU, costo, precio y tipo correcto. Para telefonos, activa serial/IMEI desde la ficha.', side: 'bottom', align: 'end' } },
-            { element: '#tour-purchase-items', popover: { title: 'Cantidad y costo', description: 'La cantidad suma inventario y el costo alimenta ganancia real. No proceses lineas con costo cero salvo una excepcion documentada.', side: 'top', align: 'center' } },
-            { element: '#tour-purchase-conditions', popover: { title: 'Contado o credito', description: 'Contado no genera deuda. Credito crea cuenta por pagar al proveedor. Revisa factura, fecha y referencia antes de guardar.', side: 'left', align: 'start' } },
-            { element: '#tour-purchase-submit', popover: { title: 'Procesar', description: 'Al procesar sube stock, se crea Kardex y se registran seriales si aplica. Revisa el resumen antes de confirmar.', side: 'top', align: 'center' } }
+            { element: '#tour-purchase-supplier', popover: { title: 'Proveedor correcto', description: 'Selecciona el proveedor real antes de cargar productos. La deuda, historial y pagos dependen de esta seleccion.', side: 'bottom', align: 'start' } },
+            { element: '#tour-purchase-product-search', popover: { title: 'Buscar antes de crear', description: 'Busca por nombre, SKU o codigo. Crear duplicados divide stock, compras y reportes.', side: 'bottom', align: 'start' } },
+            { element: '#tour-purchase-new-product', popover: { title: 'Crear producto desde compra', description: 'Si no existe, crealo con nombre, SKU, costo, precio y tipo correcto. Para celulares activa Serial/IMEI antes de recibir unidades.', side: 'bottom', align: 'end' } },
+            { element: '#tour-purchase-items', popover: { title: 'Cantidad y costo real', description: 'Cantidad aumenta inventario. Costo alimenta ganancia real. No confirmes costo cero salvo una excepcion documentada.', side: 'top', align: 'center' } },
+            { element: '#tour-purchase-imei-lines', popover: { title: 'Seriales si aplica', description: 'Si la linea maneja IMEI, la cantidad debe coincidir con seriales validos. Escanea o pega antes de procesar.', side: 'top', align: 'center' } },
+            { element: '#tour-purchase-conditions', popover: { title: 'Contado o credito', description: 'Contado no deja deuda. Credito crea cuenta por pagar. Revisa factura, fecha, vencimiento, referencia y saldo pendiente.', side: 'left', align: 'start' } },
+            { element: '#tour-purchase-submit', popover: { title: 'Procesar con control', description: 'Al procesar sube stock una sola vez, registra Kardex, guarda seriales y actualiza proveedor. Revisa el resumen antes de confirmar.', side: 'top', align: 'center' } }
         ]
     },
 
     PURCHASES_IMEI: {
         id: 'purchases_imei',
         title: 'Compra con IMEI',
-        description: 'Recibir equipos serializados sin duplicar stock.',
+        description: 'Recibir equipos serializados sin duplicar stock ni dejar IMEIs huerfanos.',
         startUrl: '/purchases/new',
         module: null,
         steps: [
-            { element: '#tour-purchase-product-search', popover: { title: 'Producto serializado', description: 'Agrega el modelo que maneja IMEI. Si no esta marcado como serializado, corrigelo en la ficha antes de recibir.', side: 'bottom', align: 'start' } },
-            { element: '#tour-purchase-items', popover: { title: 'Cantidad fisica', description: 'La cantidad de la linea debe ser la misma cantidad de equipos que tienes en mano.', side: 'top', align: 'center' } },
-            { element: '#tour-purchase-imei-lines', popover: { title: 'Capturar IMEIs', description: 'Escanea o pega los IMEIs de esta linea. El sistema debe validar cantidad, duplicados y seriales ya registrados antes de procesar.', side: 'top', align: 'center' } },
-            { element: '#tour-purchase-submit', popover: { title: 'Guardar recepcion', description: 'Al confirmar, el stock sube una vez y cada IMEI queda disponible para venta o traslado. No lo vuelvas a cargar desde Seriales.', side: 'top', align: 'center' } }
+            { element: '#tour-purchase-product-search', popover: { title: 'Producto serializado', description: 'Agrega el modelo correcto. Si no esta marcado como Serial/IMEI, corrige la ficha antes de recibir.', side: 'bottom', align: 'start' } },
+            { element: '#tour-purchase-items', popover: { title: 'Cantidad fisica', description: 'La cantidad debe ser exactamente la cantidad de equipos recibidos en mano.', side: 'top', align: 'center' } },
+            { element: '#tour-purchase-imei-lines', popover: { title: 'Captura rapida', description: 'Escanea un IMEI y presiona Enter para el siguiente, o pega una lista. El sistema debe validar cantidad, vacios y duplicados.', side: 'top', align: 'center' } },
+            { element: '#tour-purchase-submit', popover: { title: 'Guardar recepcion', description: 'Al confirmar, cada IMEI queda disponible para venta o traslado. No vuelvas a cargar esos seriales desde Seriales.', side: 'top', align: 'center' } },
+            { popover: { title: 'Si algo no cuadra', description: 'Si stock y seriales no coinciden, revisa esta compra antes de hacer ajustes manuales o recepciones adicionales.' } }
         ]
     },
 
@@ -928,15 +931,15 @@ export const TOUR_FLOWS = {
     SUPPLIERS: {
         id: 'suppliers',
         title: 'Proveedores',
-        description: 'Directorio, terminos de credito y saldos por proveedor.',
+        description: 'Contactos, condiciones de credito, deuda actual, compras y pagos.',
         startUrl: '/suppliers',
         module: null,
         steps: [
-            { element: '#tour-suppliers-container', popover: { title: 'Directorio de proveedores', description: 'Aqui administras contactos, condiciones de credito, limite y deuda actual de cada proveedor.', side: 'bottom', align: 'center' } },
-            { element: '#tour-suppliers-search', popover: { title: 'Buscar antes de crear', description: 'Busca por nombre o contacto para evitar proveedores duplicados y saldos divididos.', side: 'bottom', align: 'start' } },
+            { element: '#tour-suppliers-container', popover: { title: 'Directorio de proveedores', description: 'Centraliza contactos, condiciones de credito, limite, deuda y compras por proveedor.', side: 'bottom', align: 'center' } },
+            { element: '#tour-suppliers-search', popover: { title: 'Buscar antes de crear', description: 'Busca por nombre, RIF, telefono o contacto para evitar duplicados y saldos divididos.', side: 'bottom', align: 'start' } },
             { element: '#tour-suppliers-add-btn', popover: { title: 'Nuevo proveedor', description: 'Registra datos de contacto y terminos de pago antes de cargar compras a credito.', side: 'bottom', align: 'end' } },
-            { element: '#tour-suppliers-list', popover: { title: 'Deuda y condiciones', description: 'La lista muestra plazo, limite y deuda actual. Si el saldo no cuadra, revisa compras pendientes y pagos.', side: 'top', align: 'center' } },
-            { popover: { title: 'Pagos e historial', description: 'Los pagos se registran desde compras o reportes de proveedores. No corrijas deuda con ajustes manuales si puedes registrar el abono real.' } }
+            { element: '#tour-suppliers-list', popover: { title: 'Deuda y condiciones', description: 'La lista muestra deuda, limite y plazo. Si el saldo no cuadra, revisa compras pendientes, pagos y duplicados.', side: 'top', align: 'center' } },
+            { popover: { title: 'Pagos con trazabilidad', description: 'Registra pagos desde detalle de compra o reporte de proveedores. No corrijas deuda cambiando saldos sin historial.' } }
         ]
     },
 
