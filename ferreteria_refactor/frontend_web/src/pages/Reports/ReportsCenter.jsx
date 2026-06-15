@@ -791,7 +791,7 @@ const ReportsCenter = () => {
                     <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 py-3">
                         <div>
                             <h1 className="text-xl font-black text-slate-900 tracking-tight">Centro de Reportes</h1>
-                            <p className="text-slate-500 text-xs font-semibold">Anal?tica avanzada de tu negocio</p>
+                            <p className="text-slate-500 text-xs font-semibold">Analitica avanzada de tu negocio</p>
                         </div>
 
                         <div id="tour-reports-controls" className="flex flex-wrap items-center gap-1.5">

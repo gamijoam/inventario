@@ -969,88 +969,97 @@ export const TOUR_FLOWS = {
     REPORTS: {
         id: 'reports',
         title: 'Centro de Reportes',
-        description: 'Lectura, filtros y exportacion de indicadores del negocio.',
+        description: 'Leer indicadores, filtrar periodos y cruzar datos del negocio.',
         startUrl: '/reports?tab=resumen',
         module: null,
         steps: [
-            { element: '#tour-reports-container', popover: { title: 'Centro de Reportes', description: 'Aqui analizas ventas, caja, creditos, proveedores, inventario y comisiones con el mismo rango de fechas.', side: 'bottom', align: 'center' } },
-            { element: '#tour-reports-presets', popover: { title: 'Presets de periodo', description: 'Usa atajos para hoy, semana, mes o rangos mas amplios. Todos los numeros cambian con este periodo.', side: 'bottom', align: 'end' } },
-            { element: '#tour-reports-date-range', popover: { title: 'Rango exacto', description: 'Para auditorias usa fechas exactas. Evita comparar un mes completo contra un mes parcial.', side: 'bottom', align: 'end' } },
-            { element: '#tour-reports-tabs', popover: { title: 'Pestanas de analisis', description: 'Cambia entre resumen, ventas, caja, creditos, proveedores, inventario y comisiones segun la pregunta que quieras responder.', side: 'bottom', align: 'start' } },
-            { element: '#tour-reports-export', popover: { title: 'Exportar', description: 'Descarga los datos del reporte activo para contabilidad, auditoria o seguimiento administrativo.', side: 'bottom', align: 'end' } }
+            { element: '#tour-reports-container', popover: { title: 'Centro de decisiones', description: 'Aqui no solo ves numeros: cruzas ventas, caja, creditos, proveedores e inventario para explicar diferencias.', side: 'bottom', align: 'center' } },
+            { element: '#tour-reports-presets', popover: { title: 'Atajos de periodo', description: 'Usa Hoy, Semana o Mes para una lectura rapida. Para auditorias, cambia al rango exacto del problema.', side: 'bottom', align: 'end' } },
+            { element: '#tour-reports-date-range', popover: { title: 'Rango exacto', description: 'El rango controla todo el reporte activo. Para cierres de caja usa el mismo turno; para compras o creditos usa fechas reales del documento.', side: 'bottom', align: 'end' } },
+            { element: '#tour-reports-tabs', popover: { title: 'Pestanas de analisis', description: 'Resumen responde como va el negocio. Ventas, Caja, Creditos, Proveedores e Inventario sirven para investigar la causa.', side: 'bottom', align: 'start' } },
+            { element: '#tour-reports-export', popover: { title: 'Exportar respaldo', description: 'Exporta cuando necesites enviar al contador, revisar con administracion o guardar evidencia de una auditoria.', side: 'bottom', align: 'end' } },
+            { element: '#tour-reports-content', popover: { title: 'Leer antes de actuar', description: 'Si un numero se ve raro, no corrijas de inmediato. Cambia de pestana y cruza ventas, caja, Kardex, compras o pagos.', side: 'top', align: 'center' } }
         ]
     },
 
     REPORTS_SALES: {
         id: 'reports_sales',
         title: 'Reporte de Ventas',
-        description: 'Auditar ventas y cruzarlas con caja.',
+        description: 'Auditar ventas, pagos, devoluciones, anulaciones y descuentos.',
         startUrl: '/reports?tab=ventas',
         module: null,
         steps: [
-            { element: '#tour-reports-date-range', popover: { title: 'Periodo de ventas', description: 'Selecciona el rango exacto antes de investigar ventas, anulaciones o devoluciones.', side: 'bottom', align: 'end' } },
-            { element: '#tour-reports-content', popover: { title: 'Detalle de ventas', description: 'Usa filtros internos para buscar factura, cliente, vendedor o metodo. Abre detalles cuando algo no cuadre.', side: 'top', align: 'center' } },
-            { popover: { title: 'Cruce recomendado', description: 'Si el total no coincide con caja, revisa pagos mixtos, ventas a credito, devoluciones y anulaciones del mismo periodo.' } }
+            { element: '#tour-reports-date-range', popover: { title: 'Periodo de venta', description: 'Primero fija el rango exacto. Para cierre diario, usa el mismo dia o el mismo turno que caja.', side: 'bottom', align: 'end' } },
+            { element: '#tour-reports-content', popover: { title: 'Detalle comercial', description: 'Busca por factura, cliente, vendedor, metodo de pago o estado. Abre el detalle si hay descuentos, devoluciones o pagos mixtos.', side: 'top', align: 'center' } },
+            { popover: { title: 'Cruce con caja', description: 'Ventas puede incluir credito o pagos digitales. Caja mide dinero por turno. Si no coinciden, revisa metodo de pago, devoluciones y anulaciones.' } },
+            { popover: { title: 'Cruce con inventario', description: 'Si la venta afecto stock o IMEI, valida Kardex y Seriales para confirmar que se desconto la unidad correcta.' } }
         ]
     },
 
     REPORTS_CASH: {
         id: 'reports_cash',
         title: 'Reporte de Caja',
-        description: 'Cuadre de turnos, efectivo y metodos de pago.',
+        description: 'Cuadrar turnos, efectivo, pagos digitales, egresos y diferencias.',
         startUrl: '/reports?tab=caja',
         module: null,
         steps: [
-            { element: '#tour-reports-content', popover: { title: 'Turnos y cierres', description: 'Revisa apertura, esperado, contado, egresos y diferencia por turno o cajero.', side: 'top', align: 'center' } },
-            { popover: { title: 'Cuando hay diferencia', description: 'Compara ventas del mismo periodo, pagos mixtos, egresos, referencias y vuelto entregado.' } }
+            { element: '#tour-reports-date-range', popover: { title: 'Rango del turno', description: 'No compares todo el dia si hubo varios turnos. Usa cajero, caja y horario lo mas parecido al cierre.', side: 'bottom', align: 'end' } },
+            { element: '#tour-reports-content', popover: { title: 'Cuadre de caja', description: 'Revisa apertura, ventas, egresos, avances, esperado, contado y diferencia. Efectivo y pagos digitales se auditan distinto.', side: 'top', align: 'center' } },
+            { popover: { title: 'Faltante o sobrante', description: 'Faltante suele venir de egresos no registrados, vuelto mal dado o venta mal clasificada. Sobrante suele ser ingreso no registrado o cobro de mas.' } },
+            { popover: { title: 'Cruce recomendado', description: 'Abre Ventas con el mismo periodo y compara pagos mixtos, creditos, devoluciones y anulaciones antes de cerrar una investigacion.' } }
         ]
     },
 
     REPORTS_CREDITS: {
         id: 'reports_credits',
         title: 'Reporte de Creditos',
-        description: 'Cuentas por cobrar y mora de clientes.',
+        description: 'Cuentas por cobrar, vencimientos, abonos y saldo por cliente.',
         startUrl: '/reports?tab=creditos',
         module: null,
         steps: [
-            { element: '#tour-reports-content', popover: { title: 'Cartera por cobrar', description: 'Prioriza clientes vencidos, montos altos y facturas con mas dias de atraso.', side: 'top', align: 'center' } },
-            { popover: { title: 'Seguimiento', description: 'Registra abonos desde Creditos/CxC para bajar saldo y mantener historial.' } }
+            { element: '#tour-reports-date-range', popover: { title: 'Periodo de cartera', description: 'El rango ayuda a ver ventas a credito, pagos y vencimientos. Para deuda actual, revisa tambien saldos abiertos.', side: 'bottom', align: 'end' } },
+            { element: '#tour-reports-content', popover: { title: 'Cartera por cobrar', description: 'Prioriza vencidos, montos altos y clientes con muchos dias de atraso. Abre detalle antes de contactar o bloquear credito.', side: 'top', align: 'center' } },
+            { popover: { title: 'Cuando el saldo no baja', description: 'Verifica si el abono se aplico al cliente/factura correcta y si existen clientes duplicados dividiendo la deuda.' } }
         ]
     },
 
     REPORTS_SUPPLIERS: {
         id: 'reports_suppliers',
         title: 'Reporte de Proveedores',
-        description: 'Cuentas por pagar y compras pendientes.',
+        description: 'Cuentas por pagar, compras a credito, pagos y facturas pendientes.',
         startUrl: '/reports?tab=proveedores',
         module: null,
         steps: [
-            { element: '#tour-reports-content', popover: { title: 'Cuentas por pagar', description: 'Revisa deuda por proveedor, compras pendientes, pagos parciales y vencimientos.', side: 'top', align: 'center' } },
-            { popover: { title: 'Si la deuda no cuadra', description: 'Busca facturas duplicadas, compras marcadas como credito por error o pagos aplicados al proveedor equivocado.' } }
+            { element: '#tour-reports-date-range', popover: { title: 'Periodo de compras/pagos', description: 'Usa fechas de factura o pago segun lo que investigas. Para deuda actual, revisa tambien saldos pendientes.', side: 'bottom', align: 'end' } },
+            { element: '#tour-reports-content', popover: { title: 'Deuda por proveedor', description: 'La deuda debe salir de compras a credito menos pagos registrados. Revisa vencimientos y facturas parciales.', side: 'top', align: 'center' } },
+            { popover: { title: 'Si no cuadra', description: 'Busca compras duplicadas, proveedor duplicado, compras marcadas como credito por error o pagos aplicados al proveedor equivocado.' } }
         ]
     },
 
     REPORTS_INVENTORY: {
         id: 'reports_inventory',
         title: 'Reporte de Inventario',
-        description: 'Valoracion, stock bajo y capital detenido.',
+        description: 'Valoracion, costo, precio de venta, stock bajo y capital detenido.',
         startUrl: '/reports?tab=inventario',
         module: null,
         steps: [
-            { element: '#tour-reports-content', popover: { title: 'Valoracion de inventario', description: 'Revisa costo total, valor de venta, margen, bajo stock y productos sin movimiento.', side: 'top', align: 'center' } },
-            { popover: { title: 'Auditoria', description: 'Si costo o stock se ven raros, revisa ficha del producto, compras y Kardex antes de ajustar.' } }
+            { element: '#tour-reports-content', popover: { title: 'Valoracion y riesgo', description: 'Mide dinero invertido, valor potencial de venta, stock bajo y productos sin movimiento.', side: 'top', align: 'center' } },
+            { popover: { title: 'Costo cero o margen raro', description: 'Si la ganancia se ve inflada o baja, revisa costos en productos, compras recientes y listas de precios.' } },
+            { popover: { title: 'Stock raro', description: 'No ajustes desde el reporte. Abre Kardex para movimientos y Seriales si el producto maneja IMEI.' } },
+            { popover: { title: 'Decision operativa', description: 'Stock bajo pide reposicion o traslado. Capital detenido pide promocion, liquidacion o dejar de reponer.' } }
         ]
     },
 
     REPORTS_COMMISSIONS: {
         id: 'reports_commissions',
         title: 'Reporte de Comisiones',
-        description: 'Comisiones pendientes y pagadas del equipo.',
+        description: 'Liquidar comisiones con reglas, devoluciones y pagos previos claros.',
         startUrl: '/reports?tab=comisiones',
         module: null,
         steps: [
-            { element: '#tour-reports-content', popover: { title: 'Liquidacion', description: 'Filtra el periodo, revisa cada empleado y valida ventas o servicios que originaron la comision.', side: 'top', align: 'center' } },
-            { popover: { title: 'Antes de pagar', description: 'Confirma reglas, devoluciones y pagos previos para evitar doble liquidacion.' } }
+            { element: '#tour-reports-date-range', popover: { title: 'Periodo de liquidacion', description: 'Usa el rango exacto de pago: semanal, quincenal o mensual. Evita mezclar periodos parciales.', side: 'bottom', align: 'end' } },
+            { element: '#tour-reports-content', popover: { title: 'Detalle por empleado', description: 'Revisa empleado, venta/servicio, porcentaje, monto generado, pagado y pendiente antes de liquidar.', side: 'top', align: 'center' } },
+            { popover: { title: 'Antes de pagar', description: 'Confirma reglas activas, devoluciones, anulaciones y pagos previos para evitar doble liquidacion.' } }
         ]
     },
 
