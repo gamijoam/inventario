@@ -519,68 +519,33 @@ export const TOUR_FLOWS = {
     INVENTORY_KARDEX: {
         id: 'inventory_kardex',
         title: 'Kardex de Inventario',
-        description: 'Auditoria de entradas, salidas y ajustes.',
+        description: 'Auditar cada entrada, salida, traslado, devolucion y ajuste.',
         startUrl: '/inventory-center?tab=kardex',
         module: null,
         steps: [
-            {
-                element: '#tour-kardex-panel',
-                popover: {
-                    title: 'Historial de movimientos',
-                    description: 'Aqui se audita todo lo que entra y sale: ventas, compras, traslados, devoluciones y ajustes manuales.',
-                    side: 'bottom', align: 'center'
-                }
-            },
-            {
-                element: '#tour-kardex-adjust-btn',
-                popover: {
-                    title: 'Ajuste manual',
-                    description: 'Usalo para conteos fisicos, correcciones autorizadas o salidas por merma. Siempre deja una descripcion clara.',
-                    side: 'bottom', align: 'end'
-                }
-            }
+            { element: '#tour-kardex-panel', popover: { title: 'Bitacora de stock', description: 'Kardex es la historia del inventario. Antes de ajustar, revisa aqui que movimiento cambio la cantidad.', side: 'bottom', align: 'center' } },
+            { element: '#tour-kardex-search', popover: { title: 'Buscar producto o IMEI', description: 'Busca por producto, SKU, IMEI o descripcion. Para descuadres, empieza por el producto exacto y luego reduce el rango de fechas.', side: 'bottom', align: 'start' } },
+            { element: '#tour-kardex-date-range', popover: { title: 'Rango de fechas', description: 'Usa el mismo rango del problema: turno, dia de venta, fecha de compra o fecha del traslado. Rangos grandes esconden la causa.', side: 'bottom', align: 'end' } },
+            { element: '#tour-kardex-type-btn', popover: { title: 'Filtrar por movimiento', description: 'Filtra ventas, compras, traslados, devoluciones o ajustes. Esto acelera la auditoria cuando ya sospechas el origen.', side: 'bottom', align: 'center' } },
+            { element: '#tour-kardex-adjust-btn', popover: { title: 'Ajuste manual', description: 'Usalo solo despues de investigar. Debe tener motivo claro: conteo fisico, merma, dano, robo, error de carga o conciliacion.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Regla de oro', description: 'Si el producto maneja IMEI, cruza Kardex con Seriales. El stock numerico y las unidades disponibles deben contar la misma historia.' } }
         ]
     },
 
     INVENTORY_TRANSFERS: {
         id: 'inventory_transfers',
         title: 'Traslados de Inventario',
-        description: 'Movimientos internos y entre empresas.',
+        description: 'Mover stock interno o entre empresas con trazabilidad e IMEI exacto.',
         startUrl: '/inventory-center?tab=traslados',
         module: null,
         steps: [
-            {
-                element: '#tour-transfers-modes',
-                popover: {
-                    title: 'Modos de traslado',
-                    description: 'Internos mueve entre almacenes del mismo negocio. Exportar descuenta y genera archivo. Importar recibe el archivo en la empresa destino.',
-                    side: 'bottom', align: 'center'
-                }
-            },
-            {
-                element: '#tour-transfers-mode-internal',
-                popover: {
-                    title: 'Traslado interno',
-                    description: 'Usalo cuando el inventario sigue dentro del mismo tenant, por ejemplo de deposito a tienda.',
-                    side: 'bottom', align: 'start'
-                }
-            },
-            {
-                element: '#tour-transfers-mode-export',
-                popover: {
-                    title: 'Exportar a otra empresa',
-                    description: 'Genera un paquete para otra empresa y descuenta las cantidades. Si hay IMEI, selecciona los seriales exactos.',
-                    side: 'bottom', align: 'center'
-                }
-            },
-            {
-                element: '#tour-transfers-mode-import',
-                popover: {
-                    title: 'Importar paquete',
-                    description: 'Carga el archivo recibido para sumar productos al destino. Revisa el resumen antes de aceptar.',
-                    side: 'bottom', align: 'end'
-                }
-            }
+            { element: '#tour-transfers-panel', popover: { title: 'Centro de traslados', description: 'Aqui decides si el stock se mueve dentro del mismo negocio o viaja a otra empresa mediante archivo.', side: 'bottom', align: 'center' } },
+            { element: '#tour-transfers-modes', popover: { title: 'Tres flujos distintos', description: 'Interno mueve entre almacenes. Exportar descuenta y genera archivo. Importar suma en la empresa destino al cargar ese archivo.', side: 'bottom', align: 'center' } },
+            { element: '#tour-transfers-mode-internal', popover: { title: 'Interno', description: 'Usalo para mover de deposito a tienda, vitrina o sucursal interna. Debe quedar salida y entrada dentro del mismo tenant.', side: 'bottom', align: 'start' } },
+            { element: '#tour-transfers-mode-export', popover: { title: 'Exportar', description: 'Exportar descuenta del origen desde ese momento. El destino no sube hasta importar el archivo en el otro tenant.', side: 'bottom', align: 'center' } },
+            { element: '#tour-transfers-mode-import', popover: { title: 'Importar', description: 'Importar recibe el paquete en destino. Revisa modelos, unidades totales, costos e IMEIs antes de aceptar.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Unidades vs modelos', description: 'Si envias 5 unidades del mismo modelo, el resumen debe hablar de 5 unidades aunque sea 1 modelo. Para IMEI, cada unidad viaja identificada.' } },
+            { popover: { title: 'Despues del traslado', description: 'Revisa Kardex y Seriales. En externos, un IMEI puede quedar en transito hasta que el destino importe el archivo.' } }
         ]
     },
 
@@ -611,26 +576,16 @@ export const TOUR_FLOWS = {
     INVENTORY_SERIALS: {
         id: 'inventory_serials',
         title: 'Seriales e IMEI',
-        description: 'Control individual de unidades serializadas.',
+        description: 'Auditar unidades individuales, disponibles, vendidas y en transito.',
         startUrl: '/inventory-center?tab=seriales',
         module: null,
         steps: [
-            {
-                element: '#tour-serials-panel',
-                popover: {
-                    title: 'Equipos serializados',
-                    description: 'Esta vista compara productos que manejan IMEI con las unidades disponibles, vendidas o en transito.',
-                    side: 'bottom', align: 'center'
-                }
-            },
-            {
-                element: '#tour-serials-modes',
-                popover: {
-                    title: 'Catalogo y transitos',
-                    description: 'Catalogo muestra modelos y unidades. En transito ayuda a auditar IMEIs movidos entre empresas.',
-                    side: 'bottom', align: 'end'
-                }
-            }
+            { element: '#tour-serials-panel', popover: { title: 'Trazabilidad por unidad', description: 'Esta vista no audita cantidades generales: audita cada IMEI o serial como una unidad unica.', side: 'bottom', align: 'center' } },
+            { element: '#tour-serials-modes', popover: { title: 'Catalogo y transitos', description: 'Catalogo muestra modelos serializados. En transito muestra IMEIs exportados o movidos que aun no cerraron destino.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Stock vs IMEI', description: 'Si un producto dice 12 pero cuentas 11, busca disponibles, vendidos y en transito. Puede haber una unidad exportada que aun no se importo.' } },
+            { popover: { title: 'Conteo fisico', description: 'Cuando dudes, escanea los IMEIs fisicos y compara contra el sistema. No corrijas con ajuste general sin identificar la unidad exacta.' } },
+            { popover: { title: 'Ingreso correcto', description: 'Para compras nuevas, captura IMEIs desde Compras o Recepcion IMEI. Evita registrar dos veces la misma unidad.' } },
+            { popover: { title: 'Garantias y devoluciones', description: 'El serial vendido permite validar si el equipo que vuelve es el mismo que salio, y mantiene historial para reclamos.' } }
         ]
     },
 

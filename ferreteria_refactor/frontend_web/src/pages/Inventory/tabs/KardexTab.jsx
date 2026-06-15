@@ -465,6 +465,7 @@ const KardexTab = () => {
 
                     <div className="flex flex-wrap items-center gap-2">
                         <button
+                            id="tour-kardex-type-btn"
                             onClick={() => setShowFilters(f => !f)}
                             className={clsx(
                                 "inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-bold transition-colors",
@@ -490,7 +491,7 @@ const KardexTab = () => {
                 </div>
 
                 <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(260px,1fr)_auto] lg:items-center">
-                    <div className="relative">
+                    <div id="tour-kardex-search" className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
                         <input
                             type="text"
@@ -506,7 +507,7 @@ const KardexTab = () => {
                         )}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-2">
+                    <div id="tour-kardex-date-range" className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-2">
                         <Calendar size={14} className="text-slate-400" />
                         <input
                             type="date"
@@ -543,7 +544,7 @@ const KardexTab = () => {
             </div>
 
             {showFilters && (
-                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                <div id="tour-kardex-type-filters" className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                     <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Tipo de movimiento</div>
                     <div className="flex flex-wrap gap-2">
                         <button

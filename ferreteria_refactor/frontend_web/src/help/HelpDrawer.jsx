@@ -188,19 +188,19 @@ const TASK_TOURS = {
         { label: 'Organizar categorias', tour: 'INVENTORY_CATEGORIES' },
     ],
     'inventory/kardex': [
-        { label: 'Auditar movimientos', tour: 'INVENTORY_KARDEX' },
-        { label: 'Revisar traslados', tour: 'INVENTORY_TRANSFERS' },
+        { label: 'Auditar Kardex', tour: 'INVENTORY_KARDEX' },
+        { label: 'Cruzar traslado', tour: 'INVENTORY_TRANSFERS' },
     ],
     'inventory/traslados': [
-        { label: 'Traslados', tour: 'INVENTORY_TRANSFERS' },
-        { label: 'Seriales en transito', tour: 'INVENTORY_SERIALS' },
+        { label: 'Mover stock', tour: 'INVENTORY_TRANSFERS' },
+        { label: 'IMEI en transito', tour: 'INVENTORY_SERIALS' },
     ],
     'inventory/almacenes': [
         { label: 'Almacenes', tour: 'INVENTORY_WAREHOUSES' },
         { label: 'Trasladar entre almacenes', tour: 'INVENTORY_TRANSFERS' },
     ],
     'inventory/seriales': [
-        { label: 'Auditar seriales', tour: 'INVENTORY_SERIALS' },
+        { label: 'Auditar IMEI', tour: 'INVENTORY_SERIALS' },
         { label: 'Recepcion serializada', tour: 'SERIALIZED_RECEPTION' },
     ],
     'sales/cotizaciones': [
@@ -376,13 +376,13 @@ const COMMON_ISSUES = {
         'POS saturado: reduce categorias principales y usa nombres cortos.',
     ],
     'inventory/kardex': [
-        'Stock no cuadra: revisa movimientos recientes antes de ajustar.',
-        'Movimiento raro: valida usuario, fecha, tipo y saldo posterior.',
-        'Producto con IMEI: compara Kardex con Seriales disponibles/en transito.',
+        'Stock no cuadra: revisa Kardex por producto, fecha, tipo y responsable antes de ajustar.',
+        'Movimiento raro: valida usuario, fecha, tipo, descripcion y saldo posterior.',
+        'Producto con IMEI: compara Kardex con Seriales disponibles, vendidos y en transito.',
     ],
     'inventory/traslados': [
-        'IMEI faltante: puede estar vendido, en transito o en otro almacen.',
-        'Archivo externo: el origen descuenta al exportar; destino suma al importar.',
+        'IMEI faltante: puede estar vendido, en transito, en otro almacen o no disponible.',
+        'Archivo externo: el origen descuenta al exportar; el destino suma solo al importar.',
         'Cantidad confusa: revisa unidades totales, no solo modelos distintos.',
     ],
     'inventory/almacenes': [
@@ -391,7 +391,7 @@ const COMMON_ISSUES = {
         'Almacen viejo: desactivalo si tiene historial en vez de eliminarlo.',
     ],
     'inventory/seriales': [
-        'Stock vs IMEI no cuadra: compara disponibles, vendidos y en transito.',
+        'Stock vs IMEI no cuadra: compara disponibles, vendidos, devueltos y en transito.',
         'IMEI no aparece: revisa si el producto tiene activo control serial.',
         'Serial no vendible: puede estar vendido, reservado, en transito o no disponible.',
     ],
