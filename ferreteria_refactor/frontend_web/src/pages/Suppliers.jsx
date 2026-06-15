@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
 import { useHelp } from '../help/useHelp';
-import { Plus, Edit2, Trash2, Building2, Phone, Mail, Search, Truck, MapPin, FileText, Check, X, CreditCard, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, Building2, Phone, Mail, Search, Truck, MapPin, FileText, Check, CreditCard, WalletCards } from 'lucide-react';
 import { useWebSocket } from '../context/WebSocketContext';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import apiClient from '../config/axios';
 import clsx from 'clsx';
 import { toast } from 'react-hot-toast';
@@ -24,6 +25,7 @@ import { normalizeSearch } from '../utils/search';
 
 const Suppliers = () => {
     const { subscribe } = useWebSocket();
+    const navigate = useNavigate();
     const { user } = useAuth();
     const help = useHelp();
     const helpKey = 'suppliers';
@@ -100,23 +102,62 @@ const Suppliers = () => {
         normalizeSearch(s.name).includes(normalizeSearch(searchQuery)) ||
         normalizeSearch(s.contact_person).includes(normalizeSearch(searchQuery))
     );
+    const formatMoney = (value) => `$${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const totalDebt = suppliers.reduce((sum, supplier) => sum + Number(supplier.current_balance || 0), 0);
+    const suppliersWithDebt = suppliers.filter(supplier => Number(supplier.current_balance || 0) > 0).length;
+    const totalCreditLimit = suppliers.reduce((sum, supplier) => sum + Number(supplier.credit_limit || 0), 0);
+    const creditUsage = totalCreditLimit > 0 ? Math.min(100, (totalDebt / totalCreditLimit) * 100) : 0;
 
     return (
         <div id="tour-suppliers-container" className="p-6 max-w-[1600px] mx-auto min-h-screen flex flex-col space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
-                        <Truck className="text-indigo-600" size={32} /> Proveedores
-                    </h1>
-                    <p className="text-slate-500 font-medium mt-1">Gestión de proveedores, contactos y términos de crédito</p>
-                <HelpButton contextKey={helpKey} onClick={help.open} />
+            <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                <div className="flex flex-col gap-4 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm shadow-indigo-100">
+                            <Truck size={22} />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-black tracking-tight text-slate-900">Proveedores</h1>
+                            <p className="text-sm font-semibold text-slate-500">Contactos, credito y cuentas por pagar.</p>
+                        </div>
+                        <HelpButton contextKey={helpKey} onClick={help.open} />
+                    </div>
+                    {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
+                        <Button id="tour-suppliers-add-btn" onClick={handleCreate} className="h-11 rounded-lg font-black">
+                            <Plus size={18} className="mr-2" />
+                            Nuevo Proveedor
+                        </Button>
+                    )}
                 </div>
-                {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
-                    <Button id="tour-suppliers-add-btn" onClick={handleCreate}>
-                        <Plus size={20} className="mr-2" />
-                        Nuevo Proveedor
-                    </Button>
-                )}
+
+                <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
+                    <div className="rounded-lg border border-rose-100 bg-rose-50 p-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wide text-rose-400">Deuda total</span>
+                            <WalletCards size={17} className="text-rose-400" />
+                        </div>
+                        <div className="mt-2 text-2xl font-black text-rose-700">{formatMoney(totalDebt)}</div>
+                        <p className="mt-1 text-xs font-semibold text-rose-500">{suppliersWithDebt} proveedores con saldo pendiente</p>
+                    </div>
+                    <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wide text-indigo-400">Credito configurado</span>
+                            <CreditCard size={17} className="text-indigo-400" />
+                        </div>
+                        <div className="mt-2 text-2xl font-black text-indigo-700">{formatMoney(totalCreditLimit)}</div>
+                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
+                            <div className="h-full rounded-full bg-indigo-600" style={{ width: `${creditUsage}%` }} />
+                        </div>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">Proveedores activos</span>
+                            <Building2 size={17} className="text-slate-400" />
+                        </div>
+                        <div className="mt-2 text-2xl font-black text-slate-900">{suppliers.length}</div>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">{filteredSuppliers.length} visibles segun busqueda</p>
+                    </div>
+                </div>
             </div>
 
             {/* Search Bar */}
@@ -207,6 +248,14 @@ const Suppliers = () => {
                                     </td>
                                     <td className="py-4 px-6">
                                         <div className="flex justify-end gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => navigate(`/suppliers/${supplier.id}/ledger`)}
+                                                className="h-8 rounded-md px-2 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"
+                                            >
+                                                <FileText size={15} className="mr-1" /> Estado
+                                            </Button>
                                             {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
                                                 <Button
                                                     variant="ghost"
@@ -233,17 +282,6 @@ const Suppliers = () => {
                             ))
                         )}
                     </tbody>
-                {suppliers?.length === 0 && !loading && (
-                    <tr>
-                        <td colSpan="10" className="py-16 text-center">
-                            <div className="flex flex-col items-center gap-2 text-slate-400">
-                                <span className="text-4xl">🏭</span>
-                                <p className="font-semibold text-slate-600">No hay proveedores registrados</p>
-                                <p className="text-sm">Agrega tu primer proveedor para comenzar</p>
-                            </div>
-                        </td>
-                    </tr>
-                )}
                 </table>
             </div>
 
@@ -295,6 +333,13 @@ const Suppliers = () => {
                             </div>
 
                             <div className="flex justify-end gap-3 pt-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => navigate(`/suppliers/${supplier.id}/ledger`)}
+                                    className="flex-1 border-slate-200 text-slate-700 hover:bg-slate-50"
+                                >
+                                    <FileText size={16} className="mr-2" /> Estado
+                                </Button>
                                 {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
                                     <Button
                                         variant="outline"
