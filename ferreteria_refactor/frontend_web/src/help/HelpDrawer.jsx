@@ -204,11 +204,12 @@ const TASK_TOURS = {
         { label: 'Recepcion serializada', tour: 'SERIALIZED_RECEPTION' },
     ],
     'sales/cotizaciones': [
-        { label: 'Crear cotizacion', tour: 'SALES_QUOTES_CREATE' },
+        { label: 'Crear propuesta', tour: 'SALES_QUOTES_CREATE' },
         { label: 'Facturar cotizacion', tour: 'SALES_QUOTES_INVOICE' },
     ],
     'sales/clientes': [
         { label: 'Crear cliente', tour: 'SALES_CUSTOMER_CREATE' },
+        { label: 'Creditos CxC', tour: 'SALES_CREDITS' },
     ],
     'sales/devoluciones': [
         { label: 'Procesar devolucion', tour: 'SALES_RETURN_PROCESS' },
@@ -219,6 +220,7 @@ const TASK_TOURS = {
     ],
     'sales/creditos': [
         { label: 'Registrar abono', tour: 'SALES_CREDIT_PAYMENT' },
+        { label: 'Reporte CxC', tour: 'REPORTS_CREDITS' },
     ],
     'services/dashboard': [
         { label: 'Tablero taller', tour: 'SERVICES' },

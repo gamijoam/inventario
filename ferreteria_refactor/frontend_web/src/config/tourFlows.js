@@ -638,158 +638,171 @@ export const TOUR_FLOWS = {
     SALES_QUOTES: {
         id: 'sales_quotes',
         title: 'Cotizaciones',
-        description: 'Crear, filtrar y convertir cotizaciones en ventas.',
+        description: 'Crear, filtrar, dar seguimiento y convertir cotizaciones en ventas.',
         startUrl: '/sales-center?tab=cotizaciones',
         module: null,
         steps: [
-            { element: '#tour-sales-tabs', popover: { title: 'Centro de Ventas', description: 'Estas pestanas separan cotizaciones, clientes, devoluciones, garantias y creditos.', side: 'bottom', align: 'center' } },
-            { element: '#tour-quotes-summary', popover: { title: 'Resumen de cotizaciones', description: 'Aqui ves totales, pendientes, facturadas y conversion para medir seguimiento comercial.', side: 'bottom', align: 'center' } },
-            { element: '#tour-quotes-filters', popover: { title: 'Estados', description: 'Filtra por pendientes, facturadas o vencidas antes de buscar o tomar accion.', side: 'bottom', align: 'start' } },
-            { element: '#tour-quotes-add-btn', popover: { title: 'Nueva cotizacion', description: 'Crea una propuesta para el cliente. Luego podras imprimirla, enviarla o convertirla en venta.', side: 'bottom', align: 'end' } },
-            { element: '#tour-quotes-list', popover: { title: 'Lista operativa', description: 'Desde cada tarjeta puedes imprimir, duplicar, enviar por WhatsApp, editar o facturar.', side: 'top', align: 'center' } }
+            { element: '#tour-sales-tabs', popover: { title: 'Centro de ventas', description: 'Estas pestanas separan cotizaciones, clientes, devoluciones, garantias y creditos para que cada flujo quede trazado.', side: 'bottom', align: 'center' } },
+            { element: '#tour-quotes-summary', popover: { title: 'Resumen comercial', description: 'Mide pendientes, facturadas y conversion. Si hay muchas pendientes, toca hacer seguimiento antes de perder ventas.', side: 'bottom', align: 'center' } },
+            { element: '#tour-quotes-filters', popover: { title: 'Estados de seguimiento', description: 'Filtra pendientes para llamar al cliente, facturadas para confirmar ventas y vencidas para limpiar propuestas viejas.', side: 'bottom', align: 'start' } },
+            { element: '#tour-quotes-search', popover: { title: 'Buscar cliente o numero', description: 'Usa la busqueda cuando el cliente vuelve con una cotizacion. Evita crear otra si ya existe una pendiente.', side: 'bottom', align: 'start' } },
+            { element: '#tour-quotes-add-btn', popover: { title: 'Nueva cotizacion', description: 'Crea la propuesta con cliente, productos, cantidades, precios y vigencia. La cotizacion no descuenta stock hasta facturar.', side: 'bottom', align: 'end' } },
+            { element: '#tour-quotes-list', popover: { title: 'Acciones por cotizacion', description: 'Desde cada tarjeta puedes imprimir, duplicar, editar, enviar o facturar. Facturar lleva la cotizacion al POS para cobrar.', side: 'top', align: 'center' } }
         ]
     },
 
     SALES_QUOTES_CREATE: {
         id: 'sales_quotes_create',
         title: 'Crear cotizacion',
-        description: 'Pasos clave para iniciar una cotizacion.',
+        description: 'Preparar una propuesta sin descontar inventario.',
         startUrl: '/sales-center?tab=cotizaciones',
         module: null,
         steps: [
-            { element: '#tour-quotes-add-btn', popover: { title: 'Comienza aqui', description: 'Pulsa Nueva para abrir el formulario de cotizacion.', side: 'bottom', align: 'end' } },
-            { popover: { title: 'Cliente y productos', description: 'Dentro del formulario selecciona cliente, agrega productos, revisa precios y define vigencia si aplica.' } },
-            { popover: { title: 'Guardar y compartir', description: 'Al guardar, la cotizacion queda en la lista para imprimir, enviar o convertir en venta.' } }
+            { element: '#tour-quotes-add-btn', popover: { title: 'Comienza aqui', description: 'Pulsa Nueva Cotizacion cuando el cliente aun no va a pagar, pero necesita una propuesta formal.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Cliente y productos', description: 'Dentro del formulario selecciona cliente, agrega productos, revisa cantidades, precios, descuentos y vigencia.' } },
+            { popover: { title: 'No descuenta stock', description: 'La cotizacion reserva la informacion comercial, pero el inventario baja solo cuando se factura y se cobra en POS.' } },
+            { popover: { title: 'Seguimiento', description: 'Guarda y comparte. Luego vuelve a Pendientes para contactar al cliente o convertirla en venta.' } }
         ]
     },
 
     SALES_QUOTES_INVOICE: {
         id: 'sales_quotes_invoice',
         title: 'Facturar cotizacion',
-        description: 'Convertir una cotizacion aprobada en venta.',
+        description: 'Convertir una cotizacion aprobada en venta real.',
         startUrl: '/sales-center?tab=cotizaciones',
         module: null,
         steps: [
-            { element: '#tour-quotes-filters', popover: { title: 'Ubica pendientes', description: 'Filtra por pendientes o busca por cliente para encontrar la cotizacion aprobada.', side: 'bottom', align: 'start' } },
-            { element: '#tour-quotes-list', popover: { title: 'Accion Facturar', description: 'En una cotizacion pendiente usa Facturar. El sistema la carga en POS para cobrarla.', side: 'top', align: 'center' } },
-            { popover: { title: 'Termina en POS', description: 'En POS revisa carrito, seriales si aplica y confirma el cobro. La cotizacion queda marcada como facturada.' } }
+            { element: '#tour-quotes-filters', popover: { title: 'Ubica pendientes', description: 'Filtra por pendientes o busca por cliente para encontrar la propuesta aprobada.', side: 'bottom', align: 'start' } },
+            { element: '#tour-quotes-list', popover: { title: 'Accion Facturar', description: 'Usa Facturar solo cuando el cliente confirma. El sistema carga productos y cantidades en POS.', side: 'top', align: 'center' } },
+            { popover: { title: 'Revisa antes de cobrar', description: 'En POS confirma stock, precios, cliente y seriales si aplica. Luego cobra con el metodo correcto.' } },
+            { popover: { title: 'Estado final', description: 'Al completar la venta, la cotizacion queda facturada y la venta aparece en reportes.' } }
         ]
     },
 
     SALES_CUSTOMERS: {
         id: 'sales_customers',
         title: 'Clientes',
-        description: 'Gestion de clientes y datos para ventas a credito.',
+        description: 'Datos, historial, precios especiales, credito y seguimiento comercial.',
         startUrl: '/sales-center?tab=clientes',
         module: null,
         steps: [
-            { element: '#tour-sales-tab-clientes', popover: { title: 'Clientes', description: 'Aqui administras la cartera de clientes, documentos, telefonos y estado.', side: 'bottom', align: 'center' } },
-            { element: '#tour-customers-add-btn', popover: { title: 'Nuevo cliente', description: 'Registra datos basicos y limites de credito si el negocio vende fiado.', side: 'bottom', align: 'end' } }
+            { element: '#tour-sales-tab-clientes', popover: { title: 'Clientes', description: 'Aqui administras datos del cliente para ventas, creditos, garantias, cotizaciones y seguimiento.', side: 'bottom', align: 'center' } },
+            { element: '#tour-customers-add-btn', popover: { title: 'Nuevo cliente', description: 'Crea clientes con documento y telefono siempre que sea posible. Evita duplicados porque dividen deuda e historial.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Datos que impactan ventas', description: 'Lista de precios, limite de credito, documento, telefono y estado activo afectan POS, CxC y reportes.' } },
+            { popover: { title: 'Mejor practica', description: 'Desactiva clientes problematicos o inactivos en vez de borrarlos, para conservar ventas y garantias.' } }
         ]
     },
 
     SALES_CUSTOMER_CREATE: {
         id: 'sales_customer_create',
         title: 'Crear cliente',
-        description: 'Registrar un cliente para ventas y creditos.',
+        description: 'Registrar datos limpios para ventas, creditos y garantias.',
         startUrl: '/sales-center?tab=clientes',
         module: null,
         steps: [
-            { element: '#tour-customers-add-btn', popover: { title: 'Agregar cliente', description: 'Pulsa Nuevo cliente y completa nombre, documento, telefono y condiciones de credito si aplica.', side: 'bottom', align: 'end' } },
-            { popover: { title: 'Datos limpios', description: 'Evita duplicados por cedula o telefono. Esto facilita buscar historial, garantias y cuentas por cobrar.' } }
+            { element: '#tour-customers-add-btn', popover: { title: 'Agregar cliente', description: 'Pulsa Nuevo cliente y completa nombre, documento, telefono y direccion si el negocio los exige.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Evita duplicados', description: 'Busca por documento o telefono antes de crear. Un duplicado divide creditos, garantias e historial de compras.' } },
+            { popover: { title: 'Credito y precios', description: 'Configura limite de credito y lista de precios solo cuando el cliente realmente tiene condiciones especiales.' } }
         ]
     },
 
     SALES_RETURNS: {
         id: 'sales_returns',
         title: 'Devoluciones',
-        description: 'Buscar venta, seleccionar items y resolver reembolso o canje.',
+        description: 'Buscar venta original, seleccionar items y resolver reembolso o canje.',
         startUrl: '/sales-center?tab=devoluciones',
         module: null,
         steps: [
-            { element: '#tour-returns-search-panel', popover: { title: 'Busca la venta original', description: 'Usa numero de factura, cedula o nombre del cliente para cargar los productos vendidos.', side: 'bottom', align: 'center' } },
-            { element: '#tour-returns-results', popover: { title: 'Selecciona la venta correcta', description: 'Revisa cliente, fecha y total antes de continuar. Solo una venta valida debe procesarse.', side: 'top', align: 'center' } },
-            { popover: { title: 'Luego selecciona items', description: 'Al elegir una venta, marca cantidades, condicion y resolucion: reembolso o canje.' } }
+            { element: '#tour-returns-search-panel', popover: { title: 'Venta original', description: 'Toda devolucion debe partir de una venta real. Busca por factura, cedula o cliente para mantener trazabilidad.', side: 'bottom', align: 'center' } },
+            { element: '#tour-returns-results', popover: { title: 'Selecciona la venta correcta', description: 'Compara cliente, fecha y total. No proceses devoluciones contra una venta parecida.', side: 'top', align: 'center' } },
+            { element: '#tour-returns-items', popover: { title: 'Items a devolver', description: 'Marca cantidades o seriales exactos. En productos con IMEI, la unidad devuelta debe ser la misma vendida.', side: 'top', align: 'center' } },
+            { element: '#tour-returns-resolution', popover: { title: 'Resolucion', description: 'Elige reembolso o canje. El resumen debe mostrar cuanto vuelve al cliente o cuanto falta cobrar.', side: 'left', align: 'start' } },
+            { element: '#tour-returns-summary', popover: { title: 'Resumen final', description: 'Confirma solo cuando cantidades, motivo, moneda, caja y resolucion cuadren.', side: 'left', align: 'center' } }
         ]
     },
 
     SALES_RETURN_PROCESS: {
         id: 'sales_return_process',
         title: 'Procesar devolucion',
-        description: 'Flujo de reembolso desde una venta original.',
+        description: 'Reembolso controlado desde una venta original.',
         startUrl: '/sales-center?tab=devoluciones',
         module: null,
         steps: [
-            { element: '#tour-returns-search-input', popover: { title: 'Buscar venta', description: 'Escribe factura, cedula o cliente y pulsa Buscar.', side: 'bottom', align: 'start' } },
-            { element: '#tour-returns-results', popover: { title: 'Seleccionar resultado', description: 'Carga la venta correcta para ver sus productos y cantidades disponibles.', side: 'top', align: 'center' } },
-            { popover: { title: 'Resumen', description: 'Cuando selecciones una venta, el resumen calcula total a devolver, moneda y resolucion antes de confirmar.' } }
+            { element: '#tour-returns-search-input', popover: { title: 'Buscar venta', description: 'Escribe factura, cedula o cliente. Mientras mas exacta la busqueda, menor riesgo de devolver la venta equivocada.', side: 'bottom', align: 'start' } },
+            { element: '#tour-returns-results', popover: { title: 'Cargar venta', description: 'Abre la venta correcta para ver productos, cantidades disponibles y seriales vendidos.', side: 'top', align: 'center' } },
+            { element: '#tour-returns-items', popover: { title: 'Cantidad o serial', description: 'En productos normales indica cantidad. En IMEI selecciona la unidad exacta devuelta.', side: 'top', align: 'center' } },
+            { element: '#tour-returns-summary', popover: { title: 'Reembolso', description: 'Revisa moneda y monto. Si sale de caja, confirma que el turno tenga saldo suficiente y deja motivo claro.', side: 'left', align: 'center' } }
         ]
     },
 
     SALES_RETURN_EXCHANGE: {
         id: 'sales_return_exchange',
         title: 'Canje por producto',
-        description: 'Usar el credito de una devolucion para entregar otro producto.',
+        description: 'Usar el valor devuelto para entregar otro producto.',
         startUrl: '/sales-center?tab=devoluciones',
         module: null,
         steps: [
-            { element: '#tour-returns-search-panel', popover: { title: 'Parte de la venta original', description: 'Primero busca y selecciona la venta que el cliente esta devolviendo.', side: 'bottom', align: 'center' } },
-            { popover: { title: 'Cambia a Canje', description: 'En Resolucion selecciona Canje para habilitar productos de reemplazo y calcular diferencias.' } },
-            { popover: { title: 'Producto de reemplazo', description: 'Busca el producto que se llevara el cliente. Si cuesta mas, se cobra diferencia; si cuesta menos, queda efectivo a devolver.' } }
+            { element: '#tour-returns-search-panel', popover: { title: 'Parte de la venta original', description: 'Primero busca la venta y selecciona lo que el cliente devuelve. El canje usa ese valor como credito.', side: 'bottom', align: 'center' } },
+            { element: '#tour-returns-resolution', popover: { title: 'Selecciona Canje', description: 'Al elegir canje se habilita la busqueda de producto de reemplazo y el calculo de diferencia.', side: 'left', align: 'start' } },
+            { element: '#tour-returns-replacement', popover: { title: 'Producto de reemplazo', description: 'Busca el producto que se llevara el cliente. Si cuesta mas, se cobra diferencia; si cuesta menos, queda monto a devolver.', side: 'top', align: 'center' } },
+            { element: '#tour-returns-summary', popover: { title: 'Diferencia final', description: 'Confirma si el resultado es cero, cobro adicional o efectivo a devolver. Revisa stock/IMEI del reemplazo.', side: 'left', align: 'center' } }
         ]
     },
 
     SALES_WARRANTIES: {
         id: 'sales_warranties',
         title: 'Garantias',
-        description: 'Verificar IMEI o serial y resolver garantia.',
+        description: 'Verificar venta, IMEI/serial, cobertura y resolucion.',
         startUrl: '/sales-center?tab=garantias',
         module: null,
         steps: [
-            { element: '#tour-warranties-search', popover: { title: 'Escanea IMEI o serial', description: 'Busca la unidad vendida para validar cliente, producto, fecha y cobertura.', side: 'bottom', align: 'center' } },
-            { popover: { title: 'Resultado de cobertura', description: 'Cuando aparece el equipo, revisa si esta activo, vencido o requiere autorizacion.' } },
-            { popover: { title: 'Decision', description: 'Luego define condicion, motivo, accion y moneda de reembolso antes de confirmar.' } }
+            { element: '#tour-warranties-search', popover: { title: 'Busca IMEI o serial', description: 'La garantia debe validarse contra la unidad vendida. Esto evita recibir un equipo que no corresponde.', side: 'bottom', align: 'center' } },
+            { element: '#tour-warranties-result', popover: { title: 'Resultado de cobertura', description: 'Revisa cliente, producto, fecha de venta, politica y vigencia antes de decidir.', side: 'bottom', align: 'center' } },
+            { element: '#tour-warranties-decision', popover: { title: 'Decision', description: 'Define condicion, motivo, accion y monto si hay reembolso. Documenta bien el diagnostico.', side: 'left', align: 'start' } },
+            { element: '#tour-warranties-confirm', popover: { title: 'Confirmar garantia', description: 'Confirma solo cuando la unidad, motivo y resolucion cuadren. Puede afectar inventario, caja y comisiones.', side: 'top', align: 'center' } }
         ]
     },
 
     SALES_WARRANTY_PROCESS: {
         id: 'sales_warranty_process',
         title: 'Resolver garantia',
-        description: 'Procesar una garantia con trazabilidad.',
+        description: 'Procesar una garantia con trazabilidad por unidad.',
         startUrl: '/sales-center?tab=garantias',
         module: null,
         steps: [
-            { element: '#tour-warranties-search', popover: { title: 'Escanea la unidad', description: 'Usa el serial exacto. Esto evita devolver un equipo que no corresponde a la venta original.', side: 'bottom', align: 'center' } },
-            { popover: { title: 'Completa diagnostico', description: 'Indica si esta en buen estado o danado, escribe el motivo y revisa saldo de caja si hay reembolso.' } },
-            { popover: { title: 'Confirmar', description: 'Confirma solo cuando motivo y caja cuadren. El sistema actualiza inventario, caja y comisiones segun aplique.' } }
+            { element: '#tour-warranties-search', popover: { title: 'Escanea la unidad', description: 'Usa serial/IMEI exacto. No resuelvas garantia por nombre de producto si el item fue serializado.', side: 'bottom', align: 'center' } },
+            { element: '#tour-warranties-result', popover: { title: 'Valida cobertura', description: 'Confirma que la garantia este vigente y que el equipo corresponda a la venta original.', side: 'bottom', align: 'center' } },
+            { element: '#tour-warranties-decision', popover: { title: 'Completa diagnostico', description: 'Indica condicion, motivo y accion: reparacion, reemplazo, reembolso o rechazo segun politica.', side: 'left', align: 'start' } },
+            { element: '#tour-warranties-confirm', popover: { title: 'Confirmar', description: 'Confirma cuando caja, inventario y motivo esten claros. El historial queda como respaldo ante reclamos.', side: 'top', align: 'center' } }
         ]
     },
 
     SALES_CREDITS: {
         id: 'sales_credits',
         title: 'Creditos y cuentas por cobrar',
-        description: 'Seguimiento de facturas pendientes, vencidas y pagos.',
+        description: 'Seguimiento de facturas pendientes, vencidas, abonos y riesgo de mora.',
         startUrl: '/sales-center?tab=creditos',
         module: null,
         steps: [
-            { element: '#tour-credits-tabs', popover: { title: 'Vistas de credito', description: 'Alterna cuentas por cobrar, creditos celulares, antiguedad y estado de cuenta.', side: 'bottom', align: 'start' } },
-            { element: '#tour-credits-summary', popover: { title: 'Resumen CxC', description: 'Mide saldo pendiente, vencido y cobrado para priorizar seguimiento.', side: 'bottom', align: 'center' } },
-            { element: '#tour-credits-controls', popover: { title: 'Filtros y busqueda', description: 'Filtra por pendiente, vencido o pagado y busca cliente o factura.', side: 'bottom', align: 'center' } },
-            { element: '#tour-credits-list', popover: { title: 'Facturas', description: 'Desde la lista puedes ver detalle, seleccionar varias facturas o registrar abonos.', side: 'top', align: 'center' } }
+            { element: '#tour-credits-tabs', popover: { title: 'Vistas de credito', description: 'Alterna entre cuentas por cobrar, creditos celulares, antiguedad y estado de cuenta segun la investigacion.', side: 'bottom', align: 'start' } },
+            { element: '#tour-credits-summary', popover: { title: 'Resumen CxC', description: 'Mide saldo pendiente, vencido y cobrado. Prioriza vencidos y montos altos.', side: 'bottom', align: 'center' } },
+            { element: '#tour-credits-controls', popover: { title: 'Filtros y busqueda', description: 'Filtra por pendiente, vencido o pagado y busca cliente/factura antes de registrar abonos.', side: 'bottom', align: 'center' } },
+            { element: '#tour-credits-list', popover: { title: 'Facturas y abonos', description: 'Desde la lista puedes ver detalle, registrar pago individual o seleccionar varias facturas para pago masivo.', side: 'top', align: 'center' } },
+            { element: '#tour-credits-bulk-bar', popover: { title: 'Pago masivo', description: 'Si seleccionas varias facturas, revisa total, cliente y metodo antes de confirmar el abono.', side: 'top', align: 'center' } }
         ]
     },
 
     SALES_CREDIT_PAYMENT: {
         id: 'sales_credit_payment',
         title: 'Registrar abono',
-        description: 'Aplicar pagos a facturas a credito.',
+        description: 'Aplicar pagos a facturas a credito sin romper saldo.',
         startUrl: '/sales-center?tab=creditos',
         module: null,
         steps: [
-            { element: '#tour-credits-controls', popover: { title: 'Filtra pendientes', description: 'Trabaja primero con facturas pendientes o vencidas y busca el cliente correcto.', side: 'bottom', align: 'center' } },
-            { element: '#tour-credits-list', popover: { title: 'Boton Abonar', description: 'En la factura pendiente pulsa Abonar. Tambien puedes seleccionar varias facturas y usar pago masivo.', side: 'top', align: 'center' } },
-            { popover: { title: 'Modal de pago', description: 'Al pulsar Abonar se abre el modal. Ingresa monto, moneda, metodo, tasa y referencia si el metodo lo exige.' } },
-            { popover: { title: 'Confirmar pago', description: 'Confirma solo si el monto no excede el saldo y las referencias requeridas estan completas.' } }
+            { element: '#tour-credits-controls', popover: { title: 'Filtra pendientes', description: 'Trabaja con facturas pendientes o vencidas y busca el cliente correcto antes de pagar.', side: 'bottom', align: 'center' } },
+            { element: '#tour-credits-list', popover: { title: 'Abonar factura', description: 'En una factura pendiente usa Abonar. Para varias facturas del mismo cliente, selecciona y usa pago masivo.', side: 'top', align: 'center' } },
+            { popover: { title: 'Datos del pago', description: 'Ingresa monto, moneda, metodo, tasa y referencia si aplica. El monto no debe exceder el saldo pendiente.' } },
+            { popover: { title: 'Despues de confirmar', description: 'El saldo baja, queda historial de pago y el reporte de creditos debe reflejar el cambio.' } }
         ]
     },
 
