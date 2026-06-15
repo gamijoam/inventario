@@ -181,8 +181,8 @@ const TASK_TOURS = {
     ],
     'inventory/productos': [
         { label: 'Catalogo', tour: 'INVENTORY_PRODUCTS' },
-        { label: 'Recepcion IMEI', tour: 'SERIALIZED_RECEPTION' },
-        { label: 'Trasladar stock', tour: 'INVENTORY_TRANSFERS' },
+        { label: 'Formulario', tour: 'PRODUCT_FORM_PRESENTATIONS' },
+        { label: 'Presentaciones', tour: 'PRODUCT_FORM_PRESENTATIONS' },
     ],
     'inventory/categorias': [
         { label: 'Organizar categorias', tour: 'INVENTORY_CATEGORIES' },

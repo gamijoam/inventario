@@ -11,6 +11,7 @@ import {
     Pencil,
     ShieldCheck,
     Image as ImageIcon,
+    BookOpen,
 } from 'lucide-react';
 import { Sheet, SheetContent } from '../../components/ui/sheet';
 import { Button } from '../../components/ui/button';
@@ -21,6 +22,7 @@ import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
 import ProductImageUploader from './ProductImageUploader';
 import ProductUnitManager from './ProductUnitManager';
+import { useAppTour } from '../../hooks/useAppTour';
 import toast from 'react-hot-toast';
 
 const defaultForm = {
@@ -72,14 +74,76 @@ const formatQtyInput = (value) => {
     return number.toFixed(3).replace(/\.?0+$/, '');
 };
 
+
+const buildUnitPayload = (unit) => {
+    const rawInput = Number(unit.user_input || unit.conversion_factor || 0);
+    const conversionFactor = unit.type === 'fraction'
+        ? (rawInput ? 1 / rawInput : 0)
+        : rawInput;
+
+    return {
+        ...(unit.id && typeof unit.id === 'number' && unit.id <= 10_000_000 ? { id: unit.id } : {}),
+        unit_name: (unit.unit_name || '').trim(),
+        conversion_factor: conversionFactor,
+        barcode: (unit.barcode || '').trim(),
+        cost_price: unit.cost_price !== '' && unit.cost_price !== null && unit.cost_price !== undefined ? parseFloat(unit.cost_price) : null,
+        price_usd: unit.price_usd !== '' && unit.price_usd !== null && unit.price_usd !== undefined ? parseFloat(unit.price_usd) : null,
+        profit_margin: unit.profit_margin !== '' && unit.profit_margin !== null && unit.profit_margin !== undefined ? parseFloat(unit.profit_margin) : null,
+        discount_percentage: parseFloat(unit.discount_percentage) || 0,
+        is_discount_active: !!unit.is_discount_active,
+        is_default: !!unit.is_default,
+        exchange_rate_id: unit.exchange_rate_id ? parseInt(unit.exchange_rate_id, 10) : null,
+    };
+};
+
+const validateUnitsForSubmit = (units = []) => {
+    const seenNames = new Set();
+    const seenBarcodes = new Set();
+    const seenFactors = new Set();
+    const cleanUnits = [];
+
+    for (const unit of units) {
+        const clean = buildUnitPayload(unit);
+        const nameKey = clean.unit_name.toLowerCase();
+        const barcodeKey = clean.barcode.toLowerCase();
+        const factorKey = Number(clean.conversion_factor || 0).toFixed(6);
+
+        if (!clean.unit_name) {
+            return { ok: false, message: 'Cada presentacion debe tener un nombre claro.' };
+        }
+        if (!Number.isFinite(clean.conversion_factor) || clean.conversion_factor <= 0) {
+            return { ok: false, message: `La presentacion "${clean.unit_name}" tiene una conversion invalida.` };
+        }
+        if (clean.price_usd === null || !Number.isFinite(clean.price_usd) || clean.price_usd <= 0) {
+            return { ok: false, message: `La presentacion "${clean.unit_name}" debe tener precio mayor que cero.` };
+        }
+        if (seenNames.has(nameKey)) {
+            return { ok: false, message: `Ya existe una presentacion llamada "${clean.unit_name}".` };
+        }
+        if (barcodeKey && seenBarcodes.has(barcodeKey)) {
+            return { ok: false, message: `El codigo de barras "${clean.barcode}" esta repetido en presentaciones.` };
+        }
+        if (seenFactors.has(factorKey)) {
+            return { ok: false, message: `Ya existe una presentacion con la misma conversion que "${clean.unit_name}".` };
+        }
+
+        seenNames.add(nameKey);
+        if (barcodeKey) seenBarcodes.add(barcodeKey);
+        seenFactors.add(factorKey);
+        cleanUnits.push(clean);
+    }
+
+    return { ok: true, units: cleanUnits };
+};
+
 const FieldLabel = ({ children }) => (
     <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-500">
         {children}
     </label>
 );
 
-const Panel = ({ title, eyebrow, action, children, className }) => (
-    <section className={cn('rounded-lg border border-slate-200 bg-white shadow-sm', className)}>
+const Panel = ({ id, title, eyebrow, action, children, className }) => (
+    <section id={id} className={cn('rounded-lg border border-slate-200 bg-white shadow-sm', className)}>
         {(title || eyebrow || action) && (
             <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                 <div className="min-w-0">
@@ -93,8 +157,9 @@ const Panel = ({ title, eyebrow, action, children, className }) => (
     </section>
 );
 
-const TypeOption = ({ active, icon: Icon, label, onClick }) => (
+const TypeOption = ({ id, active, icon: Icon, label, onClick }) => (
     <button
+        id={id}
         type="button"
         onClick={onClick}
         className={cn(
@@ -175,6 +240,7 @@ const mapInitialProduct = (product) => {
 
 const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories = [], warehouses = [], exchangeRates = [] }) => {
     const { modules } = useConfig();
+    const { startTour } = useAppTour();
     const [formData, setFormData] = useState(defaultForm);
     const [activeTab, setActiveTab] = useState('precios');
     const [saving, setSaving] = useState(false);
@@ -190,6 +256,12 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
     const selectedCategory = categories.find(category => String(category.id) === String(formData.category_id));
     const selectedWarranty = policies.find(policy => String(policy.id) === String(formData.warranty_policy_id));
     const productTypeLabel = { physical: 'Fisico', serial: 'Serial', service: 'Servicio', combo: 'Combo' }[productType] || 'Fisico';
+    const canUsePresentations = !formData.is_service && !formData.is_combo;
+
+    const startProductFormGuide = () => {
+        setActiveTab('precios');
+        setTimeout(() => startTour('PRODUCT_FORM_PRESENTATIONS'), 120);
+    };
 
     const fetchPriceLists = async () => {
         try {
@@ -284,6 +356,13 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
             }))
             .filter(item => Number.isFinite(item.price_list_id) && item.price > 0);
 
+        const unitsValidation = canUsePresentations ? validateUnitsForSubmit(formData.units) : { ok: true, units: [] };
+        if (!unitsValidation.ok) {
+            toast.error(unitsValidation.message);
+            setActiveTab('precios');
+            return;
+        }
+
         const stockValue = productType === 'physical' ? parseFloat(formData.stock || 0) || 0 : 0;
         const payload = {
             ...formData,
@@ -300,23 +379,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
             commission_amount: formData.commission_amount ? parseFloat(formData.commission_amount) : null,
             commission_percentage: formData.commission_percentage ? parseFloat(formData.commission_percentage) : null,
             warehouse_stocks: productType === 'physical' ? formData.warehouse_stocks : [],
-            units: Array.isArray(formData.units)
-                ? formData.units.map(unit => ({
-                    ...(unit.id && typeof unit.id === 'number' && unit.id <= 10_000_000 ? { id: unit.id } : {}),
-                    unit_name: unit.unit_name,
-                    conversion_factor: unit.type === 'fraction'
-                        ? (Number(unit.user_input) ? 1 / parseFloat(unit.user_input) : 0)
-                        : parseFloat(unit.user_input || unit.conversion_factor || 1),
-                    barcode: unit.barcode || '',
-                    cost_price: unit.cost_price !== '' && unit.cost_price !== null && unit.cost_price !== undefined ? parseFloat(unit.cost_price) : null,
-                    price_usd: unit.price_usd !== '' && unit.price_usd !== null && unit.price_usd !== undefined ? parseFloat(unit.price_usd) : null,
-                    profit_margin: unit.profit_margin !== '' && unit.profit_margin !== null && unit.profit_margin !== undefined ? parseFloat(unit.profit_margin) : null,
-                    discount_percentage: parseFloat(unit.discount_percentage) || 0,
-                    is_discount_active: !!unit.is_discount_active,
-                    is_default: !!unit.is_default,
-                    exchange_rate_id: unit.exchange_rate_id ? parseInt(unit.exchange_rate_id, 10) : null,
-                }))
-                : [],
+            units: unitsValidation.units,
             combo_items: formData.is_combo ? (formData.combo_items || []) : [],
             prices: pricesArray,
             image_url: formData.image_url || '',
@@ -343,7 +406,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
 
     return (
         <Sheet open={isOpen} onOpenChange={onClose}>
-            <SheetContent side="right" className="w-full sm:w-[95vw] sm:max-w-[1180px] flex flex-col gap-0 p-0 border-l border-slate-200 bg-slate-100 [&>button.absolute]:hidden">
+            <SheetContent id="tour-product-form-shell" side="right" className="w-full sm:w-[95vw] sm:max-w-[1180px] flex flex-col gap-0 p-0 border-l border-slate-200 bg-slate-100 [&>button.absolute]:hidden">
                 <header className="sticky top-0 z-20 border-b border-slate-200 bg-white shadow-sm">
                     <div className="flex items-center justify-between gap-3 px-5 py-3">
                         <div className="flex min-w-0 items-center gap-3">
@@ -356,8 +419,11 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
+                            <Button id="tour-product-form-guide" type="button" variant="outline" onClick={startProductFormGuide} className="font-black text-indigo-600">
+                                <BookOpen size={15} className="mr-2" /> Guia
+                            </Button>
                             <Button type="button" variant="ghost" onClick={onClose} className="font-bold">Cancelar</Button>
-                            <Button type="button" onClick={handleSubmit} disabled={saving || !formData.name.trim()} className="bg-indigo-600 font-black text-white hover:bg-indigo-700">
+                            <Button id="tour-product-form-save" type="button" onClick={handleSubmit} disabled={saving || !formData.name.trim()} className="bg-indigo-600 font-black text-white hover:bg-indigo-700">
                                 <Check size={16} className="mr-2" /> {saving ? 'Guardando...' : (isEditing ? 'Actualizar' : 'Guardar')}
                             </Button>
                         </div>
@@ -367,7 +433,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                 <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)]">
                     <aside className="min-h-0 overflow-y-auto border-r border-slate-200 bg-white [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                         <div className="space-y-4 p-4">
-                            <Panel title="Datos principales" eyebrow="Producto" className="shadow-none">
+                            <Panel id="tour-product-form-main" title="Datos principales" eyebrow="Producto" className="shadow-none">
                                 <div className="space-y-3">
                                     <div>
                                         <FieldLabel>Nombre *</FieldLabel>
@@ -393,7 +459,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                                 </div>
                             </Panel>
 
-                            <Panel title="Tipo de producto" eyebrow="Configuracion" className="shadow-none">
+                            <Panel id="tour-product-form-type" title="Tipo de producto" eyebrow="Configuracion" className="shadow-none">
                                 <div className="grid grid-cols-2 gap-2">
                                     <TypeOption active={productType === 'physical'} icon={Package} label="Producto" onClick={() => setProductType('physical')} />
                                     {modules?.services && <TypeOption active={productType === 'serial'} icon={ScanBarcode} label="Serial" onClick={() => setProductType('serial')} />}
@@ -415,7 +481,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                     </aside>
 
                     <main className="flex min-h-0 flex-col overflow-hidden">
-                        <nav className="border-b border-slate-200 bg-white px-4 py-3">
+                        <nav id="tour-product-form-tabs" className="border-b border-slate-200 bg-white px-4 py-3">
                             <div className="grid grid-cols-4 gap-1 rounded-lg bg-slate-100 p-1">
                                 {tabs.map(tab => {
                                     const Icon = tab.icon;
@@ -442,7 +508,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                             {activeTab === 'precios' && (
                                 <div className="space-y-4">
                                     <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_1fr_1fr]">
-                                        <Panel title="Precio de venta" eyebrow="POS y catalogo" className="border-emerald-200">
+                                        <Panel id="tour-product-form-price" title="Precio de venta" eyebrow="POS y catalogo" className="border-emerald-200">
                                             <div className="relative">
                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xl font-black text-emerald-500">$</span>
                                                 <Input type="number" step="0.01" value={formData.price} onChange={e => setFormData(p => ({ ...p, price: e.target.value }))} onBlur={e => setFormData(p => ({ ...p, price: formatMoneyInput(e.target.value) }))} className="h-12 border-2 border-emerald-200 pl-8 text-right text-2xl font-black text-emerald-600" placeholder="0.00" />
@@ -463,6 +529,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                                     </div>
 
                                     <Panel
+                                        id="tour-product-form-price-lists"
                                         title="Listas de precios"
                                         eyebrow={`${priceLists.length} activas`}
                                         action={(
@@ -508,8 +575,9 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                                     </Panel>
 
 
-                                    {!formData.is_service && !formData.is_combo && (
+                                    {canUsePresentations && (
                                         <Panel
+                                            id="tour-product-form-presentations"
                                             title="Presentaciones y unidades"
                                             eyebrow={formData.units.length > 0 ? `${formData.units.length} configuradas` : 'Opcional'}
                                         >
@@ -531,7 +599,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                                 <div className="space-y-4">
                                     {productType === 'physical' && (
                                         <>
-                                            <Panel title="Parametros" eyebrow="Stock">
+                                            <Panel id="tour-product-form-inventory" title="Parametros" eyebrow="Stock">
                                                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                                                     <div><FieldLabel>Stock minimo</FieldLabel><Input type="number" step="0.001" value={formData.min_stock} onChange={e => setFormData(p => ({ ...p, min_stock: e.target.value }))} onBlur={e => setFormData(p => ({ ...p, min_stock: formatQtyInput(e.target.value) }))} className="h-10 font-bold" /></div>
                                                     <div><FieldLabel>Ubicacion</FieldLabel><Input value={formData.location} onChange={e => setFormData(p => ({ ...p, location: e.target.value }))} className="h-10 font-bold" placeholder="Pasillo A" /></div>
@@ -563,7 +631,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                                         </>
                                     )}
                                     {productType === 'serial' && (
-                                        <Panel title="Control serializado" eyebrow="IMEI / Serial">
+                                        <Panel id="tour-product-form-serial" title="Control serializado" eyebrow="IMEI / Serial">
                                             <p className="mb-4 text-sm font-medium text-slate-500">Las unidades se cargan luego desde Recepcion IMEI. Aqui defines alerta y ubicacion sugerida.</p>
                                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                                 <Input type="number" step="0.001" value={formData.min_stock} onChange={e => setFormData(p => ({ ...p, min_stock: e.target.value }))} onBlur={e => setFormData(p => ({ ...p, min_stock: formatQtyInput(e.target.value) }))} placeholder="Alerta minima" />
@@ -581,7 +649,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
 
                             {activeTab === 'media' && (
                                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-[280px_1fr]">
-                                    <Panel title="Imagen del producto" eyebrow="Foto">
+                                    <Panel id="tour-product-form-media" title="Imagen del producto" eyebrow="Foto">
                                         <p className="text-sm font-medium text-slate-500">Carga una imagen, toma foto con camara o ajusta el recorte sin ensuciar la ficha principal.</p>
                                     </Panel>
                                     <Panel>
@@ -597,7 +665,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
 
                             {activeTab === 'avanzado' && (
                                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                                    <Panel title="Reglas" eyebrow="Opciones">
+                                    <Panel id="tour-product-form-advanced" title="Reglas" eyebrow="Opciones">
                                         <div className="space-y-2">
                                             {modules?.restaurant && (
                                                 <label className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-black text-slate-700">

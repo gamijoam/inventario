@@ -47,6 +47,49 @@ def _ensure_product_sku_available(db: Session, sku, product_id: Optional[int] = 
             detail=f'Ya existe un producto con el SKU "{normalized}". Usa otro codigo o deja el SKU vacio si no aplica.'
         )
 
+def _as_unit_dict(unit):
+    return unit if isinstance(unit, dict) else unit.dict()
+
+
+def _ensure_product_units_not_duplicated(units):
+    if not units:
+        return
+
+    seen_names = set()
+    seen_barcodes = set()
+    seen_factors = set()
+
+    for raw_unit in units:
+        unit = _as_unit_dict(raw_unit)
+        unit_name = str(unit.get("unit_name") or "").strip()
+        barcode = str(unit.get("barcode") or "").strip()
+        try:
+            factor = Decimal(str(unit.get("conversion_factor") or 0))
+        except Exception:
+            factor = Decimal("0")
+
+        if not unit_name:
+            raise HTTPException(status_code=400, detail="Cada presentacion debe tener un nombre claro.")
+        if factor <= 0:
+            raise HTTPException(status_code=400, detail=f'La presentacion "{unit_name}" tiene una conversion invalida.')
+
+        name_key = unit_name.lower()
+        barcode_key = barcode.lower()
+        factor_key = factor.quantize(Decimal("0.000001"))
+
+        if name_key in seen_names:
+            raise HTTPException(status_code=400, detail=f'Ya existe una presentacion llamada "{unit_name}".')
+        if barcode_key and barcode_key in seen_barcodes:
+            raise HTTPException(status_code=400, detail=f'El codigo de barras "{barcode}" esta repetido en presentaciones.')
+        if factor_key in seen_factors:
+            raise HTTPException(status_code=400, detail=f'Ya existe una presentacion con la misma conversion que "{unit_name}".')
+
+        seen_names.add(name_key)
+        if barcode_key:
+            seen_barcodes.add(barcode_key)
+        seen_factors.add(factor_key)
+
+
 @router.post("/upload-image", dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
 async def upload_product_image(
     file: UploadFile = File(...),
@@ -542,6 +585,7 @@ def read_products(
 @router.post("", response_model=schemas.ProductRead, dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))], include_in_schema=False)
 async def create_product(product: schemas.ProductCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_user)):
     _ensure_product_sku_available(db, product.sku)
+    _ensure_product_units_not_duplicated(product.units)
     # 1. Operaciones DB (Síncronas en Threadpool)
     # 1. Operaciones DB (Transaction Wrapper)
     try:
@@ -771,6 +815,7 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
     units_data = None
     if "units" in update_data:
         units_data = update_data.pop("units")
+        _ensure_product_units_not_duplicated(units_data)
     
     combo_items_data = None
     if "combo_items" in update_data:

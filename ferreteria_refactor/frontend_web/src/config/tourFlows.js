@@ -495,6 +495,81 @@ export const TOUR_FLOWS = {
         ]
     },
 
+    PRODUCT_FORM_PRESENTATIONS: {
+        id: 'product_form_presentations',
+        title: 'Formulario de Producto',
+        description: 'Crear o editar productos, precios, listas y presentaciones sin duplicar datos.',
+        startUrl: '/inventory-center?tab=productos',
+        module: null,
+        steps: [
+            {
+                element: '#tour-product-form-shell',
+                popover: {
+                    title: 'Ficha de producto',
+                    description: 'Esta guia corre dentro del formulario. Si no ves este panel, abre Nuevo Producto o Editar desde Productos y vuelve a iniciar la guia.',
+                    side: 'left', align: 'start'
+                }
+            },
+            {
+                element: '#tour-product-form-main',
+                popover: {
+                    title: 'Datos principales',
+                    description: 'Nombre, SKU y categoria son la identidad del producto. Evita SKU repetidos para que busqueda, POS y reportes apunten al mismo item.',
+                    side: 'right', align: 'start'
+                }
+            },
+            {
+                element: '#tour-product-form-type',
+                popover: {
+                    title: 'Tipo y flags',
+                    description: 'Producto fisico maneja stock. Serial/IMEI se recibe por unidades identificadas. Servicio y Combo ocultan presentaciones porque no se venden como cajas/fracciones del mismo producto.',
+                    side: 'right', align: 'start'
+                }
+            },
+            {
+                element: '#tour-product-form-price',
+                popover: {
+                    title: 'Precio base',
+                    description: 'Es el precio principal que ve POS y catalogo. Debe ser mayor que cero antes de guardar.',
+                    side: 'bottom', align: 'start'
+                }
+            },
+            {
+                element: '#tour-product-form-price-lists',
+                popover: {
+                    title: 'Listas de precios',
+                    description: 'Usalas para detal, mayor, promociones o clientes especiales. No reemplazan presentaciones: son precios alternos del mismo producto base.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                element: '#tour-product-form-presentations',
+                popover: {
+                    title: 'Presentaciones',
+                    description: 'Aqui van cajas, bultos, litros o fracciones del mismo producto. El formulario valida nombre, precio, codigo y conversion para evitar repetidos.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                element: '#tour-product-form-tabs',
+                popover: {
+                    title: 'Secciones por contexto',
+                    description: 'Inventario, Imagen y Avanzado cambian segun el tipo de producto y los modulos activos del negocio. Si un flag no aplica, la seccion no se muestra.',
+                    side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-product-form-save',
+                popover: {
+                    title: 'Guardar con validacion',
+                    description: 'Al guardar se actualizan listas y presentaciones. Si eliminas una presentacion sin ventas, se borra; si ya tiene historial, se conserva para no romper facturas.',
+                    side: 'left', align: 'end'
+                }
+            }
+        ]
+    },
+
+
     INVENTORY_CATEGORIES: {
         id: 'inventory_categories',
         title: 'Categorias de Inventario',
