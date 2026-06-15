@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import List, Optional
 import json
 import asyncio
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from ..database.db import get_db
 from ..models import models
 from ..models.models import UserRole
@@ -1629,6 +1629,87 @@ def create_sale(sale_data: schemas.SaleCreate, background_tasks: BackgroundTasks
     
     # Delegate to Service (Now Sync)
     return SalesService.create_sale(db, sale_data, user_id=current_user.id, background_tasks=background_tasks)
+
+
+@router.get("/sales/reprintable/recent", dependencies=[Depends(cashier_or_admin)])
+def get_recent_reprintable_sales(
+    limit: int = Query(25, ge=1, le=100),
+    q: Optional[str] = Query(None, description="Buscar por numero de venta, cliente o metodo de pago"),
+    session_id: Optional[int] = Query(None, description="Sesion de caja actual"),
+    register_id: Optional[int] = Query(None, description="Caja fisica actual"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """
+    POS-safe sale lookup for reprinting tickets/warranties.
+    Cashiers only see sales from their own cash sessions; admins can filter by current terminal.
+    """
+    role_value = getattr(getattr(current_user, "role", None), "value", getattr(current_user, "role", None))
+    role_text = str(role_value).upper()
+    is_admin = bool(getattr(current_user, "is_superuser", False)) or role_text == "ADMIN" or str(getattr(current_user, "role", "")).upper() == "USERROLE.ADMIN"
+
+    query = db.query(models.Sale).options(
+        joinedload(models.Sale.customer),
+        selectinload(models.Sale.details).joinedload(models.SaleDetail.product),
+        joinedload(models.Sale.cash_session).joinedload(models.CashSession.register),
+    )
+
+    if session_id:
+        query = query.filter(models.Sale.session_id == session_id)
+    elif register_id:
+        query = query.filter(models.Sale.cash_session.has(models.CashSession.register_id == register_id))
+    else:
+        # Keep the default list small and operational for the POS.
+        query = query.filter(models.Sale.date >= datetime.now() - timedelta(days=7))
+
+    if not is_admin:
+        query = query.filter(models.Sale.cash_session.has(models.CashSession.user_id == current_user.id))
+
+    search = (q or "").strip()
+    if search:
+        lowered = f"%{search.lower()}%"
+        conditions = []
+        if search.isdigit():
+            conditions.append(models.Sale.id == int(search))
+        conditions.extend([
+            models.Sale.payment_method.ilike(lowered),
+            models.Customer.name.ilike(lowered),
+            models.Customer.phone.ilike(lowered),
+        ])
+        query = query.outerjoin(models.Customer, models.Sale.customer_id == models.Customer.id).filter(or_(*conditions))
+
+    sales = query.order_by(models.Sale.date.desc(), models.Sale.id.desc()).limit(limit).all()
+
+    result = []
+    for sale in sales:
+        details = list(sale.details or [])
+        has_warranty = any(
+            bool(getattr(detail.product, "warranty_policy_id", None)) or bool(getattr(detail.product, "has_imei", False))
+            for detail in details
+            if detail.product
+        )
+        item_names = [
+            detail.description or (detail.product.name if detail.product else "Producto")
+            for detail in details[:3]
+        ]
+        result.append({
+            "id": sale.id,
+            "date": sale.date.isoformat() if sale.date else None,
+            "total_amount": float(sale.total_amount or 0),
+            "total_amount_bs": float(sale.total_amount_bs or 0),
+            "currency": sale.currency or "USD",
+            "payment_method": sale.payment_method,
+            "customer_name": sale.customer.name if sale.customer else "Cliente generico",
+            "item_count": len(details),
+            "items_preview": item_names,
+            "has_warranty": has_warranty,
+            "session_id": sale.session_id,
+            "register_id": sale.cash_session.register_id if sale.cash_session else None,
+            "register_code": sale.cash_session.register.code if sale.cash_session and sale.cash_session.register else None,
+            "register_name": sale.cash_session.register.name if sale.cash_session and sale.cash_session.register else None,
+        })
+
+    return result
 
 # NEW: Get sale detail with items (for invoice detail view)
 @router.get("/sales/{sale_id}", response_model=schemas.SaleRead, dependencies=[Depends(cashier_or_admin)])

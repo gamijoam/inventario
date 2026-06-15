@@ -3,7 +3,7 @@ import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
 import { useHelp } from '../help/useHelp';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2, LayoutGrid, Image, Search, ChevronDown, CheckCircle2, Printer } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2, LayoutGrid, Image, Search, ChevronDown, CheckCircle2, Printer, ReceiptText } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -37,6 +37,7 @@ import usePOSCatalog from '../hooks/usePOSCatalog';
 import ServiceImportModal from './POS/ServiceImportModal';
 import SerializedItemModal from '../components/pos/SerializedItemModal';
 import POSSettingsModal from '../components/pos/POSSettingsModal';
+import ReprintSalesSheet from '../components/pos/ReprintSalesSheet';
 import PinAuthModal from '../components/common/PinAuthModal';
 import EmployeeSelectionModal from '../components/pos/EmployeeSelectionModal';
 import { DEFAULT_THEME, POS_THEMES } from '../constants/posThemes';
@@ -109,6 +110,7 @@ const POS = () => {
     const themeId = user?.preferences?.pos_theme?.id || 'default';
     const currentTheme = POS_THEMES.find(t => t.id === themeId) || DEFAULT_THEME;
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isReprintOpen, setIsReprintOpen] = useState(false);
 
     // Express Mode State
     const isExpressMode = user?.preferences?.pos_mode === 'express';
@@ -963,6 +965,18 @@ const POS = () => {
                         </DropdownMenuContent>
                     </DropdownMenu>
 
+                    <Button
+                        id="tour-pos-reprint"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsReprintOpen(true)}
+                        className="hidden md:flex h-9 gap-2 rounded-xl border-slate-200 bg-white px-3 font-black text-slate-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                        title="Reimprimir tickets y garantias"
+                    >
+                        <ReceiptText size={16} />
+                        Tickets
+                    </Button>
+
                     {/* Buscador rapido F1 - siempre visible */}
                     <button
                         onClick={() => setIsLookupOpen(true)}
@@ -1025,6 +1039,13 @@ const POS = () => {
                     </Button>
                 </div>
             </div>
+
+            <ReprintSalesSheet
+                open={isReprintOpen}
+                onOpenChange={setIsReprintOpen}
+                session={session}
+                currentRegister={currentRegister}
+            />
 
             {/* BANNER VENTA PAUSADA */}
             {heldCart && (
