@@ -253,8 +253,14 @@ const CreatePurchase = () => {
             return;
         }
 
+        if (!selectedWarehouse) {
+            toast.error('Selecciona el almacen donde entrara la mercancia');
+            return;
+        }
+
         if (purchaseItems.length === 0) {
             toast.error('Agrega al menos un producto');
+            productSearchRef.current?.focus();
             return;
         }
 
@@ -485,6 +491,11 @@ const CreatePurchase = () => {
                                 autoFocus
                             />
                             {/* Autocomplete Dropdown */}
+                            {productSearch && filteredProducts.length === 0 && (
+                                <div className="absolute z-50 mt-2 w-full rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm font-bold text-amber-700 shadow-xl">
+                                    No encontre productos con ese nombre o SKU. Puedes crear uno con el boton Producto nuevo.
+                                </div>
+                            )}
                             {filteredProducts.length > 0 && (
                                 <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-2xl border border-slate-100 max-h-[400px] overflow-y-auto custom-scrollbar animate-in slide-in-from-top-2">
                                     {filteredProducts.map(product => (
@@ -883,7 +894,7 @@ const CreatePurchase = () => {
                         <button
                             id="tour-purchase-submit"
                             onClick={handleSubmit}
-                            disabled={!selectedSupplier || purchaseItems.length === 0}
+                            disabled={!selectedSupplier || !selectedWarehouse || purchaseItems.length === 0}
                             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-indigo-200 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-y-0 flex items-center justify-center gap-2 active:scale-95"
                         >
                             <Save size={20} /> Procesar Compra

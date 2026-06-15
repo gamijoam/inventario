@@ -34,12 +34,12 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
         # Get supplier
         supplier = db.query(models.Supplier).filter(models.Supplier.id == order_data.supplier_id).first()
         if not supplier:
-            raise HTTPException(status_code=404, detail="Supplier not found")
+            raise HTTPException(status_code=404, detail="Proveedor no encontrado")
 
         # Validate Warehouse
         warehouse = db.query(models.Warehouse).filter(models.Warehouse.id == order_data.warehouse_id).first()
         if not warehouse:
-             raise HTTPException(status_code=404, detail="Warehouse not found")
+             raise HTTPException(status_code=404, detail="Almacen destino no encontrado")
         
         # Calculate dates — prefer frontend-provided values, fall back to server defaults
         from datetime import datetime, timedelta
@@ -338,12 +338,12 @@ def get_purchase_order(order_id: int, db: Session = Depends(get_db)):
     ).filter(models.PurchaseOrder.id == order_id).first()
     
     if not order:
-        raise HTTPException(status_code=404, detail="Purchase order not found")
+        raise HTTPException(status_code=404, detail="Compra no encontrada")
     
     return order
 
 @router.delete("/{purchase_id}", status_code=200)
-def void_purchase_order(
+async def void_purchase_order(
     purchase_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
@@ -377,6 +377,7 @@ def void_purchase_order(
         )
 
     reversed_items = []
+    updated_products_info = []
     for item in purchase.items:
         product = item.product
         if not product:
@@ -424,6 +425,15 @@ def void_purchase_order(
         )
         db.add(kardex)
         reversed_items.append({"product_id": product.id, "name": product.name, "quantity": qty})
+        updated_products_info.append({
+            "id": product.id,
+            "name": product.name,
+            "price": float(product.price or 0),
+            "cost_price": float(product.cost_price or 0),
+            "stock": float(product.stock or 0),
+            "profit_margin": float(product.profit_margin or 0),
+            "exchange_rate_id": product.exchange_rate_id,
+        })
 
     invoice_ref = purchase.invoice_number or f"#{purchase.id}"
     supplier = db.query(models.Supplier).filter(models.Supplier.id == purchase.supplier_id).first()
@@ -437,6 +447,13 @@ def void_purchase_order(
 
     db.delete(purchase)
     db.commit()
+
+    for p_info in updated_products_info:
+        await manager.broadcast(WebSocketEvents.PRODUCT_UPDATED, p_info)
+        await manager.broadcast(WebSocketEvents.PRODUCT_STOCK_UPDATED, {
+            "id": p_info["id"],
+            "stock": p_info["stock"],
+        })
 
     return {
         "message": f"Factura {invoice_ref} anulada correctamente",
@@ -455,10 +472,10 @@ def register_payment(
     purchase = db.query(models.PurchaseOrder).filter(models.PurchaseOrder.id == purchase_id).first()
     
     if not purchase:
-        raise HTTPException(status_code=404, detail="Purchase order not found")
+        raise HTTPException(status_code=404, detail="Compra no encontrada")
     
     if purchase.payment_status == models.PaymentStatus.PAID:
-        raise HTTPException(status_code=400, detail="Purchase is already fully paid")
+        raise HTTPException(status_code=400, detail="La compra ya esta pagada por completo")
     
     try:
         # Create payment record
@@ -525,7 +542,7 @@ def get_purchase_payments(purchase_id: int, db: Session = Depends(get_db)):
     purchase = db.query(models.PurchaseOrder).filter(models.PurchaseOrder.id == purchase_id).first()
     
     if not purchase:
-        raise HTTPException(status_code=404, detail="Purchase order not found")
+        raise HTTPException(status_code=404, detail="Compra no encontrada")
     
     payments = db.query(models.PurchasePayment).filter(
         models.PurchasePayment.purchase_id == purchase_id
