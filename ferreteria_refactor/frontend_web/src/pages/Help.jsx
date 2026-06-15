@@ -40,6 +40,13 @@ const TOUR_BY_CONTEXT = {
     'inventory/traslados': 'INVENTORY_TRANSFERS',
     'inventory/almacenes': 'INVENTORY_WAREHOUSES',
     'inventory/seriales': 'INVENTORY_SERIALS',
+    'reports/resumen': 'REPORTS',
+    'reports/ventas': 'REPORTS_SALES',
+    'reports/caja': 'REPORTS_CASH',
+    'reports/creditos': 'REPORTS_CREDITS',
+    'reports/proveedores': 'REPORTS_SUPPLIERS',
+    'reports/inventario': 'REPORTS_INVENTORY',
+    'reports/comisiones': 'REPORTS_COMMISSIONS',
     'sales/cotizaciones': 'SALES_QUOTES',
     'sales/clientes': 'SALES_CUSTOMERS',
     'sales/devoluciones': 'SALES_RETURNS',
@@ -68,6 +75,8 @@ const QUICK_ISSUES = [
     { title: 'Compra no guarda', desc: 'Valida proveedor, cantidades, costos, factura y seriales si maneja IMEI.', context: 'purchases' },
     { title: 'Deuda proveedor no cuadra', desc: 'Revisa compras a credito, pagos parciales y proveedor duplicado.', context: 'suppliers' },
     { title: 'Tasa desactualizada', desc: 'Actualiza monedas/tasa antes de vender o revisar precios en moneda local.', context: 'config/monedas' },
+    { title: 'Ventas no cuadran con caja', desc: 'Compara ventas, pagos mixtos, creditos, devoluciones y cierre del mismo periodo.', context: 'reports/caja' },
+    { title: 'Ganancia baja o rara', desc: 'Revisa productos con costo cero, compras mal cargadas y descuentos.', context: 'reports/resumen' },
 ];
 
 const colorClasses = {

@@ -31,6 +31,13 @@ const TOUR_BY_CONTEXT = {
     'inventory/traslados': 'INVENTORY_TRANSFERS',
     'inventory/almacenes': 'INVENTORY_WAREHOUSES',
     'inventory/seriales': 'INVENTORY_SERIALS',
+    'reports/resumen': 'REPORTS',
+    'reports/ventas': 'REPORTS_SALES',
+    'reports/caja': 'REPORTS_CASH',
+    'reports/creditos': 'REPORTS_CREDITS',
+    'reports/proveedores': 'REPORTS_SUPPLIERS',
+    'reports/inventario': 'REPORTS_INVENTORY',
+    'reports/comisiones': 'REPORTS_COMMISSIONS',
     'sales/cotizaciones': 'SALES_QUOTES',
     'sales/clientes': 'SALES_CUSTOMERS',
     'sales/devoluciones': 'SALES_RETURNS',
@@ -67,7 +74,35 @@ const TASK_TOURS = {
     suppliers: [
         { label: 'Directorio', tour: 'SUPPLIERS' },
         { label: 'Nueva compra', tour: 'PURCHASES_CREATE' },
-        { label: 'Cuentas por pagar', tour: 'FINANCE' },
+        { label: 'Cuentas por pagar', tour: 'REPORTS_SUPPLIERS' },
+    ],
+    'reports/resumen': [
+        { label: 'Leer resumen', tour: 'REPORTS' },
+        { label: 'Ventas', tour: 'REPORTS_SALES' },
+        { label: 'Caja', tour: 'REPORTS_CASH' },
+    ],
+    'reports/ventas': [
+        { label: 'Auditar ventas', tour: 'REPORTS_SALES' },
+        { label: 'Cuadrar caja', tour: 'REPORTS_CASH' },
+    ],
+    'reports/caja': [
+        { label: 'Cuadre de caja', tour: 'REPORTS_CASH' },
+        { label: 'Ventas del periodo', tour: 'REPORTS_SALES' },
+    ],
+    'reports/creditos': [
+        { label: 'Cuentas por cobrar', tour: 'REPORTS_CREDITS' },
+        { label: 'Registrar abono', tour: 'SALES_CREDIT_PAYMENT' },
+    ],
+    'reports/proveedores': [
+        { label: 'Cuentas por pagar', tour: 'REPORTS_SUPPLIERS' },
+        { label: 'Nueva compra', tour: 'PURCHASES_CREATE' },
+    ],
+    'reports/inventario': [
+        { label: 'Valoracion', tour: 'REPORTS_INVENTORY' },
+        { label: 'Auditar Kardex', tour: 'INVENTORY_KARDEX' },
+    ],
+    'reports/comisiones': [
+        { label: 'Comisiones', tour: 'REPORTS_COMMISSIONS' },
     ],
     'inventory/productos': [
         { label: 'Catalogo', tour: 'INVENTORY_PRODUCTS' },
@@ -128,6 +163,41 @@ const COMMON_ISSUES = {
         'Proveedor duplicado: busca por nombre/contacto antes de crear.',
         'Deuda no cuadra: revisa compras a credito y pagos registrados.',
         'Pago no baja saldo: confirma que se aplico a la compra/proveedor correcto.',
+    ],
+    'reports/resumen': [
+        'Ventas en cero: revisa rango de fechas, caja y ventas anuladas.',
+        'Ganancia rara: revisa costos cero o compras cargadas con costo incorrecto.',
+        'Comparacion confusa: usa periodos completos y consistentes.',
+    ],
+    'reports/ventas': [
+        'Venta no aparece: confirma fecha, usuario, tenant y estado.',
+        'Total no cuadra con caja: revisa creditos, pagos mixtos y devoluciones.',
+        'Descuento inesperado: abre detalle y revisa autorizacion/PIN.',
+    ],
+    'reports/caja': [
+        'Faltante: revisa pagos mixtos, egresos y vuelto.',
+        'Sobrante: valida ventas duplicadas o montos recibidos mayores.',
+        'Egreso dudoso: exige descripcion y responsable.',
+    ],
+    'reports/creditos': [
+        'Saldo no baja: pago aplicado a factura o cliente incorrecto.',
+        'Cliente duplicado: puede dividir deuda e historial.',
+        'Mora alta: revisa limites y bloqueos de credito.',
+    ],
+    'reports/proveedores': [
+        'Deuda inflada: busca facturas duplicadas o compras marcadas como credito.',
+        'Pago no aparece: confirma proveedor y compra asociada.',
+        'Proveedor duplicado: consolida datos antes de auditar saldos.',
+    ],
+    'reports/inventario': [
+        'Valoracion baja: revisa productos con costo cero.',
+        'Stock raro: investiga en Kardex antes de ajustar.',
+        'IMEI descuadrado: compara con Seriales disponibles/en transito.',
+    ],
+    'reports/comisiones': [
+        'Monto raro: revisa reglas por usuario/categoria.',
+        'Comision duplicada: verifica ventas anuladas o pagadas previamente.',
+        'Pago pendiente: registra liquidacion para cerrar saldo.',
     ],
     'inventory/productos': [
         'SKU duplicado: edita el producto existente o cambia el codigo.',

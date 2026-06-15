@@ -783,7 +783,7 @@ const ReportsCenter = () => {
     // MAIN RENDER
     // ============================================================
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div id="tour-reports-container" className="min-h-screen bg-slate-50">
             {/* Header */}
             <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
                 <div className="max-w-[1520px] mx-auto px-4 sm:px-5">
@@ -794,10 +794,10 @@ const ReportsCenter = () => {
                             <p className="text-slate-500 text-xs font-semibold">Anal?tica avanzada de tu negocio</p>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-1.5">
+                        <div id="tour-reports-controls" className="flex flex-wrap items-center gap-1.5">
                             {helpKey && <HelpButton contextKey={helpKey} onClick={help.open} />}
                             {/* Date presets */}
-                            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 shadow-inner shadow-slate-200/60">
+                            <div id="tour-reports-presets" className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 shadow-inner shadow-slate-200/60">
                                 {presets.map(p => (
                                     <button
                                         key={p.id}
@@ -814,7 +814,7 @@ const ReportsCenter = () => {
                             </div>
 
                             {/* Date inputs */}
-                            <div className="flex items-center gap-1.5 bg-slate-100 rounded-lg px-2 py-1 shadow-inner shadow-slate-200/60">
+                            <div id="tour-reports-date-range" className="flex items-center gap-1.5 bg-slate-100 rounded-lg px-2 py-1 shadow-inner shadow-slate-200/60">
                                 <Calendar size={14} className="text-slate-400" />
                                 <input
                                     type="date"
@@ -845,6 +845,7 @@ const ReportsCenter = () => {
 
                             {/* Export */}
                             <button
+                                id="tour-reports-export"
                                 onClick={handleExport}
                                 className="h-8 inline-flex items-center gap-1.5 px-3 bg-emerald-600 text-white text-xs font-black rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
                                 title="Descargar reporte Excel"
@@ -856,13 +857,14 @@ const ReportsCenter = () => {
                     </div>
 
                     {/* Tab Navigation */}
-                    <div className="flex overflow-x-auto gap-1 -mb-px scrollbar-hide pt-1">
+                    <div id="tour-reports-tabs" className="flex overflow-x-auto gap-1 -mb-px scrollbar-hide pt-1">
                         {visibleTabs.map(tab => {
                             const TabIcon = tab.icon;
                             const isActive = activeTab === tab.id;
                             return (
                                 <button
                                     key={tab.id}
+                                    id={`tour-reports-tab-${tab.id}`}
                                     onClick={() => setActiveTab(tab.id)}
                                     className={`flex items-center gap-2 px-3 py-2.5 text-xs font-black whitespace-nowrap border-b-2 rounded-t-lg transition-all ${
                                         isActive
@@ -880,7 +882,7 @@ const ReportsCenter = () => {
             </div>
 
             {/* Tab Content */}
-            <div className="max-w-[1520px] mx-auto px-4 sm:px-5 py-4">
+            <div id="tour-reports-content" className="max-w-[1520px] mx-auto px-4 sm:px-5 py-4">
                 {renderTabContent()}
             </div>
             {help.isOpen && helpKey && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
