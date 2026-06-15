@@ -31,11 +31,11 @@ const TOUR_BY_CONTEXT = {
     'inventory/traslados': 'INVENTORY_TRANSFERS',
     'inventory/almacenes': 'INVENTORY_WAREHOUSES',
     'inventory/seriales': 'INVENTORY_SERIALS',
-    'sales/cotizaciones': 'SALES_CLIENTS',
-    'sales/clientes': 'SALES_CLIENTS',
-    'sales/devoluciones': 'SALES_CLIENTS',
-    'sales/garantias': 'SALES_CLIENTS',
-    'sales/creditos': 'SALES_CLIENTS',
+    'sales/cotizaciones': 'SALES_QUOTES',
+    'sales/clientes': 'SALES_CUSTOMERS',
+    'sales/devoluciones': 'SALES_RETURNS',
+    'sales/garantias': 'SALES_WARRANTIES',
+    'sales/creditos': 'SALES_CREDITS',
     'config/general': 'SYSTEM',
     'config/usuarios': 'SYSTEM',
     'config/monedas': 'SYSTEM',
@@ -63,6 +63,23 @@ const TASK_TOURS = {
         { label: 'Nueva compra', tour: 'PURCHASES_CREATE' },
         { label: 'Compra con IMEI', tour: 'PURCHASES_IMEI' },
         { label: 'Recepcion serializada', tour: 'SERIALIZED_RECEPTION' },
+    ],
+    'sales/cotizaciones': [
+        { label: 'Crear cotizacion', tour: 'SALES_QUOTES_CREATE' },
+        { label: 'Facturar cotizacion', tour: 'SALES_QUOTES_INVOICE' },
+    ],
+    'sales/clientes': [
+        { label: 'Crear cliente', tour: 'SALES_CUSTOMER_CREATE' },
+    ],
+    'sales/devoluciones': [
+        { label: 'Procesar devolucion', tour: 'SALES_RETURN_PROCESS' },
+        { label: 'Canje por producto', tour: 'SALES_RETURN_EXCHANGE' },
+    ],
+    'sales/garantias': [
+        { label: 'Resolver garantia', tour: 'SALES_WARRANTY_PROCESS' },
+    ],
+    'sales/creditos': [
+        { label: 'Registrar abono', tour: 'SALES_CREDIT_PAYMENT' },
     ],
 };
 

@@ -173,11 +173,11 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
     );
 
     return (
-        <div className="h-full flex flex-col">
+        <div id="tour-quotes-container" className="h-full flex flex-col">
 
             {/* ── Stats header ── */}
             <div className="p-4 border-b border-slate-100 bg-slate-50/40">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div id="tour-quotes-summary" className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                     <StatCard label="Total"        value={stats.total}     sub="cotizaciones"          color="slate" />
                     <StatCard label="Pendientes"   value={stats.pending}   sub={`$${stats.pendingAmount.toFixed(0)} en espera`} color="blue" />
                     <StatCard label="Facturadas"   value={stats.converted} sub="convertidas a venta"   color="emerald" />
@@ -187,7 +187,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
                 {/* Filtros + Búsqueda */}
                 <div className="flex flex-col sm:flex-row gap-3">
                     {/* Pills de estado */}
-                    <div className="flex gap-1.5 flex-wrap">
+                    <div id="tour-quotes-filters" className="flex gap-1.5 flex-wrap">
                         {[
                             { id: 'ALL',       label: 'Todas',     count: stats.total },
                             { id: 'PENDING',   label: 'Pendientes', count: stats.pending },
@@ -210,13 +210,13 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
 
                     {/* Buscador + Botón Nueva Cotización */}
                     <div className="flex items-center gap-2 flex-1 sm:max-w-sm ml-auto">
-                        <div className="relative flex-1">
+                        <div id="tour-quotes-search" className="relative flex-1">
                             <Search className="absolute left-3 top-2.5 text-slate-400" size={15} />
                             <input type="text" placeholder="Buscar por cliente o #..."
                                 className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                                 value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                         </div>
-                        <button onClick={onCreateNew}
+                        <button id="tour-quotes-add-btn" onClick={onCreateNew}
                             className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition-all shadow-sm whitespace-nowrap shrink-0">
                             <Plus size={15} /> Nueva
                         </button>
@@ -225,7 +225,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
             </div>
 
             {/* ── Lista ── */}
-            <div className="flex-1 overflow-y-auto p-4">
+            <div id="tour-quotes-list" className="flex-1 overflow-y-auto p-4">
                 {filtered.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3">
                         <div className="w-20 h-20 bg-slate-50 rounded-2xl flex items-center justify-center">

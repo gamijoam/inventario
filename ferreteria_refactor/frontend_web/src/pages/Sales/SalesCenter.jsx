@@ -139,13 +139,14 @@ const SalesCenter = () => {
                     </div>
 
                     {/* Tab Navigation */}
-                    <div className="flex overflow-x-auto gap-1.5 pb-1 scrollbar-hide">
+                    <div id="tour-sales-tabs" className="flex overflow-x-auto gap-1.5 pb-1 scrollbar-hide">
                         {TABS.map(tab => {
                             const TabIcon = tab.icon;
                             const isActive = activeTab === tab.id;
                             return (
                                 <button
                                     key={tab.id}
+                                    id={`tour-sales-tab-${tab.id}`}
                                     onClick={() => setActiveTab(tab.id)}
                                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all shrink-0 ${
                                         isActive
