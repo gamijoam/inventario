@@ -6,9 +6,9 @@ Responsabilidades:
   - Consulta de balance disponible en cajón — GET /balance
   - Función helper get_available_cash() (reutilizable por otros módulos)
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_, and_
+from sqlalchemy import func, or_, and_, desc
 from typing import Optional
 from datetime import datetime
 from decimal import Decimal
@@ -22,6 +22,40 @@ from ... import schemas
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+def _is_admin(user: models.User) -> bool:
+    role_value = getattr(getattr(user, "role", None), "value", getattr(user, "role", None))
+    role_text = str(role_value).upper()
+    return bool(getattr(user, "is_superuser", False)) or role_text == "ADMIN" or str(getattr(user, "role", "")).upper() == "USERROLE.ADMIN"
+
+def _resolve_target_session(
+    db: Session,
+    current_user: models.User,
+    session_id: Optional[int] = None,
+):
+    query = db.query(models.CashSession).filter(models.CashSession.status == "OPEN")
+
+    if session_id is not None:
+        query = query.filter(models.CashSession.id == session_id)
+        if not _is_admin(current_user):
+            query = query.filter(models.CashSession.user_id == current_user.id)
+        session = query.first()
+        if not session:
+            raise HTTPException(status_code=404, detail="La sesion de caja indicada no esta abierta o no pertenece al usuario actual")
+        return session
+
+    session = query.filter(models.CashSession.user_id == current_user.id).order_by(
+        desc(models.CashSession.start_time),
+        desc(models.CashSession.id),
+    ).first()
+    if session:
+        return session
+
+    if _is_admin(current_user):
+        return query.order_by(desc(models.CashSession.start_time), desc(models.CashSession.id)).first()
+
+    return None
+
 
 
 # ============================================================
@@ -113,15 +147,11 @@ def register_movement(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
-    # Get global open session
-    session = db.query(models.CashSession).filter(
-        models.CashSession.status == "OPEN"
-    ).first()
+    session = _resolve_target_session(db, current_user, movement.session_id)
 
     if not session:
-        raise HTTPException(status_code=400, detail="No hay sesión de caja abierta")
+        raise HTTPException(status_code=400, detail="No hay sesion de caja abierta para este usuario o terminal")
 
-    # VALIDATE FUNDS FOR OUTBOUND MOVEMENTS
     if movement.type in ["WITHDRAWAL", "EXPENSE", "OUT", "CASH_ADVANCE"]:
         available = get_available_cash(db, session.id, movement.currency)
         if movement.amount > available:
@@ -136,7 +166,6 @@ def register_movement(
         amount=movement.amount,
         currency=movement.currency,
         description=movement.description,
-        # Dual Transaction Fields
         incoming_amount=movement.incoming_amount,
         incoming_currency=movement.incoming_currency,
         incoming_method=movement.incoming_method,
@@ -161,23 +190,21 @@ def register_movement(
     }
 
     db.commit()
-    # db.refresh(new_movement)
     return response_data
 
 
 @router.get("/balance")
 def get_current_balance(
     currency: str = "USD",
+    session_id: Optional[int] = Query(None, description="ID de la sesion de caja actual"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
-    """Get current available cash balance for a currency"""
-    session = db.query(models.CashSession).filter(
-        models.CashSession.status == "OPEN"
-    ).first()
+    """Get current available cash balance for a currency."""
+    session = _resolve_target_session(db, current_user, session_id)
 
     if not session:
         return {"available": 0.0, "status": "CLOSED"}
 
     available = get_available_cash(db, session.id, currency)
-    return {"available": float(available), "status": "OPEN"}
+    return {"available": float(available), "status": "OPEN", "session_id": session.id}

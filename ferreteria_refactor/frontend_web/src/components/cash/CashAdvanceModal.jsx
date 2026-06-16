@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { X, TrendingDown, RefreshCw, Calculator, DollarSign } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
+import { useCash } from '../../context/CashContext';
 import apiClient from '../../config/axios';
 import toast from 'react-hot-toast';
 import { getApiErrorMessage } from '../../utils/apiErrors';
 
 const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
     const { getActiveCurrencies, formatCurrency } = useConfig();
+    const { session } = useCash();
 
     // Inputs
     const [amount, setAmount] = useState('');
@@ -47,11 +49,16 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
             // Check Balance
             fetchAvailableBalance('USD');
         }
-    }, [isOpen]);
+    }, [isOpen, session?.id]);
 
     const fetchAvailableBalance = async (curr) => {
+        if (!session?.id) {
+            setAvailableBalance(0);
+            return;
+        }
+
         try {
-            const response = await apiClient.get('/cash/balance', { params: { currency: curr } });
+            const response = await apiClient.get('/cash/balance', { params: { currency: curr, session_id: session?.id } });
             setAvailableBalance(response.data.available);
         } catch (error) {
             console.error("Balance Check Failed", error);
@@ -67,6 +74,11 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!session?.id) {
+            toast.error("Debes abrir una caja antes de registrar el avance");
+            return;
+        }
 
         if (numAmount > availableBalance) {
             toast.error("Fondos insuficientes en caja");
@@ -91,7 +103,8 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
                 incoming_amount: totalToTransfer, // Amount received in bank
                 incoming_currency: currency, // Assuming same currency for now
                 incoming_method: incomingMethod,
-                incoming_reference: incomingReference
+                incoming_reference: incomingReference,
+                session_id: session?.id || null
             };
 
             await apiClient.post('/cash/movements', movementData);
