@@ -565,12 +565,16 @@ const POS = () => {
     }
 
     // ── Combo IMEI: confirmar serial de un componente y avanzar al siguiente ──
-    const handleComboComponentSerialConfirm = (serials) => {
+    const handleComboComponentSerialConfirm = (serials, serialDetails = []) => {
         if (comboImeiQueue.length === 0) return;
         const current = comboImeiQueue[0];
         const newCollected = {
             ...comboImeiCollected,
             [String(current.product.id)]: serials
+        };
+        const comboSerialDetails = {
+            ...(pendingComboProduct?.combo_serial_details || {}),
+            [String(current.product.id)]: serialDetails,
         };
         const remaining = comboImeiQueue.slice(1);
 
@@ -589,6 +593,7 @@ const POS = () => {
                     factor: 1,
                     is_base: true,
                     combo_serials: newCollected,
+                    combo_serial_details: comboSerialDetails,
                     salesperson_id: selectedSalespersonId || null
                 });
                 setPendingComboProduct(null);
@@ -603,18 +608,22 @@ const POS = () => {
         setPendingComboProduct(null);
     };
 
-    const handleSerializedConfirm = (serials) => {
+    const handleSerializedConfirm = (serials, serialDetails = []) => {
         if (!selectedProductForSerialized) return;
 
         serials.forEach(accSerial => {
+            const detail = serialDetails.find(item => item.serial_number === accSerial) || {};
             const singleUnit = {
                 name: 'Unidad',
                 price_usd: parseFloat(selectedProductForSerialized.price),
                 factor: 1,
                 is_base: true,
                 serial_numbers: [accSerial],
+                serial_details: detail.serial_number ? [detail] : [],
                 unit_id: `IMEI-${accSerial}`,
                 has_imei: true,
+                color_name: detail.color_name || null,
+                color_hex: detail.color_hex || null,
                 salesperson_id: selectedSalespersonId || null
             };
             addToCart(selectedProductForSerialized, singleUnit);

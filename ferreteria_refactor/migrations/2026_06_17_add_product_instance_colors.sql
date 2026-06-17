@@ -1,0 +1,3 @@
+ALTER TABLE product_instances
+    ADD COLUMN IF NOT EXISTS color_name VARCHAR(60),
+    ADD COLUMN IF NOT EXISTS color_hex VARCHAR(16);

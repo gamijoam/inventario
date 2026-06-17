@@ -448,6 +448,23 @@ const ProductsTab = () => {
         finally { setIsLoading(false); }
     };
 
+    const openCompactEditor = async (product) => {
+        if (!product?.id) {
+            setSelectedProduct(null);
+            setIsCompactModalOpen(true);
+            return;
+        }
+
+        try {
+            const { data } = await apiClient.get(`/products/${product.id}`);
+            setSelectedProduct(data || product);
+            setIsCompactModalOpen(true);
+        } catch (error) {
+            console.error('Error loading full product for edit:', error);
+            toast.error(getApiErrorMessage(error, 'No se pudo abrir la ficha completa del producto.'));
+        }
+    };
+
     const handleDelete = async (product) => {
         if (!window.confirm(`¿Eliminar "${product.name}"?`)) return;
         try {
@@ -670,7 +687,7 @@ const ProductsTab = () => {
                         {isAdmin && (
                             <button
                                 id="tour-products-add-btn"
-                                onClick={() => { setSelectedProduct(null); setIsCompactModalOpen(true); }}
+                                onClick={() => openCompactEditor(null)}
                                 className="inline-flex h-10 items-center gap-2 rounded-md bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm shadow-indigo-100 transition-colors hover:bg-indigo-700"
                             >
                                 <Plus size={16} />
@@ -809,7 +826,7 @@ const ProductsTab = () => {
                     <div className="py-12 text-center text-slate-400 border border-dashed border-slate-200 rounded-2xl">No se encontraron productos.</div>
                 ) : filteredProducts.map(p => (
                     <ProductMobileCard key={p.id} product={p}
-                        onEdit={p => { setSelectedProduct(p); setIsCompactModalOpen(true); }}
+                        onEdit={openCompactEditor}
                         onDelete={handleDelete}
                         onCategoryClick={id => setFilterCategory(id.toString())}
                     />
@@ -867,7 +884,7 @@ const ProductsTab = () => {
                                         <div className="min-w-0">
                                             <button
                                                 type="button"
-                                                onClick={() => { setSelectedProduct(product); setIsCompactModalOpen(true); }}
+                                                onClick={() => openCompactEditor(product)}
                                                 className="line-clamp-1 text-left text-sm font-black leading-tight text-slate-900 transition-colors hover:text-indigo-700"
                                             >
                                                 {product.name}
@@ -939,7 +956,7 @@ const ProductsTab = () => {
                                             <DropdownMenuContent align="end" className="min-w-[190px] rounded-lg border-slate-100 shadow-xl">
                                                 <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-slate-400">Opciones</DropdownMenuLabel>
                                                 <DropdownMenuItem
-                                                    onClick={() => { setSelectedProduct(product); setIsCompactModalOpen(true); }}
+                                                    onClick={() => openCompactEditor(product)}
                                                     className="cursor-pointer rounded-md font-bold"
                                                 >
                                                     <Pencil size={14} className="mr-2 text-indigo-500" /> Editar producto

@@ -32,7 +32,7 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
         if (!code) return;
 
         // Validation 1: Already scanned in this session
-        if (scannedSerials.includes(code)) {
+        if (scannedSerials.some(item => item.serial_number === code)) {
             toast.error('Este serial ya está en la lista');
             setSerialInput('');
             return;
@@ -58,7 +58,15 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
             }
 
             // Success
-            setScannedSerials([...scannedSerials, code]);
+            setScannedSerials([
+                ...scannedSerials,
+                {
+                    serial_number: code,
+                    instance_id: data.instance_id || null,
+                    color_name: data.color_name || null,
+                    color_hex: data.color_hex || null,
+                }
+            ]);
             setSerialInput('');
             toast.success('Serial verificado y agregado');
 
@@ -69,7 +77,7 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
     };
 
     const removeSerial = (serial) => {
-        setScannedSerials(scannedSerials.filter(s => s !== serial));
+        setScannedSerials(scannedSerials.filter(item => item.serial_number !== serial));
     };
 
     const handleConfirm = () => {
@@ -82,7 +90,10 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
             toast.error(`Faltan seriales. Requeridos: ${quantity}, Escaneados: ${scannedSerials.length}`);
             return;
         }
-        onConfirm(scannedSerials);
+        onConfirm(
+            scannedSerials.map(item => item.serial_number),
+            scannedSerials
+        );
         onClose();
     };
 
@@ -167,15 +178,29 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
                             </div>
                             <div className="max-h-[200px] overflow-y-auto pr-2 space-y-2 custom-scrollbar">
                                 {scannedSerials.map((serial, idx) => (
-                                    <div key={`${serial}-${idx}`} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-100 rounded-lg group hover:border-indigo-100 transition-colors">
+                                    <div key={`${serial.serial_number}-${idx}`} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-100 rounded-lg group hover:border-indigo-100 transition-colors">
                                         <div className="flex items-center gap-3">
                                             <div className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center shrink-0">
                                                 <Check size={14} strokeWidth={3} />
                                             </div>
-                                            <span className="font-mono text-sm font-medium text-slate-700">{serial}</span>
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-mono text-sm font-medium text-slate-700">{serial.serial_number}</span>
+                                                    {serial.color_hex && (
+                                                        <span
+                                                            className="h-3 w-3 shrink-0 rounded-full border border-slate-200"
+                                                            style={{ backgroundColor: serial.color_hex }}
+                                                            title={serial.color_name || serial.color_hex}
+                                                        />
+                                                    )}
+                                                </div>
+                                                {serial.color_name && (
+                                                    <p className="text-[11px] font-bold text-slate-400">{serial.color_name}</p>
+                                                )}
+                                            </div>
                                         </div>
                                         <button
-                                            onClick={() => removeSerial(serial)}
+                                            onClick={() => removeSerial(serial.serial_number)}
                                             className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
                                             title="Eliminar"
                                         >

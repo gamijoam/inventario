@@ -313,6 +313,7 @@ class ProductRead(ProductBase):
     units: List[ProductUnitRead] = []
     combo_items: List[ComboItemRead] = []  # NEW: Include combo items
     stocks: List[ProductStockRead] = [] # NEW: Include warehouse stocks
+    instances: List['ProductInstanceRead'] = []
     has_imei: Optional[bool] = False # NEW: Include serialized status exposed to frontend
     is_commissionable: Optional[bool] = False # NEW: Commission flag
     prices: List[ProductPriceRead] = [] # NEW: Multi-Price List
@@ -455,6 +456,8 @@ class ProductInstanceRead(BaseModel):
     product_id: int
     warehouse_id: int
     serial_number: str
+    color_name: Optional[str] = None
+    color_hex: Optional[str] = None
     status: str
 
     model_config = ConfigDict(from_attributes=True)

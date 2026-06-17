@@ -294,8 +294,14 @@ class InventoryService:
         
         if instance.status != models.ProductInstanceStatus.AVAILABLE:
             return {"valid": False, "message": f"Serial no disponible (Estado: {instance.status})"}
-            
-        return {"valid": True, "message": "Serial válido", "instance_id": instance.id}
+
+        return {
+            "valid": True,
+            "message": "Serial valido",
+            "instance_id": instance.id,
+            "color_name": getattr(instance, "color_name", None),
+            "color_hex": getattr(instance, "color_hex", None),
+        }
 
     @staticmethod
     def validate_imei_for_entry(db: Session, imei: str) -> Dict[str, Any]:

@@ -1394,6 +1394,7 @@ def read_product(product_id: int, db: Session = Depends(get_db)):
     product = db.query(models.Product).options(
         joinedload(models.Product.units), 
         joinedload(models.Product.stocks),
+        joinedload(models.Product.instances),
         joinedload(models.Product.prices).joinedload(models.ProductPrice.price_list),
         joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product),
         joinedload(models.Product.price_rules)

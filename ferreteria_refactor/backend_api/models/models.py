@@ -1008,6 +1008,8 @@ class ProductInstance(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
     serial_number = Column(String, unique=True, index=True, nullable=False)
+    color_name = Column(String(60), nullable=True)
+    color_hex = Column(String(16), nullable=True)
     status = Column(Enum(ProductInstanceStatus), default=ProductInstanceStatus.AVAILABLE)
     cost = Column(Numeric(18, 4), default=0.0000)
     created_at = Column(DateTime, default=get_venezuela_now)

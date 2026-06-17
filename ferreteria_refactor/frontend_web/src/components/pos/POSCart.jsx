@@ -366,6 +366,25 @@ const POSCart = ({
                                                         <span className="text-[9px] font-bold text-slate-400 truncate">{item.location}</span>
                                                     </div>
                                                 )}
+                                                {Array.isArray(item.serial_details) && item.serial_details.length > 0 && (
+                                                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                                        {item.serial_details.map((detail) => (
+                                                            <span
+                                                                key={detail.serial_number}
+                                                                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[9px] font-black text-slate-600"
+                                                                title={detail.serial_number}
+                                                            >
+                                                                {detail.color_hex && (
+                                                                    <span
+                                                                        className="h-2.5 w-2.5 rounded-full border border-slate-200"
+                                                                        style={{ backgroundColor: detail.color_hex }}
+                                                                    />
+                                                                )}
+                                                                <span className="max-w-[90px] truncate">{detail.color_name || detail.serial_number}</span>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
                                                 {/* NEW: Barber assignment indicator */}
                                                 {item.is_barbershop_service && (
                                                     <div className={cn(

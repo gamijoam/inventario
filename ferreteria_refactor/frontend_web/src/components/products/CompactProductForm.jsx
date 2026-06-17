@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     Package,
     DollarSign,
@@ -72,6 +72,36 @@ const formatQtyInput = (value) => {
     const number = Number(value);
     if (!Number.isFinite(number)) return '';
     return number.toFixed(3).replace(/\.?0+$/, '');
+};
+
+const normalizeColorHex = (value) => {
+    if (!value) return '#6366f1';
+    const raw = String(value).trim();
+    if (!raw) return '#6366f1';
+    return raw.startsWith('#') ? raw : `#${raw}`;
+};
+
+const getColorVariants = (instances = []) => {
+    const variantsMap = new Map();
+
+    (Array.isArray(instances) ? instances : []).forEach((instance) => {
+        const colorName = String(instance?.color_name || '').trim();
+        const colorHex = normalizeColorHex(instance?.color_hex);
+        const key = `${colorName || colorHex}|${colorHex}`;
+
+        if (!variantsMap.has(key)) {
+            variantsMap.set(key, {
+                key,
+                name: colorName || 'Color sin nombre',
+                hex: colorHex,
+                count: 0,
+            });
+        }
+
+        variantsMap.get(key).count += 1;
+    });
+
+    return Array.from(variantsMap.values()).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 };
 
 
@@ -257,6 +287,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
     const selectedWarranty = policies.find(policy => String(policy.id) === String(formData.warranty_policy_id));
     const productTypeLabel = { physical: 'Fisico', serial: 'Serial', service: 'Servicio', combo: 'Combo' }[productType] || 'Fisico';
     const canUsePresentations = !formData.is_service && !formData.is_combo;
+    const colorVariants = useMemo(() => getColorVariants(initialData?.instances), [initialData]);
 
     const startProductFormGuide = () => {
         setActiveTab('precios');
@@ -477,6 +508,31 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                                     <div className="flex justify-between gap-3"><span>Stock</span><span className="text-slate-900">{Number(formData.stock || 0)}</span></div>
                                 </div>
                             </div>
+
+                            {productType === 'serial' && colorVariants.length > 0 && (
+                                <Panel title="Variaciones detectadas" eyebrow="Colores activos" className="shadow-none">
+                                    <div className="space-y-2">
+                                        {colorVariants.map((variant) => (
+                                            <div key={variant.key} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    <span
+                                                        className="h-3.5 w-3.5 shrink-0 rounded-full border border-slate-200 shadow-sm"
+                                                        style={{ backgroundColor: variant.hex }}
+                                                        title={variant.hex}
+                                                    />
+                                                    <div className="min-w-0">
+                                                        <p className="truncate text-sm font-black text-slate-800">{variant.name}</p>
+                                                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{variant.hex}</p>
+                                                    </div>
+                                                </div>
+                                                <span className="rounded-md border border-indigo-100 bg-indigo-50 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-indigo-700">
+                                                    {variant.count} IMEI
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </Panel>
+                            )}
                         </div>
                     </aside>
 
