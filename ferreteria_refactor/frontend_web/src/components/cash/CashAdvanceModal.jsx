@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { X, TrendingDown, RefreshCw, Calculator, DollarSign } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
+import { useCash } from '../../context/CashContext';
 import apiClient from '../../config/axios';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 
 const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
     const { getActiveCurrencies, formatCurrency } = useConfig();
+    const { session } = useCash();
 
     // Inputs
     const [amount, setAmount] = useState('');
@@ -46,11 +49,16 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
             // Check Balance
             fetchAvailableBalance('USD');
         }
-    }, [isOpen]);
+    }, [isOpen, session?.id]);
 
     const fetchAvailableBalance = async (curr) => {
+        if (!session?.id) {
+            setAvailableBalance(0);
+            return;
+        }
+
         try {
-            const response = await apiClient.get('/cash/balance', { params: { currency: curr } });
+            const response = await apiClient.get('/cash/balance', { params: { currency: curr, session_id: session?.id } });
             setAvailableBalance(response.data.available);
         } catch (error) {
             console.error("Balance Check Failed", error);
@@ -66,6 +74,11 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!session?.id) {
+            toast.error("Debes abrir una caja antes de registrar el avance");
+            return;
+        }
 
         if (numAmount > availableBalance) {
             toast.error("Fondos insuficientes en caja");
@@ -90,7 +103,8 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
                 incoming_amount: totalToTransfer, // Amount received in bank
                 incoming_currency: currency, // Assuming same currency for now
                 incoming_method: incomingMethod,
-                incoming_reference: incomingReference
+                incoming_reference: incomingReference,
+                session_id: session?.id || null
             };
 
             await apiClient.post('/cash/movements', movementData);
@@ -100,7 +114,7 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
             onClose();
         } catch (err) {
             console.error("Cash Advance Error", err);
-            toast.error(err.response?.data?.detail || "Error al procesar avance");
+            toast.error(getApiErrorMessage(err, "Error al procesar avance"));
         } finally {
             setLoading(false);
         }
@@ -109,7 +123,7 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 backdrop-blur-md">
+        <div id="tour-cash-advance-modal" className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 backdrop-blur-md">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
 
                 {/* Header */}

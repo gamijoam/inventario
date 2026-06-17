@@ -11,7 +11,7 @@ import { Input } from '../../components/ui/input';
 import { cn } from '../../lib/utils';
 import { normalizeSearch } from '../../utils/search';
 
-const EmployeeSelectionModal = ({ isOpen, onClose, onSelect, employees = [] }) => {
+const EmployeeSelectionModal = ({ isOpen, onClose, onSelect, employees = [], loading = false }) => {
     const [searchTerm, setSearchTerm] = useState('');
 
     const filteredEmployees = employees.filter(emp =>
@@ -52,7 +52,14 @@ const EmployeeSelectionModal = ({ isOpen, onClose, onSelect, employees = [] }) =
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
-                    {filteredEmployees.length > 0 ? (
+                    {loading ? (
+                        <div className="text-center py-12">
+                            <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-400 animate-pulse">
+                                <User size={32} />
+                            </div>
+                            <p className="text-slate-500 font-medium">Cargando profesionales...</p>
+                        </div>
+                    ) : filteredEmployees.length > 0 ? (
                         filteredEmployees.map(emp => (
                             <button
                                 key={emp.id}

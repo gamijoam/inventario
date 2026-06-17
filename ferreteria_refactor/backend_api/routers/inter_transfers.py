@@ -7,7 +7,7 @@ from sqlalchemy import text
 from typing import List
 from datetime import datetime
 
-from ..database.db import get_db
+from ..database.db import get_db, engine
 from ..models.organization import (
     Organization, OrganizationUser,
     InterCompanyTransfer, InterCompanyTransferItem
@@ -20,6 +20,79 @@ from ..schemas.organization import (
 from ..dependencies import get_current_active_user
 from ..tenant_context import get_tenant_schema
 from ..utils.time_utils import get_venezuela_now
+import httpx
+
+def _notify_wa_destination(db: Session, from_tenant: Tenant, to_tenant: Tenant,
+                          transfer: InterCompanyTransfer, items_count: int):
+    """Notifica por WhatsApp a la empresa destino sobre un traslado nuevo.
+    Lee la config de WA del schema de destino. Falla silenciosamente.
+    Activado por feature flag 'whatsapp_notify_transfer'."""
+    try:
+        dest = to_tenant.schema_name
+        def _cfg(k: str) -> str:
+            row = db.execute(
+                text(f'SELECT value FROM "{dest}".business_config WHERE key = :k'),
+                {"k": k}
+            ).fetchone()
+            return (row[0] or "") if row else ""
+
+        if _cfg("whatsapp_notify_transfer") != "true":
+            return  # feature flag desactivado en destino
+        if _cfg("whatsapp_enabled") != "true":
+            return  # WhatsApp deshabilitado
+        if _cfg("whatsapp_instance_status") != "CONNECTED":
+            return  # instancia no conectada
+
+        phone    = _cfg("whatsapp_admin_phone")
+        instance = _cfg("whatsapp_instance_name")
+        if not phone or not instance:
+            return
+
+        clean = "".join(c for c in phone if c.isdigit())
+        if len(clean) < 7:
+            return
+
+        message = (
+            f"📦 *Nuevo traslado entrante*\n\n"
+            f"De: *{from_tenant.name}*\n"
+            f"A: *{to_tenant.name}*\n\n"
+            f"Ítems en la solicitud: {items_count}\n"
+            f"ID: #{transfer.id}\n"
+            f"Notas: {transfer.notes or '—'}\n\n"
+            f"Ingresa a Mi Inventario → Traslados para aceptar o rechazar."
+        )
+        WA_URL = "http://whatsapp_service:3000"
+        with httpx.Client(timeout=6.0) as c:
+            c.post(f"{WA_URL}/instance/{instance}/send",
+                   json={"phone": clean, "message": message})
+        print(f"[WA Transfer] Notificación enviada a {clean} (instancia {instance})")
+    except Exception as e:
+        # Fallar silenciosamente — la creación del traslado no debe fallar por WA
+        print(f"[WA Transfer] Notificación falló (no bloqueante): {e}")
+
+
+def _role_value(user: User) -> str:
+    role = getattr(user, "role", "")
+    return getattr(role, "value", role) or ""
+
+
+def _assert_inventory_actor(user: User):
+    if user.is_superuser:
+        return
+    if _role_value(user) not in {"ADMIN", "WAREHOUSE"}:
+        raise HTTPException(status_code=403, detail="Solo ADMIN o WAREHOUSE puede gestionar traslados entre empresas")
+
+
+def _assert_org_operator(db: Session, organization_id: int, user: User):
+    if user.is_superuser:
+        return
+    member = db.query(OrganizationUser).filter(
+        OrganizationUser.organization_id == organization_id,
+        OrganizationUser.user_email == (user.email or "").lower().strip(),
+        OrganizationUser.can_switch == True
+    ).first()
+    if not member or (member.role or "").lower() not in {"owner", "manager"}:
+        raise HTTPException(status_code=403, detail="Solo owner o manager de la organizacion puede gestionar traslados")
 
 router = APIRouter(prefix="/inter-transfers", tags=["inter-transfers"])
 
@@ -55,6 +128,8 @@ def create_transfer(
     Crear solicitud de transferencia de stock a otra empresa del mismo grupo.
     El tenant de origen es el tenant actual del usuario.
     """
+    _assert_inventory_actor(current_user)
+
     schema = get_tenant_schema()
     if schema == "public":
         raise HTTPException(status_code=400, detail="Debes estar dentro de una empresa")
@@ -63,7 +138,8 @@ def create_transfer(
     if not from_tenant:
         raise HTTPException(status_code=404, detail="Empresa de origen no encontrada")
     if not from_tenant.organization_id:
-        raise HTTPException(status_code=400, detail="Esta empresa no pertenece a ninguna organización")
+        raise HTTPException(status_code=400, detail="Esta empresa no pertenece a ninguna organizacion")
+    _assert_org_operator(db, from_tenant.organization_id, current_user)
 
     to_tenant = db.query(Tenant).filter(Tenant.id == data.to_tenant_id).first()
     if not to_tenant:
@@ -109,6 +185,10 @@ def create_transfer(
 
     db.commit()
     db.refresh(transfer)
+
+    # Notificación WhatsApp a la empresa destino (no bloqueante)
+    _notify_wa_destination(db, from_tenant, to_tenant, transfer, len(data.items))
+
     return _build_transfer_out(transfer, db)
 
 
@@ -151,8 +231,12 @@ def accept_transfer(
     Descuenta stock de la empresa origen, suma en la empresa destino,
     y registra en Kardex de ambas.
     """
+    _assert_inventory_actor(current_user)
+
     schema = get_tenant_schema()
     tenant = db.query(Tenant).filter(Tenant.schema_name == schema).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
 
     transfer = db.query(InterCompanyTransfer).options(
         joinedload(InterCompanyTransfer.items)
@@ -160,99 +244,170 @@ def accept_transfer(
 
     if not transfer:
         raise HTTPException(status_code=404, detail="Transferencia no encontrada")
+    _assert_org_operator(db, transfer.organization_id, current_user)
     if transfer.to_tenant_id != tenant.id:
         raise HTTPException(status_code=403, detail="Solo la empresa destino puede aceptar")
     if transfer.status != "PENDING":
         raise HTTPException(status_code=400, detail=f"La transferencia está en estado {transfer.status}")
 
-    from_schema = db.query(Tenant).filter(Tenant.id == transfer.from_tenant_id).first().schema_name
+    from_tenant_obj = db.query(Tenant).filter(Tenant.id == transfer.from_tenant_id).first()
+    from_schema = from_tenant_obj.schema_name
 
-    for item in transfer.items:
-        qty = float(item.quantity)
+    # ── Usar conexión directa al engine (sin search_path del tenant) ────────
+    # Esto evita que el pool de SQLAlchemy aplique search_path=colaloca2
+    # cuando necesitamos modificar restaurante3
+    raw_conn = engine.connect()
+    raw_tx = raw_conn.begin()
+    raw_conn.execute(text('SET search_path TO public'))
 
-        # ── Empresa origen: descontar stock ──────────────────────────────────
-        db.execute(text(
-            f'UPDATE "{from_schema}".products SET stock = stock - :qty WHERE sku = :sku'
-        ), {"qty": qty, "sku": item.product_sku})
+    try:
+        # ── Verificar stock suficiente en origen ANTES de hacer cambios ────────
+        for item in transfer.items:
+            qty = float(item.quantity)
+            stock_disp = raw_conn.execute(
+                text(f'SELECT stock FROM "{from_schema}".products WHERE sku = :sku'),
+                {"sku": item.product_sku}
+            ).scalar()
 
-        new_stock_origin = db.execute(text(
-            f'SELECT stock FROM "{from_schema}".products WHERE sku = :sku'
-        ), {"sku": item.product_sku}).scalar() or 0
+            if stock_disp is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Producto '{item.product_sku}' no encontrado en empresa origen"
+                )
+            if float(stock_disp) < qty:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Stock insuficiente para '{item.product_name}': "
+                           f"disponible {float(stock_disp):.0f}, solicitado {qty:.0f}"
+                )
 
-        prod_id_origin = db.execute(text(
-            f'SELECT id FROM "{from_schema}".products WHERE sku = :sku'
-        ), {"sku": item.product_sku}).scalar()
+        for item in transfer.items:
+            qty = float(item.quantity)
 
-        if prod_id_origin:
-            db.execute(text(
-                f'INSERT INTO "{from_schema}".kardex '
-                f'(product_id, movement_type, quantity, balance_after, description, date) '
-                f'VALUES (:pid, :mtype, :qty, :bal, :desc, NOW())'
-            ), {
-                "pid"  : prod_id_origin,
-                "mtype": "EXTERNAL_TRANSFER_OUT",
-                "qty"  : -qty,
-                "bal"  : new_stock_origin,
-                "desc" : f"Transferencia a {schema} — Transfer #{transfer_id}"
-            })
+            # ── Origen: descontar stock en products Y en product_stocks ─────
+            # Primero actualizar product_stocks (descontar del almacén con más stock)
+            stocks_rows = raw_conn.execute(
+                text(f'SELECT ps.id, ps.quantity FROM "{from_schema}".product_stocks ps '
+                     f'JOIN "{from_schema}".products p ON p.id = ps.product_id '
+                     f'WHERE p.sku = :sku ORDER BY ps.quantity DESC'),
+                {"sku": item.product_sku}
+            ).fetchall()
 
-        # ── Empresa destino: sumar stock ──────────────────────────────────────
-        # Verificar si el producto existe por SKU
-        prod_id_dest = db.execute(text(
-            f'SELECT id FROM "{schema}".products WHERE sku = :sku'
-        ), {"sku": item.product_sku}).scalar()
+            remaining = qty
+            for row in stocks_rows:
+                if remaining <= 0:
+                    break
+                deduct = min(float(row.quantity), remaining)
+                raw_conn.execute(
+                    text(f'UPDATE "{from_schema}".product_stocks SET quantity = quantity - :d WHERE id = :id'),
+                    {"d": deduct, "id": row.id}
+                )
+                remaining -= deduct
 
-        if prod_id_dest:
-            db.execute(text(
-                f'UPDATE "{schema}".products SET stock = stock + :qty WHERE sku = :sku'
-            ), {"qty": qty, "sku": item.product_sku})
+            # Luego actualizar el stock total del producto
+            raw_conn.execute(
+                text(f'UPDATE "{from_schema}".products SET stock = stock - :qty WHERE sku = :sku'),
+                {"qty": qty, "sku": item.product_sku}
+            )
+            new_stock_origin = raw_conn.execute(
+                text(f'SELECT COALESCE((SELECT SUM(quantity) FROM "{from_schema}".product_stocks ps2 '
+                     f'JOIN "{from_schema}".products p2 ON p2.id = ps2.product_id WHERE p2.sku = :sku), '
+                     f'(SELECT stock FROM "{from_schema}".products WHERE sku = :sku))'),
+                {"sku": item.product_sku}
+            ).scalar() or 0
 
-            new_stock_dest = db.execute(text(
-                f'SELECT stock FROM "{schema}".products WHERE sku = :sku'
-            ), {"sku": item.product_sku}).scalar() or 0
+            # Kardex origen
+            prod_id_origin = raw_conn.execute(
+                text(f'SELECT id FROM "{from_schema}".products WHERE sku = :sku'),
+                {"sku": item.product_sku}
+            ).scalar()
+            if prod_id_origin:
+                raw_conn.execute(
+                    text(f'INSERT INTO "{from_schema}".kardex (product_id, movement_type, quantity, balance_after, description, date) VALUES (:pid, :mtype, :qty, :bal, :desc, NOW())'),
+                    {"pid": prod_id_origin, "mtype": "EXTERNAL_TRANSFER_OUT", "qty": -qty, "bal": new_stock_origin, "desc": f"Traslado a {schema} — #{transfer_id}"}
+                )
 
-            db.execute(text(
-                f'INSERT INTO "{schema}".kardex '
-                f'(product_id, movement_type, quantity, balance_after, description, date) '
-                f'VALUES (:pid, :mtype, :qty, :bal, :desc, NOW())'
-            ), {
-                "pid"  : prod_id_dest,
-                "mtype": "EXTERNAL_TRANSFER_IN",
-                "qty"  : qty,
-                "bal"  : new_stock_dest,
-                "desc" : f"Transferencia desde {from_schema} — Transfer #{transfer_id}"
-            })
-        else:
-            # El producto no existe en la empresa destino — crear automáticamente
-            db.execute(text(
-                f'INSERT INTO "{schema}".products '
-                f'(name, sku, stock, price, cost_price, is_active, is_box, is_combo, is_service, is_discount_active) '
-                f'VALUES (:name, :sku, :qty, :price, :cost, true, false, false, false, false)'
-            ), {
-                "name" : item.product_name,
-                "sku"  : item.product_sku,
-                "qty"  : qty,
-                "price": float(item.unit_cost or 0),
-                "cost" : float(item.unit_cost or 0)
-            })
+            # ── Destino: sumar stock ──────────────────────────────────────────
+            prod_id_dest = raw_conn.execute(
+                text(f'SELECT id FROM "{schema}".products WHERE sku = :sku'),
+                {"sku": item.product_sku}
+            ).scalar()
 
-            # Obtener el id del producto recién creado para el Kardex
-            new_prod_id = db.execute(text(
-                f'SELECT id FROM "{schema}".products WHERE sku = :sku'
-            ), {"sku": item.product_sku}).scalar()
+            if prod_id_dest:
+                # Actualizar products.stock
+                raw_conn.execute(
+                    text(f'UPDATE "{schema}".products SET stock = stock + :qty WHERE sku = :sku'),
+                    {"qty": qty, "sku": item.product_sku}
+                )
+                # Sumar al almacén principal (id=1) en product_stocks si existe
+                main_stock = raw_conn.execute(
+                    text(f'SELECT ps.id FROM "{schema}".product_stocks ps '
+                         f'JOIN "{schema}".products p ON p.id = ps.product_id '
+                         f'WHERE p.sku = :sku ORDER BY ps.warehouse_id ASC LIMIT 1'),
+                    {"sku": item.product_sku}
+                ).scalar()
+                if main_stock:
+                    raw_conn.execute(
+                        text(f'UPDATE "{schema}".product_stocks SET quantity = quantity + :qty WHERE id = :id'),
+                        {"qty": qty, "id": main_stock}
+                    )
+                else:
+                    # Crear registro en product_stocks para el almacén principal
+                    main_warehouse = raw_conn.execute(
+                        text(f'SELECT id FROM "{schema}".warehouses ORDER BY id ASC LIMIT 1')
+                    ).scalar()
+                    if main_warehouse:
+                        raw_conn.execute(
+                            text(f'INSERT INTO "{schema}".product_stocks (product_id, warehouse_id, quantity) '
+                                 f'VALUES (:pid, :wid, :qty) ON CONFLICT DO NOTHING'),
+                            {"pid": prod_id_dest, "wid": main_warehouse, "qty": qty}
+                        )
+                new_stock_dest = raw_conn.execute(
+                    text(f'SELECT COALESCE((SELECT SUM(quantity) FROM "{schema}".product_stocks ps2 '
+                         f'JOIN "{schema}".products p2 ON p2.id = ps2.product_id WHERE p2.sku = :sku), '
+                         f'(SELECT stock FROM "{schema}".products WHERE sku = :sku))'),
+                    {"sku": item.product_sku}
+                ).scalar() or 0
+                raw_conn.execute(
+                    text(f'INSERT INTO "{schema}".kardex (product_id, movement_type, quantity, balance_after, description, date) VALUES (:pid, :mtype, :qty, :bal, :desc, NOW())'),
+                    {"pid": prod_id_dest, "mtype": "EXTERNAL_TRANSFER_IN", "qty": qty, "bal": new_stock_dest, "desc": f"Traslado desde {from_schema} — #{transfer_id}"}
+                )
+            else:
+                # Producto nuevo en destino: copiar todo del origen
+                raw_conn.execute(text(f"""
+                    INSERT INTO "{schema}".products
+                        (name, sku, stock, price, cost_price, min_stock, is_active,
+                         is_box, is_combo, is_service, is_discount_active,
+                         is_barbershop_service, is_commissionable, requires_prescription,
+                         is_menu_item, needs_kitchen, has_imei, updated_at)
+                    SELECT name, sku, :qty, price, cost_price,
+                        COALESCE(min_stock, 0), true, false,
+                        COALESCE(is_combo, false), COALESCE(is_service, false),
+                        false, false, false, false, false, false,
+                        COALESCE(has_imei, false), NOW()
+                    FROM "{from_schema}".products WHERE sku = :sku
+                    ON CONFLICT (sku) DO UPDATE SET stock = "{schema}".products.stock + EXCLUDED.stock
+                """), {"qty": qty, "sku": item.product_sku})
 
-            if new_prod_id:
-                db.execute(text(
-                    f'INSERT INTO "{schema}".kardex '
-                    f'(product_id, movement_type, quantity, balance_after, description, date) '
-                    f'VALUES (:pid, :mtype, :qty, :bal, :desc, NOW())'
-                ), {
-                    "pid"  : new_prod_id,
-                    "mtype": "EXTERNAL_TRANSFER_IN",
-                    "qty"  : qty,
-                    "bal"  : qty,
-                    "desc" : f"Transferencia desde {from_schema} — Transfer #{transfer_id} (producto nuevo)"
-                })
+                new_prod_id = raw_conn.execute(
+                    text(f'SELECT id FROM "{schema}".products WHERE sku = :sku'),
+                    {"sku": item.product_sku}
+                ).scalar()
+                if new_prod_id:
+                    raw_conn.execute(
+                        text(f'INSERT INTO "{schema}".kardex (product_id, movement_type, quantity, balance_after, description, date) VALUES (:pid, :mtype, :qty, :bal, :desc, NOW())'),
+                        {"pid": new_prod_id, "mtype": "EXTERNAL_TRANSFER_IN", "qty": qty, "bal": qty, "desc": f"Traslado desde {from_schema} — #{transfer_id} (nuevo)"}
+                    )
+
+        raw_tx.commit()
+    except HTTPException:
+        raw_tx.rollback()
+        raise
+    except Exception as e:
+        raw_tx.rollback()
+        raise HTTPException(status_code=500, detail=f"Error en traslado: {str(e)}")
+    finally:
+        raw_conn.close()
 
     # Marcar transferencia como completada
     transfer.status       = "ACCEPTED"
@@ -269,8 +424,12 @@ def reject_transfer(
     current_user: User = Depends(get_current_active_user)
 ):
     """Rechazar una transferencia entrante."""
+    _assert_inventory_actor(current_user)
+
     schema = get_tenant_schema()
     tenant = db.query(Tenant).filter(Tenant.schema_name == schema).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
 
     transfer = db.query(InterCompanyTransfer).options(
         joinedload(InterCompanyTransfer.items)
@@ -278,6 +437,7 @@ def reject_transfer(
 
     if not transfer:
         raise HTTPException(status_code=404, detail="Transferencia no encontrada")
+    _assert_org_operator(db, transfer.organization_id, current_user)
     if transfer.to_tenant_id != tenant.id and transfer.from_tenant_id != tenant.id:
         raise HTTPException(status_code=403, detail="No tienes acceso a esta transferencia")
     if transfer.status != "PENDING":

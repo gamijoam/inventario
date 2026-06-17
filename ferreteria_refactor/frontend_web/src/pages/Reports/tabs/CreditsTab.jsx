@@ -9,6 +9,7 @@ import apiClient from '../../../config/axios';
 import { useConfig } from '../../../context/ConfigContext';
 import InvoiceDetailModal from '../../../components/credit/InvoiceDetailModal';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import clsx from 'clsx';
 
 // ---------------------------------------------------------------------------
@@ -141,7 +142,7 @@ const CreditsTab = ({ dateRange }) => {
             setHasMore(responseHasMore);
         } catch (error) {
             console.error('Error fetching invoices:', error);
-            toast.error('Error al cargar cuentas por cobrar');
+            toast.error(getApiErrorMessage(error, 'Error al cargar cuentas por cobrar'));
         } finally {
             setLoading(false);
         }
@@ -157,7 +158,7 @@ const CreditsTab = ({ dateRange }) => {
             setClientsList(sorted.map(item => ({ id: item.client_id, name: item.client_name })));
         } catch (error) {
             console.error('Error fetching aging report:', error);
-            toast.error('Error al cargar reporte de antigüedad');
+            toast.error(getApiErrorMessage(error, 'Error al cargar reporte de antigüedad'));
         } finally {
             setLoadingAging(false);
         }
@@ -172,7 +173,7 @@ const CreditsTab = ({ dateRange }) => {
             setLedgerData(response.data);
         } catch (error) {
             console.error('Error fetching ledger:', error);
-            toast.error('Error al cargar estado de cuenta');
+            toast.error(getApiErrorMessage(error, 'Error al cargar estado de cuenta'));
         } finally {
             setLoadingLedger(false);
         }
@@ -398,7 +399,7 @@ const CreditsTab = ({ dateRange }) => {
             setDetailSale(response.data);
         } catch (error) {
             console.error('Error fetching sale detail:', error);
-            toast.error('Error al cargar el detalle de la factura');
+            toast.error(getApiErrorMessage(error, 'Error al cargar el detalle de la factura'));
             setShowDetailModal(false);
         } finally {
             setLoadingDetail(false);
@@ -466,7 +467,7 @@ const CreditsTab = ({ dateRange }) => {
                 await fetchInvoices(0, false);
             } catch (error) {
                 console.error('Error in bulk payment:', error);
-                toast.error('Error al registrar pagos masivos');
+                toast.error(getApiErrorMessage(error, 'Error al registrar pagos masivos'));
             }
             return;
         }
@@ -504,7 +505,7 @@ const CreditsTab = ({ dateRange }) => {
             await fetchInvoices(0, false);
         } catch (error) {
             console.error('Error registering payment:', error);
-            toast.error('Error al registrar el pago');
+            toast.error(getApiErrorMessage(error, 'Error al registrar el pago'));
         }
     };
 
@@ -554,29 +555,29 @@ const CreditsTab = ({ dateRange }) => {
     // RENDER: CXC Sub-tab
     // ===================================================================
     const renderCxc = () => (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {STATS_CARDS.map((stat, idx) => (
-                    <div key={idx} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                            <stat.icon size={80} className={`text-${stat.color}-600 transform translate-x-4 -translate-y-4`} />
+                    <div key={idx} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col relative overflow-hidden group hover:shadow-md transition-all">
+                        <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <stat.icon size={60} className={`text-${stat.color}-600 transform translate-x-4 -translate-y-4`} />
                         </div>
                         <div className="relative z-10">
-                            <p className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-2">{stat.title}</p>
-                            <p className={`text-2xl md:text-3xl font-black text-${stat.color}-600 tracking-tight`}>
+                            <p className="text-slate-500 font-black text-[11px] uppercase tracking-wider mb-1.5">{stat.title}</p>
+                            <p className={`text-xl md:text-2xl font-black text-${stat.color}-600 tracking-tight`}>
                                 ${stat.value.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
                             </p>
-                            <p className="text-slate-400 text-xs mt-2 font-medium">{stat.subtext}</p>
+                            <p className="text-slate-400 text-[11px] mt-1.5 font-semibold">{stat.subtext}</p>
                         </div>
                     </div>
                 ))}
             </div>
 
             {/* Controls */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sticky top-4 z-20 flex flex-col lg:flex-row justify-between items-center gap-4">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sticky top-4 z-20 flex flex-col lg:flex-row justify-between items-center gap-3">
                 {/* Filters */}
-                <div className="flex bg-slate-100 p-1.5 rounded-xl w-full lg:w-auto overflow-x-auto">
+                <div className="flex bg-slate-100 p-1 rounded-lg w-full lg:w-auto overflow-x-auto shadow-inner shadow-slate-200/60">
                     {[
                         { id: 'pending', label: 'Pendientes', icon: DollarSign },
                         { id: 'overdue', label: 'Vencidas', icon: AlertCircle },
@@ -586,53 +587,53 @@ const CreditsTab = ({ dateRange }) => {
                             key={tab.id}
                             onClick={() => setCxcFilter(tab.id)}
                             className={clsx(
-                                "px-4 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap",
+                                "px-3 py-2 rounded-md font-black text-xs transition-all flex items-center gap-2 whitespace-nowrap",
                                 cxcFilter === tab.id
                                     ? "bg-white text-indigo-700 shadow-sm"
                                     : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
                             )}
                         >
-                            <tab.icon size={16} className={cxcFilter === tab.id ? "text-indigo-600" : "text-slate-400"} />
+                            <tab.icon size={14} className={cxcFilter === tab.id ? "text-indigo-600" : "text-slate-400"} />
                             {tab.label}
                         </button>
                     ))}
                 </div>
 
                 {/* Search & View Mode */}
-                <div className="flex items-center gap-4 w-full lg:w-auto">
-                    <div className="relative flex-1 lg:w-64">
-                        <Search className="absolute left-3 top-3 text-slate-400" size={18} />
+                <div className="flex items-center gap-2.5 w-full lg:w-auto">
+                    <div className="relative flex-1 lg:w-72">
+                        <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
                         <input
                             type="text"
                             placeholder="Buscar cliente, factura..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 transition-all placeholder:text-slate-400"
+                            className="h-9 w-full pl-9 pr-3 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-semibold text-sm text-slate-700 transition-all placeholder:text-slate-400"
                         />
                     </div>
 
-                    <div className="h-8 w-px bg-slate-200 mx-2 hidden lg:block" />
+                    <div className="h-7 w-px bg-slate-200 mx-1 hidden lg:block" />
 
-                    <div className="flex bg-slate-100 p-1 rounded-lg shrink-0">
+                    <div className="flex bg-slate-100 p-1 rounded-lg shrink-0 shadow-inner shadow-slate-200/60">
                         <button
                             onClick={() => setViewMode('invoices')}
                             className={clsx(
-                                "p-2 rounded-md transition-all",
+                                "h-8 w-8 inline-flex items-center justify-center rounded-md transition-all",
                                 viewMode === 'invoices' ? 'bg-white shadow text-indigo-600' : 'text-slate-400 hover:text-slate-600'
                             )}
                             title="Ver Facturas"
                         >
-                            <Calendar size={20} />
+                            <Calendar size={16} />
                         </button>
                         <button
                             onClick={() => setViewMode('clients')}
                             className={clsx(
-                                "p-2 rounded-md transition-all",
+                                "h-8 w-8 inline-flex items-center justify-center rounded-md transition-all",
                                 viewMode === 'clients' ? 'bg-white shadow text-indigo-600' : 'text-slate-400 hover:text-slate-600'
                             )}
                             title="Ver por Clientes"
                         >
-                            <Users size={20} />
+                            <Users size={16} />
                         </button>
                     </div>
                 </div>
@@ -640,12 +641,12 @@ const CreditsTab = ({ dateRange }) => {
 
             {/* Invoice View */}
             {viewMode === 'invoices' ? (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-slate-50 border-b border-slate-200">
                                 <tr>
-                                    <th className="p-4 w-12 text-center">
+                                    <th className="px-3 py-2.5 w-10 text-center">
                                         <input
                                             type="checkbox"
                                             className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
@@ -653,12 +654,12 @@ const CreditsTab = ({ dateRange }) => {
                                             checked={filteredInvoices.length > 0 && selectedInvoices.length === filteredInvoices.length}
                                         />
                                     </th>
-                                    <th className="text-left p-4 font-bold text-slate-400 uppercase text-[10px] tracking-wider">Cliente</th>
-                                    <th className="text-left p-4 font-bold text-slate-400 uppercase text-[10px] tracking-wider">Detalles</th>
-                                    <th className="text-right p-4 font-bold text-slate-400 uppercase text-[10px] tracking-wider">Monto Total</th>
-                                    <th className="text-right p-4 font-bold text-slate-400 uppercase text-[10px] tracking-wider">Saldo</th>
-                                    <th className="text-center p-4 font-bold text-slate-400 uppercase text-[10px] tracking-wider">Estado</th>
-                                    <th className="text-right p-4 font-bold text-slate-400 uppercase text-[10px] tracking-wider">Acciones</th>
+                                    <th className="text-left px-3 py-2.5 font-black text-slate-400 uppercase text-[10px] tracking-wider">Cliente</th>
+                                    <th className="text-left px-3 py-2.5 font-black text-slate-400 uppercase text-[10px] tracking-wider">Detalles</th>
+                                    <th className="text-right px-3 py-2.5 font-black text-slate-400 uppercase text-[10px] tracking-wider">Monto Total</th>
+                                    <th className="text-right px-3 py-2.5 font-black text-slate-400 uppercase text-[10px] tracking-wider">Saldo</th>
+                                    <th className="text-center px-3 py-2.5 font-black text-slate-400 uppercase text-[10px] tracking-wider">Estado</th>
+                                    <th className="text-right px-3 py-2.5 font-black text-slate-400 uppercase text-[10px] tracking-wider">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -687,7 +688,7 @@ const CreditsTab = ({ dateRange }) => {
                                                     idx % 2 === 0 ? "bg-white" : "bg-slate-50/20"
                                                 )}
                                             >
-                                                <td className="p-4 text-center">
+                                                <td className="px-3 py-2.5 text-center">
                                                     {!invoice.paid && (
                                                         <input
                                                             type="checkbox"
@@ -697,15 +698,15 @@ const CreditsTab = ({ dateRange }) => {
                                                         />
                                                     )}
                                                 </td>
-                                                <td className="p-4">
+                                                <td className="px-3 py-2.5">
                                                     <div>
-                                                        <div className="font-bold text-slate-800">{invoice.customer?.name || 'Cliente General'}</div>
+                                                        <div className="font-black text-sm text-slate-800">{invoice.customer?.name || 'Cliente General'}</div>
                                                         <div className="text-xs text-slate-400 font-mono mt-0.5">{invoice.customer?.id_number || 'N/A'}</div>
                                                     </div>
                                                 </td>
-                                                <td className="p-4">
-                                                    <div className="text-sm font-medium text-slate-700">Factura #{invoice.id}</div>
-                                                    <div className="text-xs text-slate-400 flex flex-col gap-0.5 mt-1">
+                                                <td className="px-3 py-2.5">
+                                                    <div className="text-xs font-black text-slate-700">Factura #{invoice.id}</div>
+                                                    <div className="text-[11px] text-slate-400 flex flex-col gap-0.5 mt-1">
                                                         <span>Emision: {new Date(invoice.date).toLocaleDateString()}</span>
                                                         <span>Vence: {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : 'N/A'}</span>
                                                         {invoice.cashier_name && (
@@ -718,42 +719,42 @@ const CreditsTab = ({ dateRange }) => {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="p-4 text-right font-medium text-slate-500">
+                                                <td className="px-3 py-2.5 text-right text-xs font-semibold text-slate-500">
                                                     ${Number(invoice.total_amount).toFixed(2)}
                                                 </td>
-                                                <td className="p-4 text-right">
+                                                <td className="px-3 py-2.5 text-right">
                                                     <div className={clsx("font-black text-sm", invoice.paid ? "text-emerald-600" : "text-slate-800")}>
                                                         ${Number(balancePending).toFixed(2)}
                                                     </div>
                                                 </td>
-                                                <td className="p-4 text-center">
+                                                <td className="px-3 py-2.5 text-center">
                                                     {daysOverdue > 0 ? (
-                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold border border-rose-100">
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-50 text-rose-600 rounded-md text-[11px] font-black border border-rose-100">
                                                             <AlertCircle size={12} /> +{daysOverdue}d
                                                         </span>
                                                     ) : invoice.paid ? (
-                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold border border-emerald-100">
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-md text-[11px] font-black border border-emerald-100">
                                                             <CheckCircle size={12} /> Pagada
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold border border-slate-200">
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[11px] font-black border border-slate-200">
                                                             <Calendar size={12} /> Al dia
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="p-4 text-right">
-                                                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <td className="px-3 py-2.5 text-right">
+                                                    <div className="flex justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
                                                         <button
                                                             onClick={() => handleViewDetail(invoice)}
-                                                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                            className="h-8 w-8 inline-flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                                                             title="Ver Detalle"
                                                         >
-                                                            <Eye size={18} />
+                                                            <Eye size={15} />
                                                         </button>
                                                         {!invoice.paid && (
                                                             <button
                                                                 onClick={() => handleRegisterPayment(invoice)}
-                                                                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs flex items-center gap-2 shadow-sm shadow-indigo-200"
+                                                                className="h-8 px-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-black text-xs inline-flex items-center gap-2 shadow-sm shadow-indigo-200"
                                                             >
                                                                 Abonar
                                                             </button>
@@ -961,7 +962,7 @@ const CreditsTab = ({ dateRange }) => {
             {loadingAging ? (
                 <div className="text-center py-10 text-slate-400">Cargando reporte de antigüedad...</div>
             ) : (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="min-w-[700px] w-full divide-y divide-gray-200">
                             <thead className="bg-slate-50">
@@ -1376,21 +1377,21 @@ const CreditsTab = ({ dateRange }) => {
     // MAIN RENDER
     // ===================================================================
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Sub-tab Navigation (pill style) */}
-            <div className="flex bg-slate-100 p-1.5 rounded-xl w-fit">
+            <div className="flex w-fit max-w-full overflow-x-auto rounded-lg bg-slate-100 p-1 shadow-inner shadow-slate-200/60">
                 {SUB_TABS.map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveSubTab(tab.id)}
                         className={clsx(
-                            "px-5 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap",
+                            "px-3 py-2 rounded-md font-black text-xs transition-all flex items-center gap-2 whitespace-nowrap",
                             activeSubTab === tab.id
                                 ? "bg-white text-indigo-700 shadow-sm"
                                 : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
                         )}
                     >
-                        <tab.icon size={16} className={activeSubTab === tab.id ? "text-indigo-600" : "text-slate-400"} />
+                        <tab.icon size={14} className={activeSubTab === tab.id ? "text-indigo-600" : "text-slate-400"} />
                         {tab.label}
                     </button>
                 ))}

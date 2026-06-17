@@ -234,6 +234,112 @@ def _sync_bloqueos_pendientes(db_session_factory):
     finally:
         db.close()
 
+def _auto_update_bcv_rate(db_session_factory):
+    """
+    Consulta el BCV y actualiza automáticamente la tasa USD/VES
+    en TODOS los tenants activos. Corre cada 2 horas.
+    Solo actualiza tasas que tengan currency_code='VES' o 'Bs' y is_active=True.
+    """
+    import re, urllib3, requests as _req
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    # 1. Scrape BCV
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36",
+            "Accept-Language": "es-VE,es;q=0.9",
+            "Cache-Control": "no-cache",
+        }
+        resp = _req.get("https://www.bcv.org.ve/", headers=headers, timeout=15, verify=False)
+        resp.raise_for_status()
+        html = resp.text
+    except Exception as e:
+        logger.error(f"[BCV_AUTO] No se pudo conectar al BCV: {e}")
+        return
+
+    # Extraer tasa USD/VES
+    m = re.search(
+        r'id=["\']dolar["\'][^>]*>.*?<strong[^>]*>\s*([\d,\.]+)\s*</strong>',
+        html, re.DOTALL | re.IGNORECASE
+    )
+    if not m:
+        logger.error("[BCV_AUTO] No se pudo extraer la tasa USD del HTML del BCV.")
+        return
+
+    try:
+        usd_ves = round(float(m.group(1).strip().replace(",", ".")), 8)
+    except ValueError as e:
+        logger.error(f"[BCV_AUTO] Error convirtiendo tasa: {e}")
+        return
+
+    logger.info(f"[BCV_AUTO] Tasa BCV obtenida: 1 USD = {usd_ves} VES")
+
+    # 2. Actualizar en todos los tenants activos
+    db: Session = db_session_factory()
+    try:
+        from .models.tenant import Tenant
+        from .models.models import ExchangeRate
+        from sqlalchemy import text as _t
+        from datetime import datetime as _dt
+
+        tenants = db.query(Tenant).filter(Tenant.is_active == True).all()
+        updated_count = 0
+
+        for tenant in tenants:
+            try:
+                # Buscar tasas VES activas en este tenant
+                rates = db.execute(_t(f"""
+                    SELECT id, name, rate, currency_code, is_default
+                    FROM {tenant.schema_name}.exchange_rates
+                    WHERE is_active = true
+                      AND (currency_code IN ('VES', 'Bs', 'BS', 'ves')
+                           OR name ILIKE '%BCV%'
+                           OR name ILIKE '%boliv%'
+                           OR name ILIKE '%VES%')
+                """)).all()
+
+                if not rates:
+                    continue
+
+                for rate in rates:
+                    old_rate = float(rate.rate)
+                    if abs(old_rate - usd_ves) < 0.01:
+                        continue  # Sin cambio significativo
+
+                    db.execute(_t(f"""
+                        UPDATE {tenant.schema_name}.exchange_rates
+                        SET rate = :new_rate, updated_at = :now
+                        WHERE id = :rate_id
+                    """), {"new_rate": usd_ves, "now": _dt.utcnow(), "rate_id": rate.id})
+
+                    updated_count += 1
+                    logger.info(
+                        f"[BCV_AUTO] {tenant.schema_name}: {rate.name} "
+                        f"{old_rate} → {usd_ves} VES/USD"
+                    )
+
+                    # Invalidar caché Redis de exchange_rates para este tenant
+                    try:
+                        from .cache import invalidate
+                        invalidate(tenant.schema_name, "exchange_rates")
+                        invalidate(tenant.schema_name, "pos_init")
+                    except Exception:
+                        pass
+
+            except Exception as e:
+                logger.error(f"[BCV_AUTO] Error en tenant {tenant.schema_name}: {e}")
+                continue
+
+        db.commit()
+        logger.info(f"[BCV_AUTO] ✅ Actualización completada. {updated_count} tasas actualizadas.")
+
+    except Exception as e:
+        logger.exception(f"[BCV_AUTO] Error general: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
 def start_scheduler(db_session_factory):
     """Registra los jobs y arranca el scheduler."""
     from .config import settings
@@ -277,6 +383,17 @@ def start_scheduler(db_session_factory):
         replace_existing=True,
     )
 
+    # Actualización automática de tasa BCV cada 2 horas
+    scheduler.add_job(
+        _auto_update_bcv_rate,
+        trigger="interval",
+        hours=2,
+        args=[db_session_factory],
+        id="auto_update_bcv_rate",
+        replace_existing=True,
+        misfire_grace_time=600,  # 10 min de gracia si el servidor estaba inactivo
+    )
+
     # WhatsApp — recordatorio de deuda diario a las 09:00 Venezuela
     scheduler.add_job(
         _wa_sched.job_credit_reminders,
@@ -317,7 +434,8 @@ def start_scheduler(db_session_factory):
     logger.info(
         "[SCHEDULER] Started. Jobs: auto_expire_tenants @ 00:05 UTC daily, "
         "send_expiry_warnings @ 09:00 UTC daily, "
-        "auto_backup @ 05:00 UTC (01:00 Venezuela) daily (keeps last 7)"
+        "auto_backup @ 05:00 UTC (01:00 Venezuela) daily (keeps last 7), "
+        "auto_update_bcv_rate @ cada 2 horas"
     )
 
 

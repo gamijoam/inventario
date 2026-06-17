@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 import { useConfig } from '../../context/ConfigContext';
 import { API_BASE_URL } from '../../config/constants';
 import clsx from 'clsx';
@@ -63,7 +64,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
         try {
             const { data } = await apiClient.get('/quotes', { params: { limit: 500 } });
             setQuotes((data.items || []).sort((a, b) => b.id - a.id));
-        } catch { toast.error('Error al cargar cotizaciones'); }
+        } catch (error) { toast.error(getApiErrorMessage(error, 'Error al cargar cotizaciones')); }
         finally { setLoading(false); }
     };
 
@@ -100,7 +101,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
             await apiClient.delete(`/quotes/${id}`);
             setQuotes(prev => prev.filter(q => q.id !== id));
             toast.success('Cotización eliminada');
-        } catch { toast.error('No se pudo eliminar'); }
+        } catch (error) { toast.error(getApiErrorMessage(error, 'No se pudo eliminar')); }
     };
 
     const handleSendWhatsApp = async (quote, e) => {
@@ -112,7 +113,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
             toast.success(data.message || '✅ Cotización enviada por WhatsApp');
         } catch (err) {
             const msg = err?.response?.data?.detail || err.message;
-            toast.error('Error: ' + msg);
+            toast.error(getApiErrorMessage(error, msg || 'No se pudo completar la accion'));
         } finally {
             setSendingWa(null);
         }
@@ -125,7 +126,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
             const { data } = await apiClient.post(`/quotes/${quote.id}/duplicate`);
             toast.success(`Cotización #${data.id} creada como copia`);
             fetchQuotes();
-        } catch { toast.error('Error al duplicar'); }
+        } catch (error) { toast.error(getApiErrorMessage(error, 'Error al duplicar')); }
         finally { setDuplicating(null); }
     };
 
@@ -150,7 +151,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
             const rows = items.map(i => `<tr><td>${i.product?.name || 'Ítem'}</td><td style="text-align:center">${i.quantity}</td><td style="text-align:right">${anchorCurrency.symbol}${Number(i.unit_price).toFixed(2)}</td><td style="text-align:right">${anchorCurrency.symbol}${Number(i.subtotal).toFixed(2)}</td></tr>`).join('');
             win.document.write(`<!DOCTYPE html><html><head><title>Cotización #${fullQuote.id}</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#f1f5f9;padding:8px;text-align:left}td{padding:8px;border-bottom:1px solid #eee}.total{text-align:right;font-size:18px;font-weight:bold;margin-top:16px}@media print{.np{display:none}}</style></head><body><h2>Cotización #${fullQuote.id}</h2><p><strong>Cliente:</strong> ${fullQuote.customer?.name || 'General'} | <strong>Fecha:</strong> ${new Date(fullQuote.date).toLocaleDateString()}</p><table><thead><tr><th>Descripción</th><th>Cant.</th><th>Precio</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table><div class="total">Total: ${anchorCurrency.symbol}${Number(fullQuote.total_amount).toFixed(2)}</div><div class="np" style="margin-top:20px;text-align:center"><button onclick="window.print()" style="padding:10px 20px;cursor:pointer">Imprimir</button><button onclick="window.close()" style="padding:10px 20px;margin-left:10px;cursor:pointer">Cerrar</button></div><script>window.onload=function(){window.print()}<\/script></body></html>`);
             win.document.close();
-        } catch { toast.error('Error al generar impresión'); }
+        } catch (error) { toast.error(getApiErrorMessage(error, 'Error al generar impresión')); }
     };
 
     const handleThermal = async (quote, width, e) => {
@@ -172,11 +173,11 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
     );
 
     return (
-        <div className="h-full flex flex-col">
+        <div id="tour-quotes-container" className="h-full flex flex-col">
 
             {/* ── Stats header ── */}
             <div className="p-4 border-b border-slate-100 bg-slate-50/40">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div id="tour-quotes-summary" className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                     <StatCard label="Total"        value={stats.total}     sub="cotizaciones"          color="slate" />
                     <StatCard label="Pendientes"   value={stats.pending}   sub={`$${stats.pendingAmount.toFixed(0)} en espera`} color="blue" />
                     <StatCard label="Facturadas"   value={stats.converted} sub="convertidas a venta"   color="emerald" />
@@ -186,7 +187,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
                 {/* Filtros + Búsqueda */}
                 <div className="flex flex-col sm:flex-row gap-3">
                     {/* Pills de estado */}
-                    <div className="flex gap-1.5 flex-wrap">
+                    <div id="tour-quotes-filters" className="flex gap-1.5 flex-wrap">
                         {[
                             { id: 'ALL',       label: 'Todas',     count: stats.total },
                             { id: 'PENDING',   label: 'Pendientes', count: stats.pending },
@@ -209,13 +210,13 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
 
                     {/* Buscador + Botón Nueva Cotización */}
                     <div className="flex items-center gap-2 flex-1 sm:max-w-sm ml-auto">
-                        <div className="relative flex-1">
+                        <div id="tour-quotes-search" className="relative flex-1">
                             <Search className="absolute left-3 top-2.5 text-slate-400" size={15} />
                             <input type="text" placeholder="Buscar por cliente o #..."
                                 className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                                 value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                         </div>
-                        <button onClick={onCreateNew}
+                        <button id="tour-quotes-add-btn" onClick={onCreateNew}
                             className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition-all shadow-sm whitespace-nowrap shrink-0">
                             <Plus size={15} /> Nueva
                         </button>
@@ -224,7 +225,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
             </div>
 
             {/* ── Lista ── */}
-            <div className="flex-1 overflow-y-auto p-4">
+            <div id="tour-quotes-list" className="flex-1 overflow-y-auto p-4">
                 {filtered.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3">
                         <div className="w-20 h-20 bg-slate-50 rounded-2xl flex items-center justify-center">

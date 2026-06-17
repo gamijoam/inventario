@@ -3,19 +3,15 @@ import toast from 'react-hot-toast';
 
 /**
  * Get Hardware Bridge Client ID from localStorage
- * Prompts user to configure on first use
+ * Reads the station printer route selected by the active cash register.
  */
 function getHardwareClientId() {
-    let clientId = localStorage.getItem('hardware_client_id');
+    const clientId = localStorage.getItem('hardware_client_id');
 
     if (!clientId) {
-        // First time on this PC - prompt user to configure
-        // Electron does not support prompt(). Use default or configurable ID.
-        console.warn('⚠️ No Hardware ID found. Defaulting to "caja-1". Configure via Settings if needed.');
-        clientId = 'caja-1';
-
-        // Save to localStorage
-        localStorage.setItem('hardware_client_id', clientId);
+        throw new Error(
+            'Esta estacion no tiene una impresora vinculada. Selecciona o abre la caja correcta, o configura el ID de impresora en Gestion de Cajas.'
+        );
     }
 
     return clientId;
@@ -34,6 +30,8 @@ window.resetPrinterConfig = function () {
 // CashContext updates localStorage after session open, so we must read it fresh on every call.
 // Use getHardwareClientId() directly inside each function.
 
+const PRINT_REQUEST_TIMEOUT_MS = 3000;
+
 const printerService = {
     /**
      * Trigger print via WebSocket to Hardware Bridge
@@ -41,13 +39,13 @@ const printerService = {
      */
     printTicket: async (saleId) => {
         const clientId = getHardwareClientId(); // Read fresh from localStorage on each call
-        console.log(`🖨️ printTicket — Client ID: ${clientId}`);
+        console.log(`printTicket - Client ID: ${clientId}`);
         try {
             // Send print command to backend, which forwards to Hardware Bridge via WebSocket
             const response = await apiClient.post(`/products/print/remote`, {
                 client_id: clientId,
                 sale_id: saleId
-            });
+            }, { timeout: PRINT_REQUEST_TIMEOUT_MS });
 
             return response.data;
         } catch (error) {
@@ -71,6 +69,8 @@ const printerService = {
                 );
             } else if (error.response?.status === 500) {
                 throw new Error(error.response?.data?.detail || "Error al enviar comando de impresión");
+            } else if (error.code === "ECONNABORTED") {
+                throw new Error("La impresora no respondio a tiempo. Verifique el puente e intente de nuevo.");
             } else if (error.message.includes("Network Error")) {
                 throw new Error("No se puede conectar con el servidor. Verifique su conexión a internet.");
             }
@@ -89,7 +89,7 @@ const printerService = {
             const response = await apiClient.post(`/products/print/remote/payload`, {
                 client_id: clientId,
                 payload: payload
-            });
+            }, { timeout: PRINT_REQUEST_TIMEOUT_MS });
             return response.data;
         } catch (error) {
             console.error("Print Raw Error:", error);

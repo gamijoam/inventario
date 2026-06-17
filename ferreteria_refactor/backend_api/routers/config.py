@@ -1,4 +1,6 @@
+from ..cache import get_cached, set_cached, invalidate, invalidate_resource, TTL
 from fastapi import File, UploadFile
+from ..cache import get_cached, set_cached, invalidate, TTL
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
@@ -168,14 +170,27 @@ def get_exchange_rates(
             )
         ]
 
+    # Caché Redis 15 min (las tasas cambian poco)
+    cache_extra = f"{currency_code or ''}:{is_active or ''}"
+    cached = get_cached(current_schema, "exchange_rates", cache_extra)
+    if cached is not None:
+        return [schemas.ExchangeRateRead(**r) for r in cached]
+
     query = db.query(models.ExchangeRate)
-    
     if currency_code:
         query = query.filter(models.ExchangeRate.currency_code == currency_code)
     if is_active is not None:
         query = query.filter(models.ExchangeRate.is_active == is_active)
-    
-    return query.order_by(models.ExchangeRate.currency_code, models.ExchangeRate.is_default.desc()).all()
+
+    rates = query.order_by(models.ExchangeRate.currency_code, models.ExchangeRate.is_default.desc()).all()
+    set_cached(current_schema, "exchange_rates",
+               [{"id": r.id, "name": r.name, "currency_code": r.currency_code,
+                 "currency_symbol": r.currency_symbol, "rate": float(r.rate),
+                 "is_default": r.is_default, "is_active": r.is_active,
+                 "created_at": str(r.created_at), "updated_at": str(r.updated_at)}
+                for r in rates],
+               extra=cache_extra, ttl=TTL["exchange_rates"])
+    return rates
 
 
 @router.post("/exchange-rates", response_model=schemas.ExchangeRateRead)
@@ -210,8 +225,14 @@ async def create_exchange_rate(
     }
     
     db.commit()
-    # db.refresh(new_rate)
-    
+
+    # Invalidar TODAS las variantes de caché de exchange_rates y pos_init
+    from ..tenant_context import get_tenant_schema as _gts
+    _schema = _gts()
+    invalidate_resource(_schema, "exchange_rates")
+    invalidate_resource(_schema, "pos_init")
+    invalidate_resource(_schema, "pos-init")
+
     # Broadcast event
     await manager.broadcast(WebSocketEvents.EXCHANGE_RATE_CREATED, {
         "id": response_data["id"],
@@ -352,16 +373,20 @@ async def update_exchange_rate(
     }
 
     db.commit()
-    # db.refresh(rate)
-    
+
+    # Invalidar TODAS las variantes de caché de exchange_rates y pos_init
+    from ..tenant_context import get_tenant_schema as _gts
+    _schema = _gts()
+    invalidate_resource(_schema, "exchange_rates")
+    invalidate_resource(_schema, "pos_init")
+    invalidate_resource(_schema, "pos-init")
+
     # AUDIT LOG
     from ..audit_utils import log_action
     import json
-    # Since we didn't capture 'old_state' easily, we'll log the new state.
-    # Ideally we'd do the diff, but this is a quick action.
-    log_action(db, user_id=user.id, action="UPDATE", table_name="exchange_rates", record_id=response_data["id"], changes=json.dumps({"rate": response_data["rate"], "is_active": response_data["is_active"]}, default=str))
+    log_action(db, user_id=user.id, action="UPDATE", table_name="exchange_rates", record_id=response_data["id"], changes=json.dumps({"rate": str(response_data["rate"]), "is_active": response_data["is_active"]}, default=str))
 
-    # Broadcast event
+    # Broadcast al tenant correcto (no a "public")
     await manager.broadcast(WebSocketEvents.EXCHANGE_RATE_UPDATED, {
         "id": response_data["id"],
         "name": response_data["name"],
@@ -416,26 +441,115 @@ async def delete_exchange_rate(
 # BUSINESS CONFIGURATION (GENERIC)
 # ========================================
 
+@router.get("/pos-init")
+def get_pos_init(db: Session = Depends(get_db)):
+    """
+    Endpoint optimizado para carga inicial del POS.
+    Consolida en 1 request lo que antes eran 4:
+    - business_config
+    - exchange_rates activos
+    - payment_methods
+    - pos settings (auto_print_ticket)
+    """
+    from ..tenant_context import get_tenant_schema
+    from ..cache import get_cached, set_cached, TTL
+    from sqlalchemy import text
+
+    schema = get_tenant_schema()
+    if schema == 'public':
+        return {"business": {}, "exchange_rates": [], "payment_methods": [], "settings": {}}
+
+    cache_key = "pos_init"
+    cached = get_cached(schema, cache_key)
+    if cached:
+        return cached
+
+    # Ejecutar las 4 queries en paralelo usando la misma sesión
+    configs = {r[0]: r[1] for r in db.execute(text(f"SELECT key, value FROM {schema}.business_config")).all()}
+    exchange_rates = db.query(models.ExchangeRate).filter(models.ExchangeRate.is_active == True).all()
+    payment_methods = db.query(models.PaymentMethod).filter(models.PaymentMethod.is_active == True).all()
+    price_lists = db.query(models.PriceList).filter(models.PriceList.is_active == True).order_by(models.PriceList.id.asc()).all()
+    categories = db.query(models.Category).order_by(models.Category.name.asc()).all()
+    warehouses = db.query(models.Warehouse).order_by(models.Warehouse.id.asc()).all()
+
+    result = {
+        "business": {
+            "name": configs.get("business_name", ""),
+            "logo_url": configs.get("business_logo", ""),
+            "address": configs.get("business_address", ""),
+            "phone": configs.get("business_phone", ""),
+            "default_tax_rate": configs.get("default_tax_rate", "0"),
+            "external_financing_enabled": configs.get("external_financing_enabled", "false").lower() == "true",
+            "warranty_format_url": configs.get("warranty_format_url", ""),
+        },
+        "exchange_rates": [
+            {"id": r.id, "name": r.name, "currency_code": r.currency_code,
+             "currency_symbol": r.currency_symbol, "rate": float(r.rate),
+             "is_default": r.is_default, "is_active": r.is_active}
+            for r in exchange_rates
+        ],
+        "payment_methods": [
+            {"id": m.id, "name": m.name, "is_active": m.is_active,
+             "is_system": m.is_system, "is_external_financer": getattr(m, 'is_external_financer', False),
+             "requires_reference": getattr(m, 'requires_reference', False)}
+            for m in payment_methods
+        ],
+        "price_lists": [
+            {"id": pl.id, "name": pl.name, "requires_auth": pl.requires_auth,
+             "is_active": pl.is_active, "created_at": pl.created_at.isoformat() if pl.created_at else None}
+            for pl in price_lists
+        ],
+        "categories": [
+            {"id": c.id, "name": c.name, "description": c.description,
+             "parent_id": c.parent_id, "is_no_kitchen_category": c.is_no_kitchen_category}
+            for c in categories
+        ],
+        "warehouses": [
+            {"id": w.id, "name": w.name, "address": w.address,
+             "is_main": w.is_main, "is_active": w.is_active, "stocks_count": 0}
+            for w in warehouses
+        ],
+        "settings": {
+            "auto_print_ticket": configs.get("auto_print_ticket", "false").lower() == "true",
+            "paper_width": configs.get("paper_width", "58"),
+            "pos_default_price_list_id": configs.get("pos_default_price_list_id", ""),
+            "pos_show_bs": configs.get("pos_show_bs", "true").lower() != "false",
+        }
+    }
+
+    set_cached(schema, cache_key, result, ttl=TTL["business_config"])
+    return result
+
+
 @router.get("/business", response_model=schemas.BusinessInfo)
 def get_business_info(db: Session = Depends(get_db)):
     from ..tenant_context import get_tenant_schema
     from sqlalchemy import text
     schema = get_tenant_schema()
     # Consulta directa al esquema para evitar errores de UndefinedTable
+    # Caché Redis: business_config por tenant (5 min)
+    _cached = get_cached(schema, "business_config")
+    if _cached:
+        return schemas.BusinessInfo(**_cached)
+
     result = db.execute(text(f"SELECT key, value FROM {schema}.business_config")).all()
     configs = {r[0]: r[1] for r in result}
-    return schemas.BusinessInfo(
-        name=configs.get("name", ""),
-        document_id=configs.get("document_id", ""),
-        address=configs.get("address", ""),
-        phone=configs.get("phone", ""),
-        email=configs.get("email", ""),
-        website=configs.get("website"),
-        logo_url=configs.get("logo_url"),
+    _biz = schemas.BusinessInfo(
+        # Las keys en BD usan prefijo "business_" — buscar ambas formas por compatibilidad
+        name=configs.get("business_name") or configs.get("name", ""),
+        document_id=configs.get("business_doc") or configs.get("document_id", ""),
+        address=configs.get("business_address") or configs.get("address", ""),
+        phone=configs.get("business_phone") or configs.get("phone", ""),
+        email=configs.get("business_email") or configs.get("email", ""),
+        website=configs.get("business_website") or configs.get("website"),
+        logo_url=configs.get("business_logo") or configs.get("logo_url"),
         warranty_format_url=configs.get("warranty_format_url"),
         ticket_template=configs.get("ticket_template", ""),
-        default_tax_rate=Decimal(str(configs.get("default_tax_rate", "0.00")))
+        default_tax_rate=Decimal(str(configs.get("default_tax_rate", "0.00"))),
+        external_financing_enabled=configs.get("external_financing_enabled", "false").lower() == "true"
     )
+    set_cached(schema, "business_config", _biz.model_dump(), ttl=TTL["business_config"])
+    return _biz
 
 @router.put("/business", response_model=schemas.BusinessInfo)
 def update_business_info(
@@ -467,6 +581,32 @@ def update_business_info(
     result = get_business_info(db)
     db.commit()
     return result
+
+@router.patch("/business")
+def patch_business_config(
+    data: dict,
+    db: Session = Depends(get_db),
+    user: Any = Depends(admin_only)
+):
+    """Actualizar campos individuales de la configuración del negocio"""
+    allowed_keys = [
+        'external_financing_enabled',
+        'bloqueocelular_enabled',
+        'warranty_format_url',
+        'auto_print_ticket',
+    ]
+    for key, value in data.items():
+        if key not in allowed_keys:
+            continue
+        config = db.query(models.BusinessConfig).get(key)
+        if not config:
+            config = models.BusinessConfig(key=key, value=str(value))
+            db.add(config)
+        else:
+            config.value = str(value).lower() if isinstance(value, bool) else str(value)
+    db.commit()
+    return {"status": "ok", "updated": list(data.keys())}
+
 
 @router.post("/test-print")
 async def test_print_ticket(db: Session = Depends(get_db)):
@@ -836,6 +976,12 @@ def set_config(
     }
 
     db.commit()
+    try:
+        invalidate_resource(current_schema, "pos_init")
+        invalidate_resource(current_schema, "pos-init")
+        invalidate_resource(current_schema, "business_config")
+    except Exception:
+        pass
     # db.refresh(config)
     return response_data
 
@@ -1121,3 +1267,121 @@ def get_subscription_status(
         "grace_period_active": grace_period_active,
         "license_blocked_reason": tenant.license_blocked_reason,
     }
+
+
+# ─── Auto Print Ticket Toggle ─────────────────────────────────────────────────
+@router.get("/pos/auto-print-ticket")
+def get_auto_print_ticket(db: Session = Depends(get_db)):
+    """Obtener el estado del auto-print de ticket al confirmar venta."""
+    config = db.query(models.BusinessConfig).get("auto_print_ticket")
+    return {"auto_print_ticket": config.value == "true" if config else False}
+
+
+class AutoPrintTicketPayload(BaseModel):
+    enabled: bool = False
+
+@router.post("/pos/auto-print-ticket")
+def set_auto_print_ticket(
+    payload: AutoPrintTicketPayload,
+    db: Session = Depends(get_db),
+    user: Any = Depends(admin_only),
+):
+    """Activar/desactivar impresión automática de ticket al confirmar venta. Solo ADMIN."""
+    enabled = payload.enabled
+    config = db.query(models.BusinessConfig).get("auto_print_ticket")
+    if config:
+        config.value = "true" if enabled else "false"
+    else:
+        db.add(models.BusinessConfig(key="auto_print_ticket", value="true" if enabled else "false"))
+    db.commit()
+    return {"auto_print_ticket": enabled}
+
+@router.post("/business/upload-logo")
+async def upload_business_logo(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: Any = Depends(admin_only)
+):
+    """Sube el logo del negocio y guarda la URL en business_config.business_logo"""
+    import os, time
+    from PIL import Image
+    from ..tenant_context import get_tenant_schema
+
+    schema = get_tenant_schema()
+    if schema == "public":
+        raise HTTPException(status_code=400, detail="Invalid context")
+
+    # Validar extensión
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in {".png", ".jpg", ".jpeg", ".webp"}:
+        raise HTTPException(status_code=400, detail="Formato no permitido. Use PNG, JPG o WEBP.")
+
+    raw = await file.read()
+    if len(raw) < 50:
+        raise HTTPException(status_code=400, detail="Archivo inválido")
+    if len(raw) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Imagen demasiado grande (máx 2 MB)")
+
+    upload_dir = f"/app/media/{schema}/business"
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # Limpiar logos viejos
+    for old_file in os.listdir(upload_dir):
+        if old_file.startswith("logo_"):
+            try: os.remove(os.path.join(upload_dir, old_file))
+            except: pass
+
+    timestamp = int(time.time())
+    filename = f"logo_{timestamp}.png"
+    file_path = os.path.join(upload_dir, filename)
+
+    # Procesar con PIL: convertir a PNG y limitar tamaño max 600x600
+    try:
+        from io import BytesIO
+        img = Image.open(BytesIO(raw))
+        if img.mode not in ("RGBA", "RGB"):
+            img = img.convert("RGBA")
+        img.thumbnail((600, 600))
+        img.save(file_path, "PNG", optimize=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al procesar imagen: {e}")
+
+    url = f"/media/{schema}/business/{filename}"
+    cfg = db.query(models.BusinessConfig).filter(
+        models.BusinessConfig.key == "business_logo"
+    ).first()
+    if cfg:
+        cfg.value = url
+    else:
+        db.add(models.BusinessConfig(key="business_logo", value=url))
+    db.commit()
+
+    return {"success": True, "url": url}
+
+
+@router.delete("/business/logo")
+def delete_business_logo(
+    db: Session = Depends(get_db),
+    user: Any = Depends(admin_only)
+):
+    """Elimina el logo del negocio."""
+    import os
+    from ..tenant_context import get_tenant_schema
+    schema = get_tenant_schema()
+    if schema == "public":
+        raise HTTPException(status_code=400, detail="Invalid context")
+
+    cfg = db.query(models.BusinessConfig).filter(
+        models.BusinessConfig.key == "business_logo"
+    ).first()
+    if cfg and cfg.value:
+        # Borrar archivo físico (best-effort)
+        try:
+            file_path = cfg.value.replace("/media/", "/app/media/")
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except: pass
+        cfg.value = ""
+        db.commit()
+    return {"success": True}
+

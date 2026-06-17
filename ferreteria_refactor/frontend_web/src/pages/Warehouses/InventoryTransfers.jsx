@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowRight, Plus, Calendar, Package, CheckCircle, Search, MapPin, Truck, History, X, Printer, FileText } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ArrowRight, Plus, Calendar, Package, CheckCircle, Search, MapPin, Truck, History, X, Printer, FileText, Zap, AlertTriangle } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import clsx from 'clsx';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 const InventoryTransfers = () => {
+    const trasladosConImei = useFeatureFlag('traslados_con_imei');
     const [view, setView] = useState('list'); // list, create
     const [transfers, setTransfers] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
@@ -22,9 +24,19 @@ const InventoryTransfers = () => {
     const [productSearch, setProductSearch] = useState('');
     const [searchResults, setSearchResults] = useState([]);
 
+    // IMEI picker state (per item, by index)
+    const [imeiPicker, setImeiPicker] = useState({ openFor: null, instances: [], loading: false, query: '' });
+    const imeiPickerDebounce = useRef(null);
+
     useEffect(() => {
         fetchInitialData();
     }, []);
+
+    // Si cambia la bodega origen, limpiar los IMEIs seleccionados (podrian no estar en la nueva)
+    useEffect(() => {
+        setItems(prev => prev.map(it => ({ ...it, selected_imeis: [] })));
+        setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
+    }, [formData.source_warehouse_id]);
 
     const fetchInitialData = async () => {
         try {
@@ -62,7 +74,9 @@ const InventoryTransfers = () => {
             name: product.name,
             quantity: 1,
             stock_available: product.stock,
-            sku: product.sku
+            sku: product.sku,
+            has_imei: !!product.has_imei,
+            selected_imeis: []  // array of {id, serial_number}
         }]);
         setProductSearch('');
         setSearchResults([]);
@@ -71,11 +85,72 @@ const InventoryTransfers = () => {
     const updateItemQty = (index, qty) => {
         const newItems = [...items];
         newItems[index].quantity = Number(qty);
+        // If quantity went below the number of selected IMEIs, trim
+        if (newItems[index].selected_imeis && newItems[index].selected_imeis.length > newItems[index].quantity) {
+            newItems[index].selected_imeis = newItems[index].selected_imeis.slice(0, newItems[index].quantity);
+        }
         setItems(newItems);
     };
 
     const removeItem = (index) => {
         setItems(items.filter((_, i) => i !== index));
+    };
+
+    // ---- IMEI picker (modal-like inline) ----
+    const openImeiPicker = async (itemIdx) => {
+        const item = items[itemIdx];
+        if (!item) return;
+        setImeiPicker({ openFor: itemIdx, instances: [], loading: true, query: '' });
+        try {
+            const { data } = await apiClient.get(`/inventory/product/${item.product_id}/instances`);
+            // filter to source warehouse + AVAILABLE
+            const sourceId = Number(formData.source_warehouse_id);
+            const filtered = (Array.isArray(data) ? data : []).filter(
+                pi => pi.warehouse_id === sourceId && pi.status === 'AVAILABLE'
+            );
+            setImeiPicker(prev => ({ ...prev, instances: filtered, loading: false }));
+        } catch (e) {
+            console.error(e);
+            toast.error('Error cargando IMEIs disponibles');
+            setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
+        }
+    };
+
+    const closeImeiPicker = () => setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
+
+    const toggleImeiForItem = (itemIdx, instance) => {
+        const newItems = [...items];
+        const cur = newItems[itemIdx].selected_imeis || [];
+        const isSel = cur.some(s => s.id === instance.id);
+        if (isSel) {
+            newItems[itemIdx].selected_imeis = cur.filter(s => s.id !== instance.id);
+        } else {
+            if (cur.length >= newItems[itemIdx].quantity) {
+                return toast.error(`Ya seleccionaste ${cur.length} IMEIs (cantidad = ${newItems[itemIdx].quantity}). Quita uno o sube la cantidad.`);
+            }
+            newItems[itemIdx].selected_imeis = [...cur, { id: instance.id, serial_number: instance.serial_number }];
+        }
+        setItems(newItems);
+    };
+
+    const selectFirstN = (itemIdx, n) => {
+        const newItems = [...items];
+        const pool = imeiPicker.instances;
+        const picks = pool.slice(0, n);
+        newItems[itemIdx].selected_imeis = picks.map(p => ({ id: p.id, serial_number: p.serial_number }));
+        setItems(newItems);
+    };
+
+    const scanImeiForItem = (itemIdx) => {
+        const code = imeiPicker.query.trim().toUpperCase();
+        if (!code) return;
+        const instance = imeiPicker.instances.find(pi => (pi.serial_number || '').toUpperCase() === code);
+        if (!instance) {
+            toast.error('IMEI no disponible en la bodega origen');
+            return;
+        }
+        toggleImeiForItem(itemIdx, instance);
+        setImeiPicker(prev => ({ ...prev, query: '' }));
     };
 
     const handlePrint = (transferData) => {
@@ -176,16 +251,39 @@ const InventoryTransfers = () => {
             return toast.error("El origen y destino deben ser diferentes");
         }
 
+        // Validar IMEIs si el flag esta ON y el item tiene has_imei
+        if (trasladosConImei) {
+            for (const it of items) {
+                if (it.has_imei) {
+                    if (!it.selected_imeis || it.selected_imeis.length !== it.quantity) {
+                        return toast.error(
+                            `"${it.name}" tiene IMEI. Debes seleccionar exactamente ${it.quantity} IMEIs (tienes ${it.selected_imeis?.length || 0}).`
+                        );
+                    }
+                } else if (it.selected_imeis && it.selected_imeis.length > 0) {
+                    return toast.error(`"${it.name}" no acepta IMEIs pero se enviaron algunos.`);
+                }
+            }
+        }
+
         try {
             const payload = {
                 ...formData,
-                items: items.map(i => ({
-                    product_id: i.product_id,
-                    quantity: i.quantity
-                }))
+                items: items.map(i => {
+                    const base = {
+                        product_id: i.product_id,
+                        quantity: i.quantity
+                    };
+                    if (trasladosConImei && i.has_imei && i.selected_imeis?.length > 0) {
+                        base.instances = i.selected_imeis.map(im => ({ product_instance_id: im.id }));
+                    } else {
+                        base.instances = [];
+                    }
+                    return base;
+                })
             };
             const { data: newTransfer } = await apiClient.post('/transfers', payload);
-            toast.success("Traslado realizado con éxito");
+            toast.success("Traslado realizado con exito");
 
             if (shouldPrint) {
                 // Reconstruct full object for print with item names
@@ -207,6 +305,7 @@ const InventoryTransfers = () => {
             // Reset form
             setFormData({ ...formData, notes: '' });
             setItems([]);
+            setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
         } catch (error) {
             console.error(error);
             toast.error(error.response?.data?.detail || "Error al procesar traslado");
@@ -222,10 +321,10 @@ const InventoryTransfers = () => {
     // --- Render List View ---
     if (view === 'list') {
         return (
-            <div className="p-6 max-w-7xl mx-auto space-y-6">
+            <div className="max-w-7xl mx-auto space-y-6">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
+                        <h1 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-3">
                             <Truck className="text-indigo-600" size={32} /> Traslados de Inventario
                         </h1>
                         <p className="text-slate-500 font-medium">Historial y gestión de movimientos entre bodegas</p>
@@ -233,13 +332,13 @@ const InventoryTransfers = () => {
                     <button
                         id="tour-transfers-add-btn"
                         onClick={() => setView('create')}
-                        className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5"
+                        className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-sm shadow-indigo-100 hover:shadow-indigo-300 "
                     >
                         <Plus size={20} /> Nuevo Traslado
                     </button>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 border-b border-slate-200">
@@ -270,7 +369,17 @@ const InventoryTransfers = () => {
                                                 <ArrowRight size={12} /> {t.target_warehouse?.name}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-sm font-bold text-slate-600">{t.details.length}</td>
+                                        <td className="px-6 py-4 text-sm font-bold text-slate-600">
+                                            <div className="flex items-center gap-2">
+                                                <span>{t.details.length}</span>
+                                                {t.details.some(d => d.instances && d.instances.length > 0) && (
+                                                    <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1" title="Incluye IMEIs / seriales">
+                                                        <Zap size={10} />
+                                                        {t.details.reduce((sum, d) => sum + (d.instances?.length || 0), 0)} IMEIs
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
                                                 <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
@@ -305,7 +414,7 @@ const InventoryTransfers = () => {
 
     // --- Render Create View ---
     return (
-        <div className="p-6 max-w-6xl mx-auto animate-in slide-in-from-bottom-4 duration-500">
+        <div className="max-w-6xl mx-auto animate-in slide-in-from-bottom-4 duration-500">
             <div className="flex items-center gap-4 mb-8">
                 <button
                     onClick={() => setView('list')}
@@ -313,7 +422,7 @@ const InventoryTransfers = () => {
                 >
                     <ArrowRight className="rotate-180" size={20} />
                 </button>
-                <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Nuevo Traslado</h1>
+                <h1 className="text-xl font-black text-slate-800 tracking-tight">Nuevo Traslado</h1>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -321,7 +430,7 @@ const InventoryTransfers = () => {
                 <div className="lg:col-span-2 space-y-6">
 
                     {/* Route Card */}
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
                         <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2 text-lg border-b border-slate-100 pb-4">
                             <MapPin className="text-indigo-600" size={20} /> Ruta del Traslado
                         </h3>
@@ -361,7 +470,7 @@ const InventoryTransfers = () => {
                     </div>
 
                     {/* Products Card */}
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 min-h-[500px] flex flex-col">
+                    <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 min-h-[500px] flex flex-col">
                         <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 text-lg border-b border-slate-100 pb-4">
                             <Package className="text-indigo-600" size={20} /> Productos a Trasladar
                         </h3>
@@ -373,7 +482,7 @@ const InventoryTransfers = () => {
                                 <input
                                     type="text"
                                     className="w-full p-3.5 bg-transparent outline-none font-medium text-slate-700 placeholder:text-slate-400"
-                                    placeholder="Buscar producto por nombre o código..."
+                                    placeholder="Buscar producto por nombre o codigo..."
                                     value={productSearch}
                                     onChange={e => {
                                         setProductSearch(e.target.value);
@@ -402,37 +511,143 @@ const InventoryTransfers = () => {
                             )}
                         </div>
 
-                        {/* Items List */}
+                            {/* Items List */}
                         <div className="space-y-3 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                            {items.map((item, idx) => (
-                                <div key={idx} className="flex items-center gap-4 p-4 border border-slate-100 rounded-xl bg-white hover:bg-slate-50/50 hover:border-slate-200 transition-all shadow-sm group">
-                                    <div className="flex-1">
-                                        <div className="font-bold text-slate-700">{item.name}</div>
-                                        <div className="text-xs text-slate-400 mt-0.5">Stock disponible: {item.stock_available}</div>
+                            {items.map((item, idx) => {
+                                const showImeiPicker = trasladosConImei && item.has_imei;
+                                const selectedCount = item.selected_imeis?.length || 0;
+                                const pickerOpen = imeiPicker.openFor === idx;
+                                return (
+                                <div key={idx} className="p-4 border border-slate-100 rounded-xl bg-white hover:bg-slate-50/50 hover:border-slate-200 transition-all shadow-sm group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex-1">
+                                            <div className="font-bold text-slate-700 flex items-center gap-2">
+                                                {item.name}
+                                                {showImeiPicker && (
+                                                    <span className="text-[10px] uppercase font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">IMEI</span>
+                                                )}
+                                            </div>
+                                            <div className="text-xs text-slate-400 mt-0.5">Stock disponible: {item.stock_available}</div>
+                                        </div>
+                                        <div className="w-32">
+                                            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block text-center">Cantidad</label>
+                                            <input
+                                                type="number"
+                                                className="w-full p-2 border border-slate-200 rounded-lg text-center font-bold text-indigo-600 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                                                value={item.quantity}
+                                                onChange={e => updateItemQty(idx, e.target.value)}
+                                                min="0.1"
+                                                step="0.1"
+                                            />
+                                        </div>
+                                        {showImeiPicker && (
+                                            <button
+                                                type="button"
+                                                onClick={() => pickerOpen ? closeImeiPicker() : openImeiPicker(idx)}
+                                                className={clsx(
+                                                    "text-xs font-bold px-3 py-2 rounded-lg border transition-colors flex items-center gap-1.5",
+                                                    selectedCount > 0
+                                                        ? "bg-amber-50 border-amber-300 text-amber-700"
+                                                        : "bg-white border-slate-200 text-slate-600 hover:border-amber-300 hover:text-amber-700"
+                                                )}
+                                                title="Seleccionar IMEIs / seriales especificos"
+                                            >
+                                                <Zap size={13} />
+                                                {selectedCount > 0 ? `${selectedCount} IMEI${selectedCount > 1 ? 's' : ''}` : 'IMEIs'}
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => removeItem(idx)}
+                                            className="text-slate-300 hover:text-rose-500 p-2 hover:bg-rose-50 rounded-lg transition-colors"
+                                        >
+                                            <X size={20} />
+                                        </button>
                                     </div>
-                                    <div className="w-32">
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block text-center">Cantidad</label>
-                                        <input
-                                            type="number"
-                                            className="w-full p-2 border border-slate-200 rounded-lg text-center font-bold text-indigo-600 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                                            value={item.quantity}
-                                            onChange={e => updateItemQty(idx, e.target.value)}
-                                            min="0.1"
-                                            step="0.1"
-                                        />
-                                    </div>
-                                    <button
-                                        onClick={() => removeItem(idx)}
-                                        className="text-slate-300 hover:text-rose-500 p-2 hover:bg-rose-50 rounded-lg transition-colors"
-                                    >
-                                        <X size={20} />
-                                    </button>
+
+                                    {showImeiPicker && pickerOpen && (
+                                        <div className="mt-3 border-t border-slate-100 pt-3">
+                                            {imeiPicker.loading ? (
+                                                <div className="text-xs text-slate-400 py-3 text-center">Cargando IMEIs disponibles...</div>
+                                            ) : imeiPicker.instances.length === 0 ? (
+                                                <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+                                                    <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                                                    No hay IMEIs AVAILABLE de este producto en la bodega origen. Cambia la bodega origen o agrega IMEIs primero.
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <input
+                                                            value={imeiPicker.query}
+                                                            onChange={(e) => setImeiPicker(prev => ({ ...prev, query: e.target.value }))}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    e.preventDefault();
+                                                                    scanImeiForItem(idx);
+                                                                }
+                                                            }}
+                                                            placeholder="Escanea o escribe el IMEI..."
+                                                            className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-amber-300 outline-none"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => scanImeiForItem(idx)}
+                                                            className="px-3 py-2 bg-amber-500 text-white rounded-lg text-xs font-bold"
+                                                        >
+                                                            Agregar
+                                                        </button>
+                                                    </div>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <div className="text-xs text-slate-600">
+                                                            IMEIs en bodega origen: <b>{imeiPicker.instances.length}</b> disponibles - <b className={selectedCount === item.quantity ? 'text-emerald-600' : 'text-amber-600'}>{selectedCount}/{item.quantity}</b> seleccionados
+                                                        </div>
+                                                        {imeiPicker.instances.length >= item.quantity && selectedCount < item.quantity && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => selectFirstN(idx, item.quantity)}
+                                                                className="text-[10px] uppercase font-bold text-indigo-600 hover:text-indigo-700 px-2 py-1 rounded"
+                                                            >
+                                                                Auto-seleccionar {item.quantity}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    <div className="grid grid-cols-1 gap-1 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                                                        {imeiPicker.instances.map(pi => {
+                                                            const isSel = item.selected_imeis?.some(s => s.id === pi.id);
+                                                            return (
+                                                                <button
+                                                                    key={pi.id}
+                                                                    type="button"
+                                                                    onClick={() => toggleImeiForItem(idx, pi)}
+                                                                    className={clsx(
+                                                                        "text-left p-2 rounded-lg border text-xs font-mono flex items-center gap-2 transition-all",
+                                                                        isSel
+                                                                            ? "bg-amber-50 border-amber-300 text-amber-800"
+                                                                            : "bg-white border-slate-100 text-slate-600 hover:border-slate-300"
+                                                                    )}
+                                                                >
+                                                                    <span className={clsx(
+                                                                        "w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0",
+                                                                        isSel ? "bg-amber-500 border-amber-500 text-white" : "border-slate-300"
+                                                                    )}>
+                                                                        {isSel && <CheckCircle size={10} />}
+                                                                    </span>
+                                                                    <span className="flex-1 truncate">{pi.serial_number}</span>
+                                                                    {pi.warehouse?.name && <span className="text-[9px] text-slate-400">{pi.warehouse.name}</span>}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
-                            ))}
+                                );
+                            })}
                             {items.length === 0 && (
                                 <div className="h-full flex flex-col items-center justify-center text-center py-12 text-slate-400 border-2 border-dashed border-slate-100 rounded-xl bg-slate-50/30">
                                     <Package size={48} className="mb-4 opacity-30" />
-                                    <p className="font-bold text-slate-500">Lista de traslado vacía</p>
+                                    <p className="font-bold text-slate-500">Lista de traslado vacia</p>
                                     <p className="text-sm">Busca productos arriba para agregarlos</p>
                                 </div>
                             )}
@@ -442,9 +657,9 @@ const InventoryTransfers = () => {
 
                 {/* Right Column: Actions */}
                 <div className="space-y-6">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 sticky top-6">
+                    <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 sticky top-6">
                         <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2 text-lg border-b border-slate-100 pb-4">
-                            <Calendar className="text-indigo-600" size={20} /> Detalles del Envío
+                            <Calendar className="text-indigo-600" size={20} /> Detalles del envio
                         </h3>
                         <div className="space-y-5">
                             <div>
@@ -460,7 +675,7 @@ const InventoryTransfers = () => {
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Notas / Referencia</label>
                                 <textarea
                                     className="w-full p-3 border border-slate-200 rounded-xl resize-none h-32 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-slate-700"
-                                    placeholder="Razón del traslado, número de guía..."
+                                    placeholder="Razon del traslado, numero de guia..."
                                     value={formData.notes}
                                     onChange={e => setFormData({ ...formData, notes: e.target.value })}
                                 ></textarea>
@@ -471,7 +686,7 @@ const InventoryTransfers = () => {
                             <div className="bg-indigo-50 rounded-xl p-4 mb-4 flex items-start gap-3">
                                 <Truck className="text-indigo-600 shrink-0 mt-1" size={18} />
                                 <div className="text-xs text-indigo-800 font-medium">
-                                    Estás moviendo <span className="font-bold">{items.length} productos</span> de {warehouses.find(w => w.id == formData.source_warehouse_id)?.name || '...'} a {warehouses.find(w => w.id == formData.target_warehouse_id)?.name || '...'}.
+                                    Estas moviendo <span className="font-bold">{items.length} productos</span> de {warehouses.find(w => w.id == formData.source_warehouse_id)?.name || '...'} a {warehouses.find(w => w.id == formData.target_warehouse_id)?.name || '...'}.
                                 </div>
                             </div>
 
@@ -486,7 +701,7 @@ const InventoryTransfers = () => {
                                 <button
                                     onClick={(e) => handleSubmit(e, false)}
                                     disabled={items.length === 0 || !formData.source_warehouse_id || !formData.target_warehouse_id}
-                                    className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95 disabled:opacity-50 disabled:shadow-none flex justify-center items-center gap-2"
+                                    className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-sm shadow-indigo-100 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95 disabled:opacity-50 disabled:shadow-none flex justify-center items-center gap-2"
                                 >
                                     <CheckCircle size={20} /> Solo Guardar
                                 </button>

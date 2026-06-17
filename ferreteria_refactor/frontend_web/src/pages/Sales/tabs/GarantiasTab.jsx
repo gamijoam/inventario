@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Search, RotateCcw, CheckCircle, XCircle, AlertTriangle, ShieldCheck, ShieldAlert, DollarSign, Package } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import clsx from 'clsx';
 import { useConfig } from '../../../context/ConfigContext';
 import { useAuth } from '../../../context/AuthContext';
@@ -81,7 +82,7 @@ const GarantiasTab = () => {
             }
         } catch (error) {
             console.error(error);
-            toast.error(error.response?.data?.detail || "Error verificando IMEI");
+            toast.error(getApiErrorMessage(error, "Error verificando IMEI"));
             setCheckResult(null);
         } finally {
             setLoading(false);
@@ -115,7 +116,7 @@ const GarantiasTab = () => {
             handleReset();
         } catch (error) {
             console.error(error);
-            toast.error(error.response?.data?.detail || "Error procesando devolución");
+            toast.error(getApiErrorMessage(error, "Error procesando devolución"));
         } finally {
             setLoading(false);
         }
@@ -132,7 +133,7 @@ const GarantiasTab = () => {
     };
 
     return (
-        <div className="flex flex-col bg-slate-50 p-6 flex-1">
+        <div id="tour-warranties-container" className="flex flex-col bg-slate-50 p-6 flex-1">
             {/* Header */}
             <div className="mb-8">
                 <p className="text-slate-500 font-medium ml-0">Procesar devoluciones de equipos serializados</p>
@@ -144,7 +145,7 @@ const GarantiasTab = () => {
                 <div className="flex-1 flex flex-col gap-6">
 
                     {/* SEARCH BOX */}
-                    <div className={clsx(
+                    <div id="tour-warranties-search" className={clsx(
                         "bg-white p-8 rounded-2xl shadow-sm border transition-all duration-300",
                         step === 1 ? "border-indigo-200 shadow-md scale-100" : "border-slate-200 opacity-75 lg:opacity-100"
                     )}>
@@ -179,7 +180,7 @@ const GarantiasTab = () => {
 
                     {/* RESULT CARD */}
                     {checkResult && (
-                        <div className={clsx(
+                        <div id="tour-warranties-result" className={clsx(
                             "rounded-2xl border-l-8 shadow-sm p-6 animate-in fade-in slide-in-from-bottom-4",
                             checkResult.warranty_status === 'ACTIVE' ? "bg-emerald-50 border-emerald-500" :
                                 checkResult.warranty_status === 'EXPIRED' ? "bg-amber-50 border-amber-500" :
@@ -231,7 +232,7 @@ const GarantiasTab = () => {
 
                 {/* RIGHT: DECISION FORM */}
                 {step === 2 && checkResult && (
-                    <div className="w-[450px] bg-white rounded-2xl shadow-lg border border-slate-200 p-8 flex flex-col animate-in slide-in-from-right-8">
+                    <div id="tour-warranties-decision" className="w-[450px] bg-white rounded-2xl shadow-lg border border-slate-200 p-8 flex flex-col animate-in slide-in-from-right-8">
                         <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
                             Decisión de Garantía
                         </h3>
@@ -376,6 +377,7 @@ const GarantiasTab = () => {
                         </div>
 
                         <button
+                            id="tour-warranties-confirm"
                             onClick={handleProcess}
                             disabled={loading || !reason.trim() || ((refundCurrency === 'USD' ? cashBalances.USD : cashBalances.Bs) < (refundCurrency === 'USD' ? checkResult.net_price : checkResult.net_price * exchangeRate))}
                             className="w-full py-4 mt-8 bg-slate-900 text-white rounded-xl font-bold text-lg hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center gap-2"

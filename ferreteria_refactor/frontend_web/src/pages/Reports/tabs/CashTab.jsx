@@ -8,6 +8,7 @@ import reportService from '../../../services/reportService';
 import printerService from '../../../services/printerService';
 import { useConfig } from '../../../context/ConfigContext';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import { pdf } from '@react-pdf/renderer';
 import ZReportPDF from '../../../components/pdf/ZReportPDF';
 import apiClient from '../../../config/axios';
@@ -41,7 +42,7 @@ const CashTab = ({ dateRange }) => {
             const data = await cashService.getHistory({ startDate: start, endDate: end });
             setSessions(Array.isArray(data) ? data : []);
         } catch (err) {
-            toast.error(err.response?.data?.detail || 'Error al cargar el historial');
+            toast.error(getApiErrorMessage(err, 'Error al cargar el historial'));
             setSessions([]);
         } finally {
             setLoading(false);
@@ -75,6 +76,15 @@ const CashTab = ({ dateRange }) => {
         });
     };
 
+    const showRecentSessions = () => {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(start.getDate() - 90);
+        const toDateInput = (date) => date.toISOString().slice(0, 10);
+        setStartDate(toDateInput(start));
+        setEndDate(toDateInput(end));
+    };
+
     const getSessionAlertStatus = (session) => {
         if (!session.currencies || session.currencies.length === 0) {
             const diff = parseFloat(session.difference || 0);
@@ -101,8 +111,8 @@ const CashTab = ({ dateRange }) => {
 
         if (Math.abs(diff) < 0.01) {
             return (
-                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-lg flex items-center gap-1 border border-emerald-100">
-                    <CheckCircle size={14} />
+                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[11px] font-black rounded-md inline-flex items-center gap-1 border border-emerald-100">
+                    <CheckCircle size={12} />
                     OK
                 </span>
             );
@@ -110,16 +120,16 @@ const CashTab = ({ dateRange }) => {
 
         if (diff < 0) {
             return (
-                <span className="px-2.5 py-1 bg-rose-50 text-rose-700 text-xs font-bold rounded-lg flex items-center gap-1 border border-rose-100">
-                    <TrendingDown size={14} />
+                <span className="px-2 py-0.5 bg-rose-50 text-rose-700 text-[11px] font-black rounded-md inline-flex items-center gap-1 border border-rose-100">
+                    <TrendingDown size={12} />
                     Faltan {currencySymbol} {formatCurrency(Math.abs(diff), currencySymbol)}
                 </span>
             );
         }
 
         return (
-            <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-lg flex items-center gap-1 border border-blue-100">
-                <TrendingUp size={14} />
+            <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[11px] font-black rounded-md inline-flex items-center gap-1 border border-blue-100">
+                <TrendingUp size={12} />
                 Sobran {currencySymbol} {formatCurrency(diff, currencySymbol)}
             </span>
         );
@@ -166,7 +176,7 @@ const CashTab = ({ dateRange }) => {
             toast.success('Reporte descargado', { id: toastId });
         } catch (error) {
             console.error('Error downloading report:', error);
-            toast.error('Error al descargar reporte', { id: toastId });
+            toast.error(getApiErrorMessage(error, 'Error al descargar reporte'), { id: toastId });
         } finally {
             setDownloading(false);
         }
@@ -180,7 +190,7 @@ const CashTab = ({ dateRange }) => {
             toast.success('Reporte Z enviado a impresora', { id: toastId });
         } catch (error) {
             console.error('Error reprinting Z-Report:', error);
-            toast.error('Error al reimprimir. Verifica que el Hardware Bridge este activo.', { id: toastId });
+            toast.error(getApiErrorMessage(error, 'Error al reimprimir. Verifica que el Hardware Bridge este activo.'), { id: toastId });
         }
     };
 
@@ -197,7 +207,7 @@ const CashTab = ({ dateRange }) => {
             toast.success('PDF descargado', { id: toastId });
         } catch (error) {
             console.error('Error generating PDF:', error);
-            toast.error('Error al generar PDF', { id: toastId });
+            toast.error(getApiErrorMessage(error, 'Error al generar PDF'), { id: toastId });
         }
     };
 
@@ -205,17 +215,17 @@ const CashTab = ({ dateRange }) => {
     // RENDER
     // ============================================================
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Header actions */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                 <div>
-                    <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <h2 className="text-base font-black text-slate-800 flex items-center gap-2">
                         <div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-600">
-                            <Clock size={18} />
+                            <Clock size={16} />
                         </div>
                         Historial de Caja
                     </h2>
-                    <p className="text-slate-500 text-sm font-medium ml-9">
+                    <p className="text-slate-500 text-xs font-semibold ml-8">
                         Auditoria de cierres y movimientos
                     </p>
                 </div>
@@ -223,57 +233,69 @@ const CashTab = ({ dateRange }) => {
                 <button
                     onClick={handleDownloadReport}
                     disabled={downloading || loading}
-                    className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200 font-bold text-sm active:scale-95 disabled:opacity-50"
+                    className="h-9 inline-flex items-center gap-2 bg-emerald-600 text-white px-3 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm font-black text-xs active:scale-95 disabled:opacity-50"
                 >
-                    <Download size={18} />
+                    <Download size={15} />
                     <span>{downloading ? '...' : 'Exportar Auditoria'}</span>
                 </button>
             </div>
 
             {/* KPIs */}
             {!loading && sessions.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-center justify-between">
                         <div>
-                            <p className="text-slate-400 text-xs font-bold uppercase mb-1">Faltantes (Aprox)</p>
-                            <p className="text-2xl font-black text-rose-600">{formatCurrency(kpis.totalShortages)}</p>
+                            <p className="text-slate-400 text-[11px] font-black uppercase mb-1">Faltantes (Aprox)</p>
+                            <p className="text-xl font-black text-rose-600">{formatCurrency(kpis.totalShortages)}</p>
                         </div>
-                        <div className="bg-rose-50 p-3 rounded-xl text-rose-600 border border-rose-100">
-                            <TrendingDown size={24} />
+                        <div className="bg-rose-50 p-2.5 rounded-lg text-rose-600 border border-rose-100">
+                            <TrendingDown size={20} />
                         </div>
                     </div>
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-center justify-between">
                         <div>
-                            <p className="text-slate-400 text-xs font-bold uppercase mb-1">Sobrantes (Aprox)</p>
-                            <p className="text-2xl font-black text-emerald-600">{formatCurrency(kpis.totalOverages)}</p>
+                            <p className="text-slate-400 text-[11px] font-black uppercase mb-1">Sobrantes (Aprox)</p>
+                            <p className="text-xl font-black text-emerald-600">{formatCurrency(kpis.totalOverages)}</p>
                         </div>
-                        <div className="bg-emerald-50 p-3 rounded-xl text-emerald-600 border border-emerald-100">
-                            <TrendingUp size={24} />
+                        <div className="bg-emerald-50 p-2.5 rounded-lg text-emerald-600 border border-emerald-100">
+                            <TrendingUp size={20} />
                         </div>
                     </div>
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-center justify-between">
                         <div>
-                            <p className="text-slate-400 text-xs font-bold uppercase mb-1">Ventas Efectivo (Aprox)</p>
-                            <p className="text-2xl font-black text-indigo-600">{formatCurrency(kpis.totalCashSales)}</p>
+                            <p className="text-slate-400 text-[11px] font-black uppercase mb-1">Ventas Efectivo (Aprox)</p>
+                            <p className="text-xl font-black text-indigo-600">{formatCurrency(kpis.totalCashSales)}</p>
                         </div>
-                        <div className="bg-indigo-50 p-3 rounded-xl text-indigo-600 border border-indigo-100">
-                            <DollarSign size={24} />
+                        <div className="bg-indigo-50 p-2.5 rounded-lg text-indigo-600 border border-indigo-100">
+                            <DollarSign size={20} />
                         </div>
                     </div>
                 </div>
             )}
 
             {/* Sessions list */}
-            <div className="space-y-4">
+            <div className="space-y-3">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-2"></div>
                         Cargando historial...
                     </div>
                 ) : sessions.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-slate-400 opacity-60">
-                        <Clock size={48} className="mb-2" />
-                        <p className="font-medium">No se encontraron sesiones</p>
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-slate-500">
+                        <div className="mb-3 rounded-xl bg-slate-100 p-3 text-slate-400">
+                            <Clock size={28} />
+                        </div>
+                        <p className="text-sm font-black text-slate-700">No hay sesiones en este rango</p>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                            Rango actual: {startDate || 'inicio'} - {endDate || 'fin'}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={showRecentSessions}
+                            className="mt-4 h-9 rounded-lg bg-indigo-600 px-3 text-xs font-black text-white shadow-sm transition-colors hover:bg-indigo-700 active:scale-95"
+                        >
+                            Ver ultimas sesiones
+                        </button>
                     </div>
                 ) : (
                     sessions.map((session) => {
@@ -285,7 +307,7 @@ const CashTab = ({ dateRange }) => {
                             <div
                                 key={session.id}
                                 className={clsx(
-                                    "bg-white rounded-2xl shadow-sm border overflow-hidden transition-all",
+                                    "bg-white rounded-xl shadow-sm border overflow-hidden transition-all",
                                     alertStatus === 'shortage' ? "border-rose-200" :
                                         alertStatus === 'overage' ? "border-blue-200" :
                                             "border-slate-200"
@@ -294,21 +316,21 @@ const CashTab = ({ dateRange }) => {
                                 {/* Collapsed header */}
                                 <div
                                     className={clsx(
-                                        "p-5 cursor-pointer hover:bg-slate-50 transition-colors flex flex-col md:flex-row gap-4 justify-between",
+                                        "p-4 cursor-pointer hover:bg-slate-50 transition-colors flex flex-col md:flex-row gap-3 justify-between",
                                         isExpanded && "bg-slate-50/80"
                                     )}
                                     onClick={() => toggleExpand(session.id)}
                                 >
-                                    <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-3 min-w-0">
                                         <div className={clsx(
-                                            "p-3 rounded-xl",
+                                            "p-2.5 rounded-lg",
                                             isClosed ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
                                         )}>
-                                            {isClosed ? <CheckCircle size={24} /> : <Clock size={24} />}
+                                            {isClosed ? <CheckCircle size={20} /> : <Clock size={20} />}
                                         </div>
-                                        <div>
-                                            <div className="flex items-center gap-3 mb-1">
-                                                <span className="font-bold text-slate-800 text-lg">
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                <span className="font-black text-slate-800 text-base">
                                                     Sesion #{session.id}
                                                 </span>
                                                 <span className={clsx(
@@ -323,7 +345,7 @@ const CashTab = ({ dateRange }) => {
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
+                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500">
                                                 <span className="flex items-center gap-1">
                                                     <User size={12} /> {session.user?.full_name || session.user?.username}
                                                 </span>
@@ -340,11 +362,11 @@ const CashTab = ({ dateRange }) => {
                                     </div>
 
                                     {/* Mini currency summary */}
-                                    <div className="flex flex-wrap gap-3 items-center justify-end">
+                                    <div className="flex flex-wrap gap-2 items-center justify-end">
                                         {(session.currencies || []).slice(0, 3).map(curr => (
-                                            <div key={curr.id} className="flex items-center gap-2 bg-white border border-slate-100 px-3 py-1.5 rounded-lg shadow-sm">
+                                            <div key={curr.id} className="flex items-center gap-2 bg-white border border-slate-100 px-2.5 py-1.5 rounded-lg shadow-sm">
                                                 <span className="text-xs font-bold text-slate-400">{curr.currency_symbol}</span>
-                                                <span className="text-sm font-bold text-slate-700">
+                                                <span className="text-xs font-black text-slate-700">
                                                     {formatCurrency(curr.final_reported || 0, curr.currency_code || curr.currency_symbol)}
                                                 </span>
                                                 {isClosed && getDifferenceBadge(curr.difference, curr.currency_symbol || '$')}
@@ -359,15 +381,15 @@ const CashTab = ({ dateRange }) => {
 
                                 {/* Expanded details */}
                                 {isExpanded && (
-                                    <div className="p-6 border-t border-slate-100 bg-slate-50/50">
+                                    <div className="p-4 border-t border-slate-100 bg-slate-50/50">
                                         {/* Multi-currency breakdown grid */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                                             {(session.currencies || []).map(curr => {
                                                 const diff = parseFloat(curr.difference || 0);
                                                 return (
-                                                    <div key={curr.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                                        <div className="flex justify-between items-center mb-3">
-                                                            <span className="font-black text-slate-700 text-lg">{curr.currency_symbol}</span>
+                                                    <div key={curr.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <span className="font-black text-slate-700 text-base">{curr.currency_symbol}</span>
                                                             {isClosed && Math.abs(diff) >= 0.01 && (
                                                                 <span className={clsx(
                                                                     "text-xs font-bold px-2 py-1 rounded-lg border",
@@ -377,7 +399,7 @@ const CashTab = ({ dateRange }) => {
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <div className="space-y-2 text-sm">
+                                                        <div className="space-y-1.5 text-xs">
                                                             <div className="flex justify-between">
                                                                 <span className="text-slate-500 font-medium">Inicial</span>
                                                                 <span className="font-bold text-slate-700">
@@ -394,7 +416,7 @@ const CashTab = ({ dateRange }) => {
                                                                     </div>
                                                                     <div className="flex justify-between border-t border-dashed border-slate-200 pt-2 mt-2">
                                                                         <span className="text-slate-500 font-bold">Reportado</span>
-                                                                        <span className="font-black text-slate-800 text-base">
+                                                                        <span className="font-black text-slate-800 text-sm">
                                                                             {formatCurrency(curr.final_reported, curr.currency_code || curr.currency_symbol)}
                                                                         </span>
                                                                     </div>
@@ -425,13 +447,13 @@ const CashTab = ({ dateRange }) => {
 
                                         {/* Payment method breakdown */}
                                         {session.payment_breakdown && session.payment_breakdown.length > 0 && (
-                                            <div className="mt-4 mb-4">
-                                                <h4 className="text-sm font-bold text-slate-700 mb-3 border-b border-slate-200 pb-2">
+                                            <div className="mt-4 mb-3">
+                                                <h4 className="text-xs font-black text-slate-700 mb-2 border-b border-slate-200 pb-2 uppercase tracking-wide">
                                                     Detalle de Metodos de Pago
                                                 </h4>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
                                                     {session.payment_breakdown.map((item, idx) => (
-                                                        <div key={idx} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col">
+                                                        <div key={idx} className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm flex flex-col">
                                                             <span className="text-xs font-bold text-slate-500 uppercase tracking-wide truncate" title={item.method}>
                                                                 {item.method}
                                                             </span>
@@ -451,9 +473,9 @@ const CashTab = ({ dateRange }) => {
 
                                         {/* Session notes */}
                                         {session.notes && (
-                                            <div className="mt-4 p-4 bg-amber-50 border border-amber-100 rounded-xl text-amber-800 text-sm font-medium flex items-start gap-3">
-                                                <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
-                                                <div>
+                                            <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-xl text-amber-800 text-xs font-semibold flex items-start gap-3">
+                                                <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+                                                <div className="min-w-0">
                                                     <p className="font-bold text-amber-900 mb-1">Notas del Cierre:</p>
                                                     {session.notes}
                                                 </div>
@@ -462,15 +484,15 @@ const CashTab = ({ dateRange }) => {
 
                                         {/* Action buttons for closed sessions */}
                                         {isClosed && (
-                                            <div className="mt-4 flex gap-3 border-t border-slate-200 pt-4">
+                                            <div className="mt-4 flex flex-col sm:flex-row gap-2.5 border-t border-slate-200 pt-3">
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleReprintZReport(session.id);
                                                     }}
-                                                    className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 active:scale-95"
+                                                    className="flex-1 h-10 px-3 bg-indigo-600 text-white rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-sm active:scale-95"
                                                 >
-                                                    <Printer size={18} />
+                                                    <Printer size={15} />
                                                     Reimprimir Reporte Z
                                                 </button>
                                                 <button
@@ -478,9 +500,9 @@ const CashTab = ({ dateRange }) => {
                                                         e.stopPropagation();
                                                         handleDownloadZReportPDF(session);
                                                     }}
-                                                    className="flex-1 px-4 py-3 bg-white border-2 border-indigo-200 text-indigo-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:border-indigo-300 transition-colors active:scale-95"
+                                                    className="flex-1 h-10 px-3 bg-white border border-indigo-200 text-indigo-600 rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:border-indigo-300 transition-colors active:scale-95"
                                                 >
-                                                    <FileText size={18} />
+                                                    <FileText size={15} />
                                                     Descargar PDF
                                                 </button>
                                             </div>

@@ -17,6 +17,7 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Textarea } from '../../../components/ui/textarea';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 
 const ClientesTab = () => {
     const { user } = useAuth();
@@ -70,7 +71,7 @@ const ClientesTab = () => {
             setHasMoreCustomers(has_more);
         } catch (error) {
             console.error('Error fetching customers:', error);
-            toast.error('Error cargando clientes');
+            toast.error(getApiErrorMessage(error, 'No se pudieron cargar los clientes'));
         } finally {
             setLoadingMore(false);
         }
@@ -140,7 +141,7 @@ const ClientesTab = () => {
             }
             fetchCustomers();
         } catch (error) {
-            toast.error('Error al desactivar cliente: ' + (error.response?.data?.detail || error.message));
+            toast.error(getApiErrorMessage(error, 'No se pudo desactivar el cliente'));
         }
     };
 
@@ -154,7 +155,7 @@ const ClientesTab = () => {
                 setSelectedCustomer({ ...selectedCustomer, is_active: true });
             }
         } catch (error) {
-            toast.error('Error al reactivar cliente: ' + (error.response?.data?.detail || error.message));
+            toast.error(getApiErrorMessage(error, 'No se pudo reactivar el cliente'));
         }
     };
 
@@ -169,7 +170,7 @@ const ClientesTab = () => {
             fetchFinancialStatus();
             toast.success('Límite de crédito actualizado');
         } catch (error) {
-            toast.error('Error al actualizar límite de crédito');
+            toast.error(getApiErrorMessage(error, 'Error al actualizar límite de crédito'));
         }
     };
 
@@ -184,7 +185,7 @@ const ClientesTab = () => {
             fetchFinancialStatus();
             toast.success('Días de crédito actualizados');
         } catch (error) {
-            toast.error('Error al actualizar días de crédito');
+            toast.error(getApiErrorMessage(error, 'Error al actualizar días de crédito'));
         }
     };
 
@@ -199,7 +200,7 @@ const ClientesTab = () => {
             fetchFinancialStatus();
             toast.success(newBlockStatus ? 'Cliente bloqueado' : 'Cliente desbloqueado');
         } catch (error) {
-            toast.error('Error al cambiar estado de bloqueo');
+            toast.error(getApiErrorMessage(error, 'No se pudo cambiar el estado de bloqueo'));
         }
     };
 
@@ -712,7 +713,7 @@ const CustomerForm = ({ customer, onClose, onSuccess }) => {
             onSuccess();
         } catch (error) {
             console.error('Error saving customer:', error);
-            toast.error(error.response?.data?.detail || 'Error al guardar cliente');
+            toast.error(getApiErrorMessage(error, customer ? 'No se pudo actualizar el cliente' : 'No se pudo crear el cliente'));
         } finally {
             setLoading(false);
         }

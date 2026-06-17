@@ -8,6 +8,7 @@ import apiClient from '../../../config/axios';
 import { useConfig } from '../../../context/ConfigContext';
 import PurchaseItemsModal from '../../../components/purchases/PurchaseItemsModal';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import clsx from 'clsx';
 
 // ---------------------------------------------------------------------------
@@ -78,7 +79,7 @@ const PaymentModal = ({ purchase, onClose, onSuccess }) => {
             onSuccess();
         } catch (error) {
             console.error('Error registering payment:', error);
-            toast.error(error.response?.data?.detail || 'Error al registrar pago');
+            toast.error(getApiErrorMessage(error, 'Error al registrar pago'));
         } finally {
             setLoading(false);
         }
@@ -86,8 +87,8 @@ const PaymentModal = ({ purchase, onClose, onSuccess }) => {
 
     return (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                     <div>
                         <h3 className="text-xl font-bold text-slate-800">Registrar Pago</h3>
                         <p className="text-sm text-slate-500 font-medium">
@@ -99,7 +100,7 @@ const PaymentModal = ({ purchase, onClose, onSuccess }) => {
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <form onSubmit={handleSubmit} className="p-4 space-y-4">
                     {/* Balance summary */}
                     <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
                         <div className="flex justify-between mb-2 text-sm">
@@ -157,7 +158,7 @@ const PaymentModal = ({ purchase, onClose, onSuccess }) => {
                                         type="number"
                                         value={formData.exchange_rate}
                                         onChange={(e) => setFormData({ ...formData, exchange_rate: e.target.value })}
-                                        className="w-full p-2 border border-slate-200 rounded-lg font-bold text-sm"
+                                        className="w-full p-2 border border-slate-200 rounded-lg font-black text-xs"
                                         placeholder="Tasa manual"
                                     />
                                 </div>
@@ -175,7 +176,7 @@ const PaymentModal = ({ purchase, onClose, onSuccess }) => {
                                 type="number"
                                 value={formData.amount}
                                 onChange={(e) => setFormData({ ...formData, amount: e.target.value === '' ? '' : parseFloat(e.target.value) })}
-                                className="w-full pl-4 pr-4 py-3 border border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none text-lg font-bold text-slate-800"
+                                className="w-full pl-4 pr-4 py-3 border border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none text-base font-black text-slate-800"
                                 step="0.01"
                                 min="0.01"
                                 required
@@ -309,7 +310,7 @@ const SuppliersTab = ({ dateRange }) => {
             setOverdueInvoices(overdue.length);
         } catch (error) {
             console.error('Error fetching suppliers:', error);
-            toast.error('Error al cargar proveedores con deuda');
+            toast.error(getApiErrorMessage(error, 'Error al cargar proveedores con deuda'));
         } finally {
             setLoading(false);
         }
@@ -321,7 +322,7 @@ const SuppliersTab = ({ dateRange }) => {
             setSupplierPurchases(response.data);
         } catch (error) {
             console.error('Error fetching purchases:', error);
-            toast.error('Error al cargar facturas');
+            toast.error(getApiErrorMessage(error, 'Error al cargar facturas'));
         }
     };
 
@@ -365,7 +366,7 @@ const SuppliersTab = ({ dateRange }) => {
             setLedgerData(response.data);
         } catch (error) {
             console.error('Error fetching ledger:', error);
-            toast.error('Error al cargar estado de cuenta');
+            toast.error(getApiErrorMessage(error, 'Error al cargar estado de cuenta'));
         } finally {
             setLedgerLoading(false);
         }
@@ -411,13 +412,13 @@ const SuppliersTab = ({ dateRange }) => {
     // RENDER: Cuentas por Pagar - Supplier list
     // -----------------------------------------------------------------------
     const renderCxPList = () => (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex items-center justify-between group hover:border-indigo-300 transition-all">
                     <div>
                         <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Deuda Total</p>
-                        <p className="text-2xl font-black text-slate-800 group-hover:text-indigo-600 transition-colors">{formatUSD(totalDebt)}</p>
+                        <p className="text-xl font-black text-slate-800 group-hover:text-indigo-600 transition-colors">{formatUSD(totalDebt)}</p>
                     </div>
                     <div className="bg-indigo-50 text-indigo-600 p-3 rounded-xl border border-indigo-100">
                         <TrendingDown size={28} />
@@ -426,7 +427,7 @@ const SuppliersTab = ({ dateRange }) => {
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex items-center justify-between group hover:border-rose-300 transition-all">
                     <div>
                         <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Facturas Vencidas</p>
-                        <p className="text-2xl font-black text-rose-600">{overdueInvoices}</p>
+                        <p className="text-xl font-black text-rose-600">{overdueInvoices}</p>
                     </div>
                     <div className="bg-rose-50 text-rose-600 p-3 rounded-xl border border-rose-100">
                         <AlertTriangle size={28} />
@@ -476,7 +477,7 @@ const SuppliersTab = ({ dateRange }) => {
                                         <td className="p-4 text-right">
                                             <button
                                                 onClick={() => handleSupplierClick(supplier)}
-                                                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 px-4 py-2 rounded-lg font-bold text-xs transition-colors shadow-sm"
+                                                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 px-4 py-2 rounded-lg font-black text-[11px] transition-colors shadow-sm"
                                             >
                                                 Ver Facturas
                                             </button>
@@ -495,36 +496,36 @@ const SuppliersTab = ({ dateRange }) => {
     // RENDER: Cuentas por Pagar - Supplier detail (invoices)
     // -----------------------------------------------------------------------
     const renderCxPDetail = () => (
-        <div className="space-y-6">
+        <div className="space-y-4">
             <button
                 onClick={handleBackToList}
-                className="flex items-center text-slate-500 hover:text-slate-800 font-bold text-sm bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm transition-all hover:shadow-md"
+                className="flex items-center text-slate-500 hover:text-slate-800 font-black text-xs bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm transition-all hover:shadow-md"
             >
                 <ArrowLeft size={18} className="mr-2" />
                 Volver a la lista
             </button>
 
             {/* Supplier header card */}
-            <div className="bg-indigo-900 rounded-2xl shadow-xl p-6 text-white relative overflow-hidden">
+            <div className="bg-indigo-900 rounded-xl shadow-xl p-4 text-white relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-12 opacity-10">
                     <DollarSign size={180} />
                 </div>
-                <h2 className="text-xl md:text-2xl font-black relative z-10">{selectedSupplier.name}</h2>
+                <h2 className="text-xl md:text-xl font-black relative z-10">{selectedSupplier.name}</h2>
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10 border-t border-indigo-800 pt-4">
                     <div>
                         <p className="text-indigo-200 text-xs font-bold uppercase mb-1">Deuda Actual</p>
-                        <p className="text-2xl font-black text-white">{formatUSD(selectedSupplier.current_balance)}</p>
+                        <p className="text-xl font-black text-white">{formatUSD(selectedSupplier.current_balance)}</p>
                     </div>
                     <div>
                         <p className="text-indigo-200 text-xs font-bold uppercase mb-1">Terminos de Pago</p>
                         <div className="flex items-center gap-2">
                             <Calendar className="text-indigo-300" size={18} />
-                            <p className="text-lg font-bold">{selectedSupplier.payment_terms || 0} dias</p>
+                            <p className="text-base font-black">{selectedSupplier.payment_terms || 0} dias</p>
                         </div>
                     </div>
                     <div>
                         <p className="text-indigo-200 text-xs font-bold uppercase mb-1">Limite de Credito</p>
-                        <p className="text-lg font-bold">
+                        <p className="text-base font-black">
                             {selectedSupplier.credit_limit ? formatUSD(selectedSupplier.credit_limit) : 'Sin limite'}
                         </p>
                     </div>
@@ -630,7 +631,7 @@ const SuppliersTab = ({ dateRange }) => {
     // RENDER: Estado de Cuenta (Ledger)
     // -----------------------------------------------------------------------
     const renderLedger = () => (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Supplier selector */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -650,7 +651,7 @@ const SuppliersTab = ({ dateRange }) => {
                     {ledgerData && (
                         <button
                             onClick={handlePrintLedger}
-                            className="flex items-center gap-2 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm transition-colors print:hidden"
+                            className="flex items-center gap-2 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-black text-xs transition-colors print:hidden"
                         >
                             <Printer size={16} />
                             Imprimir
@@ -671,12 +672,12 @@ const SuppliersTab = ({ dateRange }) => {
                     {/* Supplier summary */}
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
-                            <h3 className="text-lg font-bold text-slate-900">{ledgerData.supplier?.name}</h3>
+                            <h3 className="text-base font-black text-slate-900">{ledgerData.supplier?.name}</h3>
                             <p className="text-sm text-slate-500">ID: {ledgerData.supplier?.id}</p>
                         </div>
                         <div className="text-right">
                             <p className="text-xs text-slate-500 font-bold uppercase">Saldo Actual</p>
-                            <p className={clsx('text-2xl font-black', Number(ledgerData.current_balance) > 0 ? 'text-rose-600' : 'text-emerald-600')}>
+                            <p className={clsx('text-xl font-black', Number(ledgerData.current_balance) > 0 ? 'text-rose-600' : 'text-emerald-600')}>
                                 {formatUSD(ledgerData.current_balance)}
                             </p>
                             {ledgerData.supplier?.limit != null && (

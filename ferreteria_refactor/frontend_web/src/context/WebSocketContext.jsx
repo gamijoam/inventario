@@ -10,10 +10,17 @@ export const WebSocketProvider = ({ children }) => {
     const reconnectTimeout = useRef(null);
     const pingInterval = useRef(null);
     const retryCount = useRef(0);
-    const maxRetries = 10;
+    const maxRetries = 5; // Reducido para evitar loops de reconexión agresivos
     const isMounting = useRef(true);
 
     const connect = useCallback(() => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            console.log('WS: No authenticated session. Skipping connection.');
+            setStatus('DISCONNECTED');
+            return;
+        }
+
         // 1. Check if already connected or connecting
         if (ws.current) {
             if (ws.current.readyState === WebSocket.OPEN || ws.current.readyState === WebSocket.CONNECTING) {
@@ -52,12 +59,35 @@ export const WebSocketProvider = ({ children }) => {
         }
 
         try {
-            console.log("🔌 Conectando WS a:", wsUrl);
-            console.log(`🔌 WS: Connecting to ${wsUrl} (Attempt ${retryCount.current + 1})`);
+            // Agregar tenant_id como query param para que el backend sepa el tenant
+            const hostname = window.location.hostname;
+            const parts = hostname.split('.');
+            let tenantId = 'public';
+            if (parts.length >= 3 && !hostname.includes('localhost') && !hostname.includes('app-qa') && !hostname.includes('app.')) {
+                const sub = parts[0];
+                if (!['www', 'api', 'app', 'dashboard', 'admin'].includes(sub)) {
+                    tenantId = sub;
+                }
+            }
+            if (tenantId === 'public') {
+                const storedTenant = localStorage.getItem('selected_tenant');
+                if (storedTenant && !storedTenant.includes('public')) {
+                    tenantId = storedTenant;
+                }
+            }
+            // Limpiar el .qa de tenants QA (restaurante3.qa -> restaurante3)
+            tenantId = tenantId.replace('.qa', '');
+            
+            const queryPrefix = wsUrl.includes('?') ? '&' : '?';
+            const wsUrlWithTenant = `${wsUrl}${queryPrefix}tenant_id=${encodeURIComponent(tenantId)}&token=${encodeURIComponent(token)}`;
+            const safeWsUrl = `${wsUrl}${queryPrefix}tenant_id=${encodeURIComponent(tenantId)}&token=[redacted]`;
+
+            console.log("WS: Connecting to", safeWsUrl, "tenant:", tenantId);
+            console.log(`WS: Connecting to ${safeWsUrl} (Attempt ${retryCount.current + 1})`);
 
             setStatus(retryCount.current > 0 ? 'RECONNECTING' : 'DISCONNECTED');
 
-            ws.current = new WebSocket(wsUrl);
+            ws.current = new WebSocket(wsUrlWithTenant);
 
             ws.current.onopen = () => {
                 console.log('✅ WS: Connected');
@@ -94,7 +124,7 @@ export const WebSocketProvider = ({ children }) => {
 
                 // Exponential Backoff Reconnect (with max retries limit)
                 if (isMounting.current && ws.current && retryCount.current < maxRetries) {
-                    const delay = Math.min(1000 * Math.pow(2, retryCount.current), 30000);
+                    const delay = Math.min(2000 * Math.pow(2, retryCount.current), 60000);
                     console.log(`🔄 WS: Reconnecting in ${delay}ms... (${retryCount.current + 1}/${maxRetries})`);
 
                     if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);

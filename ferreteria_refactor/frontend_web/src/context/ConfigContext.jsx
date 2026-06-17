@@ -19,6 +19,14 @@ export const ConfigProvider = ({ children }) => {
 
     // Feature flags a la carta (activados por tenant desde panel admin)
     const [featureFlags, setFeatureFlags] = useState({});
+    const [autoPrintTicket, setAutoPrintTicket] = useState(false);
+    const [priceLists, setPriceLists] = useState([]);
+    const [posCategories, setPosCategories] = useState([]);
+    const [posWarehouses, setPosWarehouses] = useState([]);
+    const [posSettings, setPosSettings] = useState({
+        pos_default_price_list_id: '',
+        pos_show_bs: true,
+    });
 
     // Module Feature Flags
     const [modules, setModules] = useState({
@@ -91,7 +99,7 @@ export const ConfigProvider = ({ children }) => {
 
     const fetchPaymentMethods = async () => {
         try {
-            const response = await apiClient.get('/payment-methods');
+            const response = await apiClient.get('/payment-methods', { _silentNetworkError: true });
             setPaymentMethods(response.data);
         } catch (error) {
             console.error('Error fetching payment methods:', error);
@@ -105,10 +113,58 @@ export const ConfigProvider = ({ children }) => {
 
     const fetchConfig = async () => {
         try {
+            // 0. OPTIMIZACION: Cargar lo necesario del POS en 1 request cacheado en Redis.
+            // Si responde, evitamos repetir business/exchange-rates/payment-methods/settings.
+            let loadedFromPosInit = {
+                business: false,
+                exchangeRates: false,
+                paymentMethods: false,
+                autoPrint: false,
+                priceLists: false,
+                categories: false,
+                warehouses: false,
+            };
+
+            try {
+                const posInit = await apiClient.get('/config/pos-init', { _silentNetworkError: true });
+                if (posInit.data) {
+                    const { business, exchange_rates, payment_methods, price_lists, categories, warehouses, settings } = posInit.data;
+                    if (business?.name) {
+                        setBusiness(prev => ({ ...prev, ...business }));
+                        loadedFromPosInit.business = true;
+                    }
+                    if (exchange_rates?.length) {
+                        setCurrencies(exchange_rates);
+                        loadedFromPosInit.exchangeRates = true;
+                    }
+                    if (payment_methods?.length) {
+                        setPaymentMethods(payment_methods);
+                        loadedFromPosInit.paymentMethods = true;
+                    }
+                    if (Array.isArray(price_lists)) {
+                        setPriceLists(price_lists.filter(pl => pl.is_active));
+                        loadedFromPosInit.priceLists = true;
+                    }
+                    if (Array.isArray(categories)) {
+                        setPosCategories(categories);
+                        loadedFromPosInit.categories = true;
+                    }
+                    if (Array.isArray(warehouses)) {
+                        setPosWarehouses(warehouses);
+                        loadedFromPosInit.warehouses = true;
+                    }
+                    if (settings) {
+                        setAutoPrintTicket(!!settings.auto_print_ticket);
+                        setPosSettings(prev => ({ ...prev, ...settings }));
+                        loadedFromPosInit.autoPrint = true;
+                    }
+                }
+            } catch { /* silencioso: los requests individuales quedan como fallback */ }
+
             // 1. Fetch Feature Flags (Public) & Tenant Info
             // This runs FIRST to set the correct branding on Login
             try {
-                const publicConfig = await apiClient.get('/config/public');
+                const publicConfig = await apiClient.get('/config/public', { _silentNetworkError: true });
                 if (publicConfig.data) {
                     // Update Modules
                     if (publicConfig.data.modules) {
@@ -130,11 +186,15 @@ export const ConfigProvider = ({ children }) => {
                         setFeatureFlags(publicConfig.data.feature_flags);
                     }
 
-                    // Update Business Name (Priority set)
+                    // tenant_name es el nombre del tenant en SaaS admin
+                    // NO sobreescribir; el business_name lo carga el paso 3
+                    // Solo guardarlo como fallback si no hay business_name
                     if (publicConfig.data.tenant_name) {
                         setBusiness(prev => ({
                             ...prev,
-                            name: publicConfig.data.tenant_name
+                            tenant_name_fallback: publicConfig.data.tenant_name,
+                            // Solo usar si name esta vacio o es el default
+                            name: prev.name && prev.name !== 'Cargando...' ? prev.name : publicConfig.data.tenant_name
                         }));
                     }
                 }
@@ -142,13 +202,34 @@ export const ConfigProvider = ({ children }) => {
                 console.warn("Failed to load feature flags/public config:", error);
             }
 
-            // 2. Load Payment Methods (Authenticated only usually, but good to try)
-            fetchPaymentMethods();
+            // 2. Load Payment Methods only if pos-init did not provide them
+            if (!loadedFromPosInit.paymentMethods) fetchPaymentMethods();
 
-            // 3. Authenticated Business Info (Full details)
-            // Only try this if we have a token or it might 401
+            // 2.5. Load price lists only as fallback for older/stale pos-init cache payloads
+            if (!loadedFromPosInit.priceLists) {
+                apiClient.get('/price-lists/', {
+                    params: { active_only: true },
+                    _silentNetworkError: true,
+                })
+                    .then(res => setPriceLists(Array.isArray(res.data) ? res.data.filter(pl => pl.is_active) : []))
+                    .catch(() => {});
+            }
+
+            // 2.6. Fallback for older/stale pos-init cache payloads
+            if (!loadedFromPosInit.categories) {
+                apiClient.get('/categories', { _silentNetworkError: true })
+                    .then(res => setPosCategories(Array.isArray(res.data) ? res.data : []))
+                    .catch(() => {});
+            }
+            if (!loadedFromPosInit.warehouses) {
+                apiClient.get('/warehouses', { _silentNetworkError: true })
+                    .then(res => setPosWarehouses(Array.isArray(res.data) ? res.data : []))
+                    .catch(() => {});
+            }
+
+            // 3. Authenticated Business Info only if pos-init did not provide it
             const token = localStorage.getItem('token');
-            if (token) {
+            if (token && !loadedFromPosInit.business) {
                 try {
                     const bizData = await configService.getBusinessInfo();
                     setBusiness(bizData);
@@ -157,13 +238,23 @@ export const ConfigProvider = ({ children }) => {
                 }
             }
 
-            // 4. Fetch Exchange Rates
-            try {
-                const ratesResponse = await apiClient.get('/config/exchange-rates?is_active=true');
-                console.log('💱 Exchange Rates Loaded:', ratesResponse.data);
-                setCurrencies(ratesResponse.data);
-            } catch (e) {
-                console.warn("Could not load exchange rates:", e);
+            // 4. Fetch Exchange Rates only if pos-init did not provide them
+            if (!loadedFromPosInit.exchangeRates) {
+                try {
+                    const ratesResponse = await apiClient.get('/config/exchange-rates?is_active=true', { _silentNetworkError: true });
+                    console.log('Exchange Rates Loaded:', ratesResponse.data);
+                    setCurrencies(ratesResponse.data);
+                } catch (e) {
+                    console.warn("Could not load exchange rates:", e);
+                }
+            }
+
+            // 5. Fetch Auto Print Ticket only if pos-init did not provide it
+            if (!loadedFromPosInit.autoPrint) {
+                try {
+                    const apRes = await apiClient.get('/config/pos/auto-print-ticket', { _silentNetworkError: true });
+                    setAutoPrintTicket(!!apRes.data.auto_print_ticket);
+                } catch (e) { /* silencioso */ }
             }
 
         } catch (err) {
@@ -178,7 +269,7 @@ export const ConfigProvider = ({ children }) => {
     // Run on Mount (Public Access) AND when Token Changes
     useEffect(() => {
         fetchConfig();
-    }, [localStorage.getItem('token')]); // This dependency matches previous logic, but now fetchConfig handles no-token gracefully
+    }, []); // Solo al montar — fetchConfig ya maneja el token internamente
 
     const refreshConfig = () => fetchConfig();
 
@@ -287,6 +378,11 @@ export const ConfigProvider = ({ children }) => {
         <ConfigContext.Provider value={{
             business,
             currencies,
+            autoPrintTicket,
+            priceLists,
+            posCategories,
+            posWarehouses,
+            posSettings,
             loading,
             refreshConfig,
             getExchangeRate,

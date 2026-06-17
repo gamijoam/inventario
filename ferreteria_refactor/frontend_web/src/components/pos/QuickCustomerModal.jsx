@@ -28,7 +28,7 @@ const QuickCustomerModal = ({ isOpen, onClose, onSuccess }) => {
                 ...formData,
                 email: '', // Optional
                 type: 'Person', // Default
-                credit_limit: 100.00, // Default Credit Request
+                credit_limit: 500.00, // Default Credit Request
                 payment_term_days: 15
             };
 

@@ -109,7 +109,7 @@ const InventoryMovementSheet = ({ isOpen, onClose, onSuccess }) => {
                 params.search = query.trim();
             }
             const { data } = await apiClient.get('/products/', { params });
-            setProducts(data);
+            setProducts(Array.isArray(data) ? data : (data?.items || []));
         } catch (err) {
             console.error(err);
             toast.error('Error al buscar productos');
@@ -178,7 +178,7 @@ const InventoryMovementSheet = ({ isOpen, onClose, onSuccess }) => {
 
     return (
         <Sheet open={isOpen} onOpenChange={onClose}>
-            <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col h-full">
+            <SheetContent side="left" className="w-full sm:max-w-2xl p-0 flex flex-col h-full">
                 <SheetHeader className="px-6 py-4 border-b border-slate-100 bg-white sticky top-0 z-10">
                     <SheetTitle className="flex items-center gap-2">
                         {step === 1 ? (

@@ -72,6 +72,7 @@ const CategoriesTab = () => {
 
     // Organize categories hierarchically
     const rootCategories = categories.filter(cat => !cat.parent_id);
+    const childCategories = categories.filter(cat => cat.parent_id);
     const getChildren = (parentId) => categories.filter(cat => cat.parent_id === parentId);
 
     if (loading) return <div className="p-12 text-center text-slate-400">Cargando categorías...</div>;
@@ -92,7 +93,7 @@ const CategoriesTab = () => {
             </div>
 
             {/* Desktop Table (Zebra Bento) */}
-            <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="hidden md:block bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                 <table className="min-w-full divide-y divide-slate-100">
                     <thead className="bg-slate-50/50">
                         <tr>
@@ -128,7 +129,7 @@ const CategoriesTab = () => {
             {/* Mobile View */}
             <div className="md:hidden space-y-4">
                 {rootCategories.length === 0 ? (
-                    <div className="text-center py-12 text-slate-400 font-medium bg-white rounded-xl border border-slate-200">
+                    <div className="text-center py-12 text-slate-400 font-medium bg-white rounded-lg border border-slate-200">
                         No hay categorías. Crea una para comenzar.
                     </div>
                 ) : (

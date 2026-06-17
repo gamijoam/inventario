@@ -1,6 +1,8 @@
+// @cache-bust: 20260502-124455
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '../utils/apiErrors';
 import { Plus, Search, Package, Filter, X, Trash2, Pencil, RefreshCw, MoreHorizontal, FileDown, FileUp, ChevronDown, Barcode } from 'lucide-react';
 import SearchWithScanner from '../components/common/SearchWithScanner';
 import ProductForm from '../components/products/ProductForm';
@@ -90,7 +92,7 @@ const Products = () => {
                     warehouse_id: filterWarehouse || undefined,
                 }
             });
-            setProducts(response.data);
+            setProducts(Array.isArray(response.data) ? response.data : (response.data?.items || []));
         } catch (error) {
             console.error("Error fetching products:", error);
         } finally {
@@ -133,7 +135,13 @@ const Products = () => {
         fetchFilters();
 
         const unsubCreate = subscribe('product:created', (newProduct) => setProducts(prev => [newProduct, ...prev]));
-        const unsubUpdate = subscribe('product:updated', (updatedProduct) => setProducts(prev => prev.map(p => p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p)));
+        const unsubUpdate = subscribe('product:updated', (updatedProduct) => setProducts(prev => prev.map(p => {
+            if (p.id !== updatedProduct.id) return p;
+            // Preservar prices con price_list si el WS no los trae
+            const merged = { ...p, ...updatedProduct };
+            if (!updatedProduct.prices || updatedProduct.prices.length === 0) merged.prices = p.prices;
+            return merged;
+        })));
         const unsubDelete = subscribe('product:deleted', (deletedProduct) => setProducts(prev => prev.filter(p => p.id !== deletedProduct.id)));
 
         return () => { unsubCreate(); unsubUpdate(); unsubDelete(); };
@@ -350,6 +358,11 @@ const Products = () => {
                                                     <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold border border-slate-200 uppercase tracking-tighter">
                                                         SKU: {product.sku || '---'}
                                                     </span>
+                                                    {Array.isArray(product.prices) && product.prices.length > 0 && (
+                                                        <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+                                                            {product.prices[0].price_list?.name || 'Lista'}: ${Number(product.prices[0].price || 0).toFixed(2)}
+                                                        </span>
+                                                    )}
                                                     {product.has_imei && (
                                                         <Badge variant="outline" className="text-[9px] h-4 px-1.5 gap-1 border-blue-200 text-blue-700 bg-blue-50 font-black">
                                                             SERIAL
@@ -378,11 +391,25 @@ const Products = () => {
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <div className="flex flex-col items-end">
-                                                <div className="text-2xl font-black text-slate-900 tracking-tighter leading-none">
-                                                    ${Number(product.price).toFixed(2)}
+                                            <div className="flex flex-col items-end gap-1.5">
+                                                {/* Precio base */}
+                                                <div className="flex flex-col items-end">
+                                                    <div className="text-2xl font-black text-indigo-700 tracking-tighter leading-none">
+                                                        ${Number(product.price).toFixed(2)}
+                                                    </div>
+                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">USD</div>
                                                 </div>
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">USD</div>
+                                                {/* Primera lista de precios */}
+                                                {Array.isArray(product.prices) && product.prices.length > 0 && (
+                                                    <div className="flex flex-col items-end bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1">
+                                                        <div className="text-base font-black text-indigo-700 tracking-tight leading-none">
+                                                            ${Number(product.prices[0].price || 0).toFixed(2)}
+                                                        </div>
+                                                        <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-0.5 truncate max-w-[90px]">
+                                                            {product.prices[0].price_list?.name || 'Lista especial'}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </TableCell>
                                         <TableCell>

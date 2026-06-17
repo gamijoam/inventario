@@ -27,7 +27,9 @@ def get_full_menu(db: Session = Depends(get_db)):
     if not main_warehouse:
         main_warehouse = db.query(Warehouse).filter(Warehouse.is_active == True).first()
     
-    sections = db.query(RestaurantMenuSection).filter(
+    sections = db.query(RestaurantMenuSection).options(
+        joinedload(RestaurantMenuSection.items).joinedload(RestaurantMenuItem.product)
+    ).filter(
         RestaurantMenuSection.is_active == True
     ).order_by(RestaurantMenuSection.sort_order).all()
     

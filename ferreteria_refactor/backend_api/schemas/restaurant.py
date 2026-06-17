@@ -70,10 +70,22 @@ class OrderItemCreateWithModifiers(BaseModel):
 
 class ModifierOptionSummary(BaseModel):
     id: int
-    name: str
-    price_applied: float
+    name: Optional[str] = "Unknown"
+    price_applied: Optional[float] = 0.0
     ingredient_id: Optional[int] = None
     quantity_consumed: Optional[Decimal] = None
+
+    @classmethod
+    def from_orm_modifier(cls, obj):
+        """Construir desde RestaurantOrderItemModifier que tiene name como @property"""
+        return cls(
+            id=obj.id,
+            name=obj.name if hasattr(obj, "name") else "Unknown",
+            price_applied=float(getattr(obj, "price_applied", 0) or 0),
+            ingredient_id=getattr(obj, "ingredient_id", None),
+            quantity_consumed=getattr(obj, "quantity_consumed", None),
+        )
+
     class Config:
         from_attributes = True
 

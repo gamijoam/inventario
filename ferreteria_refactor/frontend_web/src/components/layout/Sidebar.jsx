@@ -1,17 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useLocation, Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useLocation, Link } from 'react-router-dom';
 import {
     LayoutDashboard,
     ShoppingCart,
     Package,
     Users,
     Settings,
-    LogOut,
     FileText,
     Truck,
     CreditCard,
     Briefcase,
-    Building2,
     Monitor,
     Printer,
     LayoutGrid,
@@ -40,54 +38,18 @@ import {
     Wrench,
     ShieldCheck,
     X,
-    HelpCircle,
-    LifeBuoy,
     Scissors,
-    Pill
+    Pill,
+    Zap
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
-import { useAppTour } from '../../hooks/useAppTour';
-import TourSelectionModal from '../common/TourSelectionModal';
-import supportService from '../../services/supportService';
 
 export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, closeMobileMenu }) {
     const location = useLocation();
-    const navigate = useNavigate();
-    const { logout, user } = useAuth();
-    const { modules } = useConfig();
-    const { startTour: _startTour } = useAppTour();
-    const [isTourModalOpen, setIsTourModalOpen] = useState(false);
-    const [supportUnread, setSupportUnread] = useState(0);
-
-    // Poll unread support ticket count every 60 seconds
-    const fetchUnreadCount = useCallback(async () => {
-        try {
-            const count = await supportService.getUnreadCount();
-            setSupportUnread(count);
-        } catch {
-            // Silently ignore — user may not be authenticated yet
-        }
-    }, []);
-
-    useEffect(() => {
-        const initSupportUnread = async () => {
-          await fetchUnreadCount();
-        };
-        initSupportUnread();
-        const interval = setInterval(fetchUnreadCount, 60000);
-        return () => clearInterval(interval);
-    }, [fetchUnreadCount]);
-
-    // Reset badge when user navigates to /support
-    useEffect(() => {
-        if (location.pathname === '/support') {
-            supportService.markAsRead();
-            setSupportUnread(0); // This is fine, it's a reaction to navigation
-        }
-    }, [location.pathname]);
-
+    const { user } = useAuth();
+    const { modules, business } = useConfig();
     // En desarrollo, VITE_FORCE_ALL_MODULES=true (en .env.development) activa todos los módulos
     // para poder probarlos sin depender de los feature flags reales del backend.
     // En producción/QA la variable no existe y se usan los flags reales del tenant.
@@ -108,6 +70,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         ] : []),
         ...(isAdmin ? [
             { icon: BarChart2, label: 'Centro de Reportes', path: '/reports' },
+
             { icon: LayoutGrid, label: 'Gestión de Cajas', path: '/cash-registers' },
         ] : []),
     ];
@@ -176,13 +139,18 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         }] : []),
         {
             type: 'single',
-            item: { icon: ShoppingCart, label: 'Centro de Ventas', path: '/sales-center' }
+            item: { icon: ShoppingCart, label: 'Centro de Ventas', path: '/sales-center', prefetch: ['/api/v1/products/catalog', '/api/v1/categories', '/api/v1/warehouses'] }
         },
         // INVENTARIO — ADMIN, WAREHOUSE
         ...(isAdminOrWarehouse ? [{
             type: 'single',
             item: { icon: Package, label: 'Centro de Inventario', path: '/inventory-center' }
         }] : []),
+        // POS EXPRESS — oculto temporalmente
+        // ...(isAdminOrCashier ? [{
+        //     type: 'single',
+        //     item: { icon: Zap, label: 'POS Express ⚡', path: '/pos-express' }
+        // }] : []),
         // FINANZAS — filtrado por rol (no se muestra si no hay items)
         ...(finanzasItems.length > 0 ? [{
             type: 'group',
@@ -194,10 +162,50 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         ...(isAdmin ? [{
             type: 'single',
             item: { icon: Settings, label: 'Configuración', path: '/config-center' }
-        }] : [])
+        }] : []),
+        // Panel empresarial movido al portal owner (/owner/login).
     ];
 
     const [expandedGroup, setExpandedGroup] = useState(null);
+
+    const getMenuSection = (group) => {
+        const label = group.type === 'single' ? group.item.label : group.label;
+        const normalizedLabel = label.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        if (normalizedLabel === 'Resumen' || normalizedLabel === 'Centro de Ventas' || ['Restaurante', 'Servicios', 'Lavanderia', 'Farmacia', 'Barberia / Salon', 'Comandera'].includes(normalizedLabel)) {
+            return 'Operaci\u00f3n';
+        }
+        if (normalizedLabel === 'Centro de Inventario') return 'Inventario';
+        if (normalizedLabel === 'Finanzas') return 'Finanzas';
+        if (normalizedLabel === 'Configuracion') return 'Administraci\u00f3n';
+        return 'M\u00f3dulos';
+    };
+
+    const renderSectionMarker = (section, idx) => {
+        if (!section) return null;
+        if (isCollapsed) {
+            return idx === 0 ? null : <div className="mx-auto my-2 h-px w-8 bg-slate-100" />;
+        }
+        return (
+            <div className={cn("px-4 pb-1 pt-4 text-[10px] font-black uppercase tracking-widest text-slate-400", idx === 0 && "pt-0")}>
+                {section}
+            </div>
+        );
+    };
+
+    const getTourIdForItem = (label) => {
+        const normalized = label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        if (normalized === 'resumen') return 'sidebar-dashboard';
+        if (normalized === 'centro de ventas') return 'sidebar-group-ventas';
+        if (normalized === 'centro de inventario') return 'sidebar-group-inventario';
+        if (normalized === 'configuracion') return 'sidebar-group-sistema';
+        return undefined;
+    };
+
+    const CollapsedTooltip = ({ label }) => (
+        <span className="pointer-events-none absolute left-[58px] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 opacity-0 shadow-lg shadow-slate-200/70 transition-opacity group-hover:block group-hover:opacity-100">
+            {label}
+        </span>
+    );
 
     useEffect(() => {
         if (isCollapsed) return;
@@ -209,7 +217,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         });
     }, [location.pathname, isCollapsed, menuStructure]);
 
-    const handleLogout = () => { logout(); navigate('/login'); };
 
     const toggleGroup = (label) => {
         if (isCollapsed) {
@@ -222,7 +229,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
 
     return (
         <aside className={cn(
-            "bg-white border-r border-slate-200 fixed h-full transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) shadow-[1px_0_15px_rgba(0,0,0,0.02)] inset-y-0 left-0 flex flex-col z-20",
+            "bg-white border-r border-slate-200 fixed h-full transition-all duration-300 ease-in-out shadow-sm inset-y-0 left-0 flex flex-col z-20",
             // Padding seguro para Notch y Barra de Inicio en móvil
             "pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
             isCollapsed ? "md:w-20" : "md:w-64",
@@ -232,14 +239,14 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             <div className="h-16 flex items-center px-6 border-b border-slate-100 bg-white relative shrink-0">
                 {!isCollapsed ? (
                     <div className="flex items-center gap-3 animate-in fade-in duration-300">
-                        <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-100">
+                        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm shadow-indigo-100">
                             <span className="font-black text-lg">M</span>
                         </div>
                         <span className="font-black text-lg text-slate-900 tracking-tighter">Mi Inventario</span>
                     </div>
                 ) : (
                     <div className="w-full flex justify-center">
-                        <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-100">
+                        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm shadow-indigo-100">
                             <span className="font-black text-lg">M</span>
                         </div>
                     </div>
@@ -256,7 +263,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             {/* Desktop Collapse Button - Positioned Precisely */}
             <button
                 onClick={toggleSidebar}
-                className="hidden md:flex absolute -right-3 top-[68px] w-6 h-12 bg-white border-2 border-slate-200 rounded-full items-center justify-center text-slate-400 shadow-sm hover:border-indigo-500 hover:text-indigo-600 transition-all duration-300 z-30 group/collapse"
+                className="hidden md:flex absolute -right-3 top-[68px] w-6 h-12 bg-white border-2 border-slate-200 rounded-lg items-center justify-center text-slate-400 shadow-sm hover:border-indigo-500 hover:text-indigo-600 transition-colors duration-200 z-30 group/collapse"
                 title={isCollapsed ? "Expandir menú (→)" : "Colapsar menú (←)"}
             >
                 {isCollapsed ? (
@@ -269,27 +276,36 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             {/* Navigation - Scrollable Area */}
             <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-1 custom-scrollbar scroll-smooth">
                 {menuStructure.map((group, idx) => {
+                    const section = getMenuSection(group);
+                    const previousSection = idx > 0 ? getMenuSection(menuStructure[idx - 1]) : null;
+                    const sectionMarker = section !== previousSection ? renderSectionMarker(section, idx) : null;
+
                     // SINGLE ITEM
                     if (group.type === 'single') {
                         const isActive = location.pathname === group.item.path;
                         return (
-                            <Link
-                                key={group.item.path}
-                                to={group.item.path}
-                                id={group.item.label === 'Resumen' ? 'sidebar-dashboard' : undefined}
-                                onClick={closeMobileMenu}
-                                className={cn(
-                                    "flex items-center px-4 py-3 rounded-xl text-sm transition-all relative group mb-1",
-                                    isActive
-                                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200"
-                                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-medium",
-                                    isCollapsed && "justify-center px-0 h-11"
-                                )}
-                                title={isCollapsed ? group.item.label : ''}
-                            >
-                                <group.item.icon size={20} className={cn("shrink-0", isActive ? "text-white" : "text-slate-400 group-hover:text-slate-600")} strokeWidth={isActive ? 2.5 : 2} />
-                                {!isCollapsed && <span className="ml-3 font-bold">{group.item.label}</span>}
-                            </Link>
+                            <div key={`nav-${group.item.path}`}>
+                                {sectionMarker}
+                                <div className={cn("relative", isCollapsed && "group")}>
+                                    <Link
+                                        to={group.item.path}
+                                        id={getTourIdForItem(group.item.label)}
+                                        onClick={closeMobileMenu}
+                                        className={cn(
+                                            "flex items-center px-4 py-3 rounded-lg text-sm transition-colors relative mb-1",
+                                            isActive
+                                                ? "bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-100"
+                                                : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-medium",
+                                            isCollapsed && "justify-center px-0 h-11"
+                                        )}
+                                        title={isCollapsed ? group.item.label : ''}
+                                    >
+                                        <group.item.icon size={20} className={cn("shrink-0", isActive ? "text-indigo-600" : "text-slate-400")} strokeWidth={isActive ? 2.4 : 2} />
+                                        {!isCollapsed && <span className="ml-3 font-bold">{group.item.label}</span>}
+                                    </Link>
+                                    {isCollapsed && <CollapsedTooltip label={group.item.label} />}
+                                </div>
+                            </div>
                         );
                     }
 
@@ -300,29 +316,34 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
 
                     if (isCollapsed) {
                         return (
-                            <div key={idx} className="flex justify-center my-1 group relative">
-                                <button
-                                    id={groupId}
-                                    onClick={() => toggleGroup(group.label)}
-                                    className={cn(
-                                        "w-11 h-11 flex items-center justify-center rounded-xl transition-all",
-                                        hasActiveChild ? "bg-indigo-50 text-indigo-600 shadow-sm" : "text-slate-400 hover:bg-slate-50"
-                                    )}
-                                    title={group.label}
-                                >
-                                    <group.icon size={20} />
-                                </button>
+                            <div key={`nav-${group.label}`} className="group relative">
+                                {sectionMarker}
+                                <div className="flex justify-center my-1">
+                                    <button
+                                        id={groupId}
+                                        onClick={() => toggleGroup(group.label)}
+                                        className={cn(
+                                            "w-11 h-11 flex items-center justify-center rounded-lg transition-colors",
+                                            hasActiveChild ? "bg-indigo-50 text-indigo-600 shadow-sm ring-1 ring-indigo-100" : "text-slate-400 hover:bg-slate-50"
+                                        )}
+                                        title={group.label}
+                                    >
+                                        <group.icon size={20} />
+                                    </button>
+                                    <CollapsedTooltip label={group.label} />
+                                </div>
                             </div>
                         );
                     }
 
                     return (
-                        <div key={idx} className="mb-2">
+                        <div key={`nav-${group.label}`} className="mb-2">
+                            {sectionMarker}
                             <button
                                 onClick={() => toggleGroup(group.label)}
                                 id={groupId}
                                 className={cn(
-                                    "w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all group select-none mb-1",
+                                    "w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm transition-colors group select-none mb-1",
                                     isExpanded ? "bg-slate-50/80 text-slate-900" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                                 )}
                             >
@@ -349,7 +370,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                                             id={itemId}
                                             onClick={closeMobileMenu}
                                             className={cn(
-                                                "flex items-center px-4 py-2 rounded-lg text-[13px] transition-all relative group",
+                                                "flex items-center px-4 py-2 rounded-md text-[13px] transition-colors relative group",
                                                 isSubActive
                                                     ? "text-indigo-600 font-bold bg-indigo-50/50"
                                                     : "text-slate-500 font-semibold hover:text-slate-900 hover:bg-slate-50/50"
@@ -369,55 +390,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 })}
             </nav>
 
-            {/* Footer Actions */}
-            <div className="px-3 py-4 border-t border-slate-100 bg-white shrink-0 space-y-1">
-                {/* Support Group */}
-                {!isCollapsed && <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-2">Soporte y Guía</p>}
-
-                <div className={cn("grid gap-1", isCollapsed ? "grid-cols-1" : "grid-cols-1")}>
-                    <Link to="/support" className={cn("flex items-center px-4 py-2.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all font-bold text-sm relative", isCollapsed && "justify-center p-0 h-10 w-10 mx-auto")} title="Soporte Técnico">
-                        <LifeBuoy size={18} />
-                        {!isCollapsed && <span className="ml-3">Soporte</span>}
-                        {supportUnread > 0 && (
-                            <span className={cn(
-                                "absolute flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-black text-white bg-rose-500 rounded-full shadow-sm animate-pulse",
-                                isCollapsed ? "top-0 right-0" : "top-1 right-2"
-                            )}>
-                                {supportUnread > 9 ? '9+' : supportUnread}
-                            </span>
-                        )}
-                    </Link>
-
-                    <button
-                        onClick={() => setIsTourModalOpen(true)}
-                        className={cn("flex items-center px-4 py-2.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all font-bold text-sm", isCollapsed && "justify-center p-0 h-10 w-10 mx-auto")}
-                        title="Guía de Uso"
-                    >
-                        <BookOpen size={18} />
-                        {!isCollapsed && <span className="ml-3">Manual</span>}
-                    </button>
-                </div>
-
-                <div className="pt-2">
-                    <button
-                        onClick={handleLogout}
-                        className={cn(
-                            "flex items-center px-4 py-3 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all w-full font-bold text-sm group",
-                            isCollapsed && "justify-center p-0 h-11 w-11 mx-auto"
-                        )}
-                        title="Cerrar Sesión"
-                    >
-                        <LogOut size={20} className="text-slate-400 group-hover:text-rose-500" />
-                        {!isCollapsed && <span className="ml-3">Cerrar Sesión</span>}
-                    </button>
-                </div>
-            </div>
-
-            {/* Tour Selection Modal */}
-            <TourSelectionModal
-                isOpen={isTourModalOpen}
-                onClose={() => setIsTourModalOpen(false)}
-            />
         </aside>
     );
 }

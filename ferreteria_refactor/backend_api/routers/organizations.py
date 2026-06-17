@@ -21,7 +21,8 @@ from ..schemas.organization import (
     SharedProductCreate, SharedProductOut, ImportSharedProductRequest,
     InterCompanyTransferCreate, InterCompanyTransferOut,
     ConsolidatedSummary, TenantDailySummary, OrgCompanyOut,
-    OrgPlanConfig, OrgWhatsAppConfig
+    OrgPlanConfig, OrgWhatsAppConfig,
+    StockSearchMatch, StockSearchResponse
 )
 from ..dependencies import get_current_active_user, get_current_superuser
 from ..utils.time_utils import get_venezuela_now
@@ -42,13 +43,40 @@ def _get_org_or_404(db: Session, org_id: int) -> Organization:
     return org
 
 
+def _org_member(org: Organization, user: User):
+    email = (user.email or "").lower().strip()
+    return next((m for m in org.members if (m.user_email or "").lower().strip() == email), None)
+
+
+def _is_org_owner_email(org: Organization, user: User) -> bool:
+    return (org.owner_email or "").lower().strip() == (user.email or "").lower().strip()
+
+
 def _assert_org_access(org: Organization, user: User):
-    """Verifica que el usuario tiene acceso a esta organización."""
+    """Verifica que el usuario tiene acceso a esta organizacion."""
+    if user.is_superuser or _is_org_owner_email(org, user):
+        return None
+    member = _org_member(org, user)
+    if not member or not member.can_switch:
+        raise HTTPException(status_code=403, detail="No tienes acceso a esta organizacion")
+    return member
+
+
+def _assert_org_role(org: Organization, user: User, allowed_roles: set[str], detail: str):
+    """Verifica rol dentro de la organizacion: owner, manager o viewer."""
     if user.is_superuser:
-        return
-    member = next((m for m in org.members if m.user_email == user.email), None)
-    if not member:
-        raise HTTPException(status_code=403, detail="No tienes acceso a esta organización")
+        return None
+    if _is_org_owner_email(org, user) and "owner" in allowed_roles:
+        return None
+    member = _assert_org_access(org, user)
+    if not member or (member.role or "").lower() not in allowed_roles:
+        raise HTTPException(status_code=403, detail=detail)
+    return member
+
+
+def _assert_org_owner(org: Organization, user: User, detail: str = "Solo el owner puede modificar esta configuracion"):
+    """Verifica que el usuario sea owner de la organizacion o superadmin."""
+    return _assert_org_role(org, user, {"owner"}, detail)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -163,6 +191,56 @@ def list_organizations(
     return result
 
 
+@router.get("/my-org")
+def get_my_organization(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Devuelve la organización del usuario actual con sus tenants."""
+    memberships = db.query(OrganizationUser).filter(
+        OrganizationUser.user_email == current_user.email,
+        OrganizationUser.can_switch == True
+    ).all()
+
+    if not memberships:
+        return []
+
+    result = []
+    seen_orgs = set()
+    for m in memberships:
+        if m.organization_id in seen_orgs:
+            continue
+        seen_orgs.add(m.organization_id)
+
+        org = db.query(Organization).filter(
+            Organization.id == m.organization_id,
+            Organization.is_active == True
+        ).first()
+        if not org:
+            continue
+
+        tenants = db.query(Tenant).filter(
+            Tenant.organization_id == org.id,
+            Tenant.is_active == True
+        ).all()
+
+        tenant_count = len(tenants)
+        result.append({
+            "id": org.id,
+            "name": org.name,
+            "slug": org.slug,
+            "owner_email": org.owner_email,
+            "plan": org.plan,
+            "max_tenants": org.max_tenants,
+            "primary_color": org.primary_color,
+            "logo_url": org.logo_url,
+            "member_count": len(org.members) if hasattr(org, "members") else 0,
+            "tenant_count": tenant_count,
+            "my_role": m.role,
+        })
+    return result
+
+
 @router.get("/mine", response_model=List[OrgCompanyOut])
 def my_companies(
     db: Session = Depends(get_db),
@@ -240,6 +318,98 @@ def consolidated_mine(
 
     # Llamar al endpoint consolidado con el org_id detectado
     return consolidated_dashboard(membership.organization_id, db, current_user)
+
+
+@router.get("/my-org/stock-search", response_model=StockSearchResponse)
+def stock_search_my_org(
+    q: str = Query(..., min_length=2, description="Buscar por SKU o nombre (mín. 2 caracteres)"),
+    limit_per_tenant: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Busca un producto por SKU o nombre en TODAS las empresas de la organización
+    del usuario actual. Devuelve dónde hay stock y cuánto.
+
+    - Match: SKU ILIKE 'q%' (prefijo) OR name ILIKE '%q%' (contiene).
+    - Solo tenants activos y productos activos.
+    - Resultados ordenados por stock desc.
+
+    Permisos: cualquier miembro de la organización (con can_switch=true).
+    TODO: en una fase posterior, gate por role (owner/manager/viewer).
+    """
+    # Localizar la organización del usuario por su email
+    membership = db.query(OrganizationUser).filter(
+        OrganizationUser.user_email == current_user.email,
+        OrganizationUser.can_switch == True
+    ).first()
+    if not membership:
+        raise HTTPException(status_code=404, detail="No perteneces a ninguna organización")
+
+    org = db.query(Organization).filter(
+        Organization.id == membership.organization_id,
+        Organization.is_active == True
+    ).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organización inactiva o no encontrada")
+
+    tenants = db.query(Tenant).filter(
+        Tenant.organization_id == org.id,
+        Tenant.is_active == True
+    ).all()
+
+    q_clean   = q.strip()
+    sku_like  = f"{q_clean}%"
+    name_like = f"%{q_clean}%"
+    member_role = (membership.role or "").lower()
+    can_view_cost = current_user.is_superuser or member_role in {"owner", "manager"}
+
+    results: List[StockSearchMatch] = []
+    for t in tenants:
+        try:
+            rows = db.execute(text(
+                f'SELECT id, sku, name, stock, COALESCE(min_stock,0) AS min_stock, '
+                f'       COALESCE(price,0) AS price, COALESCE(cost_price,0) AS cost_price, '
+                f'       is_active '
+                f'FROM "{t.schema_name}".products '
+                f'WHERE is_active = true '
+                f'  AND (sku ILIKE :sku_like OR name ILIKE :name_like) '
+                f'ORDER BY stock DESC, name ASC '
+                f'LIMIT :lim'
+            ), {"sku_like": sku_like, "name_like": name_like, "lim": limit_per_tenant}).fetchall()
+
+            for r in rows:
+                stk = float(r.stock or 0)
+                ms  = float(r.min_stock or 0)
+                results.append(StockSearchMatch(
+                    tenant_id     = t.id,
+                    tenant_name   = t.name,
+                    tenant_schema = t.schema_name,
+                    product_id    = int(r.id),
+                    sku           = r.sku,
+                    name          = r.name,
+                    stock         = stk,
+                    min_stock     = ms,
+                    price         = float(r.price or 0),
+                    cost_price    = float(r.cost_price or 0) if can_view_cost else 0,
+                    is_active     = bool(r.is_active),
+                    low_stock     = (ms > 0 and stk <= ms)
+                ))
+        except Exception:
+            # Schema sin tabla products todavía (tenant recén creado) -> ignorar
+            continue
+
+    # Re-ordenar globalmente por stock desc para que las mejores filas suban
+    results.sort(key=lambda x: (-x.stock, x.name or ""))
+
+    return StockSearchResponse(
+        query             = q_clean,
+        organization_id   = org.id,
+        organization_name = org.name,
+        tenants_searched  = len(tenants),
+        total_matches     = len(results),
+        results           = results
+    )
 
 
 @router.get("/{org_id}", response_model=OrganizationOut)
@@ -487,24 +657,21 @@ def invite_member(
 ):
     """Invitar a un usuario a la organización (solo owner o superadmin)."""
     org = _get_org_or_404(db, org_id)
-    _assert_org_access(org, current_user)
+    _assert_org_owner(org, current_user, "Solo el owner puede invitar miembros")
+    if data.role not in {"owner", "manager", "viewer"}:
+        raise HTTPException(status_code=400, detail="Rol invalido para miembro de organizacion")
 
-    # Solo owner puede invitar
-    if not current_user.is_superuser:
-        me = next((m for m in org.members if m.user_email == current_user.email), None)
-        if not me or me.role != "owner":
-            raise HTTPException(status_code=403, detail="Solo el owner puede invitar miembros")
-
+    member_email = data.user_email.lower().strip()
     existing = db.query(OrganizationUser).filter(
         OrganizationUser.organization_id == org_id,
-        OrganizationUser.user_email == data.user_email.lower()
+        OrganizationUser.user_email == member_email
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="Este usuario ya es miembro de la organización")
 
     member = OrganizationUser(
         organization_id = org_id,
-        user_email      = data.user_email.lower().strip(),
+        user_email      = member_email,
         role            = data.role,
         can_switch      = data.can_switch,
         accepted_at     = get_venezuela_now()  # auto-aceptar (sin flujo de email por ahora)
@@ -523,7 +690,7 @@ def remove_member(
 ):
     """Eliminar un miembro de la organización."""
     org = _get_org_or_404(db, org_id)
-    _assert_org_access(org, current_user)
+    _assert_org_owner(org, current_user, "Solo el owner puede eliminar miembros")
     member = db.query(OrganizationUser).filter(
         OrganizationUser.id == member_id,
         OrganizationUser.organization_id == org_id
@@ -540,6 +707,105 @@ def remove_member(
 # ══════════════════════════════════════════════════════════════════════════════
 # CATÁLOGO COMPARTIDO
 # ══════════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/{org_id}/activity")
+def get_org_activity(
+    org_id: int,
+    limit: int = Query(30, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Actividad reciente del portal empresarial sin depender de migraciones."""
+    org = db.query(Organization).options(joinedload(Organization.members)).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organizacion no encontrada")
+    _assert_org_owner(org, current_user, "Solo el owner puede ver la actividad empresarial")
+
+    tenants = db.query(Tenant).filter(Tenant.organization_id == org_id).all()
+    events = []
+
+    def add_event(event_type, title, detail, occurred_at=None, actor=None, severity="info", meta=None):
+        events.append({
+            "type"       : event_type,
+            "title"      : title,
+            "detail"     : detail,
+            "actor"      : actor,
+            "severity"   : severity,
+            "occurred_at": occurred_at.isoformat() if occurred_at else None,
+            "meta"       : meta or {},
+        })
+
+    add_event(
+        "organization.created",
+        "Organizacion creada",
+        f"{org.name} quedo registrada como grupo empresarial.",
+        org.created_at,
+        org.owner_email,
+        "success",
+        {"plan": org.plan, "max_tenants": org.max_tenants},
+    )
+
+    add_event(
+        "whatsapp.status",
+        "WhatsApp compartido",
+        "Activo para el grupo." if org.use_shared_whatsapp else "Cada empresa usa su configuracion individual.",
+        org.created_at,
+        "Configuracion",
+        "success" if org.use_shared_whatsapp else "info",
+        {"instance": org.whatsapp_instance, "shared": bool(org.use_shared_whatsapp)},
+    )
+
+    for tenant in tenants:
+        add_event(
+            "tenant.linked",
+            "Empresa en el grupo",
+            f"{tenant.name} forma parte de la organizacion.",
+            tenant.created_at,
+            tenant.schema_name,
+            "success" if tenant.is_active else "warning",
+            {
+                "tenant_id": tenant.id,
+                "schema_name": tenant.schema_name,
+                "license_type": tenant.license_type,
+                "active": tenant.is_active,
+            },
+        )
+
+    for member in org.members:
+        add_event(
+            "member.invited",
+            "Miembro agregado",
+            f"{member.user_email} tiene rol {member.role}.",
+            member.invited_at,
+            member.user_email,
+            "success" if member.can_switch else "warning",
+            {"role": member.role, "can_switch": member.can_switch},
+        )
+        if member.accepted_at and member.accepted_at != member.invited_at:
+            add_event(
+                "member.accepted",
+                "Acceso aceptado",
+                f"{member.user_email} quedo activo en el grupo.",
+                member.accepted_at,
+                member.user_email,
+                "success",
+                {"role": member.role},
+            )
+
+    def sort_key(event):
+        return event["occurred_at"] or ""
+
+    events = sorted(events, key=sort_key, reverse=True)[:limit]
+    return {
+        "organization_id"   : org.id,
+        "organization_name" : org.name,
+        "total_events"      : len(events),
+        "members_count"     : len(org.members),
+        "tenants_count"     : len(tenants),
+        "events"            : events,
+    }
+
 
 @router.get("/{org_id}/catalog", response_model=List[SharedProductOut])
 def list_shared_catalog(
@@ -569,7 +835,7 @@ def add_to_catalog(
 ):
     """Agregar producto al catálogo compartido."""
     org = _get_org_or_404(db, org_id)
-    _assert_org_access(org, current_user)
+    _assert_org_role(org, current_user, {"owner", "manager"}, "Solo owner o manager puede modificar el catalogo compartido")
 
     product = SharedProduct(
         organization_id = org_id,
@@ -602,7 +868,7 @@ def import_catalog_to_tenant(
     from ..tenant_context import get_tenant_schema
 
     org = _get_org_or_404(db, org_id)
-    _assert_org_access(org, current_user)
+    _assert_org_role(org, current_user, {"owner", "manager"}, "Solo owner o manager puede importar catalogo compartido")
 
     schema = get_tenant_schema()
     if schema == "public":
@@ -715,11 +981,7 @@ def update_org_whatsapp(
     if not org:
         raise HTTPException(status_code=404, detail="Organización no encontrada")
 
-    # Verificar permiso: owner o superadmin
-    if not current_user.is_superuser:
-        member = next((m for m in org.members if m.user_email == current_user.email), None)
-        if not member or member.role != "owner":
-            raise HTTPException(status_code=403, detail="Solo el owner puede configurar WhatsApp compartido")
+    _assert_org_owner(org, current_user, "Solo el owner puede configurar WhatsApp compartido")
 
     org.use_shared_whatsapp = config.use_shared_whatsapp
     org.whatsapp_instance   = config.whatsapp_instance if config.use_shared_whatsapp else None

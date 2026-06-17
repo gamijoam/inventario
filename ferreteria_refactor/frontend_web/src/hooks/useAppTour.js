@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import api from '../config/axios';
 import { TOUR_FLOWS } from '../config/tourFlows';
 
@@ -39,18 +39,30 @@ export const resetTourProgress = () => {
 
 export const useAppTour = () => {
     const navigate = useNavigate();
-    const location = useLocation();
+    const getCurrentRoute = () => {
+        const hashRoute = window.location.hash?.replace(/^#/, '');
+        if (hashRoute) return hashRoute;
+        return `${window.location.pathname}${window.location.search}`;
+    };
+
+    const normalizeRoute = (route) => {
+        if (!route) return '/';
+        return route.startsWith('/') ? route : `/${route}`;
+    };
+
+    const routeMatches = (target) => normalizeRoute(getCurrentRoute()) === normalizeRoute(target);
 
     // Helper: Wait for element to exist in DOM (with timeout)
     const waitForElement = (selector, timeout = 5000) => {
         return new Promise((resolve) => {
-            if (document.querySelector(selector)) {
-                return resolve(document.querySelector(selector));
-            }
+            if (!selector) return resolve(null);
+            const existing = document.querySelector(selector);
+            if (existing) return resolve(existing);
 
             const observer = new MutationObserver(() => {
-                if (document.querySelector(selector)) {
-                    resolve(document.querySelector(selector));
+                const found = document.querySelector(selector);
+                if (found) {
+                    resolve(found);
                     observer.disconnect();
                 }
             });
@@ -68,6 +80,26 @@ export const useAppTour = () => {
         });
     };
 
+    const waitForRoute = (target, timeout = 3000) => {
+        return new Promise((resolve) => {
+            if (!target || routeMatches(target)) return resolve(true);
+            const startedAt = Date.now();
+            const tick = () => {
+                if (routeMatches(target)) return resolve(true);
+                if (Date.now() - startedAt > timeout) return resolve(false);
+                setTimeout(tick, 50);
+            };
+            tick();
+        });
+    };
+
+    const navigateForTour = async (target) => {
+        if (!target || routeMatches(target)) return;
+        navigate(target);
+        await waitForRoute(target);
+        await new Promise(resolve => setTimeout(resolve, 250));
+    };
+
     const startTour = async (flowId = 'WELCOME', onComplete) => {
         const driverFn = getDriver();
         if (!driverFn) {
@@ -78,39 +110,31 @@ export const useAppTour = () => {
 
         const flow = TOUR_FLOWS[flowId] || TOUR_FLOWS.WELCOME;
 
-        // Filter out steps whose element doesn't exist (graceful skip)
-        // We do this dynamically per step during the tour via onHighlightStarted
-        const steps = flow.steps
-            .filter(step => {
-                // Steps without element (info-only popover) always pass
-                if (!step.element) return true;
-                // Steps with navigate always pass (element will appear after navigation)
-                if (step.navigate) return true;
-                // For current-page steps, check if element exists now
-                // If not, still include it — waitForElement will handle it
-                return true;
-            })
-            .map(step => ({
-                ...step,
-                onHighlightStarted: async (element, stepRef, options) => {
-                    // Check if step requires navigation
-                    if (step.navigate && location.pathname !== step.navigate) {
-                        navigate(step.navigate);
-                        if (step.element) {
-                            await waitForElement(step.element);
-                        }
-                    }
+        const steps = flow.steps.map((step, index) => ({
+            ...step,
+            onDeselected: async () => {
+                const nextStep = flow.steps[index + 1];
+                if (nextStep?.navigate) {
+                    await navigateForTour(nextStep.navigate);
+                    if (nextStep.element) await waitForElement(nextStep.element);
+                }
+            },
+            onHighlightStarted: async () => {
+                if (step.navigate) {
+                    await navigateForTour(step.navigate);
+                    if (step.element) await waitForElement(step.element);
+                }
 
-                    // If it's a sidebar group, try to expand it
-                    if (step.element && step.element.includes('group')) {
-                        const el = document.querySelector(step.element);
-                        if (el && el.getAttribute('aria-expanded') === 'false') {
-                            el.click();
-                            await new Promise(r => setTimeout(r, 300));
-                        }
+                // If it's a sidebar group, try to expand it
+                if (step.element && step.element.includes('group')) {
+                    const el = document.querySelector(step.element);
+                    if (el && el.getAttribute('aria-expanded') === 'false') {
+                        el.click();
+                        await new Promise(r => setTimeout(r, 300));
                     }
                 }
-            }));
+            }
+        }));
 
         const driverObj = driverFn({
             showProgress: true,
@@ -131,13 +155,14 @@ export const useAppTour = () => {
             }
         });
 
-        // Initial Navigation if flow starts on a different page
-        if (flow.startUrl && location.pathname !== flow.startUrl) {
-            navigate(flow.startUrl);
-            setTimeout(() => driverObj.drive(), 500);
-        } else {
-            driverObj.drive();
+        // Initial navigation supports HashRouter routes with query strings.
+        if (flow.startUrl && !routeMatches(flow.startUrl)) {
+            await navigateForTour(flow.startUrl);
         }
+
+        const firstElement = steps.find(step => step.element)?.element;
+        if (firstElement) await waitForElement(firstElement, 2500);
+        driverObj.drive();
     };
 
     const markAsCompleted = async () => {

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Search, RotateCcw, CheckCircle, XCircle, AlertTriangle, ShieldCheck, ShieldAlert, DollarSign, Package, CornerDownLeft } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 import clsx from 'clsx';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
@@ -82,7 +83,7 @@ const WarrantyManager = () => {
             }
         } catch (error) {
             console.error(error);
-            toast.error(error.response?.data?.detail || "Error verificando IMEI");
+            toast.error(getApiErrorMessage(error, "Error verificando IMEI"));
             setCheckResult(null);
         } finally {
             setLoading(false);
@@ -116,7 +117,7 @@ const WarrantyManager = () => {
             handleReset();
         } catch (error) {
             console.error(error);
-            toast.error(error.response?.data?.detail || "Error procesando devolución");
+            toast.error(getApiErrorMessage(error, "Error procesando devolución"));
         } finally {
             setLoading(false);
         }

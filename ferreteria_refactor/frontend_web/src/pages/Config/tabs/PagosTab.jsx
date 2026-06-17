@@ -4,6 +4,7 @@ import apiClient from '../../../config/axios';
 import { useConfig } from '../../../context/ConfigContext';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 
 const PagosTab = () => {
     const { refreshConfig } = useConfig();
@@ -25,7 +26,7 @@ const PagosTab = () => {
             setMethods(response.data);
         } catch (error) {
             console.error('Error fetching payment methods:', error);
-            toast.error('Error al cargar métodos de pago');
+            toast.error(getApiErrorMessage(error, 'No se pudieron cargar los metodos de pago'));
         } finally {
             setLoading(false);
         }
@@ -46,7 +47,7 @@ const PagosTab = () => {
         } catch (error) {
             console.error('Error toggling method:', error);
             fetchMethods();
-            toast.error('Error al actualizar método');
+            toast.error(getApiErrorMessage(error, 'No se pudo actualizar el metodo de pago'));
         }
     };
 
@@ -56,7 +57,6 @@ const PagosTab = () => {
                 m.id === method.id ? { ...m, requires_reference: !m.requires_reference } : m
             );
             setMethods(updatedMethods);
-
             await apiClient.put(`/payment-methods/${method.id}`, {
                 requires_reference: !method.requires_reference
             });
@@ -65,7 +65,25 @@ const PagosTab = () => {
         } catch (error) {
             console.error('Error updating reference requirement:', error);
             fetchMethods();
-            toast.error('Error al actualizar configuración');
+            toast.error(getApiErrorMessage(error, 'No se pudo actualizar la configuracion del metodo'));
+        }
+    };
+
+    const handleToggleExternalFinancer = async (method) => {
+        try {
+            const updatedMethods = methods.map(m =>
+                m.id === method.id ? { ...m, is_external_financer: !m.is_external_financer } : m
+            );
+            setMethods(updatedMethods);
+            await apiClient.put(`/payment-methods/${method.id}`, {
+                is_external_financer: !method.is_external_financer
+            });
+            refreshConfig();
+            toast.success(`Financiadora externa ${!method.is_external_financer ? 'activada' : 'desactivada'}`);
+        } catch (error) {
+            console.error('Error updating external financer:', error);
+            fetchMethods();
+            toast.error(getApiErrorMessage(error, 'No se pudo actualizar la configuracion del metodo'));
         }
     };
 
@@ -77,7 +95,7 @@ const PagosTab = () => {
             refreshConfig();
             toast.success('Método eliminado');
         } catch (error) {
-            toast.error(error.response?.data?.detail || 'Error al eliminar método');
+            toast.error(getApiErrorMessage(error, 'No se pudo eliminar el metodo de pago'));
         }
     };
 
@@ -99,112 +117,128 @@ const PagosTab = () => {
             toast.success('Método de pago agregado');
         } catch (error) {
             console.error('Error adding method:', error);
-            toast.error(error.response?.data?.detail || 'Error al crear método');
+            toast.error(getApiErrorMessage(error, 'No se pudo crear el metodo de pago'));
         } finally {
             setProcessing(false);
         }
     };
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <div>
-                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                        <Wallet className="text-indigo-600" size={24} /> Métodos de Pago
+        <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-col gap-4 border-b border-slate-100 bg-white p-5 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
+                    <h2 className="flex items-center gap-2 text-xl font-black text-slate-900">
+                        <Wallet className="text-indigo-600" size={22} /> Métodos de Pago
                     </h2>
-                    <p className="text-slate-500 text-sm mt-1">Administra las opciones de pago disponibles en el punto de venta</p>
+                    <p className="mt-1 text-sm text-slate-500">Administra las formas de cobro disponibles en el POS</p>
                 </div>
                 <button
                     onClick={() => setShowAddModal(true)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-200 font-bold flex items-center transition-all active:scale-95"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-700 active:scale-[0.98]"
                 >
-                    <Plus size={20} className="mr-2" />
+                    <Plus size={18} />
                     Nuevo Método
                 </button>
             </div>
 
-            <div className="p-6 flex-1 bg-slate-50/30">
+            <div className="bg-slate-50/50 p-4 sm:p-5">
                 {loading ? (
-                    <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-4"></div>
-                        <p>Cargando métodos...</p>
+                    <div className="flex h-64 flex-col items-center justify-center text-slate-400">
+                        <div className="mb-4 h-9 w-9 animate-spin rounded-full border-4 border-indigo-100 border-t-indigo-600" />
+                        <p className="text-sm font-medium">Cargando métodos...</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
                         {methods.map(method => (
                             <div
                                 key={method.id}
                                 className={clsx(
-                                    "border rounded-2xl p-5 transition-all relative overflow-hidden group hover:shadow-md",
-                                    method.is_active
-                                        ? 'bg-white border-slate-200'
-                                        : 'bg-slate-50 border-slate-200 opacity-75'
+                                    "group rounded-lg border bg-white p-4 shadow-sm transition-colors hover:border-indigo-200",
+                                    method.is_active ? 'border-slate-200' : 'border-slate-200 opacity-70'
                                 )}
                             >
-                                <div className="flex justify-between items-start mb-4 relative z-10">
+                                <div className="flex items-start gap-3">
                                     <div className={clsx(
-                                        "p-3 rounded-xl transition-colors",
+                                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-md",
                                         method.is_active ? "bg-indigo-50 text-indigo-600" : "bg-slate-100 text-slate-400"
                                     )}>
-                                        <CreditCard size={24} />
+                                        <CreditCard size={20} />
                                     </div>
-                                    <div className="flex gap-2 items-center">
-                                        {/* Active Toggle */}
-                                        <label className="relative inline-flex items-center cursor-pointer" title={method.is_active ? "Desactivar" : "Activar"}>
-                                            <input
-                                                type="checkbox"
-                                                className="sr-only peer"
-                                                checked={method.is_active}
-                                                onChange={() => handleToggleActive(method)}
-                                            />
-                                            <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-                                        </label>
 
-                                        {!method.is_system && (
-                                            <button
-                                                onClick={() => handleDelete(method)}
-                                                className="text-slate-400 hover:text-rose-500 p-1.5 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                                                title="Eliminar"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="relative z-10">
-                                    <h3 className={clsx("font-bold text-lg mb-2", method.is_active ? "text-slate-800" : "text-slate-500")}>
-                                        {method.name}
-                                    </h3>
-
-                                    <div className="flex flex-col gap-2 mt-3">
-                                        <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <h3 className={clsx("truncate text-base font-black", method.is_active ? "text-slate-900" : "text-slate-500")}>
+                                                {method.name}
+                                            </h3>
                                             {method.is_system ? (
-                                                <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500 px-2.5 py-1 rounded-lg border border-slate-200">
+                                                <span className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
                                                     Sistema
                                                 </span>
                                             ) : (
-                                                <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-lg border border-indigo-100">
+                                                <span className="rounded-md border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-indigo-600">
                                                     Personalizado
                                                 </span>
                                             )}
                                         </div>
 
-                                        <label className="flex items-center gap-2 cursor-pointer group/ref p-1.5 -ml-1.5 hover:bg-slate-50 rounded-lg transition-colors">
-                                            <div className="relative inline-flex items-center">
-                                                <input
-                                                    type="checkbox"
-                                                    className="sr-only peer"
-                                                    checked={method.requires_reference || false}
-                                                    onChange={() => handleToggleRequiresReference(method)}
-                                                />
-                                                <div className="w-7 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-500"></div>
-                                            </div>
-                                            <span className={clsx("text-xs font-bold transition-colors", method.requires_reference ? "text-emerald-600" : "text-slate-400 group-hover/ref:text-slate-600")}>
-                                                {method.requires_reference ? "Exige Referencia" : "Sin Referencia"}
-                                            </span>
-                                        </label>
+                                        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                                            <label className="flex h-9 cursor-pointer items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 transition-colors hover:bg-slate-50">
+                                                <span className="text-xs font-bold text-slate-600">Activo</span>
+                                                <span className="relative inline-flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only peer"
+                                                        checked={method.is_active}
+                                                        onChange={() => handleToggleActive(method)}
+                                                    />
+                                                    <span className="h-5 w-9 rounded-full bg-slate-200 transition-colors peer-checked:bg-indigo-600" />
+                                                    <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full border border-slate-300 bg-white transition-transform peer-checked:translate-x-4 peer-checked:border-white" />
+                                                </span>
+                                            </label>
+
+                                            <label className="flex h-9 cursor-pointer items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 transition-colors hover:bg-slate-50">
+                                                <span className={clsx("text-xs font-bold", method.requires_reference ? "text-emerald-700" : "text-slate-500")}>
+                                                    Referencia
+                                                </span>
+                                                <span className="relative inline-flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only peer"
+                                                        checked={method.requires_reference || false}
+                                                        onChange={() => handleToggleRequiresReference(method)}
+                                                    />
+                                                    <span className="h-5 w-9 rounded-full bg-slate-200 transition-colors peer-checked:bg-emerald-500" />
+                                                    <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full border border-slate-300 bg-white transition-transform peer-checked:translate-x-4 peer-checked:border-white" />
+                                                </span>
+                                            </label>
+
+                                            <label className="flex h-9 cursor-pointer items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 transition-colors hover:bg-slate-50">
+                                                <span className={clsx("text-xs font-bold", method.is_external_financer ? "text-indigo-700" : "text-slate-500")}>
+                                                    Financiadora
+                                                </span>
+                                                <span className="relative inline-flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only peer"
+                                                        checked={method.is_external_financer || false}
+                                                        onChange={() => handleToggleExternalFinancer(method)}
+                                                    />
+                                                    <span className="h-5 w-9 rounded-full bg-slate-200 transition-colors peer-checked:bg-indigo-500" />
+                                                    <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full border border-slate-300 bg-white transition-transform peer-checked:translate-x-4 peer-checked:border-white" />
+                                                </span>
+                                            </label>
+                                        </div>
                                     </div>
+
+                                    {!method.is_system && (
+                                        <button
+                                            onClick={() => handleDelete(method)}
+                                            className="rounded-md p-2 text-slate-400 opacity-100 transition-colors hover:bg-rose-50 hover:text-rose-600 md:opacity-0 md:group-hover:opacity-100"
+                                            title="Eliminar"
+                                        >
+                                            <Trash2 size={17} />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -214,19 +248,19 @@ const PagosTab = () => {
 
             {/* Modal Agregar */}
             {showAddModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
-                        <div className="p-6">
-                            <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                <Plus className="text-indigo-600" size={24} />
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-950/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="w-full max-w-sm overflow-hidden rounded-lg bg-white shadow-xl animate-in zoom-in-95 duration-200">
+                        <div className="p-5">
+                            <h3 className="mb-4 flex items-center gap-2 text-xl font-black text-slate-900">
+                                <Plus className="text-indigo-600" size={22} />
                                 Nuevo Método
                             </h3>
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Nombre</label>
+                                    <label className="mb-1 block text-sm font-bold text-slate-700">Nombre</label>
                                     <input
                                         type="text"
-                                        className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-800 transition-all placeholder:text-slate-400"
+                                        className="h-11 w-full rounded-md border border-slate-200 px-3 font-medium text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                                         placeholder="Ej. Zelle, Binance, Bitcoin..."
                                         autoFocus
                                         value={newMethodName}
@@ -235,38 +269,36 @@ const PagosTab = () => {
                                     />
                                 </div>
 
-                                <label className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-white hover:border-indigo-200 transition-all">
-                                    <div className="relative flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                            checked={newMethodRequiresReference}
-                                            onChange={e => setNewMethodRequiresReference(e.target.checked)}
-                                        />
-                                    </div>
+                                <label className="flex cursor-pointer items-center gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 transition-colors hover:border-indigo-200 hover:bg-white">
+                                    <input
+                                        type="checkbox"
+                                        className="h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        checked={newMethodRequiresReference}
+                                        onChange={e => setNewMethodRequiresReference(e.target.checked)}
+                                    />
                                     <div>
                                         <div className="text-sm font-bold text-slate-700">Exigir Referencia</div>
-                                        <div className="text-xs text-slate-400">¿El cajero debe ingresar # de comprobante?</div>
+                                        <div className="text-xs text-slate-400">El cajero debe ingresar número de comprobante</div>
                                     </div>
                                 </label>
 
-                                <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-100 flex gap-3 text-xs text-indigo-600">
-                                    <AlertCircle size={16} className="text-indigo-500 shrink-0 mt-0.5" />
+                                <div className="flex gap-3 rounded-md border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-700">
+                                    <AlertCircle size={16} className="mt-0.5 shrink-0 text-indigo-500" />
                                     <p>Este método aparecerá habilitado inmediatamente en la pantalla de cobro.</p>
                                 </div>
                             </div>
                         </div>
-                        <div className="bg-slate-50 p-4 flex gap-3 border-t border-slate-100">
+                        <div className="flex gap-3 border-t border-slate-100 bg-slate-50 p-4">
                             <button
                                 onClick={() => setShowAddModal(false)}
-                                className="flex-1 py-2.5 font-bold text-slate-600 hover:bg-slate-200 hover:text-slate-800 rounded-xl transition-colors"
+                                className="flex-1 rounded-md py-2.5 font-bold text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-800"
                             >
                                 Cancelar
                             </button>
                             <button
                                 onClick={handleAddMethod}
                                 disabled={!newMethodName.trim() || processing}
-                                className="flex-1 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-lg shadow-indigo-200 active:scale-95"
+                                className="flex-1 rounded-md bg-indigo-600 py-2.5 font-bold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50"
                             >
                                 {processing ? 'Guardando...' : 'Guardar'}
                             </button>

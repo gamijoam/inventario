@@ -80,7 +80,19 @@ def read_quote_details(quote_id: int, db: Session = Depends(get_db)):
     quote = db.query(models.Quote)\
         .options(
             joinedload(models.Quote.customer),
-            joinedload(models.Quote.details).joinedload(models.QuoteDetail.product)
+            joinedload(models.Quote.details)
+                .joinedload(models.QuoteDetail.product)
+                .joinedload(models.Product.category),
+            joinedload(models.Quote.details)
+                .joinedload(models.QuoteDetail.product)
+                .joinedload(models.Product.units),
+            joinedload(models.Quote.details)
+                .joinedload(models.QuoteDetail.product)
+                .joinedload(models.Product.stocks),
+            joinedload(models.Quote.details)
+                .joinedload(models.QuoteDetail.product)
+                .joinedload(models.Product.prices)
+                .joinedload(models.ProductPrice.price_list),
         )\
         .filter(models.Quote.id == quote_id).first()
         

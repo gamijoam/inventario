@@ -3,7 +3,7 @@ System Router
 Endpoints para gestión de licencias y información del sistema.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from pathlib import Path
 from jose import jwt, JWTError
@@ -197,13 +197,16 @@ def activate_license(request: LicenseActivationRequest):
 # --- System Messages (Public/Auth) ---
 
 from ..models.system_messages import SystemMessage, MessageLevel
-from ..schemas.system_messages import SystemMessageResponse
+from ..schemas.system_messages import SystemMessageCreate, SystemMessageUpdate, SystemMessageResponse
 from typing import List
 from sqlalchemy import or_, desc, case, cast, String
 from ..database.db import get_db
 from sqlalchemy.orm import Session
 from fastapi import Depends
 from ..utils.time_utils import get_venezuela_now
+from ..tenant_context import get_tenant_schema
+from ..dependencies import has_role
+from ..models.models import User, UserRole
 
 @router.get("/system/messages/active", response_model=List[SystemMessageResponse])
 def get_active_system_messages(
@@ -224,8 +227,14 @@ def get_active_system_messages(
         else_=4
     )
 
+    current_schema = get_tenant_schema() or "public"
+    scope_filter = SystemMessage.target_tenant_schema == None
+    if current_schema != "public":
+        scope_filter = or_(scope_filter, SystemMessage.target_tenant_schema == current_schema)
+
     messages = db.query(SystemMessage).filter(
         SystemMessage.is_active == True,
+        scope_filter,
         or_(
             SystemMessage.starts_at <= now,
             SystemMessage.starts_at == None
@@ -237,6 +246,137 @@ def get_active_system_messages(
     ).order_by(priority_case, SystemMessage.starts_at.desc()).all()
     
     return messages
+
+
+def _tenant_message_to_dict(message: SystemMessage) -> Dict[str, Any]:
+    return {
+        "id": message.id,
+        "title": message.title,
+        "content": message.content,
+        "level": message.level.value if hasattr(message.level, "value") else message.level,
+        "message_type": message.message_type or "banner",
+        "version_tag": message.version_tag,
+        "target_tenant_schema": message.target_tenant_schema,
+        "starts_at": message.starts_at.isoformat() if message.starts_at else None,
+        "expires_at": message.expires_at.isoformat() if message.expires_at else None,
+        "is_active": message.is_active,
+    }
+
+
+def _is_message_visible_now(message: SystemMessage) -> bool:
+    now = get_venezuela_now()
+    return bool(
+        message.is_active
+        and (message.starts_at is None or message.starts_at <= now)
+        and (message.expires_at is None or message.expires_at > now)
+    )
+
+
+def _queue_tenant_notification(background_tasks: BackgroundTasks, tenant_schema: str, message: Dict[str, Any]) -> None:
+    from ..services.websocket_manager import manager
+    background_tasks.add_task(manager.broadcast_to_tenant, message, tenant_schema)
+
+
+def _queue_tenant_messages_refresh(background_tasks: BackgroundTasks, tenant_schema: str, action: str, message_id: Optional[int]) -> None:
+    from ..websocket.events import WebSocketEvents
+    _queue_tenant_notification(background_tasks, tenant_schema, {
+        "type": WebSocketEvents.SYSTEM_NOTIFICATION,
+        "data": {"refresh": True, "action": action, "id": message_id},
+        "timestamp": datetime.now().isoformat(),
+    })
+
+
+def _require_tenant_schema() -> str:
+    tenant_schema = (get_tenant_schema() or "public").strip().lower()
+    if tenant_schema == "public":
+        raise HTTPException(status_code=400, detail="No hay empresa activa para gestionar avisos internos")
+    return tenant_schema
+
+
+@router.get("/system/messages/internal", response_model=List[SystemMessageResponse])
+def list_internal_system_messages(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_role([UserRole.ADMIN]))
+):
+    tenant_schema = _require_tenant_schema()
+    return db.query(SystemMessage).filter(
+        SystemMessage.target_tenant_schema == tenant_schema
+    ).order_by(SystemMessage.created_at.desc()).limit(100).all()
+
+
+@router.post("/system/messages/internal", response_model=SystemMessageResponse)
+def create_internal_system_message(
+    message: SystemMessageCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_role([UserRole.ADMIN]))
+):
+    tenant_schema = _require_tenant_schema()
+    payload = message.model_dump()
+    payload["target_tenant_schema"] = tenant_schema
+    payload["created_by_user_id"] = current_user.id
+    db_message = SystemMessage(**payload)
+    db.add(db_message)
+    db.commit()
+    db.refresh(db_message)
+
+    from ..websocket.events import WebSocketEvents
+    if _is_message_visible_now(db_message):
+        _queue_tenant_notification(background_tasks, tenant_schema, {
+            "type": WebSocketEvents.SYSTEM_NOTIFICATION,
+            "data": _tenant_message_to_dict(db_message),
+            "timestamp": datetime.now().isoformat(),
+        })
+    else:
+        _queue_tenant_messages_refresh(background_tasks, tenant_schema, "scheduled", db_message.id)
+    return db_message
+
+
+@router.put("/system/messages/internal/{message_id}", response_model=SystemMessageResponse)
+def update_internal_system_message(
+    message_id: int,
+    message_update: SystemMessageUpdate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_role([UserRole.ADMIN]))
+):
+    tenant_schema = _require_tenant_schema()
+    db_message = db.query(SystemMessage).filter(
+        SystemMessage.id == message_id,
+        SystemMessage.target_tenant_schema == tenant_schema
+    ).first()
+    if not db_message:
+        raise HTTPException(status_code=404, detail="Aviso interno no encontrado")
+
+    update_data = message_update.model_dump(exclude_unset=True)
+    update_data.pop("target_tenant_schema", None)
+    for key, value in update_data.items():
+        setattr(db_message, key, value)
+    db.commit()
+    db.refresh(db_message)
+    _queue_tenant_messages_refresh(background_tasks, tenant_schema, "updated", db_message.id)
+    return db_message
+
+
+@router.delete("/system/messages/internal/{message_id}")
+def delete_internal_system_message(
+    message_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_role([UserRole.ADMIN]))
+):
+    tenant_schema = _require_tenant_schema()
+    db_message = db.query(SystemMessage).filter(
+        SystemMessage.id == message_id,
+        SystemMessage.target_tenant_schema == tenant_schema
+    ).first()
+    if not db_message:
+        raise HTTPException(status_code=404, detail="Aviso interno no encontrado")
+
+    db_message.is_active = False
+    db.commit()
+    _queue_tenant_messages_refresh(background_tasks, tenant_schema, "deleted", db_message.id)
+    return {"status": "success", "message": "Aviso interno desactivado"}
 
 # --- Global Search ---
 

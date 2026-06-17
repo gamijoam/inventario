@@ -634,3 +634,84 @@ Estas partes del sistema están bien diseñadas y no requieren cambios:
 | F-10 | Historial cliente 360 | Medio | Medio | 🟢 |
 | F-07 | Facturación SENIAT | Alto | Alto | 🟢 Futuro |
 | F-12 | POS offline | Alto | Muy alto | 🟢 Futuro |
+
+---
+
+## 🐛 BUG CRÍTICO — WebSocket: Dos managers separados (detectado 2026-05-21)
+
+### Síntoma
+Los broadcasts de eventos en tiempo real (`exchange_rate:updated`, `product:updated`, `sale:completed`, etc.) muestran **"to 0 clients"** en los logs aunque el frontend SÍ está conectado al WebSocket. La UI **nunca se actualiza en tiempo real** sin recargar la página.
+
+### Causa raíz confirmada
+Existen **DOS instancias separadas** del ConnectionManager en memoria:
+
+| Archivo | Manager | Firma `broadcast` |
+|---|---|---|
+| `backend_api/websocket/manager.py` | Manager **VIEJO** — lista simple sin tenant | `broadcast(event_type, data)` ✅ existe |
+| `backend_api/services/websocket_manager.py` | Manager **NUEVO** — dict por tenant | `broadcast_to_tenant(msg, tenant_id)` ❌ no tiene `broadcast` simple |
+
+**El problema:**
+- El `router/websocket.py` importa desde `services/websocket_manager.py` → los frontends se registran en el manager NUEVO
+- `routers/config.py` (y otros routers) importan desde `websocket/manager.py` → los eventos se emiten al manager VIEJO
+- El manager VIEJO siempre tiene su lista vacía → "0 clients"
+
+### Archivos afectados
+```
+backend_api/routers/config.py       → from ..websocket.manager import manager  (VIEJO)
+backend_api/routers/products.py     → ¿importa manager? — verificar
+backend_api/routers/sales.py        → ¿importa manager? — verificar
+backend_api/routers/websocket.py    → from ..services.websocket_manager import manager  (NUEVO)
+backend_api/websocket/manager.py    → Manager VIEJO (borrar o unificar)
+backend_api/services/websocket_manager.py → Manager NUEVO (conservar)
+```
+
+### Fix propuesto
+1. **Unificar** en un solo manager: `services/websocket_manager.py` (el NUEVO con tenant)
+2. Agregar método `broadcast(event_type, data, tenant_id)` al manager NUEVO
+3. Actualizar todos los routers que emiten eventos para que:
+   - Importen desde `services/websocket_manager.py`
+   - Llamen `manager.broadcast_to_tenant(payload, current_tenant)` en lugar de `manager.broadcast(event_type, data)`
+4. Leer el `tenant_id` activo desde `get_tenant_schema()` en cada router
+5. Eliminar o deprecar `websocket/manager.py`
+
+### Impacto
+- Actualización en tiempo real de tasa de cambio ❌
+- Notificación de ventas ❌
+- Actualización de stock ❌
+- Cualquier evento broadcast al frontend ❌
+- El bridge C# (Hardware) NO está afectado — usa `send_to_client` del manager NUEVO directamente
+
+### Estado
+- [x] Bug diagnosticado y confirmado en QA y PROD (mismo código)
+- [ ] Fix pendiente de implementar en QA
+- [ ] Validar en QA
+- [ ] Deploy a PROD
+
+
+---
+
+## 📋 SESIÓN 2026-05-21 — Trabajo completado (pendiente de documentar en 10_Registro_Actualizaciones)
+
+### Inventario yaracall PROD — actualización masiva
+Archivo Excel subido con 716 productos. Se ejecutó en PROD directamente:
+
+1. **9 categorías nuevas creadas:**
+   BALANZAS, CAMARAS DE SEGURIDAD, DECORACION, ELECTRODOMESTICOS, HOGAR Y COCINA,
+   JUGUETES, MEMORIAS Y PENDRIVES, PISTOLAS DE JUGUETE, VIDRIOS TEMPLADOS
+
+2. **Categorías asignadas a los 716 productos** — 0 sin categoría.
+   Lógica: nombre del producto → categoría inferida automáticamente
+   (forros→FORROS, cable→CABLES, p.c-→PROTECTORES DE CAMARAS, vidrio→VIDRIOS TEMPLADOS, etc.)
+
+3. **Stock actualizado** en `products.stock` y `product_stocks.quantity` (warehouse_id=1)
+   para los 716 productos activos del tenant yaracall.
+
+4. **Alerta de stock mínimo = 2** para los 716 productos (`min_stock = 2`)
+
+5. **Nombres en MAYÚSCULAS** — 716 productos actualizados (`UPPER(name)`)
+
+### Excel generado
+- Archivo actualizado entregado al cliente con mismo formato, columnas y orden alfabético real (LOWER)
+- URL temporal usada: `https://api.miinventariofacil.com/media/inventario_actualizado_temp.xlsx`
+- **Pendiente borrar:** `rm /root/deploy/prod/data/media/inventario_actualizado_temp.xlsx`
+

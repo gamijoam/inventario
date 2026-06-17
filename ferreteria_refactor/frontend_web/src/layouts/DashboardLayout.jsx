@@ -39,7 +39,7 @@ export default function DashboardLayout() {
             {/* Mobile Overlay */}
             {isMobileMenuOpen && (
                 <div
-                    className="fixed inset-0 bg-black/50 z-40 md:hidden animate-in fade-in duration-200"
+                    className="fixed inset-0 bg-indigo-950/45 z-40 md:hidden animate-in fade-in duration-200"
                     onClick={closeMobileMenu}
                 />
             )}

@@ -5,7 +5,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { toast } from 'react-hot-toast';
 import apiClient from '../../config/axios';
 
-const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm }) => {
+const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm, title, subtitle }) => {
     const [serialInput, setSerialInput] = useState('');
     const [scannedSerials, setScannedSerials] = useState([]);
     const inputRef = useRef(null);
@@ -96,14 +96,15 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
     const progress = quantity > 0 ? (scannedSerials.length / quantity) * 100 : 100;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
+        <div id="tour-serial-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
 
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <div>
-                        <h3 className="text-lg font-bold text-slate-800">Escanear Seriales (IMEI)</h3>
+                        <h3 className="text-lg font-bold text-slate-800">{title || 'Escanear Seriales (IMEI)'}</h3>
                         <p className="text-xs text-slate-500 font-mono mt-0.5">{product.name}</p>
+                        {subtitle && <p className="text-xs text-indigo-500 font-bold mt-0.5">{subtitle}</p>}
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full text-slate-400 transition-colors">
                         <X size={20} />
@@ -130,7 +131,7 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
                     </div>
 
                     {/* Input Area */}
-                    <div className="relative mb-6">
+                    <div id="tour-serial-input" className="relative mb-6">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Search className="h-5 w-5 text-slate-400" />
                         </div>
@@ -160,7 +161,7 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
 
                     {/* Scanned List */}
                     {scannedSerials.length > 0 && (
-                        <div className="space-y-2">
+                        <div id="tour-serial-list" className="space-y-2">
                             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                                 Seriales Capturados ({scannedSerials.length})
                             </div>
@@ -204,6 +205,7 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
                         Cancelar
                     </button>
                     <button
+                        id="tour-serial-confirm"
                         onClick={handleConfirm}
                         disabled={quantity > 0 ? scannedSerials.length !== quantity : scannedSerials.length === 0}
                         className="

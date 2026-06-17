@@ -1,445 +1,234 @@
 /**
- * ConsolidatedDashboard.jsx
- * Sprint 3 — Multi-Empresa
- *
- * Vista consolidada del grupo empresarial: ventas del día por empresa,
- * gráfico comparativo, alertas de stock y acceso rápido a cada empresa.
- *
- * Ruta: /org/dashboard
- * Solo visible si el usuario pertenece a una organización con 2+ empresas.
+ * ConsolidatedDashboard.jsx - Vista consolidada del grupo empresarial
  */
-
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-    Building2, TrendingUp, AlertTriangle,
-    ArrowRight, RefreshCw, Trophy, ShoppingCart,
-    Package, ExternalLink, BarChart3, Loader2
+  Building2, ShoppingCart,
+  AlertTriangle, RefreshCw, ExternalLink, Trophy,
+  DollarSign, Store, Wifi, Activity
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-componentes
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * StatCard — Tarjeta de métrica principal (ventas totales, transacciones, etc.)
- */
-function StatCard({ icon: Icon, label, value, color = 'indigo', sub = null }) {
-    const colors = {
-        indigo : 'bg-indigo-50 text-indigo-600',
-        emerald: 'bg-emerald-50 text-emerald-600',
-        amber  : 'bg-amber-50  text-amber-600',
-        rose   : 'bg-rose-50   text-rose-600',
-    };
-    return (
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
-            <div className="flex items-center gap-3 mb-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colors[color]}`}>
-                    <Icon size={20} />
-                </div>
-                <p className="text-sm font-medium text-slate-500">{label}</p>
-            </div>
-            <p className="text-2xl font-black text-slate-900">{value}</p>
-            {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
+function KpiCard({ icon: Icon, label, value, color = 'indigo', sub }) {
+  const colors = {
+    indigo:  'bg-indigo-50 text-indigo-600 border-indigo-100',
+    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+    amber:   'bg-amber-50 text-amber-600 border-amber-100',
+    rose:    'bg-rose-50 text-rose-600 border-rose-100',
+  };
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+          <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
         </div>
-    );
-}
-
-/**
- * TenantRow — Fila de una empresa en la tabla de desempeño
- */
-function TenantRow({ tenant, rank, isBest }) {
-    // Barra de progreso proporcional al monto de ventas
-    const maxSales = 999999; // Se calculará dinámicamente desde el padre
-    return (
-        <div className={`
-            flex items-center gap-4 p-4 rounded-xl border transition-all
-            ${isBest
-                ? 'bg-amber-50 border-amber-200'
-                : 'bg-white border-slate-100 hover:border-indigo-200 hover:shadow-sm'}
-        `}>
-            {/* Ranking */}
-            <div className={`
-                w-8 h-8 rounded-full flex items-center justify-center text-sm font-black shrink-0
-                ${isBest ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-500'}
-            `}>
-                {isBest ? <Trophy size={14} /> : rank}
-            </div>
-
-            {/* Avatar de empresa */}
-            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center shrink-0">
-                <span className="text-sm font-black text-indigo-600">
-                    {tenant.name.charAt(0).toUpperCase()}
-                </span>
-            </div>
-
-            {/* Info empresa */}
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                    <p className="font-bold text-slate-800 truncate">{tenant.name}</p>
-                    {isBest && (
-                        <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full shrink-0">
-                            MEJOR HOY
-                        </span>
-                    )}
-                </div>
-                {/* Barra de progreso de ventas */}
-                <div className="flex items-center gap-2 mt-1.5">
-                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                            className={`h-full rounded-full transition-all duration-700 ${isBest ? 'bg-amber-400' : 'bg-indigo-400'}`}
-                            style={{ width: `${tenant._pct || 0}%` }}
-                        />
-                    </div>
-                    <p className="text-xs text-slate-400 font-mono shrink-0">
-                        {tenant.sales_count} tx
-                    </p>
-                </div>
-            </div>
-
-            {/* Monto de ventas */}
-            <div className="text-right shrink-0">
-                <p className="font-black text-slate-900 text-sm">
-                    ${Number(tenant.sales_today || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-                {tenant.low_stock > 0 && (
-                    <p className="text-[10px] text-rose-500 font-medium mt-0.5 flex items-center gap-1 justify-end">
-                        <AlertTriangle size={10} />
-                        {tenant.low_stock} bajo stock
-                    </p>
-                )}
-            </div>
-
-            {/* Botón ir a empresa */}
-            <a
-                href={`https://${tenant.schema_name}.miinventariofacil.com/#/`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 hover:bg-indigo-50 rounded-lg text-slate-300 hover:text-indigo-600 transition-colors shrink-0"
-                title={`Ir a ${tenant.name}`}
-            >
-                <ExternalLink size={16} />
-            </a>
+        <div className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${colors[color]}`}>
+          <Icon size={18} />
         </div>
-    );
+      </div>
+      {sub && <p className="text-xs text-slate-500 mt-2 truncate">{sub}</p>}
+    </div>
+  );
 }
-
-/**
- * BarChart — Gráfico de barras simple SVG para comparar ventas entre empresas
- */
-function BarChart({ data }) {
-    // No renderizar si no hay datos
-    if (!data || data.length === 0) return null;
-
-    const maxVal  = Math.max(...data.map(d => d.sales_today || 0), 1);
-    const barW    = Math.floor(100 / data.length) - 4; // % ancho por barra
-    const colors  = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981'];
-
-    return (
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-                <BarChart3 size={18} className="text-indigo-500" />
-                <h3 className="font-bold text-slate-700 text-sm">Ventas del día por empresa</h3>
-            </div>
-            {/* SVG gráfico de barras */}
-            <div className="flex items-end gap-2 h-32 px-2">
-                {data.map((d, i) => {
-                    const heightPct = ((d.sales_today || 0) / maxVal) * 100;
-                    const color     = colors[i % colors.length];
-                    return (
-                        <div key={d.schema_name} className="flex-1 flex flex-col items-center gap-1">
-                            {/* Valor encima de la barra */}
-                            <p className="text-[9px] font-bold text-slate-500 text-center">
-                                ${Number(d.sales_today || 0).toFixed(0)}
-                            </p>
-                            {/* Barra */}
-                            <div className="w-full flex items-end" style={{ height: '80px' }}>
-                                <div
-                                    className="w-full rounded-t-lg transition-all duration-700"
-                                    style={{
-                                        height    : `${Math.max(heightPct, 2)}%`,
-                                        backgroundColor: color,
-                                        opacity   : 0.85,
-                                    }}
-                                />
-                            </div>
-                            {/* Label empresa */}
-                            <p className="text-[9px] text-slate-400 text-center truncate w-full px-0.5">
-                                {d.name.split(' ')[0]}
-                            </p>
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Componente principal
-// ─────────────────────────────────────────────────────────────────────────────
 
 export default function ConsolidatedDashboard() {
-    const [summary, setSummary]     = useState(null);   // Datos del API
-    const [loading, setLoading]     = useState(true);
-    const [lastUpdate, setLastUpdate] = useState(null);
+  const [data, setData] = useState(null);
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [switching, setSwitching] = useState(null);
 
-    // Obtener el org_id desde las empresas guardadas en localStorage
-    const getOrgId = useCallback(() => {
-        try {
-            const stored = localStorage.getItem('org_companies');
-            if (!stored) return null;
-            const companies = JSON.parse(stored);
-            // El org_id no está en org_companies directamente,
-            // lo deducimos del endpoint /organizations/mine
-            return companies.length > 0 ? 'mine' : null;
-        } catch { return null; }
-    }, []);
-
-    /**
-     * fetchConsolidated — Carga los datos del dashboard consolidado.
-     * Primero obtiene las organizaciones del usuario, luego el dashboard de la primera.
-     */
-    const fetchConsolidated = useCallback(async () => {
-        setLoading(true);
-        try {
-            // 1. Obtener organización del usuario
-            const orgsRes = await apiClient.get('/organizations/mine');
-            const companies = orgsRes.data;
-
-            if (!companies || companies.length === 0) {
-                setSummary(null);
-                setLoading(false);
-                return;
-            }
-
-            // 2. Obtener el tenant_id actual para deducir el org_id
-            //    Buscamos la org a la que pertenece el tenant actual
-            const currentSchema = localStorage.getItem('selected_tenant');
-            const currentCompany = companies.find(c => c.schema_name === currentSchema)
-                                || companies[0];
-
-            // 3. Llamar al endpoint consolidado — necesitamos el org_id
-            //    Lo obtenemos del panel admin (solo superadmin) o inferimos del tenant
-            //    Para usuarios normales, usamos la lista de empresas + las llamamos individualmente
-            //    NOTA: El endpoint GET /organizations/{id}/consolidated requiere el org_id
-            //    En esta versión construimos el resumen con los datos que ya tenemos en
-            //    org_companies (ventas las cargamos para cada empresa por separado)
-            const dashRes = await apiClient.get('/organizations/consolidated-mine');
-            setSummary(dashRes.data);
-            setLastUpdate(new Date());
-
-        } catch (err) {
-            // Fallback: construir resumen básico desde org_companies
-            try {
-                const stored = localStorage.getItem('org_companies');
-                const companies = stored ? JSON.parse(stored) : [];
-                setSummary({
-                    organization_name  : 'Mi Grupo',
-                    total_sales_today  : 0,
-                    total_transactions : 0,
-                    best_tenant_name   : null,
-                    best_tenant_sales  : 0,
-                    total_low_stock    : 0,
-                    tenants            : companies.map(c => ({
-                        tenant_id   : c.tenant_id,
-                        schema_name : c.schema_name,
-                        name        : c.name,
-                        sales_today : 0,
-                        sales_count : 0,
-                        low_stock   : 0,
-                    }))
-                });
-            } catch {}
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    // Cargar al montar y refrescar cada 5 minutos
-    useEffect(() => {
-        fetchConsolidated();
-        const interval = setInterval(fetchConsolidated, 5 * 60 * 1000);
-        return () => clearInterval(interval);
-    }, [fetchConsolidated]);
-
-    // Calcular porcentaje de cada empresa para la barra de progreso
-    const tenantsWithPct = summary?.tenants?.map(t => ({
-        ...t,
-        _pct: summary.total_sales_today > 0
-            ? Math.round(((t.sales_today || 0) / summary.total_sales_today) * 100)
-            : 0,
-    })) || [];
-
-    // ── Render: cargando ──────────────────────────────────────────────────────
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-                <div className="text-center">
-                    <Loader2 size={40} className="text-indigo-500 animate-spin mx-auto mb-3" />
-                    <p className="text-slate-500 text-sm">Cargando datos del grupo...</p>
-                </div>
-            </div>
-        );
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const summaryRes = await apiClient.get('/organizations/consolidated-mine');
+      setData(summaryRes.data);
+      setCompanies(summaryRes.data?.tenants || []);
+    } catch (err) {
+      const message = err.response?.data?.detail || 'No se pudo cargar el dashboard empresarial';
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
     }
+  }, []);
 
-    // ── Render: sin organización ──────────────────────────────────────────────
-    if (!summary) {
-        return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-                <div className="text-center max-w-sm">
-                    <Building2 size={48} className="text-slate-300 mx-auto mb-4" />
-                    <h2 className="text-xl font-bold text-slate-700 mb-2">Sin organización activa</h2>
-                    <p className="text-slate-400 text-sm">
-                        No perteneces a ningún grupo empresarial o solo tienes una empresa.
-                        Contacta al administrador para agregar tu empresa a una organización.
-                    </p>
-                </div>
-            </div>
-        );
+  useEffect(() => { load(); }, [load]);
+
+  const handleEnter = async (company) => {
+    const schema = company.schema_name;
+    if (!schema) return toast.error('Empresa sin schema');
+    setSwitching(company.id || company.tenant_id);
+    try {
+      const r = await apiClient.post('/auth/switch-company', { target_schema: schema });
+      if (r.data?.access_token) localStorage.setItem('access_token', r.data.access_token);
+      if (r.data?.org_companies) {
+        localStorage.setItem('org_companies', JSON.stringify(r.data.org_companies));
+        localStorage.setItem('has_multiple_companies', r.data.org_companies.length > 1 ? 'true' : 'false');
+      }
+      const isQA = window.location.hostname.includes('.qa.');
+      const url = isQA
+        ? (r.data?.switch_url_qa || 'https://' + schema + '.qa.miinventariofacil.com/#/')
+        : (r.data?.switch_url_prod || r.data?.switch_url || 'https://' + schema + '.miinventariofacil.com/#/');
+      window.location.href = url;
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Error al acceder');
+    } finally {
+      setSwitching(null);
     }
+  };
 
-    // ── Render principal ──────────────────────────────────────────────────────
+  if (loading) return (
+    <div className="space-y-4">
+      <div className="h-32 animate-pulse rounded-lg border border-slate-200 bg-white shadow-sm" />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-28 animate-pulse rounded-lg border border-slate-200 bg-white shadow-sm" />)}
+      </div>
+      <div className="h-80 animate-pulse rounded-lg border border-slate-200 bg-white shadow-sm" />
+    </div>
+  );
+
+  const tenants = data?.tenants || companies;
+  const totalVentas = Number(data?.total_sales_today ?? tenants.reduce((s, t) => s + (parseFloat(t.sales_today) || 0), 0));
+  const totalTx = Number(data?.total_transactions ?? tenants.reduce((s, t) => s + (parseInt(t.sales_count ?? t.transactions_today, 10) || 0), 0));
+  const totalLowStock = Number(data?.total_low_stock ?? tenants.reduce((s, t) => s + (parseInt(t.low_stock ?? t.low_stock_alerts, 10) || 0), 0));
+  const bestTenant = [...tenants].sort((a, b) => (parseFloat(b.sales_today) || 0) - (parseFloat(a.sales_today) || 0))[0];
+  const avgTicket = totalTx > 0 ? totalVentas / totalTx : 0;
+
+  if (error && tenants.length === 0) {
     return (
-        <div className="min-h-screen bg-slate-50">
-            <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-
-                {/* ── Header ── */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <Building2 size={20} className="text-indigo-600" />
-                            <h1 className="text-xl font-black text-slate-900">
-                                {summary.organization_name}
-                            </h1>
-                        </div>
-                        <p className="text-sm text-slate-400">
-                            Vista consolidada del grupo •{' '}
-                            {lastUpdate
-                                ? `Actualizado ${lastUpdate.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}`
-                                : 'Hoy'}
-                        </p>
-                    </div>
-                    {/* Botón refrescar */}
-                    <button
-                        onClick={fetchConsolidated}
-                        disabled={loading}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 hover:text-indigo-600 transition-all"
-                    >
-                        <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-                        Refrescar
-                    </button>
-                </div>
-
-                {/* ── KPIs principales ── */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <StatCard
-                        icon={TrendingUp}
-                        label="Ventas hoy"
-                        value={`$${Number(summary.total_sales_today || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                        color="indigo"
-                        sub="Total del grupo"
-                    />
-                    <StatCard
-                        icon={ShoppingCart}
-                        label="Transacciones"
-                        value={summary.total_transactions || 0}
-                        color="emerald"
-                        sub="Ventas realizadas hoy"
-                    />
-                    <StatCard
-                        icon={Trophy}
-                        label="Mejor empresa"
-                        value={summary.best_tenant_name || '—'}
-                        color="amber"
-                        sub={summary.best_tenant_sales > 0
-                            ? `$${Number(summary.best_tenant_sales).toFixed(2)} hoy`
-                            : 'Sin ventas aún'}
-                    />
-                    <StatCard
-                        icon={AlertTriangle}
-                        label="Alertas stock"
-                        value={summary.total_low_stock || 0}
-                        color={summary.total_low_stock > 0 ? 'rose' : 'emerald'}
-                        sub="Productos bajo mínimo"
-                    />
-                </div>
-
-                {/* ── Gráfico + tabla side by side en desktop ── */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Gráfico de barras */}
-                    <BarChart data={tenantsWithPct} />
-
-                    {/* Resumen rápido de alertas */}
-                    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Package size={18} className="text-rose-500" />
-                            <h3 className="font-bold text-slate-700 text-sm">
-                                Alertas de stock por empresa
-                            </h3>
-                        </div>
-                        {tenantsWithPct.length === 0 ? (
-                            <p className="text-slate-400 text-sm text-center py-4">Sin datos</p>
-                        ) : (
-                            <div className="space-y-2">
-                                {tenantsWithPct.map(t => (
-                                    <div key={t.schema_name}
-                                         className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 bg-indigo-50 rounded-lg flex items-center justify-center">
-                                                <span className="text-[10px] font-black text-indigo-600">
-                                                    {t.name.charAt(0)}
-                                                </span>
-                                            </div>
-                                            <p className="text-sm text-slate-700 font-medium truncate max-w-[140px]">
-                                                {t.name}
-                                            </p>
-                                        </div>
-                                        {t.low_stock > 0 ? (
-                                            <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
-                                                {t.low_stock} alertas
-                                            </span>
-                                        ) : (
-                                            <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                                                ✓ OK
-                                            </span>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* ── Tabla de desempeño por empresa ── */}
-                <div>
-                    <div className="flex items-center gap-2 mb-3">
-                        <BarChart3 size={18} className="text-slate-400" />
-                        <h2 className="font-bold text-slate-700">Desempeño por empresa — hoy</h2>
-                        <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                            {tenantsWithPct.length} empresas
-                        </span>
-                    </div>
-                    <div className="space-y-2">
-                        {tenantsWithPct.length === 0 ? (
-                            <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center">
-                                <p className="text-slate-400 text-sm">No hay empresas en el grupo aún</p>
-                            </div>
-                        ) : (
-                            tenantsWithPct.map((tenant, idx) => (
-                                <TenantRow
-                                    key={tenant.schema_name}
-                                    tenant={tenant}
-                                    rank={idx + 1}
-                                    isBest={tenant.name === summary.best_tenant_name}
-                                />
-                            ))
-                        )}
-                    </div>
-                </div>
-
-            </div>
-        </div>
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center shadow-sm">
+        <AlertTriangle size={34} className="mx-auto mb-3 text-amber-600" />
+        <h2 className="text-lg font-black text-amber-950">No pudimos cargar el dashboard</h2>
+        <p className="mx-auto mt-1 max-w-lg text-sm font-semibold text-amber-800">{error}</p>
+        <button
+          onClick={load}
+          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-black text-amber-700 shadow-sm ring-1 ring-amber-100 hover:bg-amber-50"
+        >
+          <RefreshCw size={15} /> Reintentar
+        </button>
+      </div>
     );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="w-11 h-11 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-100 shrink-0">
+              <Building2 size={22} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-wide text-indigo-500">Operacion empresarial</p>
+              <h1 className="text-2xl font-black text-slate-950 truncate">{data?.organization_name || 'Dashboard consolidado'}</h1>
+              <p className="text-sm text-slate-500">Ventas, actividad y alertas de todas las empresas del grupo.</p>
+            </div>
+          </div>
+          <button
+            onClick={load}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-lg hover:bg-slate-50 text-sm font-bold transition-colors disabled:opacity-60"
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Actualizar
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800">
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <KpiCard icon={Building2} label="Empresas" value={tenants.length} color="indigo" sub="Locales activos" />
+        <KpiCard icon={DollarSign} label="Ventas hoy" value={`$${totalVentas.toFixed(2)}`} color="emerald" sub="Consolidado USD" />
+        <KpiCard icon={ShoppingCart} label="Tickets" value={totalTx} color="amber" sub="Transacciones hoy" />
+        <KpiCard icon={Activity} label="Ticket prom." value={`$${avgTicket.toFixed(2)}`} color="indigo" sub="Venta promedio" />
+        <KpiCard icon={AlertTriangle} label="Bajo stock" value={totalLowStock} color="rose" sub="Productos en alerta" />
+      </div>
+
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center">
+              <Store size={18} />
+            </div>
+            <div>
+              <h2 className="font-black text-slate-900">Empresas del grupo</h2>
+              <p className="text-xs text-slate-500">Ordenadas por ventas del dia.</p>
+            </div>
+          </div>
+          {bestTenant && (
+            <div className="inline-flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 text-xs font-black text-amber-700">
+              <Trophy size={14} /> Mejor local: {bestTenant.name}
+            </div>
+          )}
+        </div>
+
+        <div className="divide-y divide-slate-100">
+          {tenants.length === 0 && (
+            <div className="p-8 text-center text-sm text-slate-400">No hay empresas activas para mostrar.</div>
+          )}
+          {tenants.map((t, i) => {
+            const ventas = parseFloat(t.sales_today || 0);
+            const txs = parseInt(t.sales_count ?? t.transactions_today, 10) || 0;
+            const lowStock = parseInt(t.low_stock ?? t.low_stock_alerts, 10) || 0;
+            const isBest = bestTenant?.tenant_id === t.tenant_id || bestTenant?.id === t.id || bestTenant?.schema_name === t.schema_name;
+            const share = totalVentas > 0 ? Math.min(100, (ventas / totalVentas) * 100) : 0;
+            return (
+              <div key={t.tenant_id || t.id || i} className="p-4 transition-colors hover:bg-slate-50">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-black shrink-0 ${isBest ? 'bg-amber-500' : 'bg-indigo-500'}`}>
+                      {isBest ? <Trophy size={18} /> : t.name?.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-black text-slate-900 truncate">{t.name}</p>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{t.schema_name}</span>
+                      </div>
+                      <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden max-w-lg">
+                        <div className={`h-full rounded-full ${isBest ? 'bg-amber-500' : 'bg-indigo-500'}`} style={{ width: `${share}%` }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:w-[360px]">
+                    <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-3">
+                      <p className="text-[10px] text-emerald-600 font-black uppercase">Ventas</p>
+                      <p className="text-base font-black text-emerald-700">${ventas.toFixed(2)}</p>
+                    </div>
+                    <div className="rounded-lg bg-indigo-50 border border-indigo-100 p-3">
+                      <p className="text-[10px] text-indigo-600 font-black uppercase">Tickets</p>
+                      <p className="text-base font-black text-indigo-700">{txs}</p>
+                    </div>
+                    <div className={`rounded-lg border p-3 ${lowStock > 0 ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
+                      <p className={`text-[10px] font-black uppercase ${lowStock > 0 ? 'text-rose-600' : 'text-slate-400'}`}>Bajo stock</p>
+                      <p className={`text-base font-black ${lowStock > 0 ? 'text-rose-700' : 'text-slate-500'}`}>{lowStock}</p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleEnter(t)}
+                    disabled={switching === (t.id || t.tenant_id)}
+                    className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-bold text-white transition-all hover:bg-indigo-700 disabled:opacity-60 lg:self-center"
+                  >
+                    {switching === (t.id || t.tenant_id)
+                      ? <Wifi size={14} className="animate-pulse" />
+                      : <ExternalLink size={14} />}
+                    Entrar
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
 }

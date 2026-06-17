@@ -4,6 +4,7 @@ import { useConfig } from '../../context/ConfigContext';
 import { AlertTriangle, CheckCircle, TrendingUp, Calculator, X, Printer, Banknote, CreditCard, Coins, ArrowRight, Wallet } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import apiClient from '../../config/axios';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 import { Button } from '../ui/button';
 import { Separator } from '../ui/separator';
 
@@ -60,7 +61,7 @@ const CashClosingModal = ({ isOpen, onClose }) => {
             setSessionDetails(response.data);
         } catch (error) {
             console.error("Error fetching detailed closing info:", error);
-            toast.error("Error obteniendo detalles del sistema");
+            toast.error(getApiErrorMessage(error, 'No se pudieron obtener los detalles del sistema'));
         } finally {
             setLoadingDetails(false);
         }
@@ -134,7 +135,7 @@ const CashClosingModal = ({ isOpen, onClose }) => {
     } = details;
 
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200">
+        <div id="tour-cash-closing-modal" className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200">
             <div className="bg-white dark:bg-slate-950 rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[95vh] border border-slate-200 dark:border-slate-800">
 
                 {/* Header - PURE WHITE */}

@@ -62,21 +62,99 @@ def get_commissions_summary(
         for r in all_results
     ]
 
-@router.get("/details/{user_id}", response_model=List[schemas.CommissionLogRead])
+@router.get("/details/{user_id}")
 def get_user_commissions(
     user_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(has_role([UserRole.ADMIN]))
 ):
     """
-    Get detailed pending commissions for a specific user.
+    Get detailed pending commissions for a specific user, incluyendo método de pago de la venta.
     """
+    from sqlalchemy.orm import joinedload
     commissions = db.query(models.CommissionLog).filter(
         models.CommissionLog.user_id == user_id,
         models.CommissionLog.status == models.CommissionStatus.PENDING
     ).order_by(models.CommissionLog.created_at.desc()).all()
-    
-    return commissions
+
+    result = []
+    for c in commissions:
+        payment_methods = []
+        sale_currency = None
+        sale_total_usd = None
+        sale_total_bs = None
+        sale_exchange_rate = None
+        is_credit = False
+        financing_method = None
+        financing_level = None
+        financed_amount = None
+
+        if c.source_id:
+            # source_id es el ID del SaleDetail — buscar la venta a través de él
+            sale = None
+            if c.source_type == 'SALE' or c.source_type is None:
+                detail = db.query(models.SaleDetail).filter(
+                    models.SaleDetail.id == c.source_id
+                ).first()
+                if detail:
+                    sale = db.query(models.Sale).filter(models.Sale.id == detail.sale_id).first()
+                # Fallback: si no hay sale_detail, intentar directo
+                if not sale:
+                    sale = db.query(models.Sale).filter(models.Sale.id == c.source_id).first()
+
+            if sale:
+                # Pagos de la venta
+                payments = db.query(models.SalePayment).filter(
+                    models.SalePayment.sale_id == sale.id
+                ).all()
+                payment_methods = [p.payment_method for p in payments if p.payment_method]
+
+                sale_currency = sale.currency
+                sale_total_usd = float(sale.total_amount or 0)
+                sale_total_bs = float(sale.total_amount_bs or 0)
+                sale_exchange_rate = float(sale.exchange_rate_used or 1)
+                is_credit = bool(sale.is_credit)
+
+                # Financiamiento externo
+                if hasattr(sale, 'financer_name') and sale.financer_name:
+                    financing_method = sale.financer_name
+                    financing_level = getattr(sale, 'financer_payment_status', None)
+                    financed_amount = float(getattr(sale, 'financed_amount', 0) or 0)
+                elif is_credit:
+                    financing_method = "Crédito interno"
+                    financing_level = f"{sale.credit_installments or 0} cuotas" if sale.credit_installments else None
+                    financed_amount = float(sale.credit_installment_amount or 0) * int(sale.credit_installments or 0)
+
+        item = {
+            "id": c.id,
+            "user_id": c.user_id,
+            "amount": float(c.amount),
+            "currency": c.currency,
+            "source_type": c.source_type,
+            "source_id": c.source_id,
+            "source_reference": c.source_reference,
+            "status": c.status.value if hasattr(c.status, "value") else str(c.status),
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "paid_at": c.paid_at.isoformat() if c.paid_at else None,
+            "exchange_rate_snapshot": float(c.exchange_rate_snapshot) if c.exchange_rate_snapshot else None,
+            "amount_bs": float(c.amount_bs) if c.amount_bs else None,
+            "paid_in_bs": c.paid_in_bs or False,
+            "percentage_applied": float(c.percentage_applied) if c.percentage_applied else None,
+            "commission_role": c.commission_role,
+            # Datos de la venta
+            "payment_methods": payment_methods,
+            "sale_currency": sale_currency,
+            "sale_total_usd": sale_total_usd,
+            "sale_total_bs": sale_total_bs,
+            "sale_exchange_rate": sale_exchange_rate,
+            # Financiamiento
+            "is_credit": is_credit,
+            "financing_method": financing_method,
+            "financing_level": financing_level,
+            "financed_amount": financed_amount,
+        }
+        result.append(item)
+    return result
 
 @router.post("/payout")
 def payout_commissions(

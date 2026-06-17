@@ -5,35 +5,40 @@ import ExternalTransferOut from '../Transfers/ExternalTransferOut';
 import ExternalTransferIn from '../Transfers/ExternalTransferIn';
 
 const SUB_TABS = [
-  { key: 'internal', label: 'Internos',  icon: ArrowRightLeft },
-  { key: 'export',   label: 'Exportar',  icon: Upload },
-  { key: 'import',   label: 'Importar',  icon: Download },
+  { key: 'internal', label: 'Internos', icon: ArrowRightLeft, hint: 'Entre almacenes del mismo tenant' },
+  { key: 'export', label: 'Exportar', icon: Download, hint: 'Genera paquete y descuenta stock' },
+  { key: 'import', label: 'Importar', icon: Upload, hint: 'Recibe paquete de otra empresa' },
 ];
 
 const TransfersTab = () => {
   const [activeTab, setActiveTab] = useState('internal');
 
   return (
-    <div className="space-y-4">
-      {/* Sub-tab pill selector */}
-      <div className="flex items-center gap-1 p-1 bg-indigo-50 rounded-full w-fit">
-        {SUB_TABS.map(({ key, label, icon: Icon }) => {
+    <div id="tour-transfers-panel" className="space-y-4">
+      {/* Sub-tab selector */}
+      <div id="tour-transfers-modes" className="grid grid-cols-1 gap-2 md:grid-cols-3">
+        {SUB_TABS.map(({ key, label, icon: Icon, hint }) => {
           const isActive = activeTab === key;
           return (
             <button
               key={key}
+              id={`tour-transfers-mode-${key}`}
               onClick={() => setActiveTab(key)}
               className={`
-                flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium
-                transition-all duration-200
+                flex min-h-[68px] items-center gap-3 rounded-lg border px-4 text-left transition-colors
                 ${isActive
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-indigo-700 hover:bg-indigo-100'
+                  ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-100'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                 }
               `}
             >
-              <Icon size={16} />
-              {label}
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isActive ? 'bg-white/15' : 'bg-slate-100 text-slate-500'}`}>
+                <Icon size={18} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-bold">{label}</span>
+                <span className={`block text-xs ${isActive ? 'text-slate-200' : 'text-slate-500'}`}>{hint}</span>
+              </span>
             </button>
           );
         })}

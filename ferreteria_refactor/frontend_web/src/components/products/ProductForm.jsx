@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Bell, Warehouse, AlertCircle, ScanBarcode, Zap, Search, ChevronDown, Scissors, Snowflake, Shield, UtensilsCrossed, ChefHat } from 'lucide-react';
+import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Warehouse, AlertCircle, ScanBarcode, Zap, Search, ChevronDown, Scissors, Snowflake, Shield, UtensilsCrossed, ChefHat } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import apiClient from '../../config/axios';
@@ -45,6 +45,7 @@ import { Label } from '../../components/ui/label';
 import { Separator } from '../../components/ui/separator';
 import { Textarea } from '../../components/ui/textarea';
 import { normalizeSearch } from '../../utils/search';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 
 const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories = [], warehouses = [], exchangeRates = [] }) => {
     const { getActiveCurrencies, currencies, modules } = useConfig();
@@ -56,6 +57,21 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
     // We still need local state for priceLists as parent doesn't have it.
 
     const [priceLists, setPriceLists] = useState([]);
+    const [listPct, setListPct] = useState(45);
+
+    // Margen por defecto para "Calcular" — fetched desde /config (config-center).
+    // Si el setting existe y es válido, sobreescribe el 45 hardcoded.
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const { data } = await apiClient.get('/config/default_price_list_margin');
+                const v = parseFloat(data?.value);
+                if (!cancelled && Number.isFinite(v)) setListPct(v);
+            } catch (_) { /* fallback: mantener 45 si falla */ }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     // ── Crear categoría inline ────────────────────────────────────────────────
     const handleCreateCategory = async () => {
@@ -121,6 +137,20 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
     });
 
     const [isScanning, setIsScanning] = useState(false);
+    const [openSections, setOpenSections] = useState({
+        priceLists: false,
+        inventory: true,
+        imei: false,
+        units: false,
+        combo: true,
+        warranty: false,
+        discounts: false,
+        pharmacy: false,
+    });
+
+    const toggleSection = (section) => {
+        setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+    };
 
     // Category dropdown specific state
     const [isCategoryOpen, setIsCategoryOpen] = useState(false);
@@ -301,7 +331,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
             min_stock: parseFloat(formData.min_stock) || 0,
             exchange_rate_id: formData.exchange_rate_id ? parseInt(formData.exchange_rate_id) : null,
             warranty_policy_id: formData.warranty_policy_id ? parseInt(formData.warranty_policy_id) : null,
-            profit_margin: formData.profit_margin ? parseFloat(formData.profit_margin) : null,
+            profit_margin: formData.profit_margin ? Math.min(parseFloat(formData.profit_margin) || 0, 999.99) : null,
             discount_percentage: parseFloat(formData.discount_percentage) || 0,
             tax_rate: parseFloat(formData.tax_rate) || 0,
             is_service: formData.is_service || false,
@@ -312,11 +342,15 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
             commission_percentage: formData.commission_percentage ? parseFloat(formData.commission_percentage) : null,
             is_commissionable: formData.is_commissionable || false, // NEW: Commission flag
             units: formData.units.map(u => ({
+                // Incluir id solo si es un ID real del backend (no temporal)
+                ...(u.id && typeof u.id === 'number' && u.id <= 10_000_000 ? { id: u.id } : {}),
                 unit_name: u.unit_name,
                 conversion_factor: u.type === 'fraction' ? (u.user_input !== 0 ? 1 / parseFloat(u.user_input) : 0) : parseFloat(u.user_input),
                 barcode: u.barcode,
                 price_usd: parseFloat(u.price_usd) || null,
-                is_default: false,
+                cost_price: parseFloat(u.cost_price) || null,
+                profit_margin: u.profit_margin ? parseFloat(u.profit_margin) : null,
+                is_default: u.is_default || false,
                 exchange_rate_id: u.exchange_rate_id ? parseInt(u.exchange_rate_id) : null
             })),
             combo_items: formData.is_combo ? formData.combo_items.map(ci => ({ child_product_id: ci.child_product_id, quantity: parseFloat(ci.quantity), unit_id: ci.unit_id || null })) : [],
@@ -331,987 +365,1014 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
         onSubmit(payload);
     };
 
+
+    // ── Redondeo inteligente ──────────────────────────────────────────────────
+    // Si precio base ≤ 20 → redondear al entero más cercano
+    // Si precio base > 20 → redondear al múltiplo de 5 superior
+    const roundPrice = (value, basePrice = null) => {
+        const n = parseFloat(value);
+        if (isNaN(n) || n <= 0) return String(value);
+        const base = basePrice !== null ? parseFloat(basePrice) : n;
+        if (base <= 20) {
+            return Math.round(n).toFixed(2);
+        }
+        if (n % 5 === 0) return n.toFixed(2);
+        return (Math.ceil(n / 5) * 5).toFixed(2);
+    };
+    const needsRound = (value) => {
+        const n = parseFloat(value);
+        if (isNaN(n) || n <= 0) return false;
+        // Usar Math.round para evitar errores de punto flotante
+        return Math.round(n * 100) % (5 * 100) !== 0;
+    };
+
+
+    const productType = formData.is_service ? 'service' : formData.is_combo ? 'combo' : formData.has_imei ? 'serial' : 'physical';
+    const productTypeOptions = [
+        { key: 'physical', label: 'Fisico', desc: 'Stock normal', icon: Package },
+        { key: 'service', label: 'Servicio', desc: 'No descuenta stock', icon: Scissors },
+        { key: 'serial', label: 'Serial / IMEI', desc: 'Una unidad por serial', icon: ScanBarcode, show: modules.services },
+        { key: 'combo', label: 'Combo / kit', desc: 'Agrupa productos', icon: Layers },
+    ].filter(option => option.show !== false);
+
+    const setProductType = (type) => {
+        setFormData(prev => ({
+            ...prev,
+            is_service: type === 'service',
+            has_imei: type === 'serial',
+            is_combo: type === 'combo',
+            combo_items: type === 'combo' ? prev.combo_items : [],
+        }));
+    };
+
+    const costValue = parseFloat(formData.cost || 0) || 0;
+    const priceValue = parseFloat(formData.price || 0) || 0;
+    const marginValue = parseFloat(formData.profit_margin || 0) || 0;
+    const marginLabel = Number.isFinite(marginValue) ? `${marginValue.toFixed(2)}%` : '0.00%';
+    const profitValue = priceValue - costValue;
+    const priceWarnings = [
+        priceValue <= 0 ? 'El precio de venta esta en cero.' : null,
+        costValue > 0 && priceValue > 0 && costValue > priceValue ? 'El costo es mayor que el precio de venta.' : null,
+        marginValue < 0 ? 'El margen calculado es negativo.' : null,
+        formData.is_combo ? 'En combos, revisa que los componentes sostengan el costo real.' : null,
+        formData.is_service && costValue === 0 ? 'En servicios puedes dejar costo en cero si no aplica.' : null,
+    ].filter(Boolean);
+
+    const SwitchVisual = ({ checked }) => (
+        <span className={cn(
+            'relative h-5 w-9 shrink-0 rounded-full transition-colors',
+            checked ? 'bg-indigo-600' : 'bg-slate-200'
+        )}>
+            <span className={cn(
+                'absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
+                checked && 'translate-x-4'
+            )} />
+        </span>
+    );
+
+    const SectionHeader = ({ icon: Icon, label, color = 'text-slate-600', bg = 'bg-slate-100', children }) => (
+        <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+                <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center', bg)}>
+                    <Icon size={16} className={color} />
+                </div>
+                <h3 className="text-sm font-black text-slate-800 tracking-tight">{label}</h3>
+            </div>
+            {children}
+        </div>
+    );
+
+    const CollapsibleSection = ({ id, icon: Icon, label, summary, children, iconColor = 'text-indigo-600', iconBg = 'bg-indigo-100', subtle = false }) => {
+        const open = openSections[id];
+        return (
+            <div className={cn('overflow-hidden rounded-lg border bg-white shadow-sm', subtle ? 'border-slate-200' : 'border-slate-200')}>
+                <button
+                    type="button"
+                    onClick={() => toggleSection(id)}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 sm:px-5"
+                >
+                    <div className="flex min-w-0 items-center gap-3">
+                        <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', iconBg)}>
+                            <Icon size={16} className={iconColor} />
+                        </div>
+                        <div className="min-w-0">
+                            <h3 className="truncate text-sm font-black text-slate-800">{label}</h3>
+                            {summary && <p className="mt-0.5 truncate text-xs font-medium text-slate-500">{summary}</p>}
+                        </div>
+                    </div>
+                    <ChevronDown size={18} className={cn('shrink-0 text-slate-400 transition-transform', open && 'rotate-180 text-indigo-500')} />
+                </button>
+                {open && <div className="border-t border-slate-100">{children}</div>}
+            </div>
+        );
+    };
+
     return (
         <Sheet open={isOpen} onOpenChange={onClose}>
-            <SheetContent side="right" className="w-full sm:w-[90vw] sm:max-w-[1200px] flex flex-col p-0 gap-0 bg-slate-50">
+            <SheetContent side="right" className="w-full sm:w-[94vw] sm:max-w-[1180px] flex flex-col p-0 gap-0 border-l border-slate-200 bg-slate-50 shadow-2xl [&>button.absolute]:hidden">
 
-                {/* Header */}
-                <SheetHeader className="p-6 border-b border-slate-200 bg-white sticky top-0 z-10">
-                    <div className="flex items-center justify-between">
+                {/* ── Header fijo ─────────────────────────────────────────────── */}
+                <div className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 shadow-sm shadow-indigo-200">
+                            <Package size={18} className="text-white" />
+                        </div>
                         <div>
-                            <SheetTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                            <h2 className="truncate text-lg font-black text-slate-900 leading-none">
                                 {initialData ? 'Editar Producto' : 'Nuevo Producto'}
-                            </SheetTitle>
-                            <SheetDescription className="text-xs text-slate-500 mt-0.5">
-                                {initialData ? `Editando: ${initialData.name}` : 'Detalles del nuevo item'}
-                            </SheetDescription>
-                        </div>
-                        <div className="flex gap-3">
-                            <Button variant="ghost" onClick={onClose} className="text-slate-500 hover:text-slate-800">Cancelar</Button>
-                            <Button onClick={handleSubmit} className="bg-slate-900 hover:bg-slate-800 text-white min-w-[120px]">
-                                <Check className="mr-2" size={16} /> Guardar
-                            </Button>
-                        </div>
-                    </div>
-                </SheetHeader>
-
-                <Tabs defaultValue="main" className="flex-1 overflow-hidden flex flex-col">
-                    <div className="px-6 bg-white border-b border-slate-200 shadow-sm">
-                        <TabsList className="w-full justify-start h-10 bg-transparent p-0 gap-8">
-                            <TabsTrigger value="main" className="data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 rounded-none bg-transparent h-full px-0 font-bold text-slate-500 shadow-none text-sm transition-all">GENERAL</TabsTrigger>
-                            <TabsTrigger value="advanced" className="data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 rounded-none bg-transparent h-full px-0 font-bold text-slate-500 shadow-none text-sm transition-all flex items-center gap-1.5">
-                                AVANZADO
-                                {formData.is_combo && (
-                                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 leading-none">COMBO</span>
-                                )}
-                            </TabsTrigger>
-                            {initialData?.id && (
-                                <TabsTrigger value="precios" className="data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:text-amber-600 rounded-none bg-transparent h-full px-0 font-bold text-slate-500 shadow-none text-sm transition-all flex items-center gap-1.5">
-                                    <Zap size={12} />PRECIOS POR VOLUMEN
-                                </TabsTrigger>
+                            </h2>
+                            {initialData && (
+                                <p className="mt-1 max-w-[48vw] truncate text-xs font-bold text-slate-500">
+                                    Editando: {initialData.name}
+                                </p>
                             )}
-                        </TabsList>
+                        </div>
                     </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                        <Button variant="ghost" onClick={onClose} className="h-9 text-slate-500 hover:text-slate-700">
+                            Cancelar
+                        </Button>
+                        <Button
+                            onClick={handleSubmit}
+                            className="h-9 rounded-md bg-indigo-600 px-5 font-bold text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700"
+                        >
+                            <Check size={15} className="mr-1.5" /> Guardar
+                        </Button>
+                    </div>
+                </div>
 
-                    <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50/50">
-                        <TabsContent value="main" className="mt-0 space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            {/* IDENTITY SECTION: IMAGE + MAIN FIELDS */}
-                            <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
-                                <CardContent className="p-6">
-                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                                        {/* Left: Image Upload (Proportional) */}
-                                        <div className="lg:col-span-4 flex flex-col gap-3">
-                                            <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Imagen del Producto</Label>
-                                            <ProductImageUploader
-                                                productId={initialData?.id}
-                                                currentImageUrl={formData.image_url}
-                                                onImageUpdate={(newUrl) => setFormData(prev => ({ ...prev, image_url: newUrl }))}
-                                            />
+                {/* ── Body scrollable ─────────────────────────────────────────── */}
+                <div className="flex-1 overflow-y-auto overscroll-contain">
+                    <div className="mx-auto max-w-6xl space-y-4 px-4 py-5 pb-24 sm:px-6">
+
+                        {/* ══ SECCIÓN 1: Imagen + Identidad ════════════════════ */}
+                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="grid grid-cols-1 gap-5 p-4 sm:p-5 lg:grid-cols-[250px_minmax(0,1fr)]">
+
+                                {/* Imagen */}
+                                <div className="flex flex-col items-center justify-center">
+                                    <ProductImageUploader
+                                        currentImageUrl={formData.image_url}
+                                        currentImageOriginalUrl={formData.image_url_original}
+                                        productId={initialData?.id}
+                                        onImageUpdate={(url) => setFormData(p => ({ ...p, image_url: url }))}
+                                        onOriginalUpdate={(url) => setFormData(p => ({ ...p, image_url_original: url }))}
+                                    />
+                                </div>
+
+                                {/* Campos identidad */}
+                                <div className="space-y-4">
+                                    {/* Nombre */}
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                                            Nombre del Producto <span className="text-rose-500">*</span>
+                                        </label>
+                                        <Input
+                                            name="name"
+                                            value={formData.name}
+                                            onChange={handleInputChange}
+                                            placeholder="Ej: iPhone 15 Pro Max 256GB"
+                                            className="h-11 font-bold text-slate-800 border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20 text-base"
+                                        />
+                                    </div>
+
+                                    {/* SKU + Categoría */}
+                                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                                                SKU / Código
+                                            </label>
+                                            <div className="relative">
+                                                <Input
+                                                    name="sku"
+                                                    value={formData.sku}
+                                                    onChange={handleInputChange}
+                                                    placeholder="AGU-001"
+                                                    className="h-10 font-mono text-sm pr-9 border-slate-200"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsScanning(true)}
+                                                    className="absolute right-2 top-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                                                >
+                                                    <Barcode size={18} />
+                                                </button>
+                                            </div>
                                         </div>
 
-                                        {/* Right: Primary Info */}
-                                        <div className="lg:col-span-8 space-y-5">
-                                            <div className="space-y-1.5">
-                                                <Label htmlFor="name" className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Nombre del Producto <span className="text-rose-500">*</span></Label>
-                                                <Input
-                                                    id="name"
-                                                    name="name"
-                                                    value={formData.name}
-                                                    onChange={handleInputChange}
-                                                    placeholder="Ej. Martillo de Carpintero 16oz"
-                                                    className="h-11 text-lg font-bold border-slate-200 focus:ring-indigo-500 focus:border-indigo-500"
-                                                    autoFocus
-                                                />
+                                        <div>
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Categoría</label>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowNewCategoryInput(v => !v)}
+                                                    className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 transition-colors"
+                                                >
+                                                    + Nueva
+                                                </button>
                                             </div>
-
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">SKU / Código</Label>
-                                                    <div className="relative group">
-                                                        <Barcode className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={16} />
-                                                        <Input
-                                                            name="sku"
-                                                            value={formData.sku}
-                                                            onChange={handleInputChange}
-                                                            className="h-11 pl-10 pr-10 text-sm font-mono border-slate-200 bg-slate-50/30 focus:bg-white"
-                                                            placeholder="Escanea o escribe..."
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setIsScanning(true)}
-                                                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors"
-                                                            title="Escanear código de barras"
-                                                        >
-                                                            <ScanBarcode size={18} />
-                                                        </button>
-
-                                                        {isScanning && (
-                                                            <BarcodeScannerComponent
-                                                                onScanned={handleScanResult}
-                                                                onClose={() => setIsScanning(false)}
-                                                            />
-                                                        )}
-                                                    </div>
+                                            {showNewCategoryInput ? (
+                                                <div className="flex gap-1">
+                                                    <Input
+                                                        value={newCategoryName}
+                                                        onChange={e => setNewCategoryName(e.target.value)}
+                                                        placeholder="Nombre categoría"
+                                                        className="h-10 text-sm flex-1"
+                                                        onKeyDown={e => e.key === 'Enter' && handleCreateCategory()}
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        onClick={handleCreateCategory}
+                                                        disabled={savingCategory}
+                                                        className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white px-3"
+                                                    >
+                                                        {savingCategory ? '...' : <Check size={14} />}
+                                                    </Button>
                                                 </div>
-                                                <div className="space-y-1.5 relative">
-                                                    <div className="flex items-center justify-between">
-                                                        <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Categoría</Label>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => { setShowNewCategoryInput(v => !v); setIsCategoryOpen(false); }}
-                                                            title="Crear nueva categoría"
-                                                            className="flex items-center gap-1 text-[10px] text-indigo-600 hover:text-indigo-800 font-bold px-1.5 py-0.5 rounded-md hover:bg-indigo-50 transition-colors"
-                                                        >
-                                                            <Plus size={11} /> Nueva
-                                                        </button>
-                                                    </div>
-
-                                                    {/* Input inline para crear nueva categoría */}
-                                                    {showNewCategoryInput && (
-                                                        <div className="flex gap-1.5 mb-1.5">
-                                                            <Input
-                                                                autoFocus
-                                                                placeholder="Nombre de la categoría..."
-                                                                className="h-9 text-sm flex-1"
-                                                                value={newCategoryName}
-                                                                onChange={e => setNewCategoryName(e.target.value)}
-                                                                onKeyDown={e => {
-                                                                    if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(); }
-                                                                    if (e.key === 'Escape') { setShowNewCategoryInput(false); setNewCategoryName(''); }
-                                                                }}
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                onClick={handleCreateCategory}
-                                                                disabled={savingCategory || !newCategoryName.trim()}
-                                                                className="px-3 h-9 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap"
-                                                            >
-                                                                {savingCategory ? '...' : 'Guardar'}
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => { setShowNewCategoryInput(false); setNewCategoryName(''); }}
-                                                                className="px-2 h-9 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                                                            >
-                                                                <X size={14} />
-                                                            </button>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Custom Searchable Dropdown Button */}
+                                            ) : (
+                                                <div className="relative">
                                                     <button
                                                         type="button"
-                                                        onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-                                                        className="w-full h-11 px-3 text-left border rounded-lg bg-slate-50/30 border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-between"
+                                                        onClick={() => setIsCategoryOpen(v => !v)}
+                                                        className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm text-left flex items-center justify-between bg-white hover:border-indigo-400 transition-colors"
                                                     >
-                                                        <span className={formData.category_id ? "text-slate-900" : "text-slate-500"}>
-                                                            {formData.category_id
-                                                                ? categories.find(c => c.id.toString() === formData.category_id?.toString())?.name || 'Seleccionado'
-                                                                : 'Seleccionar categoría...'}
+                                                        <span className={cn('font-medium truncate', !formData.category_id && 'text-slate-400')}>
+                                                            {categories.find(c => c.id?.toString() === formData.category_id?.toString())?.name || 'Sin categoría'}
                                                         </span>
-                                                        <ChevronDown size={14} className="opacity-50" />
+                                                        <ChevronDown size={14} className="text-slate-400 flex-shrink-0 ml-2" />
                                                     </button>
-
-                                                    {/* Searchable Dropdown Menu */}
                                                     {isCategoryOpen && (
-                                                        <>
-                                                            <div
-                                                                className="fixed inset-0 z-40"
-                                                                onClick={() => setIsCategoryOpen(false)}
-                                                            />
-                                                            <div className="absolute top-16 left-0 w-full z-50 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                                                                <div className="p-2 border-b border-slate-100 sticky top-0 bg-white">
-                                                                    <div className="relative">
-                                                                        <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
-                                                                        <Input
-                                                                            autoFocus
-                                                                            placeholder="Buscar categoría..."
-                                                                            className="h-9 pl-8 text-sm bg-slate-50/50"
-                                                                            value={categorySearchTerm}
-                                                                            onChange={(e) => setCategorySearchTerm(e.target.value)}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                                <div className="max-h-60 overflow-y-auto p-1 custom-scrollbar">
-                                                                    <div
-                                                                        className="flex items-center px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
-                                                                        onClick={() => {
-                                                                            setFormData({ ...formData, category_id: null });
-                                                                            setIsCategoryOpen(false);
-                                                                        }}
-                                                                    >
-                                                                        -- Sin Categoría --
-                                                                    </div>
-                                                                    {categories
-                                                                        .filter(c => normalizeSearch(c.name).includes(normalizeSearch(categorySearchTerm)))
-                                                                        .map(c => {
-                                                                            const isSelected = formData.category_id?.toString() === c.id.toString();
-                                                                            return (
-                                                                                <div
-                                                                                    key={c.id}
-                                                                                    className={cn(
-                                                                                        "flex items-center justify-between px-3 py-2 text-sm rounded-lg cursor-pointer transition-colors font-medium",
-                                                                                        isSelected ? "bg-indigo-50 text-indigo-700" : "text-slate-700 hover:bg-slate-100"
-                                                                                    )}
-                                                                                    onClick={() => {
-                                                                                        setFormData({ ...formData, category_id: c.id.toString() });
-                                                                                        setIsCategoryOpen(false);
-                                                                                    }}
-                                                                                >
-                                                                                    {c.name}
-                                                                                    {isSelected && <Check size={14} className="text-indigo-600" />}
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    {categories.filter(c => normalizeSearch(c.name).includes(normalizeSearch(categorySearchTerm))).length === 0 && (
-                                                                        <div className="p-3 text-center text-sm text-slate-400 italic">No se encontraron resultados</div>
-                                                                    )}
-                                                                </div>
+                                                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                                                            <div className="p-2 border-b border-slate-100">
+                                                                <Input
+                                                                    placeholder="Buscar..."
+                                                                    value={categorySearchTerm}
+                                                                    onChange={e => setCategorySearchTerm(e.target.value)}
+                                                                    className="h-8 text-xs"
+                                                                    autoFocus
+                                                                />
                                                             </div>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Combo Toggle */}
-                                            <div className={cn(
-                                                "hidden flex items-center gap-4 p-4 rounded-xl transition-all border",
-                                                formData.is_combo
-                                                    ? "bg-violet-50 border-violet-200 ring-1 ring-violet-500/10"
-                                                    : "bg-slate-50 border-slate-100 hover:border-slate-200"
-                                            )}>
-                                                <div className={cn(
-                                                    "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
-                                                    formData.is_combo ? "bg-violet-600 text-white" : "bg-slate-200 text-slate-400"
-                                                )}>
-                                                    <Layers size={20} />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className="flex items-center justify-between">
-                                                        <Label htmlFor="is_combo" className="text-sm font-bold text-slate-800 cursor-pointer">Es un combo</Label>
-                                                        <input
-                                                            type="checkbox"
-                                                            id="is_combo"
-                                                            checked={formData.is_combo || false}
-                                                            onChange={(e) => setFormData(p => ({ ...p, is_combo: e.target.checked, combo_items: e.target.checked ? p.combo_items : [] }))}
-                                                            className="sr-only peer"
-                                                        />
-                                                        <div
-                                                            onClick={() => setFormData(p => ({ ...p, is_combo: !p.is_combo, combo_items: !p.is_combo ? p.combo_items : [] }))}
-                                                            className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600 peer-checked:after:translate-x-5"
-                                                        ></div>
-                                                    </div>
-                                                    <p className="text-[11px] text-slate-500 mt-0.5">Agrupa varios productos. El stock se calcula desde sus componentes en la pestaña Avanzado.</p>
-                                                </div>
-                                            </div>
-
-                                            {/* Service Toggle - Integrated and clear */}
-                                            <div className={cn(
-                                                "flex items-center gap-4 p-4 rounded-xl transition-all border",
-                                                formData.is_service
-                                                    ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-500/10"
-                                                    : "bg-slate-50 border-slate-100 hover:border-slate-200"
-                                            )}>
-                                                <div className={cn(
-                                                    "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
-                                                    formData.is_service ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-400"
-                                                )}>
-                                                    <Package size={20} />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className="flex items-center justify-between">
-                                                        <Label htmlFor="is_service" className="text-sm font-bold text-slate-800 cursor-pointer">Es un servicio</Label>
-                                                        <input
-                                                            type="checkbox"
-                                                            id="is_service"
-                                                            checked={formData.is_service || false}
-                                                            onChange={(e) => setFormData({ ...formData, is_service: e.target.checked })}
-                                                            className="sr-only peer"
-                                                        />
-                                                        <div
-                                                            onClick={() => setFormData(p => ({ ...p, is_service: !p.is_service }))}
-                                                            className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 peer-checked:after:translate-x-5"
-                                                        ></div>
-                                                    </div>
-                                                    <p className="text-[11px] text-slate-500 mt-0.5">No descontará stock ni requiere gestión de almacenes.</p>
-                                                </div>
-                                            </div>
-
-                                            {/* Restaurant Module Flag (Conditional) */}
-                                            {modules?.restaurant && (
-                                                <div className={cn(
-                                                    "flex items-center gap-4 p-4 rounded-xl transition-all border",
-                                                    formData.is_menu_item
-                                                        ? "bg-orange-50 border-orange-200 ring-1 ring-orange-500/10"
-                                                        : "bg-slate-50 border-slate-100 hover:border-slate-200"
-                                                )}>
-                                                    <div className={cn(
-                                                        "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
-                                                        formData.is_menu_item ? "bg-orange-600 text-white" : "bg-slate-200 text-slate-400"
-                                                    )}>
-                                                        <UtensilsCrossed size={20} />
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center justify-between">
-                                                            <Label htmlFor="is_menu_item" className="text-sm font-bold text-slate-800 cursor-pointer">Item de Menú (Restaurante)</Label>
-                                                            <input
-                                                                type="checkbox"
-                                                                id="is_menu_item"
-                                                                checked={formData.is_menu_item || false}
-                                                                onChange={(e) => setFormData({ ...formData, is_menu_item: e.target.checked })}
-                                                                className="sr-only peer"
-                                                            />
-                                                            <div
-                                                                onClick={() => setFormData(p => ({ ...p, is_menu_item: !p.is_menu_item }))}
-                                                                className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600 peer-checked:after:translate-x-5"
-                                                            ></div>
-                                                        </div>
-                                                        <p className="text-[11px] text-slate-500 mt-0.5">Aparecerá en el Menú y Recetas del Restaurante.</p>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* needs_kitchen: Only if restaurant module active, is_menu_item, AND category is NOT no-kitchen */}
-                                            {modules?.restaurant && formData.is_menu_item && !categories.find(c => c.id?.toString() === formData.category_id?.toString())?.is_no_kitchen_category && (
-                                                <div className={cn(
-                                                    "flex items-center gap-4 p-4 rounded-xl transition-all border",
-                                                    formData.needs_kitchen
-                                                        ? "bg-amber-50 border-amber-200 ring-1 ring-amber-500/10"
-                                                        : "bg-slate-50 border-slate-100 hover:border-slate-200"
-                                                )}>
-                                                    <div className={cn(
-                                                        "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
-                                                        formData.needs_kitchen ? "bg-amber-600 text-white" : "bg-slate-200 text-slate-400"
-                                                    )}>
-                                                        <ChefHat size={20} />
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center justify-between">
-                                                            <Label htmlFor="needs_kitchen" className="text-sm font-bold text-slate-800 cursor-pointer">Necesita cocina</Label>
-                                                            <input
-                                                                type="checkbox"
-                                                                id="needs_kitchen"
-                                                                checked={!!formData.needs_kitchen}
-                                                                onChange={(e) => setFormData({ ...formData, needs_kitchen: e.target.checked })}
-                                                                className="sr-only peer"
-                                                            />
-                                                            <div
-                                                                onClick={() => setFormData(p => ({ ...p, needs_kitchen: !p.needs_kitchen }))}
-                                                                className={cn(
-                                                                    "w-11 h-6 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-all",
-                                                                    formData.needs_kitchen
-                                                                        ? "bg-amber-600 after:translate-x-5"
-                                                                        : "bg-slate-200"
-                                                                )}
-                                                            ></div>
-                                                        </div>
-                                                        <p className="text-[11px] text-slate-500 mt-0.5">Si está activo, el item pasará por cocina. Los de categoría "sin cocina" no muestran esto.</p>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Barbershop Service Options (Only if Service & Barbershop Module active) */}
-                                            {(formData.is_service && modules?.barbershop) && (
-                                                <div className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-2 mt-4 inline-block w-full">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
-                                                                <Scissors size={18} />
-                                                            </div>
-                                                            <div>
-                                                                <Label className="text-sm font-bold text-slate-800">Servicio de Barbería / Salón</Label>
-                                                                <p className="text-[11px] text-slate-500 mt-0.5">Habilita asignar este servicio a un profesional en el POS.</p>
-                                                            </div>
-                                                        </div>
-                                                        <div
-                                                            onClick={() => setFormData(p => ({ ...p, is_barbershop_service: !p.is_barbershop_service }))}
-                                                            className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600 peer-checked:after:translate-x-5"
-                                                            style={{ backgroundColor: formData.is_barbershop_service ? '#10b981' : '' }}
-                                                        ></div>
-                                                    </div>
-
-                                                    {formData.is_barbershop_service && (
-                                                        <div className="grid grid-cols-2 gap-4 mt-2">
-                                                            <div>
-                                                                <Label className="text-xs text-slate-600 font-medium mb-1 inline-block">Comisión Fija ($)</Label>
-                                                                <div className="relative">
-                                                                    <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                                                                    <Input
-                                                                        type="number"
-                                                                        className="pl-9 h-9 text-sm"
-                                                                        placeholder="Ej. 10.00"
-                                                                        value={formData.commission_amount}
-                                                                        onChange={e => setFormData({ ...formData, commission_amount: e.target.value })}
-                                                                    />
-                                                                </div>
-                                                                <p className="text-[10px] text-slate-400 mt-1">Opcional. Tiene prioridad sobre %.</p>
-                                                            </div>
-                                                            <div>
-                                                                <Label className="text-xs text-slate-600 font-medium mb-1 inline-block">Comisión Porcentaje (%)</Label>
-                                                                <div className="relative">
-                                                                    <Input
-                                                                        type="number"
-                                                                        className="pr-8 h-9 text-sm"
-                                                                        placeholder="Ej. 40"
-                                                                        value={formData.commission_percentage}
-                                                                        onChange={e => setFormData({ ...formData, commission_percentage: e.target.value })}
-                                                                    />
-                                                                    <span className="absolute right-3 top-2 text-slate-400 font-medium text-sm">%</span>
-                                                                </div>
-                                                                <p className="text-[10px] text-slate-400 mt-1">Opcional. Ignora % base del empleado.</p>
+                                                            <div className="max-h-40 overflow-y-auto">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => { setFormData(p => ({ ...p, category_id: null })); setIsCategoryOpen(false); }}
+                                                                    className="w-full px-3 py-2 text-xs text-left hover:bg-slate-50 text-slate-400 italic"
+                                                                >
+                                                                    Sin categoría
+                                                                </button>
+                                                                {categories
+                                                                    .filter(c => !categorySearchTerm || normalizeSearch(c.name).includes(normalizeSearch(categorySearchTerm)))
+                                                                    .map(c => (
+                                                                        <button
+                                                                            key={c.id}
+                                                                            type="button"
+                                                                            onClick={() => { setFormData(p => ({ ...p, category_id: c.id?.toString() })); setIsCategoryOpen(false); setCategorySearchTerm(''); }}
+                                                                            className={cn(
+                                                                                'w-full px-3 py-2 text-xs text-left hover:bg-indigo-50 hover:text-indigo-700 font-medium transition-colors',
+                                                                                formData.category_id?.toString() === c.id?.toString() && 'bg-indigo-50 text-indigo-700 font-bold'
+                                                                            )}
+                                                                        >
+                                                                            {c.name}
+                                                                        </button>
+                                                                    ))
+                                                                }
                                                             </div>
                                                         </div>
                                                     )}
                                                 </div>
                                             )}
+                                        </div>
+                                    </div>
 
-                                            {/* Serial/IMEI Toggle - Only if Services Module is Active */}
-                                            {modules.services && (
-                                                <div className={cn(
-                                                    "flex items-center gap-4 p-4 rounded-xl transition-all border",
-                                                    formData.has_imei
-                                                        ? "bg-blue-50 border-blue-200 ring-1 ring-blue-500/10"
-                                                        : "bg-slate-50 border-slate-100 hover:border-slate-200"
-                                                )}>
-                                                    <div className={cn(
-                                                        "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
-                                                        formData.has_imei ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-400"
-                                                    )}>
-                                                        <ScanBarcode size={20} />
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center justify-between">
-                                                            <Label htmlFor="has_imei" className="text-sm font-bold text-slate-800 cursor-pointer">Maneja Seriales / IMEI</Label>
-                                                            <input
-                                                                type="checkbox"
-                                                                id="has_imei"
-                                                                checked={formData.has_imei || false}
-                                                                onChange={(e) => setFormData({ ...formData, has_imei: e.target.checked })}
-                                                                className="sr-only peer"
-                                                            />
-                                                            <div
-                                                                onClick={() => setFormData(p => ({ ...p, has_imei: !p.has_imei }))}
-                                                                className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 peer-checked:after:translate-x-5"
-                                                            ></div>
+                                    <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+                                        <div className="mb-3 flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Tipo de producto</p>
+                                                <p className="mt-0.5 text-xs font-medium text-slate-500">Define stock, seriales y opciones visibles.</p>
+                                            </div>
+                                            <span className="shrink-0 rounded-md border border-indigo-200 bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wider text-indigo-600">
+                                                {productTypeOptions.find(option => option.key === productType)?.label || 'Fisico'}
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+                                            {productTypeOptions.map(option => {
+                                                const Icon = option.icon;
+                                                const active = productType === option.key;
+                                                return (
+                                                    <button
+                                                        key={option.key}
+                                                        type="button"
+                                                        onClick={() => setProductType(option.key)}
+                                                        className={cn(
+                                                            'min-h-[76px] rounded-lg border p-3 text-left transition-all',
+                                                            active
+                                                                ? 'border-indigo-500 bg-white shadow-sm ring-2 ring-indigo-500/15'
+                                                                : 'border-slate-200 bg-white/80 hover:border-indigo-200 hover:bg-white'
+                                                        )}
+                                                    >
+                                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                                            <span className={cn(
+                                                                'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
+                                                                active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'
+                                                            )}>
+                                                                <Icon size={15} />
+                                                            </span>
+                                                            <span className={cn(
+                                                                'h-2.5 w-2.5 rounded-full',
+                                                                active ? 'bg-indigo-600' : 'bg-slate-200'
+                                                            )} />
                                                         </div>
-                                                        <p className="text-[11px] text-slate-500 mt-0.5">Requiere registrar serial único al vender o comprar.</p>
-                                                    </div>
-                                                </div>
-                                            )}
+                                                        <p className={cn('truncate text-[12px] font-black', active ? 'text-slate-900' : 'text-slate-600')}>{option.label}</p>
+                                                        <p className="mt-0.5 truncate text-[10px] font-bold text-slate-400">{option.desc}</p>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
 
-                                            {/* Commission Toggle - Always visible */}
-                                            <div className={cn(
-                                                "flex items-center gap-4 p-4 rounded-xl transition-all border",
-                                                formData.is_commissionable
-                                                    ? "bg-green-50 border-green-200 ring-1 ring-green-500/10"
-                                                    : "bg-slate-50 border-slate-100 hover:border-slate-200"
-                                            )}>
-                                                <div className={cn(
-                                                    "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
-                                                    formData.is_commissionable ? "bg-green-600 text-white" : "bg-slate-200 text-slate-400"
-                                                )}>
-                                                    <DollarSign size={20} />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className="flex items-center justify-between">
-                                                        <Label htmlFor="is_commissionable" className="text-sm font-bold text-slate-800 cursor-pointer">Aplica Comisión</Label>
-                                                        <input
-                                                            type="checkbox"
-                                                            id="is_commissionable"
-                                                            checked={formData.is_commissionable || false}
-                                                            onChange={(e) => setFormData({ ...formData, is_commissionable: e.target.checked })}
-                                                            className="sr-only peer"
-                                                        />
-                                                        <div
-                                                            onClick={() => setFormData(p => ({ ...p, is_commissionable: !p.is_commissionable }))}
-                                                            className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600 peer-checked:after:translate-x-5"
-                                                        ></div>
-                                                    </div>
-                                                    <p className="text-[11px] text-slate-500 mt-0.5">Al venderse generará comisión automática para el cajero.</p>
-                                                </div>
+                                        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2">
+                                            <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Comportamiento adicional</p>
+                                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                                                {[
+                                                    { key: 'is_menu_item', label: 'Item de menu', desc: 'Disponible para restaurante', icon: UtensilsCrossed, show: modules?.restaurant },
+                                                    { key: 'is_commissionable', label: 'Aplica comision', desc: 'Calcula pago al cajero', icon: DollarSign },
+                                                ].filter(option => option.show !== false).map(option => {
+                                                    const Icon = option.icon;
+                                                    const active = !!formData[option.key];
+                                                    return (
+                                                        <button
+                                                            key={option.key}
+                                                            type="button"
+                                                            onClick={() => setFormData(prev => ({ ...prev, [option.key]: !prev[option.key] }))}
+                                                            className={cn(
+                                                                'flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-all',
+                                                                active ? 'border-indigo-200 bg-indigo-50/70' : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+                                                            )}
+                                                        >
+                                                            <span className="flex min-w-0 items-center gap-2.5">
+                                                                <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', active ? 'bg-indigo-600 text-white' : 'bg-white text-slate-400')}>
+                                                                    <Icon size={14} />
+                                                                </span>
+                                                                <span className="min-w-0">
+                                                                    <span className="block truncate text-[12px] font-black text-slate-700">{option.label}</span>
+                                                                    <span className="block truncate text-[10px] font-bold text-slate-400">{option.desc}</span>
+                                                                </span>
+                                                            </span>
+                                                            <SwitchVisual checked={active} />
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
-
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* SECTION 2: PRICES & COSTS (Unified Row) */}
-                            <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
-                                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
-                                            <DollarSign size={18} />
-                                        </div>
-                                        <h4 className="text-sm font-bold text-slate-800">Precios y Márgenes</h4>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Moneda Base:</span>
-                                        <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">{anchorCurrency.symbol} {anchorCurrency.name || 'USD'}</span>
                                     </div>
                                 </div>
-                                <CardContent className="p-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-                                        {/* Net Cost */}
-                                        <div className="space-y-1.5">
-                                            <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Costo Neto</Label>
-                                            <div className="relative group">
-                                                <span className="absolute left-3 top-3 text-slate-400 group-focus-within:text-blue-500 font-bold">$</span>
+                            </div>
+                        </div>
+
+                        {/* ══ SECCIÓN 2: PRECIOS — Unificado ═══════════════════ */}
+                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                                <SectionHeader icon={DollarSign} label="Precios" color="text-emerald-600" bg="bg-emerald-100" />
+                                <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                    <span className={cn('rounded-md border px-2 py-1', priceValue > 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-600' : 'border-amber-200 bg-amber-50 text-amber-600')}>
+                                        Precio {priceValue > 0 ? 'listo' : 'pendiente'}
+                                    </span>
+                                    <span className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-indigo-600">
+                                        {anchorCurrency.symbol} {anchorCurrency.name || 'USD'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="space-y-4 p-4 sm:p-5">
+                                <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[1.15fr_0.85fr]">
+                                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3">
+                                        <div className="mb-3 flex items-center justify-between gap-3">
+                                            <div>
+                                                <label className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-600">
+                                                    <Calculator size={10} /> Precio de venta
+                                                </label>
+                                                <p className="mt-0.5 text-xs font-medium text-emerald-700/70">Precio base del POS y catalogo.</p>
+                                            </div>
+                                            {needsRound(formData.price) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const rounded = roundPrice(formData.price);
+                                                        const price = parseFloat(rounded);
+                                                        const cost = parseFloat(formData.cost) || 0;
+                                                        const margin = cost > 0
+                                                            ? (useGrossMargin ? ((1 - cost/price)*100) : ((price-cost)/cost*100))
+                                                            : 0;
+                                                        setFormData(p => ({ ...p, price: rounded, profit_margin: margin.toFixed(2) }));
+                                                    }}
+                                                    className="shrink-0 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-600 transition-all hover:bg-amber-100"
+                                                >
+                                                    Redondear
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="relative">
+                                            <span className={cn('absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-black', priceValue > 0 ? 'text-emerald-500' : 'text-slate-300')}>$</span>
+                                            <Input
+                                                type="number"
+                                                name="price"
+                                                value={formData.price || ''}
+                                                onChange={handleInputChange}
+                                                onFocus={e => e.target.select()}
+                                                step="0.01"
+                                                className={cn(
+                                                    'h-12 border-2 pl-10 text-right text-2xl font-black transition-all',
+                                                    priceValue > 0
+                                                        ? 'border-emerald-400/40 bg-white text-emerald-600'
+                                                        : 'border-slate-200 bg-white text-slate-400'
+                                                )}
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleSection('priceLists')}
+                                                className="flex items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-white/80 px-3 py-2 text-left transition-colors hover:bg-white"
+                                            >
+                                                <span className="min-w-0">
+                                                    <span className="block truncate text-[11px] font-black uppercase tracking-wider text-emerald-700">Listas de precios</span>
+                                                    <span className="block truncate text-[10px] font-bold text-slate-400">{priceLists.length} configuradas</span>
+                                                </span>
+                                                <ChevronDown size={14} className={cn('shrink-0 text-emerald-500 transition-transform', openSections.priceLists && 'rotate-180')} />
+                                            </button>
+                                            <div className="rounded-lg border border-emerald-200 bg-white/80 px-3 py-2">
+                                                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Base actual</p>
+                                                <p className="text-sm font-black text-slate-800">${priceValue.toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Costo neto</label>
+                                            <div className="relative mt-1.5">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">$</span>
                                                 <Input
                                                     type="number"
                                                     name="cost"
                                                     value={formData.cost || ''}
                                                     onChange={handleInputChange}
-                                                    onFocus={(e) => e.target.select()}
+                                                    onFocus={e => e.target.select()}
                                                     step="0.01"
-                                                    className="pl-8 h-11 text-lg font-bold text-slate-700 border-slate-200 bg-slate-50/30 focus:bg-white"
+                                                    className={cn('h-10 border-slate-200 pl-7 font-bold', costValue > priceValue && priceValue > 0 ? 'bg-rose-50 text-rose-600' : 'text-slate-700')}
                                                     placeholder="0.00"
                                                 />
                                             </div>
                                         </div>
-
-                                        {/* Margin - Colored state */}
-                                        <div className="space-y-1.5">
-                                            <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Margen (%)</Label>
-                                            <div className="relative group">
+                                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Margen</label>
+                                            <div className="relative mt-1.5">
                                                 <Input
                                                     type="number"
                                                     name="profit_margin"
                                                     value={formData.profit_margin || ''}
                                                     onChange={handleInputChange}
-                                                    onFocus={(e) => e.target.select()}
+                                                    onFocus={e => e.target.select()}
                                                     step="0.01"
-                                                    className={cn(
-                                                        "h-11 text-center text-lg font-extrabold pr-8 border-slate-200 transition-colors",
-                                                        parseFloat(formData.profit_margin) < 0 ? "text-rose-600 bg-rose-50" : "text-indigo-600 bg-indigo-50/50"
-                                                    )}
-                                                    placeholder="0.00"
+                                                    className={cn('h-10 pr-7 text-center font-black border-slate-200', marginValue < 0 ? 'bg-rose-50 text-rose-600' : 'bg-indigo-50/60 text-indigo-600')}
+                                                    placeholder="0"
                                                 />
-                                                <span className="absolute right-3 top-3 text-slate-400 font-bold">%</span>
+                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 font-bold text-slate-400">%</span>
                                             </div>
                                         </div>
+                                        <div className="rounded-lg border border-slate-200 bg-white p-3">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Utilidad estimada</p>
+                                            <p className={cn('mt-1 text-lg font-black', profitValue < 0 ? 'text-rose-600' : 'text-slate-800')}>${profitValue.toFixed(2)}</p>
+                                            <p className="text-[10px] font-bold text-slate-400">Margen: {marginLabel}</p>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                        {/* Computed Sales Price - The Hero */}
-                                        <div className="md:col-span-2 space-y-1.5">
-                                            <Label className="text-[10px] uppercase tracking-wider text-emerald-600 font-black flex items-center gap-1">
-                                                Precio de Venta Sugerido
-                                                <Calculator size={10} />
-                                            </Label>
-                                            <div className="relative group">
-                                                <span className={cn(
-                                                    "absolute left-4 top-3 text-2xl font-black transition-colors",
-                                                    parseFloat(formData.price) > 0 ? "text-emerald-500" : "text-slate-300"
-                                                )}>$</span>
-                                                <Input
-                                                    type="number"
-                                                    name="price"
-                                                    value={formData.price || ''}
-                                                    onChange={handleInputChange}
-                                                    onFocus={(e) => e.target.select()}
-                                                    step="0.01"
-                                                    className={cn(
-                                                        "pl-10 h-14 text-3xl font-black transition-all text-right border-2",
-                                                        parseFloat(formData.price) > 0
-                                                            ? "text-emerald-600 border-emerald-500/20 bg-emerald-50/30"
-                                                            : "text-slate-400 border-slate-200 bg-slate-50/50 grayscale opacity-70"
-                                                    )}
-                                                    placeholder="0.00"
-                                                />
+                                {priceWarnings.length > 0 && (
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+                                        <div className="flex items-start gap-2">
+                                            <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-500" />
+                                            <div className="space-y-1">
+                                                {priceWarnings.map((warning, idx) => (
+                                                    <p key={idx} className="text-xs font-bold text-amber-700">{warning}</p>
+                                                ))}
                                             </div>
                                         </div>
                                     </div>
+                                )}
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8 pt-6 border-t border-slate-100">
-                                        {/* <div className="flex items-center gap-4">
-                                            <div className="space-y-1.5 flex-1">
-                                                <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">IVA (%)</Label>
-                                                <div className="flex items-center gap-2">
-                                                    <Input type="number" name="tax_rate" value={formData.tax_rate} onChange={handleInputChange} className="h-9 w-24 text-center font-bold" />
-                                                    <span className="text-xs text-slate-400">Impuesto aplicado por defecto</span>
+                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Referencia moneda:</span>
+                                    <Select
+                                        name="exchange_rate_id"
+                                        value={formData.exchange_rate_id?.toString()}
+                                        onValueChange={(val) => setFormData({ ...formData, exchange_rate_id: val })}
+                                    >
+                                        <SelectTrigger className="h-8 w-44 border-none bg-slate-100 text-xs font-bold shadow-none">
+                                            <SelectValue placeholder="Tasa Global" />
+                                        </SelectTrigger>
+                                        <SelectContent align="end">
+                                            <SelectItem value="null">Tasa Global (Default)</SelectItem>
+                                            {exchangeRates.map(r => (
+                                                <SelectItem key={r.id} value={r.id.toString()}>
+                                                    {r.name} ({parseFloat(r.rate)})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* Listas de precios — directamente aquí */}
+                                <div className="rounded-lg border border-slate-200 bg-slate-50/60">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleSection('priceLists')}
+                                        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/70"
+                                    >
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100">
+                                                <Tag size={15} className="text-violet-600" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-black text-slate-800">Precios avanzados</p>
+                                                <p className="truncate text-xs font-medium text-slate-500">{priceLists.length} listas configuradas - precio base ${parseFloat(formData.price || 0).toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                        <ChevronDown size={17} className={cn('shrink-0 text-slate-400 transition-transform', openSections.priceLists && 'rotate-180 text-indigo-500')} />
+                                    </button>
+                                    <div className={cn('border-t border-slate-200 bg-white p-4', !openSections.priceLists && 'hidden')}>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-6 h-6 bg-violet-100 rounded-lg flex items-center justify-center">
+                                                <Tag size={12} className="text-violet-600" />
+                                            </div>
+                                            <span className="text-xs font-black text-slate-700">Listas de Precios Especiales</span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 italic">Precio base: <span className="font-bold text-slate-600">${parseFloat(formData.price || 0).toFixed(2)}</span></p>
+                                    </div>
+
+                                    {/* Cards de listas existentes + agregar nueva */}
+                                    <div className="flex flex-wrap gap-3">
+                                        {/* Precio base como card referencia */}
+                                        <div className="flex flex-col items-center bg-emerald-50 border-2 border-emerald-200 rounded-2xl px-4 py-3 min-w-[120px]">
+                                            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1">P. Mayor</span>
+                                            <span className="text-xl font-black text-emerald-700">${parseFloat(formData.price || 0).toFixed(2)}</span>
+                                            <span className="text-[9px] text-emerald-400 mt-0.5">Precio Mayor</span>
+                                        </div>
+
+                                        {/* Listas configuradas */}
+                                        {priceLists.map(pl => {
+                                            const currentPrice = parseFloat(formData.prices?.[pl.id] || 0);
+                                            const basePrice = parseFloat(formData.price || 0);
+                                            const diff = basePrice > 0 ? ((currentPrice - basePrice) / basePrice * 100).toFixed(1) : 0;
+                                            const isPositive = currentPrice >= basePrice;
+                                            return (
+                                                <div key={pl.id} className="flex flex-col bg-white border-2 border-indigo-100 rounded-2xl px-3 py-3 min-w-[130px] hover:border-indigo-300 transition-all">
+                                                    <div className="flex items-center justify-between mb-1.5">
+                                                        <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest truncate max-w-[80px]">{pl.name}</span>
+                                                        {currentPrice > 0 && (
+                                                            <span className={cn('text-[8px] font-black px-1 py-0.5 rounded', isPositive ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600')}>
+                                                                {isPositive ? '+' : ''}{diff}%
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="relative">
+                                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">$</span>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={(() => { const v = parseFloat(formData.prices?.[pl.id]); return (!v || v === 0) ? ''  : v; })()}
+                                                            onChange={e => {
+                                                                const val = e.target.value;
+                                                                setFormData(prev => ({
+                                                                    ...prev,
+                                                                    prices: { ...prev.prices, [pl.id]: val }
+                                                                }));
+                                                            }}
+                                                            className="w-full pl-6 pr-2 py-1.5 text-base font-black text-indigo-700 bg-indigo-50/50 border border-indigo-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                                            placeholder="0.00"
+                                                        />
+                                                    </div>
+                                                    {/* Campo porcentaje + botón calcular */}
+                                                    <div className="mt-1.5 flex items-center gap-1">
+                                                        <div className="relative flex-1">
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max="999"
+                                                                step="1"
+                                                                value={listPct}
+                                                                onChange={e => setListPct(parseFloat(e.target.value) || 0)}
+                                                                className="w-full pl-2 pr-5 py-1 text-[11px] font-black text-slate-700 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400 text-center"
+                                                                onClick={e => e.target.select()}
+                                                            />
+                                                            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400">%</span>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const base = parseFloat(formData.price || 0);
+                                                                if (!base) return;
+                                                                const calculated = roundPrice(base * (1 + listPct / 100), base);
+                                                                // Limpiar primero para forzar re-render del input
+                                                                setFormData(prev => ({ ...prev, prices: { ...prev.prices, [pl.id]: null } }));
+                                                                requestAnimationFrame(() => setFormData(prev => ({
+                                                                    ...prev,
+                                                                    prices: { ...prev.prices, [pl.id]: calculated }
+                                                                })));
+                                                            }}
+                                                            className="text-[9px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg py-1 px-2 transition-all whitespace-nowrap"
+                                                        >
+                                                            Calcular
+                                                        </button>
+                                                    </div>
+                                                    {/* Resultado exacto sin redondear */}
+                                                    {(() => {
+                                                        const base = parseFloat(formData.price || 0);
+                                                        if (!base || !listPct) return null;
+                                                        const exact = (base * (1 + listPct / 100)).toFixed(2);
+                                                        const rounded = roundPrice(base * (1 + listPct / 100), base);
+                                                        if (exact === rounded) return null;
+                                                        return (
+                                                            <p className="text-[9px] text-slate-400 text-center mt-0.5">
+                                                                Exacto: <span className="font-bold text-slate-500">${exact}</span>
+                                                            </p>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            );
+                                        })}
+
+                                        {/* Botón agregar nueva lista */}
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                const name = window.prompt('Nombre de la nueva lista de precios:');
+                                                if (!name?.trim()) return;
+                                                try {
+                                                    await apiClient.post('/price-lists/', { name: name.trim(), is_active: true });
+                                                    await fetchPriceLists();
+                                                    toast.success(`Lista "${name}" creada`);
+                                                } catch {
+                                                    toast.error('Error al crear la lista');
+                                                }
+                                            }}
+                                            className="flex flex-col items-center justify-center bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl px-4 py-3 min-w-[110px] hover:border-indigo-400 hover:bg-indigo-50/30 transition-all text-slate-400 hover:text-indigo-500 group"
+                                        >
+                                            <Plus size={20} className="mb-1 group-hover:scale-110 transition-transform" />
+                                            <span className="text-[9px] font-black uppercase tracking-widest">Nueva Lista</span>
+                                        </button>
+                                    </div>
+
+                                    <p className="text-[10px] text-slate-400 mt-3 flex items-center gap-1">
+                                        <AlertTriangle size={10} className="text-amber-400" />
+                                        Activa el PIN en una lista para que el POS solicite autorización antes de aplicar ese precio.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        </div>
+
+                        {/* ══ SECCIÓN 3: INVENTARIO ═════════════════════════════ */}
+                        {!formData.is_service && !formData.is_combo && !formData.has_imei && (
+                            <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                                    <SectionHeader icon={Warehouse} label="Inventario" color="text-amber-600" bg="bg-amber-100" />
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase">Stock Total:</span>
+                                        <span className="text-lg font-black text-amber-600 bg-amber-50 border border-amber-200 px-3 py-0.5 rounded-full">{formData.stock}</span>
+                                    </div>
+                                </div>
+                                <div className="p-5">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        {/* Configuración base */}
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Unidad de Medida Base</label>
+                                                <Select value={formData.unit_type} onValueChange={val => setFormData({ ...formData, unit_type: val })}>
+                                                    <SelectTrigger className="h-10 border-slate-200">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="UNID">Unidad (Pza/Uds)</SelectItem>
+                                                        <SelectItem value="KILO">Kilo (Kg)</SelectItem>
+                                                        <SelectItem value="METRO">Metro (m)</SelectItem>
+                                                        <SelectItem value="CAJA">Caja</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5">Stock Mínimo</label>
+                                                    <Input
+                                                        type="number"
+                                                        name="min_stock"
+                                                        value={formData.min_stock}
+                                                        onChange={handleInputChange}
+                                                        className="h-10 text-center font-bold border-rose-100 bg-rose-50/30"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Ubicación Física</label>
+                                                    <Input
+                                                        name="location"
+                                                        value={formData.location}
+                                                        onChange={handleInputChange}
+                                                        placeholder="Pasillo A-12..."
+                                                        className="h-10 border-slate-200"
+                                                    />
                                                 </div>
                                             </div>
-                                        </div> */}
-                                        <div className="space-y-1.5 flex flex-col items-end">
-                                            <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Referencia Moneda</Label>
-                                            <Select name="exchange_rate_id" value={formData.exchange_rate_id?.toString()} onValueChange={(val) => setFormData({ ...formData, exchange_rate_id: val })}>
-                                                <SelectTrigger className="h-9 w-48 text-xs font-bold bg-slate-100 border-none shadow-none">
-                                                    <SelectValue placeholder="Utilizar Tasa Global" />
+                                        </div>
+
+                                        {/* Distribución por bodega */}
+                                        <div className="bg-slate-50 rounded-xl border border-slate-100 p-4">
+                                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Distribución de Existencias</label>
+                                            <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                                                {warehouses.length > 0 ? warehouses.map(wh => {
+                                                    const qty = formData.warehouse_stocks.find(s => s.warehouse_id === wh.id)?.quantity || 0;
+                                                    return (
+                                                        <div key={wh.id} className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                                                                <span className="text-xs font-bold text-slate-700 truncate max-w-[120px]">{wh.name}</span>
+                                                            </div>
+                                                            <Input
+                                                                type="number"
+                                                                className="w-20 h-8 text-right text-xs font-black bg-slate-50 border-slate-200"
+                                                                value={Number(qty).toString()}
+                                                                onChange={e => {
+                                                                    const val = parseFloat(e.target.value) || 0;
+                                                                    const newStocks = [...formData.warehouse_stocks];
+                                                                    const idx = newStocks.findIndex(s => s.warehouse_id === wh.id);
+                                                                    if (idx >= 0) newStocks[idx].quantity = val;
+                                                                    else newStocks.push({ warehouse_id: wh.id, quantity: val });
+                                                                    const total = newStocks.reduce((sum, s) => sum + s.quantity, 0);
+                                                                    setFormData(prev => ({ ...prev, warehouse_stocks: newStocks, stock: total }));
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    );
+                                                }) : (
+                                                    <div className="text-center py-4 border border-dashed border-slate-200 rounded-lg">
+                                                        <p className="truncate text-xs font-medium text-slate-500">No hay almacenes configurados</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {!initialData && (
+                                        <div className="mt-4 flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5">
+                                            <AlertCircle size={13} className="text-amber-500 flex-shrink-0" />
+                                            <p className="text-[10px] text-amber-700 font-medium italic">Estas cantidades se registrarán como saldo inicial del inventario.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {formData.is_service && (
+                            <div className="rounded-lg border border-indigo-100 bg-white shadow-sm overflow-hidden">
+                                <div className="flex items-start gap-3 p-5">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+                                        <Scissors size={18} />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h3 className="text-sm font-black text-slate-800">Servicio sin inventario</h3>
+                                        <p className="mt-1 text-xs font-medium text-slate-500">Este tipo no necesita stock, almacen ni recepcion de unidades. Solo conserva precio, garantia y datos comerciales.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {formData.is_combo && (
+                            <div className="rounded-lg border border-violet-100 bg-white shadow-sm overflow-hidden">
+                                <div className="flex items-start gap-3 p-5">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600">
+                                        <Layers size={18} />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h3 className="text-sm font-black text-slate-800">Inventario calculado por componentes</h3>
+                                        <p className="mt-1 text-xs font-medium text-slate-500">El combo no usa stock manual aqui. La disponibilidad depende de los productos agregados al kit.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Control para productos con IMEI */}
+                        {!formData.is_service && !formData.is_combo && formData.has_imei && (
+                            <div className="bg-white rounded-lg border border-blue-100 shadow-sm overflow-hidden">
+                                <div className="flex items-center justify-between gap-3 border-b border-blue-50 px-5 py-4">
+                                    <SectionHeader icon={ScanBarcode} label="Control serializado" color="text-blue-600" bg="bg-blue-100" />
+                                    <span className="rounded-md border border-blue-100 bg-blue-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-blue-600">IMEI / Serial</span>
+                                </div>
+                                <div className="space-y-4 p-5">
+                                    <div className="rounded-lg border border-blue-100 bg-blue-50/60 px-4 py-3">
+                                        <p className="text-xs font-bold text-blue-700">Las existencias se controlan por serial individual.</p>
+                                        <p className="mt-1 text-[11px] font-medium text-blue-600/80">Para cargar unidades usa Recepcion IMEI; aqui solo se define alerta minima y ubicacion sugerida.</p>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                        <div>
+                                            <label className="block text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5">Alerta minima</label>
+                                            <Input type="number" name="min_stock" value={formData.min_stock} onChange={handleInputChange} className="h-10 text-center font-bold border-rose-100 bg-rose-50/30" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Ubicacion sugerida</label>
+                                            <Input name="location" value={formData.location} onChange={handleInputChange} placeholder="Vitrina A, Caja 3..." className="h-10 border-slate-200" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Seccion 4: presentaciones / unidades */}
+                        {!formData.is_service && !formData.is_combo && (
+                            <CollapsibleSection
+                                id="units"
+                                icon={Layers}
+                                label="Presentaciones y unidades"
+                                summary={formData.units.length > 0 ? `${formData.units.length} presentaciones configuradas` : "Opcional"}
+                                iconColor="text-indigo-600"
+                                iconBg="bg-indigo-100"
+                            >
+                                <ProductUnitManager
+                                    units={formData.units}
+                                    onUnitsChange={u => setFormData(p => ({ ...p, units: u }))}
+                                    baseUnitType={formData.unit_type}
+                                    basePrice={formData.price}
+                                    baseCost={formData.cost}
+                                    exchangeRates={exchangeRates}
+                                />
+                            </CollapsibleSection>
+                        )}
+
+                        {/* ══ SECCIÓN 5: COMBO ══════════════════════════════════ */}
+                        {formData.is_combo && (
+                            <CollapsibleSection
+                                id="combo"
+                                icon={Layers}
+                                label="Combo / kit"
+                                summary={formData.combo_items.length > 0 ? `${formData.combo_items.length} componentes` : "Agrega los productos del kit"}
+                                iconColor="text-violet-600"
+                                iconBg="bg-violet-100"
+                            >
+                                <ComboManager
+                                    comboItems={formData.combo_items}
+                                    onItemsChange={i => setFormData(p => ({ ...p, combo_items: i, is_combo: i.length > 0 }))}
+                                />
+                            </CollapsibleSection>
+                        )}
+
+                        {/* ══ SECCIÓN 6: GARANTÍA ══════════════════════════════ */}
+                        <CollapsibleSection
+                            id="warranty"
+                            icon={ShieldCheck}
+                            label="Garantia"
+                            summary={formData.warranty_policy_id ? "Politica seleccionada" : "Opcional"}
+                            iconColor="text-teal-600"
+                            iconBg="bg-teal-100"
+                        >
+                            <div className="p-5">
+                                <Select
+                                    value={formData.warranty_policy_id?.toString()}
+                                    onValueChange={val => setFormData({ ...formData, warranty_policy_id: val === 'null' ? null : val })}
+                                >
+                                    <SelectTrigger className="h-11 border-slate-200">
+                                        <SelectValue placeholder="Sin garantia (u omitida)" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="null">-- Ninguna / Segun Factura --</SelectItem>
+                                        {policies.map(p => (
+                                            <SelectItem key={p.id} value={p.id.toString()}>
+                                                {p.name} ({p.type === 'LIFETIME' ? 'De por vida' : `${p.duration} ${p.type}`})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </CollapsibleSection>
+
+                        {/* ══ SECCIÓN 7: DESCUENTOS POR VOLUMEN (si existe) ═══ */}
+                        {initialData?.id && (
+                            <CollapsibleSection
+                                id="discounts"
+                                icon={Zap}
+                                label="Descuentos por volumen"
+                                summary="Reglas avanzadas del producto"
+                                iconColor="text-amber-600"
+                                iconBg="bg-amber-100"
+                            >
+                                <div className="p-5">
+                                    <DiscountRulesManager
+                                        productId={initialData.id}
+                                        initialRules={initialData.discount_rules || []}
+                                    />
+                                </div>
+                            </CollapsibleSection>
+                        )}
+
+                        {/* ══ MÓDULO FARMACIA ═══════════════════════════════════ */}
+                        {modules?.pharmacy && (
+                            <CollapsibleSection
+                                id="pharmacy"
+                                icon={Shield}
+                                label="Informacion farmaceutica"
+                                summary={formData.drug_classification || formData.active_ingredient ? "Datos configurados" : "Opcional"}
+                                iconColor="text-indigo-600"
+                                iconBg="bg-indigo-100"
+                            >
+                                <div className="p-5 space-y-4">
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                        <div>
+                                            <label className="block text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1.5">Clasificacion</label>
+                                            <Select
+                                                value={formData.drug_classification || ''}
+                                                onValueChange={val => setFormData(p => ({ ...p, drug_classification: val === 'none' ? '' : val }))}
+                                            >
+                                                <SelectTrigger className="h-10 border-indigo-200 bg-indigo-50/20">
+                                                    <SelectValue placeholder="Sin clasificacion" />
                                                 </SelectTrigger>
-                                                <SelectContent align="end">
-                                                    <SelectItem value="null">Tasa Global (Default)</SelectItem>
-                                                    {exchangeRates.map(r => <SelectItem key={r.id} value={r.id.toString()}>{r.name} ({parseFloat(r.rate)})</SelectItem>)}
+                                                <SelectContent>
+                                                    <SelectItem value="none">-- Sin clasificacion --</SelectItem>
+                                                    <SelectItem value="OTC">OTC - Venta Libre</SelectItem>
+                                                    <SelectItem value="PRESCRIPTION">PRESCRIPTION - Requiere Receta</SelectItem>
+                                                    <SelectItem value="CONTROLLED">CONTROLLED - Controlada</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1.5 flex items-center gap-1"><Snowflake size={10} /> Almacenamiento</label>
+                                            <Select
+                                                value={formData.storage_condition || ''}
+                                                onValueChange={val => setFormData(p => ({ ...p, storage_condition: val === 'none' ? '' : val }))}
+                                            >
+                                                <SelectTrigger className="h-10 border-indigo-200 bg-indigo-50/20">
+                                                    <SelectValue placeholder="Sin especificar" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none">-- Sin especificar --</SelectItem>
+                                                    <SelectItem value="AMBIENT">Temperatura Ambiente</SelectItem>
+                                                    <SelectItem value="REFRIGERATED">Refrigerado 2-8 C</SelectItem>
+                                                    <SelectItem value="FROZEN">Congelado</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
                                     </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* COMBO NOTICE: stock managed by components, not by the combo itself */}
-                            {formData.is_combo && (
-                                <Card className="border-indigo-200 bg-indigo-50/40 shadow-sm overflow-hidden animate-in zoom-in-95 duration-200">
-                                    <div className="px-5 py-4 flex items-start gap-3">
-                                        <div className="w-9 h-9 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-                                            <Layers size={18} />
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="text-sm font-bold text-indigo-800 mb-0.5">Este producto es un Combo / Kit</p>
-                                            <p className="text-xs text-indigo-600 leading-relaxed">
-                                                El stock se calcula automáticamente en base a la disponibilidad de sus componentes.
-                                                No es necesario ingresar existencias manualmente — ve a la tab{' '}
-                                                <span className="font-bold">AVANZADO</span> para ver y editar los productos que lo conforman.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </Card>
-                            )}
-
-                            {/* SECTION 3: INVENTORY & STOCK (Collapsible) - Hidden for Services, Serialized AND Combo Products */}
-                            {!formData.is_service && !formData.has_imei && !formData.is_combo && (
-                                <Card className="border-slate-200 shadow-sm bg-white overflow-hidden animate-in zoom-in-95 duration-200">
-                                    <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center">
-                                                <Warehouse size={18} />
-                                            </div>
-                                            <h4 className="text-sm font-bold text-slate-800">Ubicación e Inventario</h4>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Stock Total:</span>
-                                            <span className="text-lg font-black text-amber-600 bg-amber-50 px-3 py-0.5 rounded-full border border-amber-200">{formData.stock}</span>
-                                        </div>
-                                    </div>
-                                    <CardContent className="p-6">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                            <div className="space-y-5">
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Unidad de Medida Base</Label>
-                                                    <Select value={formData.unit_type} onValueChange={(val) => setFormData({ ...formData, unit_type: val })}>
-                                                        <SelectTrigger className="h-11 border-slate-200">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="UNID">Unidad (Pza/Uds)</SelectItem>
-                                                            <SelectItem value="KILO">Kilo (Kg)</SelectItem>
-                                                            <SelectItem value="METRO">Metro (m)</SelectItem>
-                                                            <SelectItem value="CAJA">Caja</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4 pt-2">
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-[10px] uppercase tracking-wider text-rose-500 font-bold">Stock Mínimo</Label>
-                                                        <Input type="number" name="min_stock" value={formData.min_stock} onChange={handleInputChange} className="h-10 text-center font-bold border-rose-100 bg-rose-50/30" />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Ubicación Física</Label>
-                                                        <Input name="location" value={formData.location} onChange={handleInputChange} placeholder="Pasillo A-12..." className="h-10" />
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                                <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-black mb-3 block">Distribución de Existencias</Label>
-                                                <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
-                                                    {warehouses.length > 0 ? warehouses.map(wh => {
-                                                        const qty = formData.warehouse_stocks.find(s => s.warehouse_id === wh.id)?.quantity || 0;
-                                                        return (
-                                                            <div key={wh.id} className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-slate-200/50 shadow-sm transition-all hover:bg-slate-50">
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
-                                                                    <span className="text-[11px] font-bold text-slate-700 truncate w-32">{wh.name}</span>
-                                                                </div>
-                                                                <Input
-                                                                    type="number"
-                                                                    className="w-20 h-8 text-right text-xs font-black bg-slate-50 border-slate-200 focus:bg-white focus:ring-1 focus:ring-indigo-500"
-                                                                    value={Number(qty).toString()}
-                                                                    onChange={(e) => {
-                                                                        const val = parseFloat(e.target.value) || 0;
-                                                                        const newStocks = [...formData.warehouse_stocks];
-                                                                        const idx = newStocks.findIndex(s => s.warehouse_id === wh.id);
-                                                                        if (idx >= 0) newStocks[idx].quantity = val;
-                                                                        else newStocks.push({ warehouse_id: wh.id, quantity: val });
-                                                                        const total = newStocks.reduce((sum, s) => sum + s.quantity, 0);
-                                                                        setFormData(prev => ({ ...prev, warehouse_stocks: newStocks, stock: total }));
-                                                                    }}
-                                                                />
-                                                            </div>
-                                                        )
-                                                    }) : (
-                                                        <div className="text-center py-4 bg-white rounded-lg border border-dashed border-slate-300">
-                                                            <p className="text-[10px] text-slate-400 font-bold">No hay almacenes configurados</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                    {!initialData && (
-                                        <div className="bg-amber-50 px-6 py-3 border-t border-amber-100 flex items-center gap-3">
-                                            <AlertCircle size={14} className="text-amber-600" />
-                                            <p className="text-[10px] text-amber-700 font-medium italic">Estas cantidades se registrarán como saldo inicial del inventario.</p>
-                                        </div>
-                                    )}
-                                </Card>
-                            )}
-
-                            {/* ALERTA DE STOCK para productos con IMEI (stock gestionado por seriales, pero mínimo sigue siendo útil) */}
-                            {!formData.is_service && formData.has_imei && (
-                                <Card className="border-rose-100 shadow-sm bg-white overflow-hidden animate-in zoom-in-95 duration-200">
-                                    <div className="px-6 py-4 border-b border-rose-100 flex items-center gap-2 bg-rose-50/40">
-                                        <div className="w-8 h-8 bg-rose-100 text-rose-600 rounded-lg flex items-center justify-center">
-                                            <Bell size={18} />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-sm font-bold text-slate-800">Alerta de Stock Mínimo</h4>
-                                            <p className="text-[10px] text-slate-500">El dashboard te alertará cuando las unidades disponibles caigan por debajo del límite.</p>
-                                        </div>
-                                    </div>
-                                    <CardContent className="p-6">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] uppercase tracking-wider text-rose-500 font-bold">Unidades mínimas</Label>
-                                                <Input
-                                                    type="number"
-                                                    name="min_stock"
-                                                    value={formData.min_stock}
-                                                    onChange={handleInputChange}
-                                                    min={0}
-                                                    className="h-10 text-center font-bold border-rose-100 bg-rose-50/30"
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Ubicación Física</Label>
-                                                <Input
-                                                    name="location"
-                                                    value={formData.location}
-                                                    onChange={handleInputChange}
-                                                    placeholder="Vitrina A, Caja 3..."
-                                                    className="h-10"
-                                                />
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            )}
-
-                            {/* PHARMACY SECTION - Only when pharmacy module is active */}
-                            {modules?.pharmacy && (
-                                <Card className="border-indigo-200 shadow-sm bg-white overflow-hidden animate-in zoom-in-95 duration-200">
-                                    <div className="px-6 py-4 border-b border-indigo-100 flex items-center gap-2 bg-indigo-50/40">
-                                        <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center">
-                                            <Shield size={18} />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-sm font-bold text-slate-800">Información Farmacéutica</h4>
-                                            <p className="text-[10px] text-slate-500">Datos regulatorios del medicamento o producto farmacéutico.</p>
-                                        </div>
-                                    </div>
-                                    <CardContent className="p-6 space-y-5">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                            {/* Drug Classification */}
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] uppercase tracking-wider text-indigo-600 font-bold">Clasificación</Label>
-                                                <Select
-                                                    value={formData.drug_classification || ''}
-                                                    onValueChange={(val) => setFormData(p => ({ ...p, drug_classification: val === 'none' ? '' : val }))}
-                                                >
-                                                    <SelectTrigger className="h-11 border-indigo-200 bg-indigo-50/20 focus:ring-indigo-500">
-                                                        <SelectValue placeholder="Seleccionar clasificación..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="none">-- Sin clasificación --</SelectItem>
-                                                        <SelectItem value="OTC">OTC — Venta Libre</SelectItem>
-                                                        <SelectItem value="PRESCRIPTION">PRESCRIPTION — Requiere Receta</SelectItem>
-                                                        <SelectItem value="CONTROLLED">CONTROLLED — Sustancia Controlada</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-
-                                            {/* Storage Condition */}
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] uppercase tracking-wider text-indigo-600 font-bold flex items-center gap-1">
-                                                    <Snowflake size={10} /> Condición de Almacenamiento
-                                                </Label>
-                                                <Select
-                                                    value={formData.storage_condition || ''}
-                                                    onValueChange={(val) => setFormData(p => ({ ...p, storage_condition: val === 'none' ? '' : val }))}
-                                                >
-                                                    <SelectTrigger className="h-11 border-indigo-200 bg-indigo-50/20 focus:ring-indigo-500">
-                                                        <SelectValue placeholder="Seleccionar condición..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="none">-- Sin especificar --</SelectItem>
-                                                        <SelectItem value="AMBIENT">AMBIENT — Temperatura Ambiente</SelectItem>
-                                                        <SelectItem value="REFRIGERATED">REFRIGERATED — Refrigerado 2-8°C</SelectItem>
-                                                        <SelectItem value="FROZEN">FROZEN — Congelado</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        </div>
-
-                                        {/* Active Ingredient */}
-                                        <div className="space-y-1.5">
-                                            <Label className="text-[10px] uppercase tracking-wider text-indigo-600 font-bold">Principio Activo</Label>
-                                            <Input
-                                                name="active_ingredient"
-                                                value={formData.active_ingredient || ''}
-                                                onChange={handleInputChange}
-                                                placeholder="Ej: Paracetamol, Ibuprofeno..."
-                                                className="h-11 border-indigo-200 bg-indigo-50/20 focus:border-indigo-500 focus:ring-indigo-500"
-                                            />
-                                        </div>
-
-                                        {/* Requires Prescription */}
-                                        <div className={cn(
-                                            "flex items-center gap-4 p-4 rounded-xl transition-all border",
-                                            formData.requires_prescription
-                                                ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-500/10"
-                                                : "bg-slate-50 border-slate-100 hover:border-indigo-100"
-                                        )}>
-                                            <div className={cn(
-                                                "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
-                                                formData.requires_prescription ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-400"
-                                            )}>
-                                                <Shield size={20} />
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="flex items-center justify-between">
-                                                    <Label htmlFor="requires_prescription" className="text-sm font-bold text-slate-800 cursor-pointer">Requiere receta médica</Label>
-                                                    <input
-                                                        type="checkbox"
-                                                        id="requires_prescription"
-                                                        checked={formData.requires_prescription || false}
-                                                        onChange={(e) => setFormData(p => ({ ...p, requires_prescription: e.target.checked }))}
-                                                        className="sr-only peer"
-                                                    />
-                                                    <div
-                                                        onClick={() => setFormData(p => ({ ...p, requires_prescription: !p.requires_prescription }))}
-                                                        className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 peer-checked:after:translate-x-5"
-                                                    ></div>
-                                                </div>
-                                                <p className="text-[11px] text-slate-500 mt-0.5">El POS solicitará confirmación antes de agregar al carrito.</p>
-                                            </div>
-                                        </div>
-
-                                        {/* Destacar en catálogo público */}
-                                        <div className="flex items-start gap-3 pt-3 border-t border-slate-100">
-                                            <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
-                                                <span className="text-base">⭐</span>
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="flex items-center justify-between">
-                                                    <Label htmlFor="featured" className="text-sm font-bold text-slate-800 cursor-pointer">Destacar en catálogo público</Label>
-                                                    <input
-                                                        type="checkbox"
-                                                        id="featured"
-                                                        checked={formData.featured || false}
-                                                        onChange={(e) => setFormData(p => ({ ...p, featured: e.target.checked }))}
-                                                        className="sr-only peer"
-                                                    />
-                                                    <div
-                                                        onClick={() => setFormData(p => ({ ...p, featured: !p.featured }))}
-                                                        className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[\'\'] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-400 peer-checked:after:translate-x-5"
-                                                    ></div>
-                                                </div>
-                                                <p className="text-[11px] text-slate-500 mt-0.5">Aparece primero en el catálogo con una etiqueta dorada ⭐.</p>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            )}
-                        </TabsContent>
-
-                        {/* ADVANCED TAB: Combined Units & Combos */}
-                        <TabsContent value="advanced" className="mt-0 space-y-6 pb-20 animate-in fade-in slide-in-from-right-4 duration-300">
-                            <div className="grid grid-cols-1 gap-6">
-                                <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
-                                    <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2 bg-slate-50/30">
-                                        <Layers size={18} className="text-indigo-500" />
-                                        <h4 className="text-sm font-bold text-slate-800">Unidades de Venta y Precios Alternativos</h4>
-                                    </div>
-                                    <CardContent className="p-0">
-                                        <ProductUnitManager
-                                            units={formData.units}
-                                            onUnitsChange={(u) => setFormData(p => ({ ...p, units: u }))}
-                                            baseUnitType={formData.unit_type}
-                                            basePrice={formData.price}
-                                            baseCost={formData.cost}
-                                            exchangeRates={exchangeRates}
-                                        />
-                                    </CardContent>
-
-                                    {/* Price Lists Section */}
-                                    <div className="border-t border-slate-100">
-                                        <div className="px-6 py-4 flex items-center gap-2 bg-slate-50/30">
-                                            <Tag size={18} className="text-emerald-500" />
-                                            <h4 className="text-sm font-bold text-slate-800">Listas de Precios Especiales</h4>
-                                        </div>
-                                        <CardContent className="p-6 pt-2">
-                                            <ProductPriceListManager
-                                                prices={formData.prices || []}
-                                                onPricesChange={(p) => setFormData(prev => ({ ...prev, prices: p }))}
-                                                priceLists={priceLists}
-                                                basePrice={formData.price}
-                                                onRefresh={fetchPriceLists}
-                                            />
-                                        </CardContent>
-                                    </div>
-                                </Card>
-
-                                <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
-                                    <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2 bg-slate-50/30">
-                                        <Tag size={18} className="text-indigo-500" />
-                                        <h4 className="text-sm font-bold text-slate-800">Configuración de Combo / Kit</h4>
-                                    </div>
-                                    <CardContent className="p-0">
-                                        <ComboManager
-                                            comboItems={formData.combo_items}
-                                            onItemsChange={(i) => setFormData(p => ({ ...p, combo_items: i, is_combo: i.length > 0 }))}
-                                        />
-                                    </CardContent>
-                                </Card>
-
-                                <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
-                                    <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2 bg-slate-50/30">
-                                        <ShieldCheck size={18} className="text-indigo-500" />
-                                        <h4 className="text-sm font-bold text-slate-800">Política de Garantía</h4>
-                                    </div>
-                                    <CardContent className="p-6">
-                                        <div className="space-y-4">
-                                            <div className="space-y-2">
-                                                <Label>Vincular Política de Garantía</Label>
-                                                <Select
-                                                    value={formData.warranty_policy_id?.toString()}
-                                                    onValueChange={(val) => setFormData({ ...formData, warranty_policy_id: val === 'null' ? null : val })}
-                                                >
-                                                    <SelectTrigger className="h-11 border-slate-200">
-                                                        <SelectValue placeholder="Sin garantía (u omitida)" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="null">-- Ninguna / Según Factura --</SelectItem>
-                                                        {policies.map(p => (
-                                                            <SelectItem key={p.id} value={p.id.toString()}>
-                                                                {p.name} ({p.type === 'LIFETIME' ? 'De por vida' : `${p.duration} ${p.type}`})
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <p className="text-xs text-slate-500">
-                                                Esta política se reflejará al momento de la venta y permitirá gestionar reclamos de forma automática.
-                                            </p>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        </TabsContent>
-
-                        {/* PRECIOS POR VOLUMEN TAB */}
-                        {initialData?.id && (
-                            <TabsContent value="precios" className="mt-0 space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                <div className="rounded-xl border border-amber-200 bg-white overflow-hidden shadow-sm">
-                                    <div className="px-6 py-4 border-b border-amber-100 flex items-center gap-2 bg-amber-50/40">
-                                        <Zap size={18} className="text-amber-500" />
-                                        <div>
-                                            <h4 className="text-sm font-bold text-slate-800">Reglas de Descuento por Volumen</h4>
-                                            <p className="text-xs text-slate-500">Se aplican automaticamente en el POS según la cantidad comprada</p>
-                                        </div>
-                                    </div>
-                                    <div className="p-6">
-                                        <DiscountRulesManager
-                                            productId={initialData.id}
-                                            initialRules={initialData.discount_rules || []}
+                                    <div>
+                                        <label className="block text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1.5">Principio Activo</label>
+                                        <Input
+                                            name="active_ingredient"
+                                            value={formData.active_ingredient || ''}
+                                            onChange={handleInputChange}
+                                            placeholder="Ej: Paracetamol, Ibuprofeno..."
+                                            className="h-10 border-indigo-200 bg-indigo-50/20"
                                         />
                                     </div>
                                 </div>
-                            </TabsContent>
+                            </CollapsibleSection>
                         )}
+
                     </div>
-                </Tabs>
+                </div>
+
+                {/* ── Footer fijo con guardar ─────────────────────────────── */}
+                <div className="sticky bottom-0 z-30 flex flex-col gap-3 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                    <p className="truncate text-xs font-medium text-slate-500">
+                        {initialData ? `Modificando: ${initialData.name}` : 'Nuevo producto'}
+                    </p>
+                    <div className="flex items-center justify-end gap-2">
+                        <Button variant="ghost" onClick={onClose} className="h-10 text-slate-500">
+                            Cancelar
+                        </Button>
+                        <Button
+                            onClick={handleSubmit}
+                            className="h-10 rounded-md bg-indigo-600 px-6 font-bold text-white shadow-md shadow-indigo-200 transition-all hover:-translate-y-0.5 hover:bg-indigo-700"
+                        >
+                            <Check size={15} className="mr-2" /> Guardar Producto
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Scanner modal */}
+                {isScanning && (
+                    <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/70 p-4">
+                        <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-bold text-slate-800">Escanear código</h3>
+                                <button onClick={() => setIsScanning(false)} className="text-slate-400 hover:text-slate-600">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <BarcodeScannerComponent onResult={handleScanResult} onError={() => setIsScanning(false)} />
+                        </div>
+                    </div>
+                )}
+
             </SheetContent>
         </Sheet>
     );
 };
 
 export default ProductForm;
+

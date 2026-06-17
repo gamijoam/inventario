@@ -1,5 +1,6 @@
 from datetime import timedelta
 from typing import Annotated
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -341,13 +342,17 @@ async def login_for_access_token(
         "org_companies"         : org_companies,
     }
 
+class SwitchCompanyBody(BaseModel):
+    target_schema: str
+
 @router.post("/switch-company")
 async def switch_company(
-    target_schema: str,
     response: Response,
+    body: SwitchCompanyBody,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
+    target_schema = body.target_schema
     """
     Cambiar de empresa dentro del mismo grupo organizacional.
     El usuario debe ser miembro de la organización que contiene el target_schema.
@@ -427,6 +432,8 @@ async def switch_company(
             "can_switch" : True,
         })
 
+    # Detectar si estamos en QA o prod basado en el dominio del tenant actual
+    # El frontend usa la URL relativa al dominio actual, así que enviamos ambas
     return {
         "access_token"          : new_token,
         "token_type"            : "bearer",
@@ -434,6 +441,9 @@ async def switch_company(
         "target_company_name"   : target_tenant.name,
         "has_multiple_companies": len(org_companies) > 1,
         "org_companies"         : org_companies,
+        "switch_url_prod"       : f"https://{target_schema}.miinventariofacil.com/#/",
+        "switch_url_qa"         : f"https://{target_schema}.qa.miinventariofacil.com/#/",
+        # El frontend detecta si es QA y usa la URL correcta
     }
 
 

@@ -40,15 +40,16 @@ class ProductBase(BaseModel):
     exchange_rate_id: Optional[int] = Field(None, description="ID de tasa de cambio específica (opcional)", json_schema_extra={'example': 2})
     is_combo: Optional[bool] = Field(False, description="Indica si el producto es un combo/bundle")
     has_imei: bool = Field(False, description="Indica si el producto maneja seriales/IMEIs") # NEW
-    is_service: bool = Field(False, description="Indica si es un servicio (no requiere stock)") # NEW
+    is_service: Optional[bool] = Field(False, description="Indica si es un servicio (no requiere stock)") # NEW
     is_commissionable: bool = Field(False, description="Indica si genera comision al vendedor") # NEW
-    is_barbershop_service: bool = Field(False, description="Indica si es un servicio de barbería") # NEW
-    is_menu_item: bool = Field(False, description="Indica si es un item de menú de restaurante") # NEW
+    is_barbershop_service: Optional[bool] = Field(False, description="Indica si es un servicio de barbería") # NEW
+    is_menu_item: Optional[bool] = Field(False, description="Indica si es un item de menú de restaurante") # NEW
     needs_kitchen: bool = Field(True, description="False = servido directo por mesero sin pasar por KDS") # NEW
     is_active: Optional[bool] = True
     
     # Image Support
     image_url: Optional[str] = Field(None, description="URL relativa de la imagen del producto", json_schema_extra={'example': "/media/products/uuid-v4.webp"})
+    image_url_original: Optional[str] = Field(None, description="Imagen ORIGINAL (antes de eliminar fondo); permite restaurar")
     
     @field_validator('image_url', mode='before')
     @classmethod
@@ -199,9 +200,22 @@ class PriceListCreate(PriceListBase):
 
 class PriceListRead(PriceListBase):
     id: int
-    created_at: datetime
+    created_at: Optional[datetime] = None
     
     model_config = ConfigDict(from_attributes=True)
+
+def normalize_product_prices(value):
+    if value in (None, ''):
+        return [] if value == '' else value
+    if isinstance(value, dict):
+        normalized = []
+        for list_id, price in value.items():
+            if price in (None, ''):
+                continue
+            normalized.append({"price_list_id": list_id, "price": price})
+        return normalized
+    return value
+
 
 class ProductPriceBase(BaseModel):
     price_list_id: int
@@ -221,14 +235,29 @@ class ProductPriceRead(ProductPriceBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class CatalogProductRead(ProductBase):
+    id: int
+    units: List[ProductUnitRead] = []
+    prices: List[ProductPriceRead] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ProductCreate(ProductBase):
     units: List[ProductUnitCreate] = Field([], description="Lista de unidades alternativas (cajas, bultos)")
     combo_items: List[ComboItemCreate] = Field([], description="Lista de componentes si es un combo")
     warehouse_stocks: List[ProductStockCreate] = Field([], description="Distribución de stock por almacén")
     prices: List[ProductPriceInput] = Field([], description="Precios por lista (Mayorista, VIP, etc)") # NEW
 
+    @field_validator('prices', mode='before')
+    @classmethod
+    def normalize_prices(cls, value):
+        return normalize_product_prices(value)
+
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
+    image_url: Optional[str] = None
+    image_url_original: Optional[str] = None
     sku: Optional[str] = None
     price: Optional[Decimal] = None
     price_mayor_1: Optional[Decimal] = None
@@ -262,6 +291,11 @@ class ProductUpdate(BaseModel):
     combo_items: Optional[List[ComboItemCreate]] = None  # NEW: Allow updating combo items
     warehouse_stocks: Optional[List[ProductStockCreate]] = None  # NEW: Allow updating stocks per warehouse
     prices: Optional[List[ProductPriceInput]] = None # NEW
+
+    @field_validator('prices', mode='before')
+    @classmethod
+    def normalize_prices(cls, value):
+        return normalize_product_prices(value)
     
     # Warranty Updates
     warranty_duration: Optional[int] = None
@@ -287,6 +321,12 @@ class ProductRead(ProductBase):
     model_config = ConfigDict(from_attributes=True)
 
 class PaginatedCatalog(BaseModel):
+    items: List[CatalogProductRead]
+    total: int
+    has_more: bool
+
+class PaginatedProductList(BaseModel):
+    """Respuesta paginada para GET /products/ — incluye total para paginación correcta"""
     items: List[ProductRead]
     total: int
     has_more: bool
@@ -304,6 +344,7 @@ class SaleDetailCreate(BaseModel):
     salesperson_id: Optional[int] = None # NEW: Granular commission support
     employee_id: Optional[int] = None # NEW: Barbershop Service Commission Target
     serial_numbers: Optional[List[str]] = Field(None, description="Lista de seriales para productos serializados") # NEW
+    combo_serials: Optional[dict] = Field(None, description="Dict {child_product_id: [serials]} para componentes serializados de un combo") # NEW
     price_list_id: Optional[int] = None # NEW: Price List Validation
     auth_user_id: Optional[int] = None # NEW: Supervisor Auth for Price List
     recipe_factor: Decimal = Decimal("1.0")
@@ -524,7 +565,7 @@ class CustomerBase(BaseModel):
     phone: Optional[str] = Field(None, description="Teléfono de contacto principal", json_schema_extra={'example': "+58 412 5555555"})
     email: Optional[str] = Field(None, description="Correo electrónico para facturación", json_schema_extra={'example': "compras@global.com"})
     address: Optional[str] = Field(None, description="Dirección fiscal o de entrega", json_schema_extra={'example': "Av. Principal, Edif. Azul"})
-    credit_limit: Decimal = Field(Decimal("100.00"), description="Límite máximo de crédito permitido en USD", ge=0)
+    credit_limit: Decimal = Field(Decimal("500.00"), description="Límite máximo de crédito permitido en USD", ge=0)
     payment_term_days: Optional[int] = Field(15, description="Días de crédito otorgados", ge=0)
     unique_uuid: Optional[str] = Field(None, description="UUID único para sync")
     is_blocked: Optional[bool] = Field(False, description="Bloqueo administrativo para impedir nuevas ventas")
@@ -740,6 +781,11 @@ class ReturnItemCreate(BaseModel):
     quantity: Decimal
     condition: ItemCondition = ItemCondition.GOOD  # Default to GOOD condition
     product: Optional[ProductRead] = None
+    # Fix 4: lista explicita de IMEIs/serials devueltos. Si esta vacia,
+    # el backend usa la logica legacy (item.quantity + .limit()).
+    # Si viene con seriales, se trackean explicitamente en
+    # return_detail_instances y se marca el SaleDetailInstance como RETURNED.
+    serial_numbers: List[str] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -749,6 +795,11 @@ class ReturnCreate(BaseModel):
     reason: Optional[str] = None
     refund_currency: str = "USD"
     exchange_rate: Decimal = Decimal("1.0")
+    resolution_type: str = Field("REFUND", description="REFUND o EXCHANGE")
+    exchange_credit_amount: Decimal = Field(Decimal("0.00"), ge=0, description="Monto USD aplicado como credito de canje")
+
+class ReturnExchangeCreate(ReturnCreate):
+    replacement_sale: SaleCreate
 
 class ReturnDetailRead(BaseModel):
     id: int
@@ -766,6 +817,16 @@ class ReturnRead(BaseModel):
     total_refunded: Decimal
     reason: Optional[str]
     details: List[ReturnDetailRead] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ReturnExchangeRead(BaseModel):
+    return_record: ReturnRead
+    replacement_sale_id: int
+    exchange_credit_amount: Decimal
+    difference_due: Decimal
+    cash_refund_amount: Decimal
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -805,6 +866,9 @@ class UserRead(BaseModel):
     preferences: Optional[Dict[str, Any]] = {}
     is_onboarding_completed: Optional[bool] = False   # Optional — tolera NULL en BD
     tenant_id: Optional[int] = None
+    is_superuser: Optional[bool] = False
+    org_role: Optional[str] = None
+    is_org_owner: Optional[bool] = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -957,6 +1021,7 @@ class QuickProductCreate(BaseModel):
     cost_price: Decimal             # precio de costo inicial
     sale_price: Optional[Decimal] = None  # precio de venta sugerido
     category_id: Optional[int] = None
+    has_imei: bool = False  # crear como producto serializado/IMEI desde compras
 
 class PurchaseItemCreate(BaseModel):
     product_id: Optional[int] = None      # None si se crea producto nuevo
@@ -968,6 +1033,7 @@ class PurchaseItemCreate(BaseModel):
     update_cost: bool = False
     update_price: bool = False
     new_sale_price: Optional[Decimal] = None
+    serial_numbers: List[str] = Field(default_factory=list)  # IMEIs/seriales recibidos para productos serializados
     is_combo: bool = False
     is_service: bool = False
     is_barbershop_service: bool = False
@@ -1003,6 +1069,10 @@ class PurchaseItemRead(BaseModel):
     product_id: int
     quantity: Decimal
     unit_cost: Decimal
+    discount_pct: Optional[Decimal] = Decimal("0")
+    discount_amount: Optional[Decimal] = Decimal("0")
+    subtotal: Optional[Decimal] = None
+    serial_numbers: Optional[str] = None
     product: Optional[PurchaseProductBasic] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -1063,6 +1133,7 @@ class BusinessInfo(BaseModel):
     ticket_template: Optional[str] = None  # NEW: Jinja2 template for tickets
     default_tax_rate: Optional[Decimal] = Decimal("0.00")
     warranty_format_url: Optional[str] = None
+    external_financing_enabled: Optional[bool] = None
     # Credit Defaults
     credit_default_down_payment_pct: Optional[Decimal] = Decimal("20.00")
     credit_default_interest_rate: Optional[Decimal] = Decimal("10.00")
@@ -1132,18 +1203,32 @@ class WarehouseWithStocks(WarehouseRead):
 # Inventory Transfer Schemas
 # ========================
 
+class TransferDetailInstanceCreate(BaseModel):
+    """IMEI/serial especifico que se traslada en esta linea."""
+    product_instance_id: int
+
+class TransferDetailInstanceRead(BaseModel):
+    id: int
+    product_instance_id: int
+    serial_number: Optional[str] = None  # populated from product_instance for convenience
+
+    model_config = ConfigDict(from_attributes=True)
+
 class TransferDetailBase(BaseModel):
     product_id: int
     quantity: Decimal
 
 class TransferDetailCreate(TransferDetailBase):
-    pass
+    instances: List["TransferDetailInstanceCreate"] = Field(
+        [], description="IMEIs/seriales especificos a trasladar (solo si el producto tiene has_imei=true y el feature flag esta ON)"
+    )
 
 class TransferDetailRead(TransferDetailBase):
     id: int
     transfer_id: int
     product: Optional[ProductRead] = None
-    
+    instances: List[TransferDetailInstanceRead] = Field([], description="IMEIs/seriales que se trasladaron")
+
     model_config = ConfigDict(from_attributes=True)
 
 class InventoryTransferBase(BaseModel):
@@ -1181,8 +1266,11 @@ class TransferItemSchema(BaseModel):
     sku: str
     quantity: float
     name: str
+    has_imei: bool = False
+    serial_numbers: List[str] = []
 
 class TransferPackageSchema(BaseModel):
+    package_id: Optional[str] = None
     source_company: str
     generated_at: datetime
     items: List[TransferItemSchema]
@@ -1190,6 +1278,12 @@ class TransferPackageSchema(BaseModel):
     source_business_name: Optional[str] = None
     generated_at_friendly: Optional[str] = None
     items_count: Optional[int] = None
+    models_count: Optional[int] = None
+    units_count: Optional[float] = None
+    imei_count: Optional[int] = None
+    photos_count: Optional[int] = None
+    source_warehouse_id: Optional[int] = None
+    source_warehouse_name: Optional[str] = None
     photo_urls: Optional[List[str]] = None
 
 class TransferResultSchema(BaseModel):
@@ -1201,6 +1295,8 @@ class TransferPreviewItemResult(BaseModel):
     sku: str
     name: str
     quantity: float
+    has_imei: bool = False
+    serial_numbers: List[str] = []
     match_type: str  # exact, fuzzy, name, none
     matched_product_id: Optional[int] = None
     matched_sku: Optional[str] = None
@@ -1208,20 +1304,31 @@ class TransferPreviewItemResult(BaseModel):
     matched_stock: Optional[float] = None
 
 class TransferPreviewResult(BaseModel):
+    package_id: Optional[str] = None
     source_company: str
     items: List[TransferPreviewItemResult]
     photo_urls: Optional[List[str]] = None
     source_schema: Optional[str] = None
+    source_warehouse_id: Optional[int] = None
+    source_warehouse_name: Optional[str] = None
+    items_count: Optional[int] = None
+    models_count: Optional[int] = None
+    units_count: Optional[float] = None
+    imei_count: Optional[int] = None
+    photos_count: Optional[int] = None
 
 class TransferImportV2Item(BaseModel):
     sku: str
     name: str
     quantity: float
+    has_imei: bool = False
+    serial_numbers: List[str] = []
     target_product_id: Optional[int] = None
     create_new: bool = False
     warehouse_id: Optional[int] = None
 
 class TransferImportV2Request(BaseModel):
+    package_id: Optional[str] = None
     source_company: str
     warehouse_id: Optional[int] = None
     items: List[TransferImportV2Item]
@@ -1408,8 +1515,14 @@ class CommissionLogRead(BaseModel):
     created_at: datetime
     paid_at: Optional[datetime] = None
     notes: Optional[str] = None
-    
-    user: Optional[UserRead] = None # Assuming UserRead is available in scope
+    # Nuevos campos para tasa congelada y monto en Bs
+    exchange_rate_snapshot: Optional[Decimal] = None  # Tasa del día de la venta
+    amount_bs: Optional[Decimal] = None               # Equivalente Bs congelado
+    paid_in_bs: Optional[bool] = False                # Si fue cobrado en Bs
+    percentage_applied: Optional[Decimal] = None
+    commission_role: Optional[str] = None
+
+    user: Optional[UserRead] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1459,3 +1572,10 @@ from .warranty import (
     WarrantyClaimUpdate,
     WarrantyClaimRead
 )
+
+# ── Resolver forward references de Pydantic v2 ──────────────────────────────
+# ComboItemRead.child_product usa 'ProductRead' como forward ref
+# ProductRead.combo_items usa ComboItemRead -- dependencia circular
+# model_rebuild() resuelve ambas referencias después de que todos los modelos están definidos
+ComboItemRead.model_rebuild()
+ProductRead.model_rebuild()

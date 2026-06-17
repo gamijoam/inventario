@@ -79,7 +79,7 @@ const ReceiveStockForm = ({ onSuccess }) => {
     // Load products for autocomplete
     useEffect(() => {
         if (!open) return;
-        apiClient.get('/products', { params: { limit: 500 } })
+        apiClient.get('/products', { params: { limit: 2000 } })
             .then(res => setProducts(res.data.items || res.data || []))
             .catch(() => {});
     }, [open]);

@@ -48,7 +48,7 @@ export const AutoSyncProvider = ({ children }) => {
             // USAR BACKEND PARA VERIFICAR CONEXIÓN (Evita CORS)
             const response = await apiClient.post('/cloud/test-connection', {
                 url: cloudConfig.cloudUrl
-            });
+            }, { _silentNetworkError: true });
 
             if (response.data.success) {
                 setSyncStatus(prev => ({ ...prev, isOnline: true, error: null }));
@@ -79,13 +79,16 @@ export const AutoSyncProvider = ({ children }) => {
             key: 'cloud_url',
             value: cloudConfig.cloudUrl
         }, {
-            _silent403: true  // Tell the axios interceptor NOT to show a toast for 403
+            _silent403: true,
+            _silentNetworkError: true  // No mostrar toast si falla la red
         }).catch(e => {
             console.warn('[AutoSync] Falló sync de cloud_url:', e.message);
         });
     }, [cloudConfig.isConfigured, cloudConfig.cloudUrl, user?.role]);
 
     // Función de sincronización
+    const isSyncingRef = React.useRef(false);
+
     const performSync = useCallback(async (manual = false) => {
         // Feature flag: Skip if sync is disabled
         if (!isSyncEnabled) {
@@ -93,7 +96,7 @@ export const AutoSyncProvider = ({ children }) => {
             return { success: false, reason: 'disabled' };
         }
 
-        if (syncStatus.isSyncing) {
+        if (isSyncingRef.current) {
             console.log('⏳ Sincronización ya en progreso...');
             return;
         }
@@ -105,6 +108,7 @@ export const AutoSyncProvider = ({ children }) => {
             return { success: false, reason: 'not_configured' };
         }
 
+        isSyncingRef.current = true;
         setSyncStatus(prev => ({ ...prev, isSyncing: true, error: null }));
 
         try {
@@ -132,6 +136,7 @@ export const AutoSyncProvider = ({ children }) => {
                 pendingSales: 0,
                 error: null
             }));
+            isSyncingRef.current = false;
 
             // 4. Notificar éxito
             if (manual) {
@@ -147,6 +152,7 @@ export const AutoSyncProvider = ({ children }) => {
 
             const errorMsg = error.response?.data?.detail || error.message || 'Error desconocido';
 
+            isSyncingRef.current = false;
             setSyncStatus(prev => ({
                 ...prev,
                 isSyncing: false,
@@ -159,7 +165,7 @@ export const AutoSyncProvider = ({ children }) => {
 
             return { success: false, reason: 'error', error: errorMsg };
         }
-    }, [syncStatus.isSyncing, checkOnlineStatus, cloudConfig.isConfigured]);
+    }, [checkOnlineStatus, cloudConfig.isConfigured]); // syncStatus.isSyncing reemplazado por ref
 
     // Sincronización manual (desde botón)
     const syncNow = useCallback(() => {
@@ -180,7 +186,7 @@ export const AutoSyncProvider = ({ children }) => {
         const initialSync = setTimeout(() => {
             console.log('🔄 Sincronización inicial automática...');
             performSync(false);
-        }, 30000);
+        }, 120000); // cada 2 min
 
         // Sincronización periódica
         const interval = setInterval(() => {
@@ -192,16 +198,16 @@ export const AutoSyncProvider = ({ children }) => {
             clearTimeout(initialSync);
             clearInterval(interval);
         };
-    }, [cloudConfig.syncEnabled, cloudConfig.syncIntervalMinutes, cloudConfig.isConfigured, performSync]);
+    }, [cloudConfig.syncEnabled, cloudConfig.syncIntervalMinutes, cloudConfig.isConfigured]); // performSync excluido intencionalmente - usa ref para evitar re-renders
 
     // Verificar estado online cada 2 minutos
     useEffect(() => {
         if (!cloudConfig.isConfigured) return;
 
-        const interval = setInterval(checkOnlineStatus, 120000);
+        const interval = setInterval(checkOnlineStatus, 300000); // cada 5 min
         checkOnlineStatus(); // Check inicial
         return () => clearInterval(interval);
-    }, [checkOnlineStatus, cloudConfig.isConfigured]);
+    }, [cloudConfig.isConfigured]); // checkOnlineStatus excluido para evitar re-renders
 
     const value = {
         syncStatus,

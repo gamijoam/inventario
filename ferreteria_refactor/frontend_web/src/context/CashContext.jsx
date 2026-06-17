@@ -7,17 +7,55 @@ import printerService from '../services/printerService';
 
 const CashContext = createContext();
 
+const ACTIVE_REGISTER_STORAGE_KEY = 'cash_active_register_id';
+
+const readStoredRegisterId = () => {
+    try {
+        const value = localStorage.getItem(ACTIVE_REGISTER_STORAGE_KEY);
+        const parsed = Number(value);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    } catch {
+        return null;
+    }
+};
+
+const persistStationRegister = (register) => {
+    if (!register?.id) return;
+    localStorage.setItem(ACTIVE_REGISTER_STORAGE_KEY, String(register.id));
+    if (register.hardware_client_id) {
+        localStorage.setItem('hardware_client_id', register.hardware_client_id);
+    } else {
+        localStorage.removeItem('hardware_client_id');
+    }
+};
+
+const clearPrinterRoute = () => {
+    localStorage.removeItem('hardware_client_id');
+};
+
 export const CashProvider = ({ children }) => {
     const [isSessionOpen, setIsSessionOpen] = useState(false);
     const [session, setSession] = useState(null);
     const [loading, setLoading] = useState(true);
     // Multi-register support
     const [registers, setRegisters] = useState([]);
-    const [activeRegister, setActiveRegister] = useState(null); // Register selected for this terminal
+    const [activeRegister, setActiveRegisterState] = useState(null); // Register selected for this terminal
     const { subscribe } = useWebSocket();
 
     // Get Auth Context to prevent race conditions
     const { isAuthenticated, user } = useAuth();
+
+    const setActiveRegister = (register) => {
+        setActiveRegisterState(register || null);
+        if (register) persistStationRegister(register);
+    };
+
+    const selectStationRegister = async (register) => {
+        if (!register?.id) return false;
+        setActiveRegister(register);
+        await checkStatus(0, registers);
+        return true;
+    };
 
     const fetchRegisters = async () => {
         try {
@@ -29,8 +67,15 @@ export const CashProvider = ({ children }) => {
             });
             const list = Array.isArray(res.data) ? res.data : [];
             setRegisters(list);
-            // Auto-set activeRegister if only one exists
-            if (list.length === 1) setActiveRegister(list[0]);
+
+            const storedRegisterId = readStoredRegisterId();
+            const storedRegister = storedRegisterId ? list.find(r => Number(r.id) === storedRegisterId) : null;
+            if (storedRegister) {
+                setActiveRegisterState(storedRegister);
+                persistStationRegister(storedRegister);
+            } else if (list.length === 1) {
+                setActiveRegister(list[0]);
+            }
             return list;
         } catch (e) {
             console.warn('Could not fetch registers:', e);
@@ -39,31 +84,54 @@ export const CashProvider = ({ children }) => {
         }
     };
 
-    const checkStatus = async (retryCount = 0) => {
+    const checkStatus = async (retryCount = 0, knownRegisters = registers) => {
         // Prevent checking if not authenticated yet
         if (!isAuthenticated) return;
 
-        console.log(`🔄 Checking cash session status... (Attempt ${retryCount + 1})`);
+        console.log(`Checking cash session status... (Attempt ${retryCount + 1})`);
         if (retryCount === 0) setLoading(true); // Only set loading on first attempt to avoid flicker on retries
 
+        const storedRegisterId = readStoredRegisterId();
+        const registerList = Array.isArray(knownRegisters) ? knownRegisters : [];
+        const isAdmin = user?.is_superuser || user?.role === 'ADMIN' || user?.role === 'UserRole.ADMIN';
+        const mustAvoidAdminFallback = isAdmin && registerList.length > 1 && !storedRegisterId;
+
         try {
-            // _silentNetworkError: true → interceptor no muestra toast; CashContext gestiona sus propios reintentos
-            const response = await apiClient.get('/cash/sessions/current', { _silentNetworkError: true });
+            if (mustAvoidAdminFallback) {
+                console.warn('Admin without station register selected; refusing to bind to an arbitrary open cash session.');
+                setIsSessionOpen(false);
+                setSession(null);
+                clearPrinterRoute();
+                setLoading(false);
+                return;
+            }
+
+            const requestConfig = { _silentNetworkError: true };
+            if (storedRegisterId) {
+                requestConfig.params = { register_id: storedRegisterId };
+            }
+            // _silentNetworkError: true: interceptor no muestra toast; CashContext gestiona sus propios reintentos
+            const response = await apiClient.get('/cash/sessions/current', requestConfig);
 
             if (!response.data) {
                 // Handle 200 OK with null/empty body -> No active session
-                console.log('ℹ️ No active cash session found (Server returned null).');
+                console.log('No active cash session found (Server returned null).');
                 setIsSessionOpen(false);
                 setSession(null);
+                clearPrinterRoute();
             } else {
-                console.log('✅ Cash session check successful:', response.data);
+                console.log('Cash session check successful:', response.data);
                 setIsSessionOpen(true);
                 setSession(response.data);
+                setActiveRegisterState(response.data.register || null);
+                if (response.data.register) persistStationRegister(response.data.register);
                 // Sync hardware_client_id so printerService routes to the correct printer
                 const hwId = response.data?.register?.hardware_client_id;
                 if (hwId) {
-                    localStorage.setItem('hardware_client_id', hwId);
-                    console.log(`🖨️ Printer ID synced from register: ${hwId}`);
+                    console.log(`Printer ID synced from register: ${hwId}`);
+                } else {
+                    clearPrinterRoute();
+                    console.warn('Active register has no hardware_client_id configured.');
                 }
             }
         } catch (error) {
@@ -78,6 +146,7 @@ export const CashProvider = ({ children }) => {
                 }
                 setIsSessionOpen(false);
                 setSession(null);
+                clearPrinterRoute();
                 return;
             }
 
@@ -85,7 +154,7 @@ export const CashProvider = ({ children }) => {
             if ((error.code === 'ERR_NETWORK' || !error.response) && retryCount < 5) {
                 const delay = retryCount === 0 ? 1000 : (retryCount + 1) * 500; // First retry after 1s
                 console.warn(`⏳ Cash session check failed (attempt ${retryCount + 1}/5), retrying in ${delay}ms...`);
-                setTimeout(() => checkStatus(retryCount + 1), delay);
+                setTimeout(() => checkStatus(retryCount + 1, knownRegisters), delay);
                 return; // Don't stop loading yet
             }
 
@@ -106,6 +175,7 @@ export const CashProvider = ({ children }) => {
 
             setIsSessionOpen(false);
             setSession(null);
+            clearPrinterRoute();
         }
         // Refactored flow to avoid finally block complexity with retry
         setLoading(false);
@@ -113,29 +183,30 @@ export const CashProvider = ({ children }) => {
 
     useEffect(() => {
         if (isAuthenticated) {
-            fetchRegisters();
-            checkStatus();
+            (async () => {
+                const list = await fetchRegisters();
+                await checkStatus(0, list);
+            })();
         } else {
             setLoading(false); // Stop loading if not auth
         }
 
         // WebSocket Subscriptions
         const unsubOpen = subscribe('cash_session:opened', (data) => {
-            console.log('💵 Session Opened Real-time:', data);
+            console.log('Session Opened Real-time:', data);
             setIsSessionOpen(true);
-            fetchRegisters();
-            checkStatus();
+            fetchRegisters().then(list => checkStatus(0, list));
         });
 
         const unsubClose = subscribe('cash_session:closed', (data) => {
-            console.log('💵 Session Closed Real-time:', data);
+            console.log('Session Closed Real-time:', data);
             setIsSessionOpen(false);
             setSession(null);
             fetchRegisters();
 
             // AUTO-PRINT Z REPORT
             if (data.print_payload) {
-                console.log("🖨️ Printing Z Report automatically...");
+                console.log("Printing Z Report automatically...");
                 printerService.printRaw(data.print_payload).then(() => {
                     toast.success("Reporte Z enviado a la impresora");
                 }).catch(err => {
@@ -156,11 +227,14 @@ export const CashProvider = ({ children }) => {
             const response = await apiClient.post('/cash/sessions/open', sessionData);
             setIsSessionOpen(true);
             setSession(response.data);
+            if (response.data?.register) setActiveRegister(response.data.register);
             // Sync hardware_client_id for per-register printer routing on session open
             const hwId = response.data?.register?.hardware_client_id;
             if (hwId) {
-                localStorage.setItem('hardware_client_id', hwId);
-                console.log(`🖨️ Printer ID set for this register: ${hwId}`);
+                console.log(`Printer ID set for this register: ${hwId}`);
+            } else {
+                clearPrinterRoute();
+                console.warn('Opened register has no hardware_client_id configured.');
             }
             return true;
         } catch (error) {
@@ -189,6 +263,7 @@ export const CashProvider = ({ children }) => {
             await apiClient.post(`/cash/sessions/${session.id}/close`, closeData);
             setIsSessionOpen(false);
             setSession(null);
+            clearPrinterRoute();
             return true;
         } catch (error) {
             console.error('Error closing session:', error);
@@ -222,6 +297,7 @@ export const CashProvider = ({ children }) => {
             registers,
             activeRegister,
             setActiveRegister,
+            selectStationRegister,
             fetchRegisters,
         }}>
             {children}

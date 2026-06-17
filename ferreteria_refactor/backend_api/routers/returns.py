@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, cast, String
+from sqlalchemy import or_, cast, String, func
 from typing import List, Optional
 from ..database.db import get_db
 from ..models import models
@@ -8,11 +8,101 @@ from .. import schemas
 from ..commission_engine import CommissionEngine
 from ..dependencies import get_current_active_user
 from datetime import datetime, date
+from decimal import Decimal
 
 router = APIRouter(
     prefix="/returns",
     tags=["returns"]
 )
+
+
+def _estimate_return_total(return_data: schemas.ReturnCreate, db: Session) -> Decimal:
+    """Calculate the USD value of the return before mutating stock/cash."""
+    sale = db.query(models.Sale).options(
+        joinedload(models.Sale.details)
+    ).filter(models.Sale.id == return_data.sale_id).first()
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+
+    total = Decimal("0.00")
+    for item in return_data.items:
+        if item.quantity <= 0:
+            continue
+        detail = next((d for d in sale.details if d.product_id == item.product_id), None)
+        if not detail:
+            raise HTTPException(status_code=400, detail=f"Product {item.product_id} not found in this sale")
+        serial_numbers = getattr(item, 'serial_numbers', None) or []
+        actual_qty = Decimal(str(len(serial_numbers))) if serial_numbers else Decimal(str(item.quantity))
+        total += Decimal(str(detail.unit_price)) * actual_qty
+    return total
+
+
+def _payments_cover_difference(payments, difference_due: Decimal) -> bool:
+    if difference_due <= Decimal("0.05"):
+        return True
+    total_usd = Decimal("0.00")
+    for p in payments or []:
+        if str(p.payment_method or '').lower() == 'canje':
+            continue
+        amount = Decimal(str(p.amount or 0))
+        currency = str(p.currency or 'USD')
+        if currency in ('USD', '$'):
+            total_usd += amount
+        else:
+            rate = Decimal(str(p.exchange_rate or 0))
+            if rate > 0:
+                total_usd += amount / rate
+    return total_usd + Decimal("0.05") >= difference_due
+
+
+def _validate_replacement_sale_ready(sale_data: schemas.SaleCreate, db: Session, current_user: models.User):
+    session = None
+    if getattr(sale_data, 'session_id', None):
+        session = db.query(models.CashSession).filter(
+            models.CashSession.id == sale_data.session_id,
+            models.CashSession.status == "OPEN"
+        ).first()
+    if not session:
+        session = db.query(models.CashSession).filter(
+            models.CashSession.status == "OPEN",
+            models.CashSession.user_id == current_user.id
+        ).first()
+    if not session:
+        raise HTTPException(status_code=400, detail="No hay caja abierta para registrar la venta de reemplazo del canje")
+
+    warehouse_id = getattr(sale_data, 'warehouse_id', None)
+    for item in sale_data.items:
+        product = db.query(models.Product).filter(models.Product.id == item.product_id).first()
+        if not product:
+            raise HTTPException(status_code=404, detail=f"Producto de reemplazo {item.product_id} no encontrado")
+
+        qty = Decimal(str(item.quantity or 0))
+        serials = getattr(item, 'serial_numbers', None) or []
+        if getattr(product, 'has_imei', False):
+            if len(serials) != int(qty):
+                raise HTTPException(status_code=400, detail=f"El producto '{product.name}' requiere {int(qty)} IMEI para el canje")
+            for serial in serials:
+                pi = db.query(models.ProductInstance).filter(
+                    models.ProductInstance.product_id == product.id,
+                    models.ProductInstance.serial_number == serial,
+                    models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE,
+                ).first()
+                if not pi:
+                    raise HTTPException(status_code=400, detail=f"IMEI '{serial}' no disponible para el producto de reemplazo '{product.name}'")
+                if warehouse_id and pi.warehouse_id != warehouse_id:
+                    raise HTTPException(status_code=400, detail=f"IMEI '{serial}' no pertenece al almacen seleccionado")
+            continue
+
+        if warehouse_id:
+            ps = db.query(models.ProductStock).filter(
+                models.ProductStock.product_id == product.id,
+                models.ProductStock.warehouse_id == warehouse_id
+            ).first()
+            available = Decimal(str(ps.quantity if ps else 0))
+        else:
+            available = Decimal(str(product.stock or 0))
+        if available < qty:
+            raise HTTPException(status_code=400, detail=f"Stock insuficiente para '{product.name}'. Disponible: {available}, solicitado: {qty}")
 
 @router.get("/sales/search")
 def search_sales(
@@ -30,14 +120,22 @@ def search_sales(
         """Search sales with filters"""
         query = db.query(models.Sale)
 
-        # Text Search
+        # Text Search — por ID, cliente o IMEI
         if q:
-            query = query.join(models.Customer, isouter=True).filter(
+            query = query.join(models.Customer, isouter=True).outerjoin(
+                models.SaleDetail, models.SaleDetail.sale_id == models.Sale.id
+            ).outerjoin(
+                models.SaleDetailInstance, models.SaleDetailInstance.sale_detail_id == models.SaleDetail.id
+            ).outerjoin(
+                models.ProductInstance, models.ProductInstance.id == models.SaleDetailInstance.product_instance_id
+            ).filter(
                 or_(
                     cast(models.Sale.id, String).ilike(f"%{q}%"),
-                    models.Customer.name.ilike(f"%{q}%")
+                    models.Customer.name.ilike(f"%{q}%"),
+                    models.Customer.phone.ilike(f"%{q}%"),
+                    models.ProductInstance.serial_number.ilike(f"%{q}%"),
                 )
-            )
+            ).distinct()
 
         # Filter by Payment Method
         if payment_method:
@@ -125,6 +223,33 @@ def process_return(
     sale = db.query(models.Sale).filter(models.Sale.id == return_data.sale_id).first()
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
+
+    # Validation: Check if sale is already fully returned
+    if sale.status == "VOIDED":
+        raise HTTPException(status_code=400, detail="Esta venta ya fue anulada completamente")
+
+    # Validation: Check that there are still items to return
+    all_fully_returned = True
+    for detail in sale.details:
+        if not detail.product_id or float(detail.quantity or 0) <= 0:
+            continue
+        already_ret = db.query(
+            func.coalesce(func.sum(models.ReturnDetail.quantity), 0)
+        ).join(
+            models.Return, models.Return.id == models.ReturnDetail.return_id
+        ).filter(
+            models.Return.sale_id == sale.id,
+            models.ReturnDetail.product_id == detail.product_id
+        ).scalar() or 0
+        if float(detail.quantity) - float(already_ret) > 0:
+            all_fully_returned = False
+            break
+
+    if all_fully_returned and sale.details:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta venta ya fue devuelta en su totalidad. No se pueden registrar más devoluciones."
+        )
     
     # Create Return Record
     new_return = models.Return(
@@ -159,9 +284,32 @@ def process_return(
                 status_code=400,
                 detail=f"Cannot return more than purchased ({detail.quantity})"
             )
+
+        # Validation: Cannot return more than what remains (considering previous returns)
+        already_returned = db.query(
+            func.coalesce(func.sum(models.ReturnDetail.quantity), 0)
+        ).join(
+            models.Return, models.Return.id == models.ReturnDetail.return_id
+        ).filter(
+            models.Return.sale_id == sale.id,
+            models.ReturnDetail.product_id == item.product_id
+        ).scalar() or 0
+
+        remaining_qty = float(detail.quantity) - float(already_returned)
+        if item.quantity > remaining_qty:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Solo quedan {remaining_qty} unidad(es) disponibles para devolver de este producto. Ya se devolvieron {already_returned}."
+            )
         
-        # Calculate refund amount
-        refund_amount = detail.unit_price * item.quantity
+        # Determine actual quantity: prefer explicit serial_numbers (Fix 4 IMEI tracking),
+        # else fall back to item.quantity (non-IMEI / legacy). Esto permite que el
+        # frontend envie seriales para IMEIs y el backend los trackee exacto.
+        serial_numbers = getattr(item, 'serial_numbers', None) or []
+        actual_qty = len(serial_numbers) if serial_numbers else int(item.quantity)
+
+        # Calculate refund amount (using actual_qty)
+        refund_amount = detail.unit_price * actual_qty
         total_refund += refund_amount
         
         # Determine Cost to Return (Try to use historical, fallback to current)
@@ -179,65 +327,141 @@ def process_return(
         ret_detail = models.ReturnDetail(
             return_id=new_return.id,
             product_id=item.product_id,
-            quantity=item.quantity,
-            unit_price=detail.unit_price,  # Add unit price from original sale
-            unit_cost=cost_to_return # CRITICAL: Record cost of returned item
+            quantity=actual_qty,
+            unit_price=detail.unit_price,
+            unit_cost=cost_to_return
         )
         db.add(ret_detail)
+        db.flush()  # Needed before linking returned IMEIs in return_detail_instances
         
         # Get product
         product = db.query(models.Product).get(item.product_id)
-        
+
+        # ── Restaurar ProductInstances (IMEI) + marcar SaleDetailInstance RETURNED ──
+        # Fix 4: track explicito. Si vienen serial_numbers, esos especificos
+        # (validados, con junction en return_detail_instances). Si no, fallback
+        # determinista (Fix 2: .order_by + .limit). En ambos casos marcamos el/los
+        # SaleDetailInstance como RETURNED para que NO quede como link activo en
+        # queries de garantía (y desaparezca el "phantom" de la venta vieja).
+        if serial_numbers:
+            # Camino explicito: el cajero seleccionó QUÉ IMEIs devuelve
+            for serial in serial_numbers:
+                pi = db.query(models.ProductInstance).filter(
+                    models.ProductInstance.serial_number == serial
+                ).first()
+                if not pi:
+                    raise HTTPException(status_code=400, detail=f"IMEI/serial '{serial}' no encontrado")
+                if pi.status != models.ProductInstanceStatus.SOLD:
+                    raise HTTPException(status_code=400, detail=f"IMEI '{serial}' no está SOLD (actual: {pi.status.value})")
+                sdi = db.query(models.SaleDetailInstance).join(
+                    models.SaleDetail, models.SaleDetail.id == models.SaleDetailInstance.sale_detail_id
+                ).filter(
+                    models.SaleDetailInstance.product_instance_id == pi.id,
+                    models.SaleDetail.sale_id == sale.id,
+                    models.SaleDetailInstance.status == 'SOLD',
+                ).first()
+                if not sdi:
+                    raise HTTPException(status_code=400, detail=f"IMEI '{serial}' no vendido en venta #{sale.id} o ya devuelto")
+                # Marcar instancia
+                if item.condition == "GOOD":
+                    pi.status = models.ProductInstanceStatus.AVAILABLE
+                else:
+                    pi.status = models.ProductInstanceStatus.RMA
+                # Marcar link como RETURNED
+                sdi.status = 'RETURNED'
+                sdi.returned_at = datetime.now()
+                sdi.returned_in_return_id = new_return.id
+                # Junction de auditoría
+                db.add(models.ReturnDetailInstance(
+                    return_detail_id=ret_detail.id,
+                    product_instance_id=pi.id,
+                ))
+        else:
+            # Camino legacy (no IMEI o sin seriales): .order_by + .limit determinista
+            instances_to_restore = db.query(models.ProductInstance).join(
+                models.SaleDetailInstance,
+                models.SaleDetailInstance.product_instance_id == models.ProductInstance.id
+            ).join(
+                models.SaleDetail,
+                models.SaleDetail.id == models.SaleDetailInstance.sale_detail_id
+            ).filter(
+                models.SaleDetail.sale_id == sale.id,
+                models.SaleDetail.product_id == item.product_id,
+                models.ProductInstance.status == models.ProductInstanceStatus.SOLD,
+                models.SaleDetailInstance.status == 'SOLD',
+            ).order_by(models.ProductInstance.id).limit(actual_qty).all()
+
+            for pi in instances_to_restore:
+                if item.condition == "GOOD":
+                    pi.status = models.ProductInstanceStatus.AVAILABLE
+                else:
+                    pi.status = models.ProductInstanceStatus.RMA
+                # Marcar SaleDetailInstances activos de este pi en esta venta
+                for sdi in db.query(models.SaleDetailInstance).join(
+                    models.SaleDetail, models.SaleDetail.id == models.SaleDetailInstance.sale_detail_id
+                ).filter(
+                    models.SaleDetailInstance.product_instance_id == pi.id,
+                    models.SaleDetail.sale_id == sale.id,
+                    models.SaleDetailInstance.status == 'SOLD',
+                ).all():
+                    sdi.status = 'RETURNED'
+                    sdi.returned_at = datetime.now()
+                    sdi.returned_in_return_id = new_return.id
+
         # Handle stock based on condition
         if item.condition == "GOOD":
-            # GOOD condition: Simply restore to stock
-            product.stock += item.quantity
-            
-            # Kardex Entry: RETURN (Entrada)
+            product.stock += actual_qty
+            if sale.warehouse_id:
+                ps = db.query(models.ProductStock).filter(
+                    models.ProductStock.product_id == product.id,
+                    models.ProductStock.warehouse_id == sale.warehouse_id
+                ).first()
+                if ps:
+                    ps.quantity += actual_qty
+                else:
+                    db.add(models.ProductStock(
+                        product_id=product.id,
+                        warehouse_id=sale.warehouse_id,
+                        quantity=actual_qty
+                    ))
             kardex = models.Kardex(
                 product_id=product.id,
                 movement_type="RETURN",
-                quantity=item.quantity,
+                quantity=actual_qty,
                 balance_after=product.stock,
                 description=f"Devolución Venta #{sale.id} - Buen Estado",
                 date=datetime.now()
             )
             db.add(kardex)
-            
         else:  # DAMAGED condition
-            # Step 1: Register the return (for audit trail)
-            old_stock = product.stock
-            product.stock += item.quantity
-            
+            product.stock += actual_qty
             kardex_return = models.Kardex(
                 product_id=product.id,
                 movement_type="RETURN",
-                quantity=item.quantity,
+                quantity=actual_qty,
                 balance_after=product.stock,
                 description=f"Devolución Venta #{sale.id} - Producto Dañado (Entrada)",
                 date=datetime.now()
             )
             db.add(kardex_return)
-            
-            # Step 2: Immediately adjust out (automatic shrinkage)
-            product.stock -= item.quantity
-            
+            product.stock -= actual_qty
             kardex_adjustment = models.Kardex(
                 product_id=product.id,
                 movement_type="ADJUSTMENT_OUT",
-                quantity=item.quantity,
+                quantity=actual_qty,
                 balance_after=product.stock,
                 description=f"Auto-merma por devolución dañada - Venta #{sale.id}",
                 date=datetime.now()
             )
             db.add(kardex_adjustment)
-            
-            # Net effect: stock unchanged, but audit trail complete
     
     new_return.total_refunded = total_refund
     
     # CRITICAL: Update balance_pending for credit sales
-    actual_cash_refund = total_refund
+    actual_cash_refund = Decimal(str(total_refund))
+    resolution_type = str(getattr(return_data, 'resolution_type', 'REFUND') or 'REFUND').upper()
+    exchange_credit_requested = Decimal(str(getattr(return_data, 'exchange_credit_amount', Decimal('0.00')) or 0))
+    exchange_credit_applied = Decimal('0.00')
     
     if sale.is_credit and sale.balance_pending is not None:
         # Reduce debt by refund amount
@@ -250,7 +474,7 @@ def process_return(
             
         sale.balance_pending = new_balance
         debt_reduced = old_balance - new_balance
-        actual_cash_refund = total_refund - debt_reduced
+        actual_cash_refund = Decimal(str(total_refund)) - Decimal(str(debt_reduced))
         
         # Mark as paid if balance is zero or negative
         if new_balance <= 0.01:
@@ -259,6 +483,10 @@ def process_return(
         print(f"💳 Credit sale return: Reduced balance from ${old_balance:.2f} to ${new_balance:.2f}, Paid: {sale.paid}")
         print(f"💵 Actual cash to refund (after debt offset): ${actual_cash_refund:.2f}")
     
+    if resolution_type == 'EXCHANGE' and exchange_credit_requested > 0:
+        exchange_credit_applied = min(exchange_credit_requested, actual_cash_refund)
+        actual_cash_refund = max(Decimal('0.00'), actual_cash_refund - exchange_credit_applied)
+
     # ── FIX 1: Anular comisiones de la venta devuelta ───────────────────────────
     try:
         from ..models.tenant import Tenant as _TenantModel
@@ -316,9 +544,12 @@ def process_return(
     is_full_return = total_items_returned >= total_items_sold
 
     # Guardar en metadata del return si es devolución completa o parcial
+    resolution_label = "CANJE" if resolution_type == 'EXCHANGE' else "REEMBOLSO"
+    exchange_label = f" | credito canje aplicado: ${exchange_credit_applied:.2f}" if exchange_credit_applied > 0 else ""
+    cash_label = f" | efectivo a devolver: ${actual_cash_refund:.2f}" if resolution_type == 'EXCHANGE' else ""
     new_return.reason = (return_data.reason or "") + (
         " [ANULACIÓN TOTAL]" if is_full_return else " [DEVOLUCIÓN PARCIAL]"
-    )
+    ) + f" [{resolution_label}]{exchange_label}{cash_label}"
 
     # 🔒 SECURITY: Final Eager Load BEFORE commit
     captured_id = new_return.id
@@ -329,6 +560,81 @@ def process_return(
     db.commit()
 
     return schemas.ReturnRead.model_validate(new_return)
+
+
+@router.post("/exchange", response_model=schemas.ReturnExchangeRead)
+def process_exchange_return(
+    payload: schemas.ReturnExchangeCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Process a return and create a replacement sale paid with exchange credit."""
+    original_sale = db.query(models.Sale).filter(models.Sale.id == payload.sale_id).first()
+    if not original_sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+
+    estimated_refund = _estimate_return_total(payload, db)
+    replacement_total = Decimal(str(payload.replacement_sale.total_amount))
+    if replacement_total <= 0:
+        raise HTTPException(status_code=400, detail="El canje debe tener al menos un producto de reemplazo")
+
+    exchange_credit = min(estimated_refund, replacement_total)
+    difference_due = max(Decimal("0.00"), replacement_total - exchange_credit)
+    cash_refund_amount = max(Decimal("0.00"), estimated_refund - exchange_credit)
+
+    submitted_payments = [p for p in (payload.replacement_sale.payments or []) if str(p.payment_method or '').lower() != 'canje']
+    if not _payments_cover_difference(submitted_payments, difference_due):
+        raise HTTPException(
+            status_code=400,
+            detail=f"El canje cubre ${exchange_credit:.2f}. Falta cobrar diferencia de ${difference_due:.2f}."
+        )
+
+    _validate_replacement_sale_ready(payload.replacement_sale, db, current_user)
+
+    return_payload = payload.model_copy(update={
+        "resolution_type": "EXCHANGE",
+        "exchange_credit_amount": exchange_credit,
+        "reason": (payload.reason or "Canje de cliente"),
+    })
+    return_record = process_return(return_payload, db=db, current_user=current_user)
+
+    canje_payment = schemas.SalePaymentCreate(
+        amount=exchange_credit,
+        currency="USD",
+        payment_method="Canje",
+        exchange_rate=Decimal("1.0"),
+        reference=f"RETURN-{return_record.id}",
+    )
+    replacement_notes = (payload.replacement_sale.notes or "").strip()
+    link_note = f"Canje por devolucion #{return_record.id} de venta original #{payload.sale_id}"
+    replacement_sale = payload.replacement_sale.model_copy(update={
+        "customer_id": payload.replacement_sale.customer_id or original_sale.customer_id,
+        "payment_method": "Canje" if difference_due <= Decimal("0.05") else (payload.replacement_sale.payment_method or "Mixto"),
+        "payments": [canje_payment] + submitted_payments,
+        "notes": f"{replacement_notes} | {link_note}" if replacement_notes else link_note,
+        "is_credit": False,
+    })
+
+    from ..services.sales_service import SalesService
+    sale_result = SalesService.create_sale(db, replacement_sale, user_id=current_user.id, background_tasks=background_tasks)
+    replacement_sale_id = sale_result.get("sale_id")
+
+    try:
+        ret = db.query(models.Return).filter(models.Return.id == return_record.id).first()
+        if ret:
+            ret.reason = (ret.reason or "") + f" | venta reemplazo #{replacement_sale_id}"
+            db.commit()
+    except Exception as exc:
+        print(f"[RETURN EXCHANGE] No se pudo anexar venta reemplazo al return: {exc}")
+
+    return {
+        "return_record": return_record,
+        "replacement_sale_id": replacement_sale_id,
+        "exchange_credit_amount": exchange_credit,
+        "difference_due": difference_due,
+        "cash_refund_amount": cash_refund_amount,
+    }
 
 @router.post("/void/{sale_id}")
 def void_sale(
@@ -415,6 +721,22 @@ def void_sale(
         product = db.query(models.Product).get(item.product_id)
         if product:
             product.stock += item.quantity
+
+            # Restaurar stock por almacén (product_stocks), espejo de la venta
+            if sale.warehouse_id:
+                ps = db.query(models.ProductStock).filter(
+                    models.ProductStock.product_id == product.id,
+                    models.ProductStock.warehouse_id == sale.warehouse_id
+                ).first()
+                if ps:
+                    ps.quantity += item.quantity
+                else:
+                    db.add(models.ProductStock(
+                        product_id=product.id,
+                        warehouse_id=sale.warehouse_id,
+                        quantity=item.quantity
+                    ))
+
             db.add(models.Kardex(
                 product_id=product.id,
                 movement_type="RETURN",
@@ -423,6 +745,21 @@ def void_sale(
                 description=f"Anulación Venta #{sale.id}",
                 date=datetime.now()
             ))
+
+        # Restaurar ProductInstance (IMEI) en void_sale
+        void_instances = db.query(models.ProductInstance).join(
+            models.SaleDetailInstance,
+            models.SaleDetailInstance.product_instance_id == models.ProductInstance.id
+        ).join(
+            models.SaleDetail,
+            models.SaleDetail.id == models.SaleDetailInstance.sale_detail_id
+        ).filter(
+            models.SaleDetail.sale_id == sale.id,
+            models.SaleDetail.product_id == item.product_id,
+            models.ProductInstance.status == models.ProductInstanceStatus.SOLD
+        ).all()
+        for pi in void_instances:
+            pi.status = models.ProductInstanceStatus.AVAILABLE
 
     new_return.total_refunded = total_refund
 

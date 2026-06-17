@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
-import { Search, Package, ArrowRight, Download, Trash2, AlertTriangle, CheckCircle, Camera, X, Image as ImageIcon } from 'lucide-react';
+import { Search, Package, ArrowRight, Download, Trash2, AlertTriangle, CheckCircle, Camera, X, Image as ImageIcon, Zap } from 'lucide-react';
 
 const ExternalTransferOut = () => {
     const [products, setProducts] = useState([]);
@@ -15,10 +15,16 @@ const ExternalTransferOut = () => {
     const [exportSummary, setExportSummary] = useState(null);
     const [photos, setPhotos] = useState([]); // { file, preview, uploading, url }
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
+    const [imeiPicker, setImeiPicker] = useState({ openFor: null, instances: [], loading: false, query: '' });
     const fileInputRef = useRef(null);
 
     // Check if any item exceeds available stock
     const hasStockError = selectedItems.some(i => i.quantity > i.current_stock);
+    const hasImeiError = selectedItems.some(i => i.has_imei && (i.selected_imeis?.length || 0) !== Number(i.quantity));
+    const selectedWarehouse = warehouses.find(w => String(w.id) === String(selectedWarehouseId));
+    const totalUnits = selectedItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+    const totalSerials = selectedItems.reduce((sum, item) => sum + (item.selected_imeis?.length || 0), 0);
+    const photoCount = photos.length;
 
     // Load warehouses on mount
     useEffect(() => {
@@ -39,6 +45,11 @@ const ExternalTransferOut = () => {
         fetchWarehouses();
     }, []);
 
+    useEffect(() => {
+        setSelectedItems(prev => prev.map(item => ({ ...item, selected_imeis: [] })));
+        setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
+    }, [selectedWarehouseId]);
+
     // Initial Search Logic
     useEffect(() => {
         if (search.length > 2) {
@@ -50,7 +61,7 @@ const ExternalTransferOut = () => {
         try {
             setLoading(true);
             const response = await apiClient.get(`/products?search=${search}&limit=20`);
-            setProducts(response.data);
+            setProducts(Array.isArray(response.data) ? response.data : (response.data?.items || []));
         } catch (error) {
             console.error("Error searching products:", error);
         } finally {
@@ -64,7 +75,7 @@ const ExternalTransferOut = () => {
             return;
         }
         if (selectedItems.find(i => i.product_id === product.id)) {
-            toast('El producto ya está en la lista', { icon: '⚠️' });
+            toast('El producto ya está en la lista', { icon: 'info' });
             return;
         }
         setSelectedItems([...selectedItems, {
@@ -72,13 +83,21 @@ const ExternalTransferOut = () => {
             name: product.name,
             sku: product.sku,
             current_stock: product.stock,
-            quantity: 1
+            quantity: 1,
+            has_imei: !!product.has_imei,
+            selected_imeis: []
         }]);
     };
 
     const updateQuantity = (id, qty) => {
         setSelectedItems(selectedItems.map(item =>
-            item.product_id === id ? { ...item, quantity: parseFloat(qty) || 0 } : item
+            item.product_id === id
+                ? {
+                    ...item,
+                    quantity: parseFloat(qty) || 0,
+                    selected_imeis: (item.selected_imeis || []).slice(0, parseFloat(qty) || 0)
+                }
+                : item
         ));
         // Reset confirmation when quantities change
         setShowConfirmation(false);
@@ -86,6 +105,61 @@ const ExternalTransferOut = () => {
 
     const removeItem = (id) => {
         setSelectedItems(selectedItems.filter(item => item.product_id !== id));
+    };
+
+    const openImeiPicker = async (itemIdx) => {
+        const item = selectedItems[itemIdx];
+        if (!item || !selectedWarehouseId) return;
+        setImeiPicker({ openFor: itemIdx, instances: [], loading: true, query: '' });
+        try {
+            const { data } = await apiClient.get(`/inventory/product/${item.product_id}/instances`);
+            const sourceId = Number(selectedWarehouseId);
+            const filtered = (Array.isArray(data) ? data : []).filter(
+                pi => Number(pi.warehouse_id) === sourceId && pi.status === 'AVAILABLE'
+            );
+            setImeiPicker(prev => ({ ...prev, instances: filtered, loading: false }));
+        } catch (error) {
+            console.error(error);
+            toast.error('Error cargando IMEIs disponibles');
+            setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
+        }
+    };
+
+    const closeImeiPicker = () => setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
+
+    const toggleImeiForItem = (itemIdx, instance) => {
+        const next = [...selectedItems];
+        const current = next[itemIdx].selected_imeis || [];
+        const isSelected = current.some(s => s.id === instance.id);
+        if (isSelected) {
+            next[itemIdx].selected_imeis = current.filter(s => s.id !== instance.id);
+        } else {
+            if (current.length >= next[itemIdx].quantity) {
+                return toast.error(`Ya seleccionaste ${current.length} IMEIs para cantidad ${next[itemIdx].quantity}`);
+            }
+            next[itemIdx].selected_imeis = [...current, { id: instance.id, serial_number: instance.serial_number }];
+        }
+        setSelectedItems(next);
+    };
+
+    const selectFirstN = (itemIdx, quantity) => {
+        const next = [...selectedItems];
+        next[itemIdx].selected_imeis = imeiPicker.instances
+            .slice(0, quantity)
+            .map(pi => ({ id: pi.id, serial_number: pi.serial_number }));
+        setSelectedItems(next);
+    };
+
+    const scanImeiForItem = (itemIdx) => {
+        const code = imeiPicker.query.trim().toUpperCase();
+        if (!code) return;
+        const instance = imeiPicker.instances.find(pi => (pi.serial_number || '').toUpperCase() === code);
+        if (!instance) {
+            toast.error('IMEI no disponible en el almacén origen');
+            return;
+        }
+        toggleImeiForItem(itemIdx, instance);
+        setImeiPicker(prev => ({ ...prev, query: '' }));
     };
 
     const handleAddPhotos = (e) => {
@@ -152,6 +226,12 @@ const ExternalTransferOut = () => {
             toast.error("Seleccione un almacén de origen");
             return;
         }
+        for (const item of selectedItems) {
+            if (item.has_imei && (item.selected_imeis?.length || 0) !== Number(item.quantity)) {
+                toast.error(`"${item.name}" maneja IMEI. Selecciona o escanea exactamente ${item.quantity} seriales.`);
+                return;
+            }
+        }
 
         try {
             setGenerating(true);
@@ -180,7 +260,9 @@ const ExternalTransferOut = () => {
                 warehouse_id: parseInt(selectedWarehouseId),
                 items: selectedItems.map(item => ({
                     product_id: item.product_id,
-                    quantity: item.quantity
+                    quantity: item.quantity,
+                    serial_numbers: item.selected_imeis?.map(i => i.serial_number) || [],
+                    instances: item.selected_imeis?.map(i => ({ product_instance_id: i.id })) || []
                 })),
                 photo_urls: photoUrls
             };
@@ -188,7 +270,7 @@ const ExternalTransferOut = () => {
             const response = await apiClient.post('/inventory/transfer/export', payload);
 
             // Create download
-            const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+            const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json;charset=utf-8' });
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
@@ -197,13 +279,25 @@ const ExternalTransferOut = () => {
             link.click();
             link.remove();
 
+            const summary = response.data || {};
+            const modelsCount = summary.models_count ?? summary.items_count ?? selectedItems.length;
+            const unitsCount = summary.units_count ?? totalUnits;
+            const serialsCount = summary.imei_count ?? totalSerials;
+            const photosCount = summary.photos_count ?? photoUrls.length;
+
             toast.dismiss(loadingToast);
-            toast.success("Paquete generado exitosamente. Stock descontado.");
+            toast.success(`Paquete generado: ${modelsCount} modelo${modelsCount !== 1 ? 's' : ''}, ${unitsCount} unidad${unitsCount !== 1 ? 'es' : ''}.`);
             setExportSummary({
-                count: selectedItems.length,
-                items: selectedItems.map(i => ({ sku: i.sku, name: i.name, quantity: i.quantity }))
+                packageId: summary.package_id,
+                models: modelsCount,
+                units: unitsCount,
+                serials: serialsCount,
+                photos: photosCount,
+                warehouse: summary.source_warehouse_name || selectedWarehouse?.name || 'almacén origen',
+                items: selectedItems.map(i => ({ sku: i.sku, name: i.name, quantity: i.quantity, serials: i.selected_imeis?.length || 0 }))
             });
             setSelectedItems([]);
+            setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
             setShowConfirmation(false);
             setSearch('');
             setProducts([]);
@@ -221,9 +315,9 @@ const ExternalTransferOut = () => {
     };
 
     return (
-        <div className="flex h-screen bg-slate-50">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.85fr)]">
             {/* Left Panel: Search */}
-            <div className="w-1/2 p-6 flex flex-col border-r border-slate-200">
+            <div className="flex min-h-[620px] flex-col rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <Search className="text-indigo-600" />
                     Buscar Productos
@@ -231,7 +325,7 @@ const ExternalTransferOut = () => {
 
                 {/* Warehouse Selector */}
                 <div className="mb-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Almacén de Origen</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Almacen de origen</label>
                     <select
                         value={selectedWarehouseId}
                         onChange={(e) => setSelectedWarehouseId(e.target.value)}
@@ -294,11 +388,30 @@ const ExternalTransferOut = () => {
             </div>
 
             {/* Right Panel: Transfer List */}
-            <div className="w-1/2 p-6 flex flex-col bg-white">
+            <div className="flex min-h-[620px] flex-col rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <Package className="text-emerald-600" />
-                    Paquete de Salida
+                    Paquete de salida
                 </h2>
+
+                <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Modelos</p>
+                        <p className="text-lg font-black text-slate-800">{selectedItems.length}</p>
+                    </div>
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                        <p className="text-[10px] font-bold uppercase text-emerald-600">Unidades</p>
+                        <p className="text-lg font-black text-emerald-700">{totalUnits}</p>
+                    </div>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                        <p className="text-[10px] font-bold uppercase text-amber-600">Seriales</p>
+                        <p className="text-lg font-black text-amber-700">{totalSerials}</p>
+                    </div>
+                    <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
+                        <p className="text-[10px] font-bold uppercase text-indigo-600">Fotos</p>
+                        <p className="text-lg font-black text-indigo-700">{photoCount}</p>
+                    </div>
+                </div>
 
                 <div className="flex-1 overflow-y-auto mb-4 border border-slate-100 rounded-xl bg-slate-50 p-4">
                     {selectedItems.length === 0 ? (
@@ -309,17 +422,36 @@ const ExternalTransferOut = () => {
                     ) : (
                         <div className="space-y-3">
                             {selectedItems.map(item => (
-                                <div key={item.product_id} className="bg-white p-3 rounded-lg shadow-sm border border-slate-200 flex items-center gap-4">
+                                <div key={item.product_id} className="bg-white p-3 rounded-lg shadow-sm border border-slate-200">
+                                    <div className="flex items-center gap-4">
                                     <div className="flex-1">
-                                        <h4 className="font-bold text-slate-700 text-sm">{item.name}</h4>
+                                        <h4 className="font-bold text-slate-700 text-sm flex items-center gap-2">
+                                            {item.name}
+                                            {item.has_imei && <span className="text-[10px] uppercase font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">IMEI</span>}
+                                        </h4>
                                         <p className="text-xs text-slate-400 font-mono">{item.sku}</p>
                                         <p className={`text-xs mt-0.5 ${item.quantity > item.current_stock ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>
                                             Stock: {item.current_stock}
                                             {item.quantity > item.current_stock && (
-                                                <span className="ml-1">— Excede el stock disponible</span>
+                                                <span className="ml-1">Excede el stock disponible</span>
                                             )}
                                         </p>
                                     </div>
+
+                                    {item.has_imei && (
+                                        <button
+                                            type="button"
+                                            onClick={() => imeiPicker.openFor === selectedItems.indexOf(item) ? closeImeiPicker() : openImeiPicker(selectedItems.indexOf(item))}
+                                            className={`text-xs font-bold px-3 py-2 rounded-lg border transition-colors flex items-center gap-1.5 ${
+                                                (item.selected_imeis?.length || 0) > 0
+                                                    ? 'bg-amber-50 border-amber-300 text-amber-700'
+                                                    : 'bg-white border-slate-200 text-slate-600 hover:border-amber-300 hover:text-amber-700'
+                                            }`}
+                                        >
+                                            <Zap size={13} />
+                                            {(item.selected_imeis?.length || 0) > 0 ? `${item.selected_imeis.length} IMEI${item.selected_imeis.length > 1 ? 's' : ''}` : 'IMEIs'}
+                                        </button>
+                                    )}
 
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs text-slate-400 font-bold uppercase">Cant:</span>
@@ -338,6 +470,71 @@ const ExternalTransferOut = () => {
                                     >
                                         <Trash2 size={18} />
                                     </button>
+                                    </div>
+
+                                    {item.has_imei && imeiPicker.openFor === selectedItems.indexOf(item) && (
+                                        <div className="mt-3 border-t border-slate-100 pt-3">
+                                            {imeiPicker.loading ? (
+                                                <div className="text-xs text-slate-400 py-3 text-center">Cargando IMEIs disponibles...</div>
+                                            ) : imeiPicker.instances.length === 0 ? (
+                                                <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                                    No hay IMEIs disponibles de este producto en el almacén origen.
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            value={imeiPicker.query}
+                                                            onChange={(e) => setImeiPicker(prev => ({ ...prev, query: e.target.value }))}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    e.preventDefault();
+                                                                    scanImeiForItem(selectedItems.indexOf(item));
+                                                                }
+                                                            }}
+                                                            placeholder="Escanea o escribe el IMEI..."
+                                                            className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-amber-300 outline-none"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => scanImeiForItem(selectedItems.indexOf(item))}
+                                                            className="px-3 py-2 bg-amber-500 text-white rounded-lg text-xs font-bold"
+                                                        >
+                                                            Agregar
+                                                        </button>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-xs text-slate-600">
+                                                        <span><b>{imeiPicker.instances.length}</b> disponibles - <b>{item.selected_imeis?.length || 0}/{item.quantity}</b> seleccionados</span>
+                                                        {(item.selected_imeis?.length || 0) < item.quantity && imeiPicker.instances.length >= item.quantity && (
+                                                            <button type="button" onClick={() => selectFirstN(selectedItems.indexOf(item), item.quantity)} className="font-bold text-indigo-600">
+                                                                Auto-seleccionar {item.quantity}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto">
+                                                        {imeiPicker.instances.map(pi => {
+                                                            const isSelected = item.selected_imeis?.some(s => s.id === pi.id);
+                                                            return (
+                                                                <button
+                                                                    key={pi.id}
+                                                                    type="button"
+                                                                    onClick={() => toggleImeiForItem(selectedItems.indexOf(item), pi)}
+                                                                    className={`text-left p-2 rounded-lg border text-xs font-mono flex items-center gap-2 ${
+                                                                        isSelected ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-white border-slate-100 text-slate-600 hover:border-slate-300'
+                                                                    }`}
+                                                                >
+                                                                    <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${isSelected ? 'bg-amber-500 border-amber-500 text-white' : 'border-slate-300'}`}>
+                                                                        {isSelected && <CheckCircle size={10} />}
+                                                                    </span>
+                                                                    <span className="flex-1 truncate">{pi.serial_number}</span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -349,7 +546,7 @@ const ExternalTransferOut = () => {
                     <div className="flex items-center justify-between mb-2">
                         <h3 className="text-sm font-bold text-slate-600 flex items-center gap-2">
                             <Camera size={16} className="text-indigo-500" />
-                            Evidencia Fotográfica
+                            Evidencia fotográfica
                         </h3>
                         <button
                             onClick={() => fileInputRef.current?.click()}
@@ -418,14 +615,24 @@ const ExternalTransferOut = () => {
                 <div className="mt-auto pt-4 border-t border-slate-100">
                     {/* Success banner after export */}
                     {exportSummary && (
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-emerald-800">
-                            <CheckCircle className="flex-shrink-0 text-emerald-600" size={20} />
-                            <p>
-                                Traslado generado exitosamente. Se descontaron <strong>{exportSummary.count}</strong> producto{exportSummary.count !== 1 ? 's' : ''} del inventario.
-                            </p>
-                            <button onClick={() => setExportSummary(null)} className="ml-auto text-emerald-600 hover:text-emerald-800 text-xs font-bold">
-                                Cerrar
-                            </button>
+                        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                            <div className="flex items-start gap-3">
+                                <CheckCircle className="mt-0.5 flex-shrink-0 text-emerald-600" size={20} />
+                                <div className="min-w-0 flex-1">
+                                    <p className="font-bold">Paquete generado y stock descontado.</p>
+                                    <p className="mt-0.5 text-emerald-700">
+                                        {exportSummary.models} modelo{exportSummary.models !== 1 ? 's' : ''}, {exportSummary.units} unidad{exportSummary.units !== 1 ? 'es' : ''} desde {exportSummary.warehouse}.
+                                    </p>
+                                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                                        <span className="rounded-md bg-white/70 px-2 py-1 font-bold text-emerald-800">Seriales: {exportSummary.serials}</span>
+                                        <span className="rounded-md bg-white/70 px-2 py-1 font-bold text-emerald-800">Fotos: {exportSummary.photos}</span>
+                                        <span className="truncate rounded-md bg-white/70 px-2 py-1 font-mono text-[11px] text-emerald-700">{exportSummary.packageId || 'JSON listo'}</span>
+                                    </div>
+                                </div>
+                                <button onClick={() => setExportSummary(null)} className="text-xs font-bold text-emerald-700 hover:text-emerald-900">
+                                    Cerrar
+                                </button>
+                            </div>
                         </div>
                     )}
 
@@ -434,29 +641,44 @@ const ExternalTransferOut = () => {
                         <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-red-700">
                             <AlertTriangle className="flex-shrink-0 text-red-500" size={20} />
                             <p>
-                                Uno o más productos exceden el stock disponible. Ajusta las cantidades antes de continuar.
+                                Uno o mas productos exceden el stock disponible. Ajusta las cantidades antes de continuar.
                             </p>
                         </div>
                     )}
 
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-amber-800">
-                        <AlertTriangle className="flex-shrink-0" size={20} />
-                        <p>
-                            Al generar el paquete, el stock se descontará <strong>automáticamente</strong> del almacén seleccionado ({warehouses.find(w => w.id == selectedWarehouseId)?.name}) como "Traspaso de Salida".
-                        </p>
+                    {hasImeiError && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-amber-800">
+                            <AlertTriangle className="flex-shrink-0" size={20} />
+                            <p>Hay productos con IMEI pendientes por seleccionar o escanear.</p>
+                        </div>
+                    )}
+
+                    <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                        <div className="flex gap-3">
+                            <AlertTriangle className="flex-shrink-0" size={20} />
+                            <p>
+                                Al generar el paquete, se descontarán <strong>{totalUnits}</strong> unidad{totalUnits !== 1 ? 'es' : ''} de <strong>{selectedItems.length}</strong> modelo{selectedItems.length !== 1 ? 's' : ''} desde {selectedWarehouse?.name || 'sin almacén'}.
+                            </p>
+                        </div>
                     </div>
 
                     {/* Confirmation step */}
                     {showConfirmation && (
                         <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 mb-4">
-                            <p className="font-bold text-amber-800 text-sm mb-2 flex items-center gap-2">
+                            <p className="font-bold text-amber-800 text-sm mb-3 flex items-center gap-2">
                                 <AlertTriangle size={16} />
-                                Se descontará del inventario:
+                                Confirma el paquete de salida
                             </p>
-                            <ul className="text-sm text-amber-900 space-y-1 mb-3 ml-1">
+                            <div className="mb-3 grid grid-cols-4 gap-2 text-center text-xs">
+                                <div className="rounded-lg bg-white/70 px-2 py-2"><b className="block text-base text-slate-900">{selectedItems.length}</b>Modelos</div>
+                                <div className="rounded-lg bg-white/70 px-2 py-2"><b className="block text-base text-slate-900">{totalUnits}</b>Unidades</div>
+                                <div className="rounded-lg bg-white/70 px-2 py-2"><b className="block text-base text-slate-900">{totalSerials}</b>Seriales</div>
+                                <div className="rounded-lg bg-white/70 px-2 py-2"><b className="block text-base text-slate-900">{photoCount}</b>Fotos</div>
+                            </div>
+                            <ul className="mb-3 ml-1 space-y-1 text-sm text-amber-900">
                                 {selectedItems.map(item => (
                                     <li key={item.product_id}>
-                                        • <span className="font-mono text-xs">{item.sku}</span> {item.name} — <strong>{item.quantity}</strong> unidades
+                                        <span className="font-mono text-xs">{item.sku}</span> {item.name} - <strong>{item.quantity}</strong> unidades
                                     </li>
                                 ))}
                             </ul>
@@ -477,7 +699,7 @@ const ExternalTransferOut = () => {
                                     ) : (
                                         <>
                                             <CheckCircle size={16} />
-                                            Confirmar y Generar
+                                            Confirmar y generar
                                         </>
                                     )}
                                 </button>
@@ -487,11 +709,11 @@ const ExternalTransferOut = () => {
 
                     <button
                         onClick={() => { setShowConfirmation(true); setExportSummary(null); }}
-                        disabled={selectedItems.length === 0 || generating || !selectedWarehouseId || hasStockError || showConfirmation}
-                        className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                        disabled={selectedItems.length === 0 || generating || !selectedWarehouseId || hasStockError || hasImeiError || showConfirmation}
+                        className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                     >
                         <Download size={20} />
-                        Generar Paquete
+                        Generar paquete
                     </button>
                 </div>
             </div>

@@ -6,7 +6,7 @@ export function useSubscription() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        apiClient.get('/config/subscription')
+        apiClient.get('/config/subscription', { _silentNetworkError: true })
             .then(r => setSubscription(r.data))
             .catch(() => setSubscription(null))
             .finally(() => setLoading(false));

@@ -1,70 +1,83 @@
-import { useState, useEffect } from 'react';
-import {
-    DollarSign, Search, CheckCircle, Download, AlertTriangle,
-    X, TrendingUp, ChevronDown, ChevronUp, Eye
-} from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { DollarSign, Search, AlertTriangle, X, ChevronDown, ChevronUp, Printer, User, TrendingUp } from 'lucide-react';
 import apiClient from '../../../config/axios';
+import { useConfig } from '../../../context/ConfigContext';
+import { useAuth } from '../../../context/AuthContext';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 
-// ---------------------------------------------------------------------------
-// Payout Confirmation Modal
-// ---------------------------------------------------------------------------
-const ConfirmPayModal = ({ summary, onConfirm, onCancel, isProcessing }) => {
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const fmtUSD = (n) => `$${parseFloat(n || 0).toFixed(2)}`;
+const fmtBs  = (n, rate) => rate ? `Bs ${(parseFloat(n || 0) * rate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : null;
+const fmtDate = (d) => { try { return new Date(d).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: '2-digit' }); } catch { return d; } };
+
+// ─── Modal confirmar pago ─────────────────────────────────────────────────────
+const ConfirmPayModal = ({ summary, onConfirm, onCancel, isProcessing, bsRate, payMode, onPayModeChange }) => {
     if (!summary) return null;
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
-                <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-amber-50">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+                <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-amber-50">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-amber-100 rounded-xl text-amber-600">
-                            <AlertTriangle className="w-5 h-5" />
-                        </div>
+                        <div className="p-2 bg-amber-100 rounded-xl text-amber-600"><AlertTriangle className="w-5 h-5" /></div>
                         <h3 className="text-lg font-bold text-slate-800">Confirmar Pago</h3>
                     </div>
-                    <button onClick={onCancel} disabled={isProcessing} className="text-slate-400 hover:text-slate-600 disabled:opacity-50">
-                        <X className="w-5 h-5" />
-                    </button>
+                    <button onClick={onCancel} disabled={isProcessing} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
                 </div>
-                <div className="p-5 space-y-4">
-                    <p className="text-slate-600 text-sm">
-                        Se liquidaran todas las comisiones pendientes del empleado y se registrara un egreso en la caja activa.
-                    </p>
+                <div className="p-4 space-y-4">
                     <div className="bg-slate-50 rounded-xl p-4 space-y-2 border border-slate-100">
                         <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Empleado</span>
+                            <span className="text-slate-500">Vendedor</span>
                             <span className="font-bold text-slate-800">{summary.user_name}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Registros pendientes</span>
+                            <span className="text-slate-500">Registros</span>
                             <span className="font-medium text-slate-700">{summary.count}</span>
                         </div>
                         <div className="flex justify-between text-base border-t border-slate-200 pt-2 mt-2">
-                            <span className="font-bold text-slate-700">Total a pagar</span>
+                            <span className="font-bold text-slate-700">Total USD</span>
                             <span className="font-black text-emerald-600">${parseFloat(summary.pending_amount).toFixed(2)}</span>
                         </div>
+                        {bsRate && (
+                            <div className="flex justify-between text-xs font-semibold text-slate-500">
+                                <span>E.Q Bs</span>
+                                <span className="font-bold">Bs {(parseFloat(summary.pending_amount) * bsRate).toFixed(2)}</span>
+                            </div>
+                        )}
                     </div>
-                    <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                        Recuerde retirar fisicamente el dinero de la caja para que coincida con el sistema.
-                    </p>
-                </div>
-                <div className="px-5 pb-5 flex gap-3">
-                    <button onClick={onCancel} disabled={isProcessing} className="flex-1 px-4 py-2.5 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl font-medium transition-colors disabled:opacity-50">
-                        Cancelar
-                    </button>
-                    <button onClick={onConfirm} disabled={isProcessing} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors shadow-sm disabled:opacity-60">
-                        {isProcessing ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                        {isProcessing ? 'Procesando...' : 'Confirmar Pago'}
-                    </button>
+                    {bsRate && (
+                        <div>
+                            <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Pagar en:</p>
+                            <div className="flex gap-2">
+                                <button onClick={() => onPayModeChange('USD')}
+                                    className={`flex-1 py-2.5 rounded-xl text-sm font-black border-2 transition-all ${payMode === 'USD' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300'}`}>
+                                    $ USD
+                                </button>
+                                <button onClick={() => onPayModeChange('Bs')}
+                                    className={`flex-1 py-2.5 rounded-xl text-sm font-black border-2 transition-all ${payMode === 'Bs' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-500 border-slate-200 hover:border-emerald-300'}`}>
+                                    Bs
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    <div className="flex gap-3 pt-2">
+                        <button onClick={onCancel} disabled={isProcessing}
+                            className="flex-1 py-3 border-2 border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 disabled:opacity-50">
+                            Cancelar
+                        </button>
+                        <button onClick={onConfirm} disabled={isProcessing}
+                            className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl disabled:opacity-50 transition-all">
+                            {isProcessing ? 'Procesando...' : 'Pagar'}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     );
 };
 
-// ---------------------------------------------------------------------------
-// Detail row (lazy loaded per user)
-// ---------------------------------------------------------------------------
-const UserDetailRow = ({ userId }) => {
+// ─── Tabla detalle por vendedor (estilo Control de Entrada) ───────────────────
+const VendorDetailTable = ({ userId, bsRate }) => {
     const [details, setDetails] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -75,259 +88,376 @@ const UserDetailRow = ({ userId }) => {
             .finally(() => setLoading(false));
     }, [userId]);
 
-    const fmtDate = (d) => {
-        try { return new Date(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' }); }
-        catch { return d; }
-    };
-
     if (loading) return (
-        <tr><td colSpan="5" className="p-4 text-center text-slate-400 text-xs bg-slate-50/70">
-            <div className="animate-spin w-4 h-4 border-2 border-indigo-200 border-t-indigo-600 rounded-full mx-auto" />
-        </td></tr>
+        <div className="p-4 flex justify-center">
+            <div className="w-5 h-5 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+        </div>
     );
     if (!details?.length) return (
-        <tr><td colSpan="5" className="p-4 text-center text-slate-400 text-xs bg-slate-50/70">Sin detalles disponibles</td></tr>
+        <div className="p-4 text-center text-slate-400 text-sm">Sin comisiones pendientes</div>
     );
 
-    return details.map(d => (
-        <tr key={d.id} className="bg-slate-50/60 text-xs border-b border-slate-100">
-            <td className="pl-12 py-2 text-slate-500">{fmtDate(d.created_at)}</td>
-            <td className="py-2 text-slate-500">
-                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${d.commission_role === 'TECHNICIAN' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                    {d.commission_role === 'TECHNICIAN' ? '🔧 Técnico' : '🛒 Vendedor'}
-                </span>
-            </td>
-            <td className="py-2 text-slate-500">{d.source_type === 'SERVICE' ? '🔧 Taller' : '🛒 POS'}</td>
-            <td className="py-2 text-slate-500">{d.source_reference || `#${d.source_id || d.id}`}</td>
-            <td className="py-2 text-right font-medium text-emerald-700">${parseFloat(d.amount).toFixed(2)}</td>
-            <td className="py-2 pr-4 text-center">
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${d.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border border-amber-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
-                    {d.status === 'PENDING' ? 'PENDIENTE' : 'PAGADO'}
-                </span>
-            </td>
-        </tr>
-    ));
+    const totalUSD = details.reduce((s, d) => s + parseFloat(d.amount || 0), 0);
+    const totalBs  = details.reduce((s, d) => {
+        if (d.paid_in_bs && d.amount_bs) return s + parseFloat(d.amount_bs);
+        return s;
+    }, 0);
+    // Totales de ventas (columnas $ y Bs)
+    const totalVentaUSD = details.reduce((s, d) => {
+        const vendidoEnBs = d.sale_currency === 'Bs' || d.paid_in_bs;
+        return !vendidoEnBs && d.sale_total_usd ? s + parseFloat(d.sale_total_usd) : s;
+    }, 0);
+    const totalVentaBs = details.reduce((s, d) => {
+        const vendidoEnBs = d.sale_currency === 'Bs' || d.paid_in_bs;
+        return vendidoEnBs && d.sale_total_bs ? s + parseFloat(d.sale_total_bs) : s;
+    }, 0);
+    // % de comisión del vendedor (tomar del primer registro)
+    const pct = details.length > 0 ? parseFloat(details[0].percentage_applied || 0) : 0;
+    const pctLabel = pct > 0 ? `${pct.toFixed(1)}%` : null;
+    // Comisión total sobre $ y sobre E.Q $
+    const comisionUSD = totalVentaUSD * (pct / 100);
+    const totalEQ = totalVentaBs > 0 && bsRate ? totalVentaBs / bsRate : 0;
+    const comisionEQ = totalEQ * (pct / 100);
+
+    // Totales agrupados por método de pago
+    // Cada método recibe el monto completo de la venta (no dividido)
+    // porque en el modelo cada sale_payment ya tiene su monto individual
+    const paymentTotals = details.reduce((acc, d) => {
+        if (!d.payment_methods || !d.payment_methods.length) return acc;
+        const vendidoEnBs = d.sale_currency === 'Bs' || d.paid_in_bs;
+        const moneda = vendidoEnBs ? 'Bs' : '$';
+        // payment_methods es array de strings con los métodos de la venta
+        // el monto total se distribuye equitativamente entre los métodos
+        const montoPorMetodo = parseFloat(vendidoEnBs
+            ? (d.sale_total_bs || 0)
+            : (d.sale_total_usd || 0)) / d.payment_methods.length;
+        d.payment_methods.forEach(method => {
+            const key = `${method}__${moneda}`;
+            if (!acc[key]) acc[key] = { method, moneda, total: 0 };
+            acc[key].total += montoPorMetodo;
+        });
+        return acc;
+    }, {});
+
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+                <thead>
+                    <tr className="bg-indigo-700 text-white text-[10px]">
+                        <th className="px-3 py-2.5 text-left font-black whitespace-nowrap">FECHA</th>
+                        <th className="px-3 py-2.5 text-left font-black">REFERENCIA</th>
+                        <th className="px-3 py-2.5 text-left font-black whitespace-nowrap">MÉTODO DE PAGO</th>
+                        <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">$</th>
+                        <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">Bs</th>
+                        <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">E.Q $</th>
+                        <th className="px-3 py-2.5 text-left font-black whitespace-nowrap">FINANCIAMIENTO</th>
+                        <th className="px-3 py-2.5 text-left font-black">NIVEL</th>
+                        <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">M. FINANCIADO</th>
+                        <th className="px-3 py-2.5 text-center font-black">ESTADO</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {details.map((d, i) => {
+                        const bsEquiv = d.paid_in_bs && d.amount_bs
+                            ? parseFloat(d.amount_bs)
+                            : bsRate ? parseFloat(d.amount || 0) * bsRate : null;
+                        const rate = d.exchange_rate_snapshot || bsRate;
+                        const vendidoEnBs = d.sale_currency === 'Bs' || d.paid_in_bs;
+                        const totalLabel = vendidoEnBs
+                            ? `Bs ${(d.sale_total_bs || 0).toLocaleString('es-VE', { maximumFractionDigits: 2 })}`
+                            : d.sale_total_usd ? `$${parseFloat(d.sale_total_usd).toFixed(2)}` : '—';
+                        const totalSubLabel = vendidoEnBs && d.sale_exchange_rate && d.sale_total_bs
+                            ? `$${(parseFloat(d.sale_total_bs) / parseFloat(d.sale_exchange_rate)).toFixed(2)}`
+                            : null;
+
+                        return (
+                            <tr key={d.id} className={`border-b border-slate-100 text-xs ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'} hover:bg-indigo-50/20 transition-colors`}>
+                                <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{fmtDate(d.created_at)}</td>
+                                <td className="px-3 py-2">
+                                    <span className="font-bold text-slate-700">{d.source_reference || `#${d.source_id}`}</span>
+                                    <span className={`ml-1 text-[9px] px-1 py-0.5 rounded-full font-bold ${d.commission_role === 'TECHNICIAN' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
+                                        {d.source_type === 'SERVICE' ? '🔧' : '🛒'}
+                                    </span>
+                                </td>
+                                <td className="px-3 py-2">
+                                    <div className="flex flex-wrap gap-1">
+                                        {d.payment_methods?.length > 0
+                                            ? d.payment_methods.map((m, mi) => (
+                                                <span key={mi} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-medium whitespace-nowrap border border-slate-200">
+                                                    {m}
+                                                </span>
+                                            ))
+                                            : <span className="text-slate-300 text-xs italic">Sin datos</span>}
+                                    </div>
+                                </td>
+                                {/* $ — monto en dólares de la venta (solo ventas en $) */}
+                                <td className="px-3 py-2 text-right font-bold text-blue-700 whitespace-nowrap">
+                                    {!vendidoEnBs && d.sale_total_usd
+                                        ? `$${parseFloat(d.sale_total_usd).toFixed(2)}`
+                                        : <span className="text-slate-200">—</span>}
+                                </td>
+                                {/* Bs — monto en bolívares de la venta (solo ventas en Bs) */}
+                                <td className="px-3 py-2 text-right font-bold text-emerald-700 whitespace-nowrap">
+                                    {vendidoEnBs && d.sale_total_bs
+                                        ? parseFloat(d.sale_total_bs).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                        : <span className="text-slate-200">—</span>}
+                                </td>
+                                {/* E.Q $ — valor Bs de esta fila ÷ tasa del día = equivalente en $ */}
+                                <td className="px-3 py-2 text-right text-slate-700 font-bold whitespace-nowrap">
+                                    {vendidoEnBs && d.sale_total_bs && d.sale_exchange_rate
+                                        ? `$${(parseFloat(d.sale_total_bs) / parseFloat(d.sale_exchange_rate)).toFixed(2)}`
+                                        : <span className="text-slate-200">—</span>}
+                                </td>
+                                <td className="px-3 py-2">
+                                    {d.financing_method
+                                        ? <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-bold whitespace-nowrap">{d.financing_method}</span>
+                                        : <span className="text-slate-400 text-xs">Contado</span>}
+                                </td>
+                                <td className="px-3 py-2 text-slate-500 text-xs whitespace-nowrap font-medium">{d.financing_level || '—'}</td>
+                                <td className="px-3 py-2 text-right text-slate-500 whitespace-nowrap">
+                                    {d.financed_amount ? `$${parseFloat(d.financed_amount).toFixed(2)}` : '—'}
+                                </td>
+
+                                <td className="px-3 py-2 text-center">
+                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${d.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                        {d.status === 'PENDING' ? 'PENDIENTE' : 'PAGADO'}
+                                    </span>
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+                {/* Totales */}
+                <tfoot>
+                    {/* Fila 1: TOTALES */}
+                    <tr className="bg-indigo-50 border-t-2 border-indigo-200 text-[10px] font-black">
+                        <td colSpan={3} className="px-3 py-2 text-right text-slate-600 uppercase tracking-wide">TOTALES</td>
+                        <td className="px-3 py-2 text-right text-blue-700 whitespace-nowrap">
+                            {totalVentaUSD > 0 ? `$${totalVentaUSD.toFixed(2)}` : '—'}
+                        </td>
+                        <td className="px-3 py-2 text-right text-emerald-700 whitespace-nowrap">
+                            {totalVentaBs > 0 ? totalVentaBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                        </td>
+                        <td className="px-3 py-2 text-right text-slate-700 whitespace-nowrap">
+                            {totalEQ > 0 ? `$${totalEQ.toFixed(2)}` : '—'}
+                        </td>
+                        <td colSpan={4}></td>
+                    </tr>
+                    {/* Fila 2: Totales por método de pago */}
+                    {Object.values(paymentTotals).length > 0 && (
+                        <tr className="bg-slate-50 border-t border-slate-200 text-[10px]">
+                            <td colSpan={3} className="px-3 py-2 text-right text-slate-600 font-black uppercase tracking-wide">
+                                POR MÉTODO DE PAGO
+                            </td>
+                            <td colSpan={6} className="px-3 py-2">
+                                <div className="flex flex-wrap gap-2">
+                                    {Object.values(paymentTotals).map(({ method, moneda, total }) => (
+                                        <span key={`${method}-${moneda}`}
+                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black border ${
+                                                moneda === '$'
+                                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                            }`}>
+                                            {method}:
+                                            <span className="font-black">
+                                                {moneda === '$'
+                                                    ? `$${parseFloat(total).toFixed(2)}`
+                                                    : parseFloat(total).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </span>
+                                        </span>
+                                    ))}
+                                </div>
+                            </td>
+                        </tr>
+                    )}
+
+                    {/* Fila 3: COMISIÓN = totales × % */}
+                    {pctLabel && (
+                        <tr className="bg-emerald-50 border-t border-emerald-200 text-[10px] font-black">
+                            <td colSpan={3} className="px-3 py-2 text-right text-emerald-700 uppercase tracking-wide">
+                                COMISIÓN {pctLabel}
+                            </td>
+                            {/* Comisión sobre ventas en $ */}
+                            <td className="px-3 py-2 text-right text-emerald-700 whitespace-nowrap">
+                                {comisionUSD > 0 ? `$${comisionUSD.toFixed(2)}` : '—'}
+                            </td>
+                            {/* Columna Bs vacía (comisión se calcula en $) */}
+                            <td className="px-3 py-2 text-right text-slate-300">—</td>
+                            {/* Comisión sobre E.Q $ de ventas en Bs */}
+                            <td className="px-3 py-2 text-right text-emerald-700 whitespace-nowrap">
+                                {comisionEQ > 0 ? `$${comisionEQ.toFixed(2)}` : '—'}
+                            </td>
+                            <td colSpan={4}></td>
+                        </tr>
+                    )}
+                </tfoot>
+            </table>
+        </div>
+    );
 };
 
-// ---------------------------------------------------------------------------
-// Currency helper
-// ---------------------------------------------------------------------------
-const formatUSD = (amount) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(Number(amount) || 0);
+// ─── Fila de resumen por vendedor ─────────────────────────────────────────────
+const VendorRow = ({ s, bsRate, onPay, expanded, onToggle }) => (
+    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        {/* Header */}
+        <div className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors ${expanded ? 'bg-indigo-50/30 border-b border-indigo-100' : 'bg-white'}`}
+            onClick={onToggle}>
+            {/* Avatar */}
+            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+                <span className="text-indigo-700 font-black text-sm">{(s.user_name || 'U').charAt(0).toUpperCase()}</span>
+            </div>
+            {/* Nombre y resumen */}
+            <div className="flex-1 min-w-0">
+                <p className="font-black text-slate-800">{s.user_name}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{s.count} registro{s.count !== 1 ? 's' : ''} pendientes</p>
+            </div>
+            {/* Montos */}
+            <div className="text-right shrink-0">
+                <p className="font-black text-emerald-600 text-base">{fmtUSD(s.pending_amount)}</p>
+                {bsRate && <p className="text-[11px] font-black text-slate-400 mt-0.5">{fmtBs(s.pending_amount, bsRate)}</p>}
+            </div>
+            {/* Botón pagar */}
+            <button
+                onClick={e => { e.stopPropagation(); onPay(s); }}
+                className="shrink-0 flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all shadow-sm shadow-indigo-200"
+            >
+                <DollarSign size={13} /> Pagar
+            </button>
+            {expanded ? <ChevronUp size={16} className="text-slate-400 shrink-0" /> : <ChevronDown size={16} className="text-slate-400 shrink-0" />}
+        </div>
+        {/* Detalle expandido */}
+        {expanded && <VendorDetailTable userId={s.user_id} bsRate={bsRate} />}
+    </div>
+);
 
-// ---------------------------------------------------------------------------
-// MAIN COMPONENT
-// ---------------------------------------------------------------------------
+// ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
 const CommissionsTab = () => {
-    const [summary, setSummary] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const { currencies } = useConfig();
+    const { user } = useAuth();
+
+    const bsRate = (() => {
+        if (!Array.isArray(currencies)) return null;
+        const ves = currencies.find(c => c.is_default && (c.currency_code === 'VES' || c.currency_symbol === 'Bs'))
+            || currencies.find(c => c.currency_code === 'VES' || c.currency_symbol === 'Bs');
+        return ves ? parseFloat(ves.rate) : null;
+    })();
+
+    const [summary, setSummary]           = useState([]);
+    const [isLoading, setIsLoading]       = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm]     = useState('');
     const [expandedUser, setExpandedUser] = useState(null);
     const [pendingPayout, setPendingPayout] = useState(null);
+    const [payMode, setPayMode]           = useState('USD');
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setIsLoading(true);
         try {
             const res = await apiClient.get('/commissions/summary');
             setSummary(res.data);
-        } catch (error) {
-            console.error(error);
-            toast.error('Error al cargar comisiones');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+        } catch (error) { toast.error(getApiErrorMessage(error, 'Error al cargar comisiones')); }
+        finally { setIsLoading(false); }
+    }, []);
 
-    useEffect(() => { loadData(); }, []);
+    useEffect(() => { loadData(); }, [loadData]);
 
     const handleConfirmPay = async () => {
         if (!pendingPayout) return;
         setIsProcessing(true);
         try {
-            // Load detail IDs first
             const detailsRes = await apiClient.get(`/commissions/details/${pendingPayout.user_id}`);
             const pendingLogs = detailsRes.data.filter(d => d.status === 'PENDING');
-            if (!pendingLogs.length) {
-                toast.error('No hay comisiones pendientes para este usuario');
-                setPendingPayout(null);
-                return;
-            }
+            if (!pendingLogs.length) { toast.error('Sin comisiones pendientes'); setPendingPayout(null); return; }
+
+            const payInBs = payMode === 'Bs';
+            const totalBsPago = payInBs
+                ? pendingLogs.reduce((s, d) => s + (d.paid_in_bs && d.amount_bs ? parseFloat(d.amount_bs) : (parseFloat(d.amount) * (bsRate || 1))), 0)
+                : 0;
+
             await apiClient.post('/commissions/payout', {
                 user_id: pendingPayout.user_id,
                 log_ids: pendingLogs.map(d => d.id),
                 payment_source: 'DRAWER',
-                payment_method: 'CASH_USD',
+                payment_method: payInBs ? 'CASH_VES' : 'CASH_USD',
                 amount_usd_total: parseFloat(pendingPayout.pending_amount),
-                exchange_rate: 1.0,
+                exchange_rate: payInBs ? (bsRate || 1) : 1.0,
                 reference: null,
             });
-            toast.success(`Comisiones de ${pendingPayout.user_name} pagadas correctamente`);
-            setPendingPayout(null);
-            setExpandedUser(null);
-            loadData();
-        } catch (error) {
-            const detail = error.response?.data?.detail;
-            toast.error(typeof detail === 'string' ? detail : 'Error al procesar el pago');
-        } finally {
-            setIsProcessing(false);
-        }
-    };
 
-    const handleExport = () => {
-        if (!filtered.length) { toast.error('No hay datos para exportar'); return; }
-        const headers = ['Empleado', 'Comisiones Pendientes', 'Monto Total'];
-        const rows = filtered.map(s => [s.user_name, s.count, parseFloat(s.pending_amount).toFixed(2)]);
-        const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
-        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `Comisiones_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        link.parentNode.removeChild(link);
-        window.URL.revokeObjectURL(url);
-        toast.success('Exportado correctamente');
+            const msg = payInBs ? `Bs ${totalBsPago.toFixed(2)}` : fmtUSD(pendingPayout.pending_amount);
+            toast.success(`✅ Comisiones pagadas — ${msg}`);
+            setPendingPayout(null); setExpandedUser(null); setPayMode('USD');
+            loadData();
+        } catch (err) {
+            toast.error(getApiErrorMessage(err, 'Error al procesar el pago'));
+        } finally { setIsProcessing(false); }
     };
 
     const filtered = summary.filter(s =>
-        s.user_name.toLowerCase().includes(searchTerm.toLowerCase())
+        !searchTerm || (s.user_name || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
-
-    const totalPendiente = filtered.reduce((acc, s) => acc + parseFloat(s.pending_amount || 0), 0);
-    const totalEmpleados = filtered.length;
+    const totalPendiente = filtered.reduce((s, r) => s + parseFloat(r.pending_amount || 0), 0);
+    const totalEmpleados = filtered.filter(r => parseFloat(r.pending_amount || 0) > 0).length;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             <ConfirmPayModal
                 summary={pendingPayout}
                 onConfirm={handleConfirmPay}
-                onCancel={() => !isProcessing && setPendingPayout(null)}
+                onCancel={() => { if (!isProcessing) { setPendingPayout(null); setPayMode('USD'); } }}
                 isProcessing={isProcessing}
+                bsRate={bsRate}
+                payMode={payMode}
+                onPayModeChange={setPayMode}
             />
 
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 group hover:-translate-y-0.5">
-                    <div className="flex justify-between items-start mb-3">
-                        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Pendiente de Pago</p>
-                        <div className="p-2 rounded-lg bg-emerald-500 bg-opacity-10 group-hover:bg-opacity-20 transition-colors">
-                            <DollarSign size={16} className="text-emerald-500" />
-                        </div>
-                    </div>
-                    <h3 className="text-2xl font-black text-emerald-600 tracking-tight">{formatUSD(totalPendiente)}</h3>
-                    <p className="text-xs text-slate-400 font-medium mt-1">total acumulado</p>
+            {/* KPIs */}
+            <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Total Pendiente</p>
+                    <p className="text-xl font-black text-emerald-600">{fmtUSD(totalPendiente)}</p>
+                    {bsRate && <p className="text-sm font-bold text-slate-400 mt-1">{fmtBs(totalPendiente, bsRate)}</p>}
+                    <p className="text-xs text-slate-400 mt-1">Tasa {bsRate ? bsRate.toFixed(2) : '—'} Bs/$</p>
                 </div>
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 group hover:-translate-y-0.5">
-                    <div className="flex justify-between items-start mb-3">
-                        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Empleados con Saldo</p>
-                        <div className="p-2 rounded-lg bg-indigo-500 bg-opacity-10 group-hover:bg-opacity-20 transition-colors">
-                            <TrendingUp size={16} className="text-indigo-500" />
-                        </div>
-                    </div>
-                    <h3 className="text-2xl font-black text-indigo-600 tracking-tight">{totalEmpleados}</h3>
-                    <p className="text-xs text-slate-400 font-medium mt-1">con comisiones pendientes</p>
+                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Vendedores</p>
+                    <p className="text-xl font-black text-indigo-600">{totalEmpleados}</p>
+                    <p className="text-xs text-slate-400 mt-1">con comisiones pendientes</p>
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50">
-                    <div className="relative w-full sm:w-80">
-                        <Search className="w-5 h-5 absolute left-3 top-2.5 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Buscar empleado..."
-                            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow bg-white text-sm"
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
+            {/* Buscador */}
+            <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-3 py-2.5 shadow-sm">
+                <Search size={15} className="text-slate-400 shrink-0" />
+                <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                    placeholder="Buscar vendedor..."
+                    className="flex-1 text-sm outline-none text-slate-700 placeholder:text-slate-400 bg-transparent" />
+            </div>
+
+            {/* Lista de vendedores */}
+            {isLoading ? (
+                <div className="flex justify-center py-20">
+                    <div className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                </div>
+            ) : filtered.length === 0 ? (
+                <div className="flex flex-col items-center py-20 text-slate-300 gap-3">
+                    <TrendingUp size={40} strokeWidth={1} />
+                    <p className="text-sm font-bold text-slate-400">Sin comisiones pendientes</p>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {filtered.map(s => (
+                        <VendorRow
+                            key={s.user_id}
+                            s={s}
+                            bsRate={bsRate}
+                            onPay={setPendingPayout}
+                            expanded={expandedUser === s.user_id}
+                            onToggle={() => setExpandedUser(expandedUser === s.user_id ? null : s.user_id)}
                         />
-                    </div>
-                    <button
-                        onClick={handleExport}
-                        className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl transition-colors font-medium text-sm"
-                    >
-                        <Download className="w-4 h-4" />
-                        <span className="hidden sm:inline">Exportar</span>
-                    </button>
+                    ))}
                 </div>
-
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-slate-50/80 text-slate-500 text-xs font-bold uppercase tracking-wider">
-                            <tr>
-                                <th className="p-4 text-left">Empleado</th>
-                                <th className="p-4 text-center">Registros</th>
-                                <th className="p-4 text-right">Total Pendiente</th>
-                                <th className="p-4 text-center">Detalle</th>
-                                <th className="p-4 text-center">Accion</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {isLoading ? (
-                                <tr>
-                                    <td colSpan="5" className="p-12 text-center text-slate-400">
-                                        <div className="animate-spin w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full mx-auto mb-3" />
-                                        Cargando comisiones...
-                                    </td>
-                                </tr>
-                            ) : filtered.length === 0 ? (
-                                <tr>
-                                    <td colSpan="5" className="p-12 text-center text-slate-400">
-                                        No hay comisiones pendientes
-                                    </td>
-                                </tr>
-                            ) : (
-                                filtered.map(s => (
-                                    <>
-                                        <tr key={s.user_id} className="hover:bg-slate-50/60 transition-colors">
-                                            <td className="p-4 font-bold text-slate-800">{s.user_name}</td>
-                                            <td className="p-4 text-center text-slate-600">{s.count}</td>
-                                            <td className="p-4 text-right">
-                                                <span className="inline-block px-2 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-lg border border-emerald-200">
-                                                    {formatUSD(s.pending_amount)}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                <button
-                                                    onClick={() => setExpandedUser(expandedUser === s.user_id ? null : s.user_id)}
-                                                    className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
-                                                >
-                                                    <Eye className="w-3.5 h-3.5" />
-                                                    {expandedUser === s.user_id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                                                </button>
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                <button
-                                                    onClick={() => setPendingPayout(s)}
-                                                    disabled={isProcessing}
-                                                    className="inline-flex items-center gap-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition-colors shadow-sm disabled:opacity-50"
-                                                >
-                                                    <CheckCircle className="w-4 h-4" />
-                                                    Pagar
-                                                </button>
-                                            </td>
-                                        </tr>
-                                        {expandedUser === s.user_id && (
-                                            <>
-                                                <tr className="bg-slate-50/40">
-                                                    <th className="pl-12 py-1.5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Fecha</th>
-                                                    <th className="py-1.5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Rol</th>
-                                                    <th className="py-1.5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider" colSpan="2">Módulo / Referencia</th>
-                                                    <th className="py-1.5 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Monto</th>
-                                                    <th className="py-1.5 pr-4 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">Estado</th>
-                                                </tr>
-                                                <UserDetailRow userId={s.user_id} />
-                                            </>
-                                        )}
-                                    </>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            )}
         </div>
     );
 };

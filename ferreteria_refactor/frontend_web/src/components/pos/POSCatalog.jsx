@@ -1,17 +1,24 @@
 import { useRef, useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { FixedSizeGrid } from 'react-window';
-import { Search, Package, Box, Loader2 } from 'lucide-react';
+import { Package, Box, Loader2 } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import ProductCard from './ProductCard';
 import SearchWithScanner from '../common/SearchWithScanner';
 
-const getColumnCount = (width) => {
-    if (width >= 1536) return 6;  // 2xl
-    if (width >= 1280) return 5;  // xl
-    if (width >= 1024) return 4;  // lg
-    if (width >= 768) return 3;   // md
+const getColumnCount = (width, simpleMode = false) => {
+    if (simpleMode) {
+        if (width >= 1536) return 10;
+        if (width >= 1280) return 8;
+        if (width >= 1024) return 7;
+        if (width >= 768) return 5;
+        return 3;
+    }
+    if (width >= 1536) return 8;
+    if (width >= 1280) return 6;
+    if (width >= 1024) return 5;
+    if (width >= 768) return 4;
     return 2;
 };
 
@@ -38,6 +45,7 @@ const POSCatalog = forwardRef(({
     totalCount = null,
     onSearchChange = null,
     onCategoryChange = null,
+    simpleMode = false,
 }, ref) => {
     const containerRef = useRef(null);
     const gridRef = useRef(null);
@@ -45,6 +53,7 @@ const POSCatalog = forwardRef(({
     const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
     const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
     const debounceTimerRef = useRef(null);
+    const lastSubmittedSearchRef = useRef(searchTerm);
 
     // Expose resetScroll, focusSearch, clearSearch to parent via ref
     useImperativeHandle(ref, () => ({
@@ -64,7 +73,10 @@ const POSCatalog = forwardRef(({
             // Notify parent about the change
             if (onSearchChange) {
                 if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-                onSearchChange('');
+                if (lastSubmittedSearchRef.current !== '') {
+                    lastSubmittedSearchRef.current = '';
+                    onSearchChange('');
+                }
             } else if (onSearch) {
                 onSearch('');
             }
@@ -78,6 +90,7 @@ const POSCatalog = forwardRef(({
     // Sync localSearchTerm with prop
     useEffect(() => {
         setLocalSearchTerm(searchTerm);
+        lastSubmittedSearchRef.current = searchTerm;
     }, [searchTerm]);
 
     // Reset scroll when search or category changes
@@ -113,7 +126,10 @@ const POSCatalog = forwardRef(({
             // Server-side: debounce 300ms
             if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
             debounceTimerRef.current = setTimeout(() => {
-                onSearchChange(val);
+                if (lastSubmittedSearchRef.current !== val) {
+                    lastSubmittedSearchRef.current = val;
+                    onSearchChange(val);
+                }
             }, 300);
         } else if (onSearch) {
             // Legacy: call onSearch directly
@@ -129,14 +145,14 @@ const POSCatalog = forwardRef(({
         }
     }, [onCategoryChange, onFilterCategory]);
 
-    const columnCount = getColumnCount(containerSize.width);
+    const columnCount = getColumnCount(containerSize.width, simpleMode);
     const rowCount = Math.ceil(products.length / columnCount);
-    const GAP = 12; // gap-3 = 12px
-    const PADDING = 16; // p-4 = 16px
+    const GAP = 8; // gap entre cards
+    const PADDING = 10;
     const columnWidth = containerSize.width > 0
         ? (containerSize.width - PADDING * 2 - GAP * (columnCount - 1)) / columnCount
         : 0;
-    const ROW_HEIGHT = 230; // tarjeta compacta ~210px + gap
+    const ROW_HEIGHT = simpleMode ? 88 : 136;
 
     const totalHeight = rowCount * ROW_HEIGHT;
     const gridHeight = containerSize.height;
@@ -182,31 +198,41 @@ const POSCatalog = forwardRef(({
     const showTotalCount = isServerSide && totalCount != null && products.length > 0;
 
     return (
-        <div className="flex flex-col h-full bg-muted/10 overflow-hidden rounded-3xl border border-slate-200">
+        <div className="flex flex-col h-full bg-muted/10 overflow-hidden rounded-xl border border-slate-200">
 
             {/* Sticky Header */}
-            <div className="p-4 bg-background border-b z-10 space-y-4 shadow-sm">
+            <div className="p-2.5 bg-background border-b z-10 space-y-2 shadow-sm">
                 {/* Row 1: Search */}
-                <SearchWithScanner
-                    ref={searchInputRef}
-                    id="tour-pos-search"
-                    value={localSearchTerm}
-                    onChange={handleSearchInput}
-                    placeholder="Buscar productos por nombre o código..."
-                    autoFocus
-                    inputClassName="h-10 pl-10 text-sm bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all shadow-sm rounded-xl"
-                />
+                <div className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                        <SearchWithScanner
+                            ref={searchInputRef}
+                            id="tour-pos-search"
+                            value={localSearchTerm}
+                            onChange={handleSearchInput}
+                            placeholder="Buscar productos por nombre o codigo..."
+                            autoFocus
+                            inputClassName="h-9 pl-10 text-sm bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all shadow-sm rounded-lg"
+                        />
+                    </div>
+                    {showTotalCount && (
+                        <div className="hidden lg:flex flex-col items-end justify-center rounded-lg border border-slate-200 bg-white px-2.5 h-9 min-w-[98px] shadow-sm">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Productos</span>
+                            <span className="text-[11px] font-black text-slate-700 tabular-nums">{products.length}/{totalCount}</span>
+                        </div>
+                    )}
+                </div>
 
-                {/* Row 2: Categories + Count */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide mask-gradient-right">
+                {/* Row 2: Categories */}
+                <div className="flex items-center gap-1 overflow-x-auto pb-0.5 pr-1 scrollbar-hide mask-gradient-right [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     <Button
                         variant={selectedCategoryId === null ? "default" : "outline"}
                         size="md"
                         onClick={() => handleCategoryClick(null)}
                         className={cn(
-                            "rounded-xl px-4 h-8 font-black transition-all uppercase text-[10px] tracking-widest",
+                            "rounded-md px-2.5 h-6 font-black transition-all uppercase text-[8.5px] tracking-widest",
                             selectedCategoryId === null
-                                ? "bg-slate-900 hover:bg-black text-white shadow-md shadow-slate-900/10"
+                                ? "bg-slate-900 hover:bg-black text-white shadow-sm"
                                 : "border-slate-200 text-slate-500 bg-white hover:text-slate-900 hover:border-slate-400"
                         )}
                     >
@@ -219,32 +245,25 @@ const POSCatalog = forwardRef(({
                             size="md"
                             onClick={() => handleCategoryClick(cat.id)}
                             className={cn(
-                                "rounded-xl px-4 h-8 font-black transition-all uppercase text-[10px] tracking-widest whitespace-nowrap",
+                                "rounded-md px-2.5 h-6 font-black transition-all uppercase text-[8.5px] tracking-widest whitespace-nowrap",
                                 selectedCategoryId === cat.id
-                                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-300/20"
+                                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
                                     : "border-slate-200 text-slate-500 bg-white hover:text-blue-600 hover:border-blue-300"
                             )}
                         >
                             {cat.name}
                         </Button>
                     ))}
-
-                    {/* Total count indicator */}
-                    {showTotalCount && (
-                        <span className="ml-auto text-xs text-slate-400 font-medium whitespace-nowrap shrink-0 pl-4">
-                            Mostrando {products.length} de {totalCount} productos
-                        </span>
-                    )}
                 </div>
             </div>
 
             {/* Grid Area */}
-            <div ref={containerRef} className="flex-1 min-h-0 relative bg-slate-50/30">
+            <div ref={containerRef} className="flex-1 min-h-0 relative bg-slate-50/30 overflow-hidden">
                 {loading ? (
                     <div className="absolute inset-0 flex items-center justify-center">
                         <div className="animate-pulse flex flex-col items-center">
-                            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                                <Package size={32} className="text-blue-500" />
+                            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-3">
+                                <Package size={24} className="text-blue-500" />
                             </div>
                             <span className="text-slate-400 font-bold uppercase tracking-widest text-xs">Cargando catálogo...</span>
                         </div>
@@ -252,8 +271,8 @@ const POSCatalog = forwardRef(({
                 ) : products.length === 0 ? (
                     <div className="absolute inset-0 flex items-center justify-center animate-in fade-in zoom-in-95">
                         <div className="text-center">
-                            <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-inner">
-                                <Box size={40} className="text-slate-300" />
+                            <div className="w-14 h-14 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3 border-4 border-white shadow-inner">
+                                <Box size={28} className="text-slate-300" />
                             </div>
                             <p className="font-black text-slate-800 uppercase tracking-tighter">No hay resultados</p>
                             <p className="text-xs text-slate-400 font-medium mt-1">Intenta con otra búsqueda o categoría</p>
@@ -269,6 +288,7 @@ const POSCatalog = forwardRef(({
                             rowCount={rowCount}
                             rowHeight={ROW_HEIGHT}
                             width={containerSize.width}
+                            style={{ overflowX: 'hidden' }}
                             overscanRowCount={2}
                             onScroll={isServerSide ? handleGridScroll : undefined}
                         >

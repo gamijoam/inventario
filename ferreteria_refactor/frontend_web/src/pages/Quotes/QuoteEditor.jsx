@@ -5,6 +5,7 @@ import { Search, Save, Trash2, Plus, Minus, User, MapPin, Layers, UserPlus, File
 import apiClient from '../../config/axios';
 import { normalizeSearch } from '../../utils/search';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 import ProductThumbnail from '../../components/products/ProductThumbnail';
 import QuickCustomerModal from '../../components/pos/QuickCustomerModal';
 import CustomerSearch from '../../components/pos/CustomerSearch';
@@ -53,10 +54,10 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                 params.search = query.trim();
             }
             const { data } = await apiClient.get('/products', { params });
-            setCatalog(data);
+            setCatalog(Array.isArray(data) ? data : (data?.items || []));
         } catch (error) {
             console.error(error);
-            toast.error("Error cargando productos");
+            toast.error(getApiErrorMessage(error, "Error cargando productos"));
         }
     }, []);
 
@@ -104,7 +105,7 @@ const QuoteEditor = ({ quoteId, onBack }) => {
             setNotes(data.notes || '');
         } catch (error) {
             console.error("Error loading quote:", error);
-            toast.error("Error cargando cotización");
+            toast.error(getApiErrorMessage(error, "Error cargando cotización"));
         }
     };
 
@@ -181,7 +182,7 @@ const QuoteEditor = ({ quoteId, onBack }) => {
             }
         } catch (error) {
             console.error(error);
-            toast.error("Error al guardar cotización");
+            toast.error(getApiErrorMessage(error, "Error al guardar cotización"));
         } finally {
             setSaving(false);
         }
@@ -217,7 +218,7 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                     printWindow.document.close();
                 }
             } catch {
-                toast.error("Error al generar impresión");
+                toast.error(getApiErrorMessage(error, "Error al generar impresión"));
             }
         };
 

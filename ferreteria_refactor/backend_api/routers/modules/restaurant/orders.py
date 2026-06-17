@@ -329,7 +329,7 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
 
 # --- KITCHEN ENDPOINTS ---
 
-@router.get("/kitchen/pending", response_model=List[OrderRead])
+@router.get("/kitchen/pending")  # response_model removido — modifiers.name es @property no compatible con Pydantic strict
 def get_pending_kitchen_orders(db: Session = Depends(get_db)):
     """
     Obtener todas las órdenes que tienen items PENDIENTES, ENVIADOS o EN PREPARACION.
@@ -344,10 +344,42 @@ def get_pending_kitchen_orders(db: Session = Depends(get_db)):
             RestaurantOrder.status.notin_(closed_order_statuses)
         ).options(
             joinedload(RestaurantOrder.items).joinedload(RestaurantOrderItem.product),
+            joinedload(RestaurantOrder.items).joinedload(RestaurantOrderItem.modifiers).joinedload(RestaurantOrderItemModifier.option),
             joinedload(RestaurantOrder.table)
         ).order_by(RestaurantOrder.created_at.asc()).all()
-        
-        return orders
+
+        # Serializar manualmente para evitar problemas con @property en Pydantic
+        result = []
+        for order in orders:
+            items_data = []
+            for item in order.items:
+                mods_data = []
+                for mod in (item.modifiers or []):
+                    mods_data.append({
+                        "id": mod.id,
+                        "option_id": mod.option_id,
+                        "name": mod.option.name if mod.option else "Modificador",
+                        "price_applied": float(mod.price_applied or 0),
+                    })
+                items_data.append({
+                    "id": item.id,
+                    "order_id": item.order_id,
+                    "product_id": item.product_id,
+                    "product_name": item.product.name if item.product else "Producto",
+                    "quantity": float(item.quantity or 1),
+                    "status": item.status.value if hasattr(item.status, 'value') else str(item.status),
+                    "notes": item.notes,
+                    "modifiers": mods_data,
+                })
+            result.append({
+                "id": order.id,
+                "table_id": order.table_id,
+                "table_name": order.table.name if order.table else None,
+                "status": order.status.value if hasattr(order.status, 'value') else str(order.status),
+                "created_at": order.created_at.isoformat() if order.created_at else None,
+                "items": items_data,
+            })
+        return result
     except Exception as e:
         import traceback
         traceback.print_exc()

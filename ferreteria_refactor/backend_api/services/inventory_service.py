@@ -1,9 +1,12 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 import asyncio
 import logging
 import json
 import re
+import hashlib
+import uuid
 from typing import List, Dict, Any
 from decimal import Decimal
 from datetime import datetime
@@ -15,11 +18,66 @@ from fastapi import HTTPException
 
 class InventoryService:
     @staticmethod
+    def _canonical_transfer_package_id(data: Dict[str, Any]) -> str:
+        package_id = str(data.get("package_id") or "").strip()
+        if package_id:
+            return package_id
+
+        fingerprint_payload = {
+            "source_company": data.get("source_company"),
+            "source_warehouse_id": data.get("source_warehouse_id"),
+            "generated_at": data.get("generated_at"),
+            "items": data.get("items", []),
+        }
+        fingerprint = json.dumps(fingerprint_payload, sort_keys=True, default=str, separators=(",", ":"))
+        return "legacy-" + hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _ensure_transfer_import_table(db: Session) -> None:
+        db.execute(text("""
+            create table if not exists transfer_import_batches (
+                package_id varchar(128) primary key,
+                source_company varchar(255),
+                imported_at timestamp without time zone default now()
+            )
+        """))
+
+    @staticmethod
+    def _assert_transfer_not_imported(db: Session, package_id: str) -> None:
+        InventoryService._ensure_transfer_import_table(db)
+        existing = db.execute(
+            text("select 1 from transfer_import_batches where package_id = :package_id"),
+            {"package_id": package_id},
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail="Este archivo de traslado ya fue importado anteriormente en esta empresa.",
+            )
+
+    @staticmethod
+    def _mark_transfer_imported(db: Session, package_id: str, source_company: str) -> None:
+        try:
+            db.execute(
+                text("""
+                    insert into transfer_import_batches (package_id, source_company)
+                    values (:package_id, :source_company)
+                """),
+                {"package_id": package_id, "source_company": source_company},
+            )
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="Este archivo de traslado ya fue importado anteriormente en esta empresa.",
+            ) from exc
+
+    @staticmethod
     def get_product_availability(db: Session, product_id: int, warehouse_id: int = None) -> dict:
         """
         Retorna disponibilidad real de un producto considerando:
         - Stock total en ProductStock
-        - Reservas en RestaurantOrderItem (órdenes activas no cobradas)
+        - Reservas en RestaurantOrderItem (?rdenes activas no cobradas)
         - Si tiene receta (escandallo), calcula disponibilidad basada en ingredientes
         """
         if not warehouse_id:
@@ -73,7 +131,7 @@ class InventoryService:
     def reverse_stock_for_item(db: Session, order_item) -> bool:
         """
         Reversa el stock de un RestaurantOrderItem cuando se cancela/elimina.
-        Retorna True si se reversó exitosamente.
+        Retorna True si se revers? exitosamente.
         Raises ValueError if no warehouse is configured.
         """
         if not order_item.stock_deducted:
@@ -351,13 +409,23 @@ class InventoryService:
         }
 
     @staticmethod
-    def generate_transfer_package_v2(db: Session, items_data: List[Dict[str, Any]], source_company: str, warehouse_id: int = None) -> Dict[str, Any]:
+    def generate_transfer_package_v2(
+        db: Session,
+        items_data: List[Dict[str, Any]],
+        source_company: str,
+        warehouse_id: int = None,
+        photo_urls: List[str] = None,
+    ) -> Dict[str, Any]:
         """
         items_data: List of dicts like {'product_id': 1, 'quantity': 10}
         warehouse_id: Optional ID of the warehouse to deduct stock from
         """
         transfer_items = []
-        
+        source_warehouse_name = None
+        if warehouse_id:
+            warehouse = db.query(models.Warehouse).filter(models.Warehouse.id == warehouse_id).first()
+            source_warehouse_name = warehouse.name if warehouse else None
+
         for item in items_data:
             pid = item['product_id']
             qty = Decimal(str(item['quantity']))
@@ -368,6 +436,42 @@ class InventoryService:
             
             if not product.sku:
                  raise HTTPException(status_code=400, detail=f"Product '{product.name}' (ID: {pid}) has no SKU. Transfer denied.")
+
+            serial_numbers = []
+            if product.has_imei:
+                requested_serials = [str(s).strip().upper() for s in item.get("serial_numbers", []) if str(s).strip()]
+                requested_instance_ids = [inst.get("product_instance_id") for inst in item.get("instances", []) if inst.get("product_instance_id")]
+
+                query = db.query(models.ProductInstance).filter(
+                    models.ProductInstance.product_id == product.id,
+                    models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE,
+                )
+                if requested_instance_ids:
+                    query = query.filter(models.ProductInstance.id.in_(requested_instance_ids))
+                elif requested_serials:
+                    query = query.filter(models.ProductInstance.serial_number.in_(requested_serials))
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"'{product.name}' maneja IMEI. Debes seleccionar exactamente {qty} seriales para exportar.",
+                    )
+                if warehouse_id:
+                    query = query.filter(models.ProductInstance.warehouse_id == warehouse_id)
+
+                instances = query.all()
+                if len(instances) != int(qty):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"'{product.name}' requiere {qty} IMEIs disponibles en el almacén origen; recibidos/válidos: {len(instances)}.",
+                    )
+
+                seen_serials = set()
+                for inst in instances:
+                    serial = (inst.serial_number or "").strip().upper()
+                    if serial in seen_serials:
+                        raise HTTPException(status_code=400, detail=f"IMEI duplicado en exportación: {serial}")
+                    seen_serials.add(serial)
+                    serial_numbers.append(serial)
             
             balance_after = product.stock
             
@@ -410,11 +514,21 @@ class InventoryService:
                 date=datetime.now()
             )
             db.add(kardex)
+
+            for serial in serial_numbers:
+                instance = db.query(models.ProductInstance).filter(
+                    models.ProductInstance.product_id == product.id,
+                    models.ProductInstance.serial_number == serial,
+                ).first()
+                if instance:
+                    instance.status = models.ProductInstanceStatus.TRANSIT
             
             transfer_items.append({
                 "sku": product.sku,
                 "quantity": float(qty),
-                "name": product.name
+                "name": product.name,
+                "has_imei": bool(product.has_imei),
+                "serial_numbers": serial_numbers,
             })
             
         try:
@@ -423,11 +537,24 @@ class InventoryService:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Database error during transfer: {str(e)}")
             
+        models_count = len(transfer_items)
+        units_count = sum(float(item.get("quantity") or 0) for item in transfer_items)
+        imei_count = sum(len(item.get("serial_numbers") or []) for item in transfer_items)
+        photos_count = len(photo_urls or [])
+
         package = {
+            "package_id": f"trf-{uuid.uuid4()}",
             "source_company": source_company,
             "source_warehouse_id": warehouse_id,
+            "source_warehouse_name": source_warehouse_name,
             "generated_at": datetime.now().isoformat(),
-            "items": transfer_items
+            "items": transfer_items,
+            "items_count": models_count,
+            "models_count": models_count,
+            "units_count": units_count,
+            "imei_count": imei_count,
+            "photos_count": photos_count,
+            "photo_urls": photo_urls or [],
         }
         
         return package
@@ -444,6 +571,9 @@ class InventoryService:
              
         if "items" not in data or not isinstance(data["items"], list):
             raise HTTPException(status_code=400, detail="Invalid package format: Missing 'items' list")
+
+        package_id = InventoryService._canonical_transfer_package_id(data)
+        InventoryService._assert_transfer_not_imported(db, package_id)
             
         success_count = 0
         failure_count = 0
@@ -453,6 +583,7 @@ class InventoryService:
             sku = item.get("sku")
             qty = float(item.get("quantity", 0))
             name = item.get("name", "Unknown")
+            serial_numbers = [str(s).strip().upper() for s in item.get("serial_numbers", []) if str(s).strip()]
             
             if not sku:
                 errors.append(f"Skipped item '{name}': No SKU provided")
@@ -463,6 +594,8 @@ class InventoryService:
             
             if product:
                 product.stock += Decimal(str(qty))
+                if serial_numbers:
+                    product.has_imei = True
                 
                 kardex = models.Kardex(
                     product_id=product.id,
@@ -473,13 +606,31 @@ class InventoryService:
                     date=datetime.now()
                 )
                 db.add(kardex)
+                for serial in serial_numbers:
+                    existing = db.query(models.ProductInstance).filter(
+                        models.ProductInstance.serial_number == serial
+                    ).first()
+                    if existing:
+                        errors.append(f"IMEI duplicado en destino: {serial}")
+                        failure_count += 1
+                        continue
+                    db.add(models.ProductInstance(
+                        product_id=product.id,
+                        warehouse_id=item.get("warehouse_id") or 1,
+                        serial_number=serial,
+                        status=models.ProductInstanceStatus.AVAILABLE,
+                    ))
                 success_count += 1
             else:
                 errors.append(f"SKU Not Found: {sku} ({name}) - Manual creation required")
                 failure_count += 1
         
         try:
+            if success_count > 0:
+                InventoryService._mark_transfer_imported(db, package_id, data.get('source_company', 'Unknown'))
             db.commit()
+        except HTTPException:
+            raise
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Database commit error: {str(e)}")
@@ -513,6 +664,7 @@ class InventoryService:
             sku = item.get("sku", "")
             name = item.get("name", "")
             qty = float(item.get("quantity", 0))
+            serial_numbers = [str(s).strip().upper() for s in item.get("serial_numbers", []) if str(s).strip()]
 
             match_type = "none"
             matched_product = None
@@ -555,6 +707,8 @@ class InventoryService:
                 "sku": sku,
                 "name": name,
                 "quantity": qty,
+                "has_imei": bool(item.get("has_imei") or serial_numbers),
+                "serial_numbers": serial_numbers,
                 "match_type": match_type,
                 "matched_product_id": matched_product.id if matched_product else None,
                 "matched_sku": matched_product.sku if matched_product else None,
@@ -563,8 +717,22 @@ class InventoryService:
             }
             preview_items.append(preview_item)
 
+        models_count = len(preview_items)
+        units_count = float(data.get("units_count") or sum(float(item.get("quantity") or 0) for item in preview_items))
+        imei_count = int(data.get("imei_count") or sum(len(item.get("serial_numbers") or []) for item in preview_items))
+        photos_count = int(data.get("photos_count") or len(data.get("photo_urls", []) or []))
+
         return {
+            "package_id": InventoryService._canonical_transfer_package_id(data),
             "source_company": source_company,
+            "source_schema": data.get("source_schema"),
+            "source_warehouse_id": data.get("source_warehouse_id"),
+            "source_warehouse_name": data.get("source_warehouse_name"),
+            "items_count": models_count,
+            "models_count": models_count,
+            "units_count": units_count,
+            "imei_count": imei_count,
+            "photos_count": photos_count,
             "items": preview_items,
             "photo_urls": data.get("photo_urls", []),
         }
@@ -578,18 +746,57 @@ class InventoryService:
         success_count = 0
         failure_count = 0
         created_count = 0
+        imported_units_count = 0.0
+        imported_imei_count = 0
         errors = []
         source_company = data.get("source_company", "Unknown")
+        package_id = InventoryService._canonical_transfer_package_id(data)
+        InventoryService._assert_transfer_not_imported(db, package_id)
+
+        def resolve_destination_warehouse_id(requested_warehouse_id: int = None):
+            if requested_warehouse_id:
+                return requested_warehouse_id
+            warehouse = db.query(models.Warehouse).filter(models.Warehouse.is_main == True).first()
+            if not warehouse:
+                warehouse = db.query(models.Warehouse).filter(models.Warehouse.is_active == True).first()
+            return warehouse.id if warehouse else None
 
         for item in data.get("items", []):
             sku = item.get("sku", "")
             name = item.get("name", "Unknown")
             qty = Decimal(str(item.get("quantity", 0)))
+            serial_numbers = [str(s).strip().upper() for s in item.get("serial_numbers", []) if str(s).strip()]
             target_product_id = item.get("target_product_id")
             create_new = item.get("create_new", False)
-            item_warehouse_id = item.get("warehouse_id") or warehouse_id
+            item_warehouse_id = resolve_destination_warehouse_id(item.get("warehouse_id") or warehouse_id)
 
             try:
+                if not item_warehouse_id:
+                    errors.append(f"No active warehouse found for '{name}' (SKU: {sku})")
+                    failure_count += 1
+                    continue
+
+                if serial_numbers:
+                    if len(serial_numbers) != int(qty):
+                        errors.append(f"'{name}' requiere {int(qty)} IMEIs, pero el archivo trae {len(serial_numbers)}")
+                        failure_count += 1
+                        continue
+
+                    duplicate_payload_serials = sorted({serial for serial in serial_numbers if serial_numbers.count(serial) > 1})
+                    if duplicate_payload_serials:
+                        errors.append(f"IMEIs duplicados en el archivo para '{name}': {', '.join(duplicate_payload_serials)}")
+                        failure_count += 1
+                        continue
+
+                    existing_serials = db.query(models.ProductInstance.serial_number).filter(
+                        models.ProductInstance.serial_number.in_(serial_numbers)
+                    ).all()
+                    if existing_serials:
+                        existing_list = ", ".join(row[0] for row in existing_serials)
+                        errors.append(f"IMEIs ya existen en destino para '{name}': {existing_list}")
+                        failure_count += 1
+                        continue
+
                 if target_product_id:
                     product = db.query(models.Product).filter(
                         models.Product.id == target_product_id
@@ -600,6 +807,8 @@ class InventoryService:
                         continue
 
                     product.stock += qty
+                    if serial_numbers:
+                        product.has_imei = True
 
                     kardex = models.Kardex(
                         product_id=product.id,
@@ -612,22 +821,31 @@ class InventoryService:
                     )
                     db.add(kardex)
 
-                    if item_warehouse_id:
-                        p_stock = db.query(models.ProductStock).filter(
-                            models.ProductStock.product_id == product.id,
-                            models.ProductStock.warehouse_id == item_warehouse_id
-                        ).first()
-                        if p_stock:
-                            p_stock.quantity += qty
-                        else:
-                            p_stock = models.ProductStock(
-                                product_id=product.id,
-                                warehouse_id=item_warehouse_id,
-                                quantity=qty
-                            )
-                            db.add(p_stock)
+                    p_stock = db.query(models.ProductStock).filter(
+                        models.ProductStock.product_id == product.id,
+                        models.ProductStock.warehouse_id == item_warehouse_id
+                    ).first()
+                    if p_stock:
+                        p_stock.quantity += qty
+                    else:
+                        p_stock = models.ProductStock(
+                            product_id=product.id,
+                            warehouse_id=item_warehouse_id,
+                            quantity=qty
+                        )
+                        db.add(p_stock)
+
+                    for serial in serial_numbers:
+                        db.add(models.ProductInstance(
+                            product_id=product.id,
+                            warehouse_id=item_warehouse_id,
+                            serial_number=serial,
+                            status=models.ProductInstanceStatus.AVAILABLE,
+                        ))
 
                     success_count += 1
+                    imported_units_count += float(qty)
+                    imported_imei_count += len(serial_numbers)
 
                 elif create_new:
                     new_product = models.Product(
@@ -636,6 +854,7 @@ class InventoryService:
                         stock=qty,
                         price=Decimal("0.0000"),
                         cost_price=Decimal("0.0000"),
+                        has_imei=bool(item.get("has_imei") or serial_numbers),
                     )
                     db.add(new_product)
                     db.flush()
@@ -651,16 +870,25 @@ class InventoryService:
                     )
                     db.add(kardex)
 
-                    if item_warehouse_id:
-                        p_stock = models.ProductStock(
+                    p_stock = models.ProductStock(
+                        product_id=new_product.id,
+                        warehouse_id=item_warehouse_id,
+                        quantity=qty
+                    )
+                    db.add(p_stock)
+
+                    for serial in serial_numbers:
+                        db.add(models.ProductInstance(
                             product_id=new_product.id,
                             warehouse_id=item_warehouse_id,
-                            quantity=qty
-                        )
-                        db.add(p_stock)
+                            serial_number=serial,
+                            status=models.ProductInstanceStatus.AVAILABLE,
+                        ))
 
                     success_count += 1
                     created_count += 1
+                    imported_units_count += float(qty)
+                    imported_imei_count += len(serial_numbers)
 
                 else:
                     errors.append(f"Skipped '{name}' (SKU: {sku}): No target product and create_new=false")
@@ -671,13 +899,21 @@ class InventoryService:
                 failure_count += 1
 
         try:
+            if success_count > 0:
+                InventoryService._mark_transfer_imported(db, package_id, source_company)
             db.commit()
+        except HTTPException:
+            raise
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Database commit error: {str(e)}")
 
         return {
+            "package_id": package_id,
             "success_count": success_count,
+            "models_count": success_count,
+            "units_count": imported_units_count,
+            "imei_count": imported_imei_count,
             "failure_count": failure_count,
             "created_count": created_count,
             "errors": errors

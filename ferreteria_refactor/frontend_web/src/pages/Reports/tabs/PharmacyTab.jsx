@@ -8,6 +8,7 @@ import {
     ResponsiveContainer
 } from 'recharts';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import { getLots, getAlerts } from '../../../services/pharmacyService';
 import apiClient from '../../../config/axios';
 
@@ -76,7 +77,7 @@ const exportCSV = (rows, columns, filename) => {
 // Skeleton loaders
 // ---------------------------------------------------------------------------
 const SkeletonCard = () => (
-    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm animate-pulse">
+    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm animate-pulse">
         <div className="h-3 w-24 bg-slate-200 rounded mb-4" />
         <div className="h-7 w-32 bg-slate-200 rounded mb-3" />
         <div className="h-3 w-20 bg-slate-100 rounded" />
@@ -84,10 +85,10 @@ const SkeletonCard = () => (
 );
 
 const SkeletonTable = () => (
-    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm animate-pulse">
+    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm animate-pulse">
         <div className="h-4 w-40 bg-slate-200 rounded mb-6" />
         {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex gap-4 mb-3">
+            <div key={i} className="flex gap-3 mb-3">
                 <div className="h-3 flex-1 bg-slate-100 rounded" />
                 <div className="h-3 w-16 bg-slate-100 rounded" />
                 <div className="h-3 w-20 bg-slate-100 rounded" />
@@ -100,14 +101,14 @@ const SkeletonTable = () => (
 // KPI Card
 // ---------------------------------------------------------------------------
 const KPICard = ({ title, value, subtitle, icon: Icon, color = 'bg-indigo-500' }) => (
-    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg hover:ring-1 hover:ring-emerald-500/20 transition-all duration-300 relative overflow-hidden group hover:-translate-y-0.5">
+    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg hover:ring-1 hover:ring-emerald-500/20 transition-all duration-300 relative overflow-hidden group hover:-translate-y-0.5">
         <div className="flex justify-between items-start mb-3">
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider leading-tight">{title}</p>
+            <p className="text-slate-500 text-[11px] font-black uppercase tracking-wider leading-tight">{title}</p>
             <div className={`p-2 rounded-lg ${color} bg-opacity-10 group-hover:bg-opacity-20 transition-colors`}>
                 <Icon size={16} className={color.replace('bg-', 'text-')} />
             </div>
         </div>
-        <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-1">{value}</h3>
+        <h3 className="text-xl font-black text-slate-900 tracking-tight mb-1">{value}</h3>
         {subtitle && <p className="text-xs text-slate-400 font-medium">{subtitle}</p>}
     </div>
 );
@@ -137,7 +138,7 @@ const VencimientosSubTab = () => {
             }
         } catch (err) {
             console.error('Error loading pharmacy expiry data:', err);
-            toast.error('Error al cargar datos de vencimientos');
+            toast.error(getApiErrorMessage(error, 'Error al cargar datos de vencimientos'));
         } finally {
             setLoading(false);
         }
@@ -188,8 +189,8 @@ const VencimientosSubTab = () => {
 
     if (loading) {
         return (
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                     {[...Array(4)].map((_, i) => <SkeletonCard key={i} />)}
                 </div>
                 <SkeletonTable />
@@ -198,19 +199,19 @@ const VencimientosSubTab = () => {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Toolbar */}
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                 <button
                     onClick={loadData}
-                    className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+                    className="h-8 w-8 inline-flex items-center justify-center bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
                     title="Actualizar"
                 >
                     <RefreshCw size={16} />
                 </button>
                 <button
                     onClick={handleExport}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
+                    className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white text-[11px] font-black rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
                 >
                     <Download size={14} />
                     Exportar CSV
@@ -218,7 +219,7 @@ const VencimientosSubTab = () => {
             </div>
 
             {/* Summary cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                 <KPICard
                     title="Vencidos"
                     value={fmtNumber(summary.expired)}
@@ -251,28 +252,28 @@ const VencimientosSubTab = () => {
 
             {/* Lots table */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between">
                     <div>
-                        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                        <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
                             <AlertTriangle size={18} className="text-amber-500" />
                             Control de Vencimientos por Lote
                         </h3>
-                        <p className="text-sm text-slate-500">Todos los lotes ordenados por proximidad de vencimiento</p>
+                        <p className="text-xs font-semibold text-slate-500">Todos los lotes ordenados por proximidad de vencimiento</p>
                     </div>
-                    <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2.5 py-1 rounded-full">
+                    <span className="bg-slate-100 text-slate-600 text-[11px] font-black px-2.5 py-1 rounded-full">
                         {rows.length} lotes
                     </span>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50/80 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                        <thead className="bg-slate-50/80 text-slate-500 text-[11px] font-black uppercase tracking-wider">
                             <tr>
-                                <th className="text-left px-4 py-3">Producto</th>
-                                <th className="text-left px-4 py-3">Lote</th>
-                                <th className="text-left px-4 py-3">Fecha Vencimiento</th>
-                                <th className="text-right px-4 py-3">Días Restantes</th>
-                                <th className="text-right px-4 py-3">Cantidad</th>
-                                <th className="text-center px-4 py-3">Estado</th>
+                                <th className="text-left px-3 py-2.5">Producto</th>
+                                <th className="text-left px-3 py-2.5">Lote</th>
+                                <th className="text-left px-3 py-2.5">Fecha Vencimiento</th>
+                                <th className="text-right px-3 py-2.5">Días Restantes</th>
+                                <th className="text-right px-3 py-2.5">Cantidad</th>
+                                <th className="text-center px-3 py-2.5">Estado</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -288,15 +289,15 @@ const VencimientosSubTab = () => {
                             ) : (
                                 rows.map((row, idx) => (
                                     <tr key={idx} className={`hover:bg-slate-50/60 transition-colors ${row.status.row}`}>
-                                        <td className="px-4 py-3 font-medium text-slate-800 max-w-[220px] truncate">{row.product}</td>
-                                        <td className="px-4 py-3 text-slate-500 font-mono text-xs">{row.lot_number}</td>
-                                        <td className="px-4 py-3 text-slate-600">{row.expiry_date}</td>
-                                        <td className="px-4 py-3 text-right font-bold text-slate-700">
+                                        <td className="px-3 py-2.5 font-medium text-slate-800 max-w-[220px] truncate">{row.product}</td>
+                                        <td className="px-3 py-2.5 text-slate-500 font-mono text-xs">{row.lot_number}</td>
+                                        <td className="px-3 py-2.5 text-slate-600">{row.expiry_date}</td>
+                                        <td className="px-3 py-2.5 text-right font-bold text-slate-700">
                                             {row.days_remaining !== null ? row.days_remaining : '-'}
                                         </td>
-                                        <td className="px-4 py-3 text-right text-slate-600">{fmtNumber(row.quantity)}</td>
-                                        <td className="px-4 py-3 text-center">
-                                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${row.status.color}`}>
+                                        <td className="px-3 py-2.5 text-right text-slate-600">{fmtNumber(row.quantity)}</td>
+                                        <td className="px-3 py-2.5 text-center">
+                                            <span className={`px-2.5 py-1 rounded-full text-[11px] font-black border ${row.status.color}`}>
                                                 {row.status.label === 'Vencido' ? 'Vencido' :
                                                     row.days_remaining !== null && row.days_remaining < 0 ? 'Vencido' :
                                                     row.days_remaining !== null && row.days_remaining <= 30 ? 'Próximo' :
@@ -357,7 +358,7 @@ const VentasClasificacionSubTab = ({ dateRange }) => {
             setSalesRows(items);
         } catch (err) {
             console.error('Error loading pharmacy sales data:', err);
-            toast.error('Error al cargar ventas farmacéuticas');
+            toast.error(getApiErrorMessage(error, 'Error al cargar ventas farmacéuticas'));
             setSalesRows([]);
         } finally {
             setLoading(false);
@@ -419,8 +420,8 @@ const VentasClasificacionSubTab = ({ dateRange }) => {
 
     if (loading) {
         return (
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {[...Array(3)].map((_, i) => <SkeletonCard key={i} />)}
                 </div>
                 <SkeletonTable />
@@ -430,12 +431,12 @@ const VentasClasificacionSubTab = ({ dateRange }) => {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Toolbar */}
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                 <button
                     onClick={loadData}
-                    className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+                    className="h-8 w-8 inline-flex items-center justify-center bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
                     title="Actualizar"
                 >
                     <RefreshCw size={16} />
@@ -443,29 +444,29 @@ const VentasClasificacionSubTab = ({ dateRange }) => {
             </div>
 
             {/* KPI cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {CLASSIFICATIONS.map(cls => (
                     <div
                         key={cls.id}
-                        className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5"
+                        className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5"
                     >
                         <div className="flex justify-between items-start mb-3">
-                            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">{cls.label}</p>
+                            <p className="text-slate-500 text-[11px] font-black uppercase tracking-wider">{cls.label}</p>
                             <div className="p-2 rounded-lg" style={{ backgroundColor: `${cls.color}18` }}>
                                 <cls.icon size={16} style={{ color: cls.color }} />
                             </div>
                         </div>
-                        <h3 className="text-2xl font-black text-slate-900 mb-1">{fmtNumber(kpis[cls.id]?.count ?? 0)}</h3>
+                        <h3 className="text-xl font-black text-slate-900 mb-1">{fmtNumber(kpis[cls.id]?.count ?? 0)}</h3>
                         <p className="text-xs text-slate-400 font-medium">{formatUSD(kpis[cls.id]?.revenue ?? 0)} en ventas</p>
                     </div>
                 ))}
             </div>
 
             {/* Bar chart */}
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <div className="mb-4">
-                    <h3 className="text-base font-bold text-slate-900">Ventas por Clasificación por Día</h3>
-                    <p className="text-sm text-slate-500">Unidades vendidas en el periodo seleccionado</p>
+                    <h3 className="text-sm font-black text-slate-900">Ventas por Clasificación por Día</h3>
+                    <p className="text-xs font-semibold text-slate-500">Unidades vendidas en el periodo seleccionado</p>
                 </div>
                 {chartData.length > 0 ? (
                     <div className="h-72">
@@ -501,7 +502,7 @@ const VentasClasificacionSubTab = ({ dateRange }) => {
                     </div>
                 )}
                 {/* Legend */}
-                <div className="mt-3 flex flex-wrap gap-4">
+                <div className="mt-3 flex flex-wrap gap-3">
                     {CLASSIFICATIONS.map(cls => (
                         <div key={cls.id} className="flex items-center gap-1.5 text-xs">
                             <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cls.color }} />
@@ -513,24 +514,24 @@ const VentasClasificacionSubTab = ({ dateRange }) => {
 
             {/* Sales table */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between">
                     <div>
-                        <h3 className="text-base font-bold text-slate-900">Detalle de Ventas Farmacéuticas</h3>
-                        <p className="text-sm text-slate-500">Ventas filtradas por productos con clasificación farmacéutica</p>
+                        <h3 className="text-sm font-black text-slate-900">Detalle de Ventas Farmacéuticas</h3>
+                        <p className="text-xs font-semibold text-slate-500">Ventas filtradas por productos con clasificación farmacéutica</p>
                     </div>
-                    <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2.5 py-1 rounded-full">
+                    <span className="bg-slate-100 text-slate-600 text-[11px] font-black px-2.5 py-1 rounded-full">
                         {tableRows.length} registros
                     </span>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50/80 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                        <thead className="bg-slate-50/80 text-slate-500 text-[11px] font-black uppercase tracking-wider">
                             <tr>
-                                <th className="text-left px-4 py-3">Fecha</th>
-                                <th className="text-left px-4 py-3">Producto</th>
-                                <th className="text-left px-4 py-3">Clasificación</th>
-                                <th className="text-right px-4 py-3">Cantidad</th>
-                                <th className="text-right px-4 py-3">Monto</th>
+                                <th className="text-left px-3 py-2.5">Fecha</th>
+                                <th className="text-left px-3 py-2.5">Producto</th>
+                                <th className="text-left px-3 py-2.5">Clasificación</th>
+                                <th className="text-right px-3 py-2.5">Cantidad</th>
+                                <th className="text-right px-3 py-2.5">Monto</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -549,11 +550,11 @@ const VentasClasificacionSubTab = ({ dateRange }) => {
                                     const clsCfg = CLASSIFICATIONS.find(c => c.id === norm);
                                     return (
                                         <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
-                                            <td className="px-4 py-3 text-slate-500 text-xs font-mono">{row.date || '-'}</td>
-                                            <td className="px-4 py-3 font-medium text-slate-800 max-w-[220px] truncate">{row.product}</td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-3 py-2.5 text-slate-500 text-xs font-mono">{row.date || '-'}</td>
+                                            <td className="px-3 py-2.5 font-medium text-slate-800 max-w-[220px] truncate">{row.product}</td>
+                                            <td className="px-3 py-2.5">
                                                 <span
-                                                    className="px-2.5 py-1 rounded-full text-xs font-bold border"
+                                                    className="px-2.5 py-1 rounded-full text-[11px] font-black border"
                                                     style={{
                                                         backgroundColor: clsCfg ? `${clsCfg.color}18` : '#f1f5f9',
                                                         color: clsCfg ? clsCfg.color : '#64748b',
@@ -563,8 +564,8 @@ const VentasClasificacionSubTab = ({ dateRange }) => {
                                                     {row.classification}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 text-right text-slate-600">{fmtNumber(row.quantity)}</td>
-                                            <td className="px-4 py-3 text-right font-bold text-slate-900">{formatUSD(row.amount)}</td>
+                                            <td className="px-3 py-2.5 text-right text-slate-600">{fmtNumber(row.quantity)}</td>
+                                            <td className="px-3 py-2.5 text-right font-bold text-slate-900">{formatUSD(row.amount)}</td>
                                         </tr>
                                     );
                                 })
@@ -592,7 +593,7 @@ const ValoracionSubTab = () => {
             setLots(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error('Error loading pharmacy valuation:', err);
-            toast.error('Error al cargar valoración farmacéutica');
+            toast.error(getApiErrorMessage(error, 'Error al cargar valoración farmacéutica'));
             setLots([]);
         } finally {
             setLoading(false);
@@ -657,8 +658,8 @@ const ValoracionSubTab = () => {
 
     if (loading) {
         return (
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                     {[...Array(4)].map((_, i) => <SkeletonCard key={i} />)}
                 </div>
                 <SkeletonTable />
@@ -667,19 +668,19 @@ const ValoracionSubTab = () => {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Toolbar */}
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                 <button
                     onClick={loadData}
-                    className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+                    className="h-8 w-8 inline-flex items-center justify-center bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
                     title="Actualizar"
                 >
                     <RefreshCw size={16} />
                 </button>
                 <button
                     onClick={handleExport}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
+                    className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white text-[11px] font-black rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
                 >
                     <Download size={14} />
                     Exportar CSV
@@ -687,7 +688,7 @@ const ValoracionSubTab = () => {
             </div>
 
             {/* KPI cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                 <KPICard
                     title="Valor Total Inventario"
                     value={formatUSD(kpis.valorTotal)}
@@ -720,26 +721,26 @@ const ValoracionSubTab = () => {
 
             {/* Valuation table */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between">
                     <div>
-                        <h3 className="text-base font-bold text-slate-900">Valoración por Producto</h3>
-                        <p className="text-sm text-slate-500">Stock agrupado por producto, con fecha de vencimiento más próxima</p>
+                        <h3 className="text-sm font-black text-slate-900">Valoración por Producto</h3>
+                        <p className="text-xs font-semibold text-slate-500">Stock agrupado por producto, con fecha de vencimiento más próxima</p>
                     </div>
-                    <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2.5 py-1 rounded-full">
+                    <span className="bg-slate-100 text-slate-600 text-[11px] font-black px-2.5 py-1 rounded-full">
                         {rows.length} productos
                     </span>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50/80 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                        <thead className="bg-slate-50/80 text-slate-500 text-[11px] font-black uppercase tracking-wider">
                             <tr>
-                                <th className="text-left px-4 py-3">Producto</th>
-                                <th className="text-left px-4 py-3">Clasificación</th>
-                                <th className="text-right px-4 py-3">Stock</th>
-                                <th className="text-right px-4 py-3">Costo Unit.</th>
-                                <th className="text-right px-4 py-3">Precio</th>
-                                <th className="text-right px-4 py-3">Valor Stock</th>
-                                <th className="text-center px-4 py-3">Vence Próximo Lote</th>
+                                <th className="text-left px-3 py-2.5">Producto</th>
+                                <th className="text-left px-3 py-2.5">Clasificación</th>
+                                <th className="text-right px-3 py-2.5">Stock</th>
+                                <th className="text-right px-3 py-2.5">Costo Unit.</th>
+                                <th className="text-right px-3 py-2.5">Precio</th>
+                                <th className="text-right px-3 py-2.5">Valor Stock</th>
+                                <th className="text-center px-3 py-2.5">Vence Próximo Lote</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -760,11 +761,11 @@ const ValoracionSubTab = () => {
                                     const clsCfg = CLASSIFICATIONS.find(c => c.id === norm);
                                     return (
                                         <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
-                                            <td className="px-4 py-3 font-medium text-slate-800 max-w-[220px] truncate">{row.product}</td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-3 py-2.5 font-medium text-slate-800 max-w-[220px] truncate">{row.product}</td>
+                                            <td className="px-3 py-2.5">
                                                 {row.classification !== '-' ? (
                                                     <span
-                                                        className="px-2.5 py-1 rounded-full text-xs font-bold border"
+                                                        className="px-2.5 py-1 rounded-full text-[11px] font-black border"
                                                         style={{
                                                             backgroundColor: clsCfg ? `${clsCfg.color}18` : '#f1f5f9',
                                                             color: clsCfg ? clsCfg.color : '#64748b',
@@ -777,13 +778,13 @@ const ValoracionSubTab = () => {
                                                     <span className="text-slate-300 text-xs">-</span>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-3 text-right font-bold text-slate-700">{fmtNumber(row.stock)}</td>
-                                            <td className="px-4 py-3 text-right text-slate-500">{formatUSD(row.cost_unit)}</td>
-                                            <td className="px-4 py-3 text-right text-slate-600">{formatUSD(row.price_unit)}</td>
-                                            <td className="px-4 py-3 text-right font-bold text-emerald-700">{formatUSD(row.valor_stock)}</td>
-                                            <td className="px-4 py-3 text-center">
+                                            <td className="px-3 py-2.5 text-right font-bold text-slate-700">{fmtNumber(row.stock)}</td>
+                                            <td className="px-3 py-2.5 text-right text-slate-500">{formatUSD(row.cost_unit)}</td>
+                                            <td className="px-3 py-2.5 text-right text-slate-600">{formatUSD(row.price_unit)}</td>
+                                            <td className="px-3 py-2.5 text-right font-bold text-emerald-700">{formatUSD(row.valor_stock)}</td>
+                                            <td className="px-3 py-2.5 text-center">
                                                 {row.nearest_expiry ? (
-                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${expStatus.color}`}>
+                                                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-black border ${expStatus.color}`}>
                                                         {new Date(row.nearest_expiry + 'T12:00:00').toLocaleDateString('es-VE')}
                                                     </span>
                                                 ) : (
@@ -822,7 +823,7 @@ const PharmacyTab = ({ dateRange }) => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Sub-tab navigation */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="flex overflow-x-auto border-b border-slate-100">

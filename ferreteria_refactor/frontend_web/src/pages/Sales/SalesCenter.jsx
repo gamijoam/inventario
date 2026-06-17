@@ -1,4 +1,6 @@
 import React, { lazy, Suspense } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -22,12 +24,12 @@ const TAB_DESCRIPTIONS = {
 };
 
 // --- Tab definitions ---
-const TABS = [
+const ALL_TABS = [
     { id: 'cotizaciones', label: 'Cotizaciones', icon: FileText },
-    { id: 'clientes', label: 'Clientes', icon: Users },
-    { id: 'devoluciones', label: 'Devoluciones', icon: CornerDownLeft },
-    { id: 'garantias', label: 'Garantías', icon: ShieldCheck },
-    { id: 'creditos', label: 'Créditos (CxC)', icon: CreditCard },
+    { id: 'clientes',     label: 'Clientes',     icon: Users },
+    { id: 'devoluciones', label: 'Devoluciones', icon: CornerDownLeft, adminOnly: true },
+    { id: 'garantias',    label: 'Garantías',    icon: ShieldCheck,    adminOnly: true },
+    { id: 'creditos',     label: 'Créditos (CxC)', icon: CreditCard,  adminOnly: true },
 ];
 
 // --- Loading spinner for Suspense ---
@@ -55,6 +57,11 @@ const TabPlaceholder = ({ label, icon: Icon }) => (
 const SalesCenter = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const isCashier = user?.role === 'CASHIER';
+    const showCajeroRestringido = useFeatureFlag('cajero_restringido_pos');
+    const TABS = ALL_TABS.filter(t => !t.adminOnly || !(isCashier && showCajeroRestringido));
+
     const activeTab = searchParams.get('tab') || 'cotizaciones';
     const help = useHelp();
     const helpKey = {
@@ -118,7 +125,7 @@ const SalesCenter = () => {
     // MAIN RENDER
     // ============================================================
     return (
-        <div className="min-h-screen bg-slate-50/50">
+        <div id="tour-sales-container" className="min-h-screen bg-slate-50/50">
             {/* Header */}
             <div className="bg-white border-b border-slate-200 sticky top-0 z-30">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -132,21 +139,22 @@ const SalesCenter = () => {
                     </div>
 
                     {/* Tab Navigation */}
-                    <div className="flex overflow-x-auto gap-0 -mb-px scrollbar-hide">
+                    <div id="tour-sales-tabs" className="flex overflow-x-auto gap-1.5 pb-1 scrollbar-hide">
                         {TABS.map(tab => {
                             const TabIcon = tab.icon;
                             const isActive = activeTab === tab.id;
                             return (
                                 <button
                                     key={tab.id}
+                                    id={`tour-sales-tab-${tab.id}`}
                                     onClick={() => setActiveTab(tab.id)}
-                                    className={`flex items-center gap-2 px-4 py-3 text-sm font-bold whitespace-nowrap border-b-2 transition-all ${
+                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all shrink-0 ${
                                         isActive
-                                            ? 'text-emerald-600 border-emerald-600'
-                                            : 'text-slate-500 border-transparent hover:text-slate-700 hover:border-slate-300'
+                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                                     }`}
                                 >
-                                    <TabIcon size={16} />
+                                    <TabIcon size={15} className={isActive ? 'text-white' : 'text-slate-400'} />
                                     {tab.label}
                                 </button>
                             );

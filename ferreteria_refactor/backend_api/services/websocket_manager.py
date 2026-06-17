@@ -3,15 +3,45 @@ WebSocket Connection Manager for Hardware Bridge connections
 Manages active WebSocket connections from Hardware Bridge clients
 """
 from fastapi import WebSocket
-from typing import Dict
+from typing import Dict, Any, Optional
 import asyncio
 import json
+from datetime import datetime
+from decimal import Decimal
+
+from ..tenant_context import get_tenant_schema
 
 
 class ConnectionManager:
     def __init__(self):
         # Store active connections: {tenant_id: {client_id: websocket}}
         self.active_connections: Dict[str, Dict[str, WebSocket]] = {}
+
+    def _json_serializer(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        if isinstance(obj, Decimal):
+            return str(obj)
+        raise TypeError(f"Type {type(obj)} not serializable")
+
+    def _normalize_message(self, event_or_message: Any, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        if isinstance(event_or_message, dict):
+            message = dict(event_or_message)
+            message.setdefault("timestamp", datetime.now().isoformat())
+            return message
+
+        return {
+            "type": event_or_message,
+            "data": data or {},
+            "timestamp": datetime.now().isoformat(),
+        }
+
+    def _resolve_tenant_id(self, tenant_id: Optional[str] = None) -> str:
+        tenant = (tenant_id or get_tenant_schema() or "public").strip().lower()
+        return tenant or "public"
+
+    async def _send_json_safe(self, websocket: WebSocket, message: Dict[str, Any]) -> None:
+        await websocket.send_text(json.dumps(message, default=self._json_serializer))
     
     async def connect(self, websocket: WebSocket, client_id: str, tenant_id: str):
         """Register a new WebSocket connection (must be accepted by router first)"""
@@ -26,6 +56,7 @@ class ConnectionManager:
     
     def disconnect(self, client_id: str, tenant_id: str):
         """Remove a disconnected client"""
+        tenant_id = self._resolve_tenant_id(tenant_id)
         if tenant_id in self.active_connections:
             if client_id in self.active_connections[tenant_id]:
                 del self.active_connections[tenant_id][client_id]
@@ -36,7 +67,7 @@ class ConnectionManager:
                 del self.active_connections[tenant_id]
                 # print(f"   Tenant {tenant_id} cleared (no active connections)")
     
-    async def send_to_client(self, message: dict, client_id: str, tenant_id: str) -> bool:
+    async def send_to_client(self, message: dict, client_id: str, tenant_id: str, timeout: float = 5.0) -> bool:
         """
         Send a message to a specific Hardware Bridge client
         """
@@ -54,7 +85,7 @@ class ConnectionManager:
             
             # Use a timeout to prevent hanging on zombified sockets
             import asyncio
-            await asyncio.wait_for(websocket.send_json(message), timeout=5.0)
+            await asyncio.wait_for(self._send_json_safe(websocket, message), timeout=timeout)
             
             print(f"✅ [WS] Sent to {client_id}: {message.get('type', 'unknown')}")
             return True
@@ -68,6 +99,39 @@ class ConnectionManager:
             traceback.print_exc()
             self.disconnect(client_id, tenant_id)
             return False
+
+    async def send_personal_message(
+        self,
+        message: Any,
+        websocket: WebSocket = None,
+        client_id: str = None,
+        tenant_id: str = None,
+    ) -> bool:
+        """Backward-compatible personal send for old hardware print callers."""
+        if websocket is not None:
+            try:
+                if isinstance(message, str):
+                    await websocket.send_text(message)
+                else:
+                    await self._send_json_safe(websocket, message)
+                return True
+            except Exception as e:
+                print(f"❌ [WS] Error sending personal message: {e}")
+                return False
+
+        if not client_id:
+            print("⚠️ [WS] send_personal_message called without websocket or client_id")
+            return False
+
+        if isinstance(message, str):
+            try:
+                parsed = json.loads(message)
+            except Exception:
+                parsed = {"type": "message", "data": message}
+        else:
+            parsed = message
+
+        return await self.send_to_client(parsed, client_id, self._resolve_tenant_id(tenant_id))
 
     def find_client_tenant(self, client_id: str) -> str:
         """
@@ -86,7 +150,7 @@ class ConnectionManager:
             
         for client_id, websocket in list(self.active_connections[tenant_id].items()):
             try:
-                await websocket.send_json(message)
+                await self._send_json_safe(websocket, message)
             except Exception:
                 self.disconnect(client_id, tenant_id)
 
@@ -95,9 +159,30 @@ class ConnectionManager:
         for tenant_id, clients in list(self.active_connections.items()):
             for client_id, websocket in list(clients.items()):
                 try:
-                    await websocket.send_json(message)
+                    await self._send_json_safe(websocket, message)
                 except Exception:
                     self.disconnect(client_id, tenant_id)
+
+    async def broadcast(
+        self,
+        event_or_message: Any,
+        data: Optional[Dict[str, Any]] = None,
+        tenant_id: Optional[str] = None,
+    ):
+        """Backward-compatible broadcast used by legacy app routers."""
+        message = self._normalize_message(event_or_message, data)
+        target_tenant = self._resolve_tenant_id(tenant_id or message.get("tenant_id"))
+
+        if target_tenant == "public":
+            print(f"📣 [WS] Broadcasting global event: {message.get('type')}")
+            await self.broadcast_all(message)
+            return
+
+        print(f"📣 [WS] Broadcasting event: {message.get('type')} to tenant {target_tenant}")
+        await self.broadcast_to_tenant(message, target_tenant)
+
+    def get_connection_count(self) -> int:
+        return sum(len(clients) for clients in self.active_connections.values())
 
 # Global instance
 manager = ConnectionManager()

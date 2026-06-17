@@ -24,7 +24,7 @@ from .utils.time_utils import get_venezuela_now
 class CommissionEngine:
     def __init__(self, db: Session, feature_flags: dict):
         self.db = db
-        self.enabled = feature_flags.get("sistema_comisiones", False)
+        self.enabled = feature_flags.get("modulo_comisiones", False)
         self._settings: Optional[models.CommissionSettings] = None
 
     def _get_settings(self) -> models.CommissionSettings:
@@ -107,10 +107,15 @@ class CommissionEngine:
         sale_id: int,
         detail: models.SaleDetail,
         salesperson: models.User,
+        exchange_rate: Optional[Decimal] = None,
+        paid_in_bs: bool = False,
     ) -> Optional[models.CommissionLog]:
         """
         Registra comisión de vendedor para un ítem de venta (POS).
-        Usa commission_vendor_pct del usuario.
+        - amount: siempre en USD
+        - exchange_rate_snapshot: tasa del día congelada
+        - amount_bs: equivalente en Bs congelado al momento de la venta
+        - paid_in_bs: True si la venta fue cobrada en Bs
         """
         if not self.is_active_for_module("POS"):
             return None
@@ -128,17 +133,36 @@ class CommissionEngine:
         if amount <= 0:
             return None
 
+        # paid_in_bs viene del servicio de ventas donde ya se conocen los pagos
+
+        # Tasa del día — usar la pasada por parámetro o buscar en la venta
+        rate_snapshot = exchange_rate
+        if not rate_snapshot and hasattr(detail, "sale") and detail.sale:
+            rate_snapshot = detail.sale.exchange_rate_used
+        if not rate_snapshot:
+            # Fallback: tasa activa en BD
+            active_rate = self.db.query(models.ExchangeRate).filter(
+                models.ExchangeRate.is_active == True,
+                models.ExchangeRate.is_default == True,
+            ).first()
+            rate_snapshot = Decimal(str(active_rate.rate)) if active_rate else Decimal("1")
+
+        # Calcular equivalente en Bs congelado al momento de la venta
+        amount_bs = amount * rate_snapshot if rate_snapshot and rate_snapshot > 1 else None
+
         log = models.CommissionLog(
             user_id=salesperson.id,
             sale_detail_id=detail.id,
-            sale_id=sale_id,
             source_type="SALE",
-            source_id=detail.id,
+            source_id=sale_id,
             source_reference=f"Venta #{sale_id}",
             amount=amount,
             currency="USD",
             percentage_applied=pct,
             commission_role="VENDOR",
+            exchange_rate_snapshot=rate_snapshot,
+            amount_bs=amount_bs,
+            paid_in_bs=paid_in_bs,
         )
         self.db.add(log)
         return log
@@ -226,7 +250,6 @@ class CommissionEngine:
 
         log = models.CommissionLog(
             user_id=vendor.id,
-            sale_id=sale_id,
             source_type="SERVICE",
             source_id=service_order_id,
             source_reference=ticket_number,
@@ -248,10 +271,17 @@ class CommissionEngine:
         Retorna cuántas se anularon.
         """
         now = get_venezuela_now()
+        # Buscar commission_logs via sale_details (no hay sale_id directo en CommissionLog)
+        from sqlalchemy import select
+        detail_ids = [
+            row[0] for row in self.db.execute(
+                select(models.SaleDetail.id).where(models.SaleDetail.sale_id == sale_id)
+            ).fetchall()
+        ]
         logs = (
             self.db.query(models.CommissionLog)
             .filter(
-                models.CommissionLog.sale_id == sale_id,
+                models.CommissionLog.sale_detail_id.in_(detail_ids),
                 models.CommissionLog.status == models.CommissionStatus.PENDING,
             )
             .all()

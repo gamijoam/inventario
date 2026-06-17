@@ -40,8 +40,8 @@ def get_effective_tenant_id(user: models.User, db: Session) -> int:
     if user.tenant_id:
         return user.tenant_id
     
-    from .tenant_context import get_tenant_schema
-    from .models.tenant import Tenant
+    from ..tenant_context import get_tenant_schema
+    from ..models.tenant import Tenant
     
     current_schema = get_tenant_schema()
     if current_schema != "public":
@@ -198,7 +198,7 @@ async def upload_warranty_template(
     # Ensure tenant context is set from current user
     from ..tenant_context import set_tenant_schema
     if current_user.tenant_id:
-        from .models.tenant import Tenant
+        from ..models.tenant import Tenant
         tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
         if tenant:
             set_tenant_schema(tenant.schema_name)
@@ -225,22 +225,14 @@ def print_warranty_pdf(
     # Check feature flag
     tenant = None
     if current_user.tenant_id:
-        from .models.tenant import Tenant
+        from ..models.tenant import Tenant
         tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
     elif current_user.is_superuser:
-        from .tenant_context import get_tenant_schema
-        from .models.tenant import Tenant
+        from ..tenant_context import get_tenant_schema
+        from ..models.tenant import Tenant
         current_schema = get_tenant_schema()
         if current_schema and current_schema != "public":
             tenant = db.query(Tenant).filter(Tenant.schema_name == current_schema).first()
-
-    if tenant:
-        flags = tenant.feature_flags or {}
-        if not flags.get("impresion_garantia_pdf"):
-            raise HTTPException(
-                status_code=403,
-                detail="El feature 'Imprimir garantía PDF' no está activado para este tenant. Actívalo desde el panel SaaS Admin."
-            )
 
     pdf_bytes = warranty_pdf_service.generate_warranty_pdf(
         sale_id=sale_id,
@@ -252,4 +244,240 @@ def print_warranty_pdf(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=garantia_venta_{sale_id}.pdf"}
+    )
+
+
+# ========================
+# SEND WARRANTY VIA WHATSAPP
+# ========================
+
+@router.post("/send-whatsapp/{sale_id}")
+async def send_warranty_whatsapp(
+    sale_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """
+    Genera el PDF de garantía y lo envía por WhatsApp al cliente.
+    Funciona para cualquier producto con política de garantía asignada (no solo IMEI).
+    """
+    import httpx
+    from ..routers.whatsapp import _wa, _get, KEY_ENABLED, KEY_STATUS, KEY_INSTANCE
+
+    # Verificar WhatsApp conectado
+    enabled = _get(db, KEY_ENABLED) == "true"
+    status  = _get(db, KEY_STATUS)
+    inst    = _get(db, KEY_INSTANCE)
+
+    if not enabled or status != "CONNECTED" or not inst:
+        raise HTTPException(
+            status_code=503,
+            detail="WhatsApp no está conectado. Conéctalo en Configuración → WhatsApp."
+        )
+
+    # Obtener la venta y el cliente
+    from sqlalchemy.orm import joinedload
+    sale = db.query(models.Sale).options(
+        joinedload(models.Sale.customer),
+        joinedload(models.Sale.details).joinedload(models.SaleDetail.product)
+            .joinedload(models.Product.warranty_policy),
+    ).filter(models.Sale.id == sale_id).first()
+
+    if not sale:
+        raise HTTPException(status_code=404, detail="Venta no encontrada")
+
+    if not sale.customer or not sale.customer.phone:
+        raise HTTPException(
+            status_code=400,
+            detail="El cliente no tiene número de teléfono registrado."
+        )
+
+    # Limpiar teléfono
+    phone = "".join(c for c in sale.customer.phone if c.isdigit())
+    if len(phone) < 7:
+        raise HTTPException(status_code=400, detail="Número de teléfono inválido.")
+
+    # Generar el PDF de garantía
+    pdf_bytes = warranty_pdf_service.generate_warranty_pdf(
+        sale_id=sale_id,
+        db=db,
+        current_user=current_user,
+    )
+
+    # Nombre del negocio
+    biz_config = {c.key: c.value for c in db.query(models.BusinessConfig).all()}
+    biz_name = biz_config.get("business_name", "Mi Inventario")
+
+    # Nombre del cliente
+    customer_name = sale.customer.name or "Cliente"
+
+    # Productos con garantía
+    warranty_items = []
+    for d in sale.details:
+        if d.product and d.product.warranty_policy:
+            wp = d.product.warranty_policy
+            exp = d.warranty_expiration_date
+            exp_str = exp.strftime("%d/%m/%Y") if exp else "—"
+            warranty_items.append(
+                f"• {d.product.name}: {wp.name} (vence {exp_str})"
+            )
+
+    items_text = "\n".join(warranty_items) if warranty_items else "• Garantía incluida"
+
+    # Mensaje de texto previo al PDF
+    message = (
+        f"🛡️ *Garantía de compra — {biz_name}*\n\n"
+        f"Hola *{customer_name}*, gracias por tu compra.\n\n"
+        f"📦 *Productos con garantía:*\n{items_text}\n\n"
+        f"Adjunto encontrarás tu certificado de garantía en PDF.\n\n"
+        f"_Guarda este documento para cualquier reclamación._ 📄"
+    )
+
+    # 1. Enviar mensaje de texto primero
+    await _wa("post", f"/instance/{inst}/send", json={
+        "phone": phone,
+        "message": message
+    })
+
+    # 2. Enviar PDF como documento
+    import base64
+    pdf_b64 = base64.b64encode(pdf_bytes).decode()
+
+    await _wa("post", f"/instance/{inst}/send-document", json={
+        "phone": phone,
+        "base64": pdf_b64,
+        "filename": f"garantia_venta_{sale_id}.pdf",
+        "caption": f"Certificado de Garantía — {biz_name}"
+    })
+
+    return {
+        "success": True,
+        "phone": phone,
+        "customer": customer_name,
+        "message": f"Garantía enviada a {customer_name} ({phone})"
+    }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# PDF TEMPLATES (selección de plantilla visual)
+# ════════════════════════════════════════════════════════════════════════════
+
+from pydantic import BaseModel as _PydBM
+from fastapi.responses import Response as _Resp
+
+
+class TemplateInfo(_PydBM):
+    id: str
+    name: str
+    description: str
+    is_default: bool
+
+
+class TemplateConfig(_PydBM):
+    style: str
+
+
+@router.get("/templates", response_model=List[TemplateInfo])
+def list_templates():
+    """Lista las plantillas visuales disponibles para el PDF de garantía."""
+    from ..services.warranty_templates import TEMPLATES
+    return TEMPLATES
+
+
+@router.get("/template-config")
+def get_template_config(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Devuelve la plantilla configurada para este tenant."""
+    row = db.query(models.BusinessConfig).filter(
+        models.BusinessConfig.key == "warranty_pdf_style"
+    ).first()
+    return {"style": row.value if row else "moderno"}
+
+
+@router.put("/template-config")
+def set_template_config(
+    body: TemplateConfig,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(admin_only)
+):
+    """Actualiza la plantilla visual usada para el PDF de garantía."""
+    from ..services.warranty_templates import RENDERERS
+    if body.style not in RENDERERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Plantilla no reconocida. Opciones: {', '.join(RENDERERS.keys())}"
+        )
+
+    row = db.query(models.BusinessConfig).filter(
+        models.BusinessConfig.key == "warranty_pdf_style"
+    ).first()
+    if row:
+        row.value = body.style
+    else:
+        row = models.BusinessConfig(key="warranty_pdf_style", value=body.style)
+        db.add(row)
+    db.commit()
+    return {"success": True, "style": body.style}
+
+
+@router.get("/template-preview/{style}")
+def template_preview(
+    style: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """
+    Genera un PDF de PREVIEW con datos ficticios para que el usuario
+    pueda ver cómo se ve cada plantilla antes de elegirla.
+    """
+    from ..services.warranty_templates import render, RENDERERS
+    if style not in RENDERERS:
+        raise HTTPException(status_code=404, detail="Plantilla no encontrada")
+
+    # Mock data realistic
+    from datetime import datetime, timedelta
+    class _MockPolicy:
+        name = "Garantía Celulares"
+        type = "DAYS"
+        duration = 30
+        description = "Garantía de 30 días por defectos de fabricación del equipo de celular. Cubre fallas técnicas internas y mal funcionamiento del equipo en condiciones normales de uso."
+
+    business_config = {}
+    for c in db.query(models.BusinessConfig).all():
+        business_config[c.key] = c.value
+
+    items = [
+        {
+            "product_name": "iPhone 15 Pro Max 256GB",
+            "serials": ["356789012345678"],
+            "quantity": 1,
+            "warranty_policy": _MockPolicy(),
+            "warranty_expiration": datetime.now() + timedelta(days=30),
+        },
+    ]
+
+    pdf_bytes = render(
+        style=style,
+        imei_items=items,
+        business_name=business_config.get("business_name", "Mi Negocio"),
+        business_rif=business_config.get("business_rif", "J-12345678-9"),
+        business_address=business_config.get("business_address", "Av. Principal, Local 1"),
+        business_phone=business_config.get("business_phone", "+58 412-1234567"),
+        business_logo=business_config.get("business_logo", ""),
+        business_logo_size=business_config.get("business_logo_size", "medium"),
+        customer_name="Juan Perez (Ejemplo)",
+        customer_doc="V-12345678",
+        customer_phone="+58 414-9876543",
+        customer_email="cliente@ejemplo.com",
+        sale_date=datetime.now().strftime("%d/%m/%Y %H:%M"),
+        sale_total="$899.00",
+        sale_id=12345,
+    )
+
+    return _Resp(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="preview_{style}.pdf"'}
     )

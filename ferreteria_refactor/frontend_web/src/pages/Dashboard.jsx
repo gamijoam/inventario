@@ -28,6 +28,13 @@ import { useNavigate }    from 'react-router-dom';
 /*  HELPERS                                                                    */
 /* ─────────────────────────────────────────────────────────────────────────── */
 const fmt = (n = 0) => `$${Number(n).toFixed(2)}`;
+const fmtCompact = (n = 0) => {
+    const value = Number(n || 0);
+    if (Math.abs(value) >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+    if (Math.abs(value) >= 1000) return `$${(value / 1000).toFixed(1)}K`;
+    return fmt(value);
+};
+const fmtNumber = (n = 0) => Number(n || 0).toLocaleString('es-VE');
 
 const pctChange = (curr, prev) => {
     if (!prev || prev === 0) return null;
@@ -113,89 +120,189 @@ const CashierDashboard = () => {
 /* ─────────────────────────────────────────────────────────────────────────── */
 /*  KPI CARD con tendencia real                                                */
 /* ─────────────────────────────────────────────────────────────────────────── */
-const KPICard = ({ title, value, prevValue, icon: Icon, prefix = '$', isCurrency = true, color = 'indigo', loading = false }) => {
-    const pct   = prevValue != null ? pctChange(Number(value || 0), Number(prevValue || 0)) : null;
-    const up    = pct !== null && pct >= 0;
+const KPICard = ({ title, value, prevValue, icon: Icon, isCurrency = true, color = 'indigo', loading = false, active = false, onClick }) => {
+    const pct = prevValue != null ? pctChange(Number(value || 0), Number(prevValue || 0)) : null;
+    const up = pct !== null && pct >= 0;
     const colorMap = {
-        indigo:  'bg-indigo-50 text-indigo-600',
-        emerald: 'bg-emerald-50 text-emerald-600',
-        amber:   'bg-amber-50 text-amber-600',
-        blue:    'bg-blue-50 text-blue-600',
-        violet:  'bg-violet-50 text-violet-600',
-        rose:    'bg-rose-50 text-rose-600',
+        indigo:  { accent: 'from-indigo-600 to-blue-600', icon: 'text-indigo-600 bg-indigo-50 border-indigo-100' },
+        emerald: { accent: 'from-emerald-600 to-teal-600', icon: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
+        amber:   { accent: 'from-amber-500 to-orange-500', icon: 'text-amber-600 bg-amber-50 border-amber-100' },
+        blue:    { accent: 'from-blue-600 to-cyan-600', icon: 'text-blue-600 bg-blue-50 border-blue-100' },
+        violet:  { accent: 'from-violet-600 to-indigo-600', icon: 'text-violet-600 bg-violet-50 border-violet-100' },
+        rose:    { accent: 'from-rose-600 to-pink-600', icon: 'text-rose-600 bg-rose-50 border-rose-100' },
     };
+    const palette = colorMap[color] || colorMap.indigo;
 
     if (loading) return (
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm animate-pulse">
-            <div className="h-3 bg-slate-100 rounded w-24 mb-4" />
-            <div className="h-8 bg-slate-100 rounded w-32 mb-3" />
-            <div className="h-3 bg-slate-100 rounded w-16" />
+        <div className="min-h-[112px] rounded-lg border border-slate-200 bg-white p-3 shadow-sm animate-pulse">
+            <div className="flex items-center justify-between mb-4">
+                <div className="h-3 bg-slate-100 rounded w-24" />
+                <div className="h-8 w-8 bg-slate-100 rounded-lg" />
+            </div>
+            <div className="h-6 bg-slate-100 rounded w-28 mb-3" />
+            <div className="h-3 bg-slate-100 rounded w-20" />
         </div>
     );
 
     return (
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
-            <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-tight">{title}</p>
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${colorMap[color] || colorMap.indigo}`}>
-                    <Icon size={16} />
+        <button
+            type="button"
+            onClick={onClick}
+            className={cn(
+                "group relative min-h-[112px] w-full overflow-hidden rounded-lg border bg-white p-3 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-200",
+                active ? "border-indigo-300 ring-2 ring-indigo-100" : "border-slate-200"
+            )}
+        >
+            <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${palette.accent}`} />
+            <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 leading-tight">{title}</p>
+                    <div className="mt-2 text-[22px] leading-none font-black tracking-tight text-slate-950 truncate">
+                        {isCurrency ? fmtCompact(value) : fmtNumber(value)}
+                    </div>
                 </div>
-            </div>
-            <div className="text-2xl font-black text-slate-900 tracking-tight mb-2">
-                {isCurrency ? fmt(value) : (Number(value || 0).toLocaleString())}
+                <div className={`h-8 w-8 shrink-0 rounded-lg border flex items-center justify-center ${palette.icon}`}>
+                    <Icon size={16} strokeWidth={2.5} />
+                </div>
             </div>
             {pct !== null ? (
-                <div className="flex items-center gap-1.5">
-                    <span className={`inline-flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5 rounded-full ${up ? 'text-emerald-700 bg-emerald-50' : 'text-rose-700 bg-rose-50'}`}>
-                        {up ? <ArrowUpRight size={12} strokeWidth={3}/> : <ArrowDownRight size={12} strokeWidth={3}/>}
-                        {Math.abs(pct).toFixed(1)}%
+                <div className="mt-3 flex items-center justify-between gap-2 text-[11px]">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                        <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-black ${up ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                            {up ? <ArrowUpRight size={12} strokeWidth={3}/> : <ArrowDownRight size={12} strokeWidth={3}/>}
+                            {Math.abs(pct).toFixed(1)}%
+                        </span>
+                        <span className="truncate font-semibold text-slate-400">vs anterior</span>
+                    </div>
+                    <span className={cn("inline-flex shrink-0 items-center gap-0.5 font-black transition-colors", active ? "text-indigo-700" : "text-slate-400 group-hover:text-indigo-600")}>
+                        Detalle <ChevronRight size={12} />
                     </span>
-                    <span className="text-slate-400 text-[10px]">vs periodo anterior</span>
                 </div>
             ) : (
-                <span className="text-slate-400 text-[10px]">Sin datos anteriores</span>
-            )}
-        </div>
-    );
-};
-
-/* ─────────────────────────────────────────────────────────────────────────── */
-/*  ALERT CARD                                                                 */
-/* ─────────────────────────────────────────────────────────────────────────── */
-const AlertCard = ({ icon: Icon, title, count, desc, color, onClick }) => {
-    const colorMap = {
-        red:    'border-red-200 bg-red-50',
-        amber:  'border-amber-200 bg-amber-50',
-        blue:   'border-blue-200 bg-blue-50',
-        violet: 'border-violet-200 bg-violet-50',
-    };
-    const iconMap = {
-        red:    'text-red-600 bg-red-100',
-        amber:  'text-amber-600 bg-amber-100',
-        blue:   'text-blue-600 bg-blue-100',
-        violet: 'text-violet-600 bg-violet-100',
-    };
-    return (
-        <button onClick={onClick}
-            className={`w-full text-left p-4 rounded-2xl border-2 flex items-center gap-3 hover:shadow-sm transition-all ${colorMap[color]}`}>
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconMap[color]}`}>
-                <Icon size={18} />
-            </div>
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-800 text-sm">{title}</span>
-                    <span className={`text-xs font-black px-1.5 py-0.5 rounded-full ${iconMap[color]}`}>{count}</span>
+                <div className="mt-3 flex items-center justify-between gap-2 text-[11px]">
+                    <span className="font-semibold text-slate-400">Sin comparativo</span>
+                    <span className={cn("inline-flex items-center gap-0.5 font-black transition-colors", active ? "text-indigo-700" : "text-slate-400 group-hover:text-indigo-600")}>
+                        Detalle <ChevronRight size={12} />
+                    </span>
                 </div>
-                <p className="text-xs text-slate-500 truncate mt-0.5">{desc}</p>
-            </div>
-            <ChevronRight size={16} className="text-slate-400 shrink-0" />
+            )}
         </button>
     );
 };
 
-/* ─────────────────────────────────────────────────────────────────────────── */
+const KPIDetailPanel = ({ detail, onClose }) => {
+    if (!detail) return null;
+    const Icon = detail.icon || BarChart2;
+    return (
+        <div className="rounded-lg border border-indigo-200 bg-white p-4 shadow-sm animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex min-w-0 gap-3">
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${detail.iconClass || 'border-indigo-100 bg-indigo-50 text-indigo-600'}`}>
+                        <Icon size={20} />
+                    </div>
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-sm font-black text-slate-900">{detail.title}</h3>
+                            {detail.badge && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">{detail.badge}</span>}
+                        </div>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">{detail.description}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    {detail.action && (
+                        <button
+                            type="button"
+                            onClick={detail.action.onClick}
+                            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-2 text-xs font-black text-white shadow-sm transition-colors hover:bg-indigo-700"
+                        >
+                            {detail.action.label} <ArrowRight size={13} />
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-md border border-slate-200 px-3 py-2 text-xs font-black text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50"
+                    >
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+            <div className="mt-4 grid gap-2 md:grid-cols-3">
+                {(detail.metrics || []).map(metric => (
+                    <div key={metric.label} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">{metric.label}</div>
+                        <div className={cn("mt-1 text-lg font-black leading-none", metric.className || 'text-slate-900')}>{metric.value}</div>
+                        {metric.hint && <div className="mt-1 text-[11px] font-semibold text-slate-400">{metric.hint}</div>}
+                    </div>
+                ))}
+            </div>
+            <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50/70 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{detail.itemsLabel || 'Detalle relacionado'}</span>
+                    {detail.items?.length > 4 && <span className="text-[10px] font-black text-slate-400">+{detail.items.length - 4} m\u00e1s</span>}
+                </div>
+                {detail.items?.length > 0 ? (
+                    <div className="grid gap-2 lg:grid-cols-2">
+                        {detail.items.slice(0, 4).map((item, idx) => (
+                            <div key={`${item.label}-${idx}`} className="flex items-center justify-between gap-3 rounded-md border border-slate-100 bg-white px-3 py-2 shadow-sm">
+                                <span className="truncate text-xs font-bold text-slate-600">{item.label}</span>
+                                <span className="shrink-0 text-xs font-black text-slate-900">{item.value}</span>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="rounded-md border border-dashed border-slate-200 bg-white px-3 py-4 text-center text-xs font-bold text-slate-400">
+                        Sin movimientos relacionados para este periodo.
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+/* --------------------------------------------------------------------------- */
+/*  ALERT CARD                                                                 */
+/* --------------------------------------------------------------------------- */
+const AlertCard = ({ icon: Icon, title, count, desc, color, onClick }) => {
+    const colorMap = {
+        red:    'border-red-200 bg-red-50/80 text-red-700',
+        amber:  'border-amber-200 bg-amber-50/80 text-amber-700',
+        blue:   'border-blue-200 bg-blue-50/80 text-blue-700',
+        violet: 'border-violet-200 bg-violet-50/80 text-violet-700',
+    };
+    return (
+        <button onClick={onClick}
+            className={`group w-full rounded-lg border p-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${colorMap[color]}`}>
+            <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/80 shadow-sm">
+                    <Icon size={16} strokeWidth={2.5} />
+                </div>
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-black text-slate-900">{title}</span>
+                        <span className="rounded-full bg-white/90 px-1.5 py-0.5 text-xs font-black shadow-sm">{count}</span>
+                    </div>
+                    <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500">{desc}</p>
+                </div>
+                <ChevronRight size={15} className="shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5" />
+            </div>
+        </button>
+    );
+};
+
+const EmptyState = ({ icon: Icon = Package, title, desc }) => (
+    <div className="flex min-h-[168px] flex-col items-center justify-center px-4 py-8 text-center">
+        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-slate-50 text-slate-300">
+            <Icon size={22} />
+        </div>
+        <p className="text-sm font-black text-slate-500">{title}</p>
+        {desc && <p className="mt-1 max-w-xs text-xs font-semibold text-slate-400">{desc}</p>}
+    </div>
+);
+
+/* --------------------------------------------------------------------------- */
 /*  TOOLTIP PERSONALIZADO                                                      */
-/* ─────────────────────────────────────────────────────────────────────────── */
+/* --------------------------------------------------------------------------- */
 const ChartTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     return (
@@ -251,80 +358,119 @@ const Dashboard = () => {
     const [recentSales,   setRecentSales]   = useState([]);
     const [alerts,        setAlerts]        = useState({ lowStock: 0, tallerReady: 0, overdueCredits: 0, pendingCommissions: 0 });
     const [paymentPie,    setPaymentPie]    = useState([]);
+    const [activeKpi,     setActiveKpi]     = useState(null);
 
     /* ── carga principal ── */
-    const load = useCallback(async (silent = false) => {
+    const buildChartFromDaily = useCallback((dailyRows = [], start, end) => {
+        const startD = new Date(start + 'T12:00:00');
+        const endD   = new Date(end   + 'T12:00:00');
+        const days   = Math.round((endD - startD) / 86400000) + 1;
+        const points = Math.min(days, 30);
+        const dayNames = ['Dom','Lun','Mar','Mie','Jue','Vie','Sab'];
+        const pad = (n) => String(n).padStart(2, '0');
+        const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+        const byDate = new Map((dailyRows || []).map(row => [row.date, row]));
+
+        return Array.from({ length: points }, (_, i) => {
+            const d = new Date(startD);
+            d.setDate(startD.getDate() + i);
+            const ds = iso(d);
+            const row = byDate.get(ds) || {};
+            return {
+                name: points <= 7 ? (i === points - 1 && preset === 'today' ? 'Hoy' : dayNames[d.getDay()]) : `${d.getDate()}/${d.getMonth()+1}`,
+                Ventas: Number(row.revenue || 0),
+                Ganancia: Number(row.gross_profit || 0),
+            };
+        });
+    }, [preset]);
+
+    const load = useCallback(async (silent = false, forceRefresh = false) => {
         if (!silent) setLoading(true);
         try {
-            const { start, end, prevStart, prevEnd } = period;
+            const { start, end } = period;
 
-            const [curr, prev, profC, profP, topP, empC, cred, recent, payments] = await Promise.all([
-                unifiedReportService.getSalesSummary({ start_date: start, end_date: end }),
-                unifiedReportService.getSalesSummary({ start_date: prevStart, end_date: prevEnd }),
-                unifiedReportService.getProfitability({ start_date: start, end_date: end }),
-                unifiedReportService.getProfitability({ start_date: prevStart, end_date: prevEnd }),
-                unifiedReportService.getTopProducts({ start_date: start, end_date: end, limit: 5, by: 'revenue' }).catch(() => []),
+            const [init, empC, cred, recent, tallerData] = await Promise.all([
+                unifiedReportService.getDashboardInit({ date_from: start, date_to: end, refresh: forceRefresh }),
                 apiClient.get(`/commissions/summary`).catch(() => ({ data: [] })),
                 unifiedReportService.getCreditsSummary().catch(() => null),
                 unifiedReportService.getRecentTransactions(8).catch(() => []),
-                unifiedReportService.getSalesByPaymentMethod({ start_date: start, end_date: end }).catch(() => []),
+                modules?.services ? apiClient.get('/services/orders/status/ready').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
             ]);
 
-            setSalesCurr(curr);
-            setSalesPrev(prev);
-            setProfitCurr(profC);
-            setProfitPrev(profP);
-            setTopProducts(Array.isArray(topP) ? topP : []);
+            const sales = init?.sales || {};
+            const profit = init?.profit || {};
+            const previous = init?.vs_previous || {};
+            const revenue = Number(sales.revenue || 0);
+            const count = Number(sales.count || 0);
+            const previousCount = Number(previous.sales_count || 0);
+            const previousRevenue = Number(previous.sales_revenue || 0);
+
+            setSalesCurr({
+                total_revenue: revenue,
+                net_transactions: count,
+                total_transactions: count,
+                average_ticket: count > 0 ? revenue / count : 0,
+            });
+            setSalesPrev({
+                total_revenue: previousRevenue,
+                net_transactions: previousCount,
+                total_transactions: previousCount,
+                average_ticket: previousCount > 0 ? previousRevenue / previousCount : 0,
+            });
+            setProfitCurr({
+                realized_profit: Number(profit.gross_profit || 0),
+                total_profit: Number(profit.gross_profit || 0),
+            });
+            setProfitPrev({
+                realized_profit: Number(previous.gross_profit || 0),
+                total_profit: Number(previous.gross_profit || 0),
+            });
+
+            setTopProducts((init?.top_products || []).map((p, i) => ({
+                product_id: p.product_id || i,
+                product_name: p.product_name || p.name || 'Producto',
+                revenue: Number(p.revenue || 0),
+                quantity_sold: Number(p.quantity_sold || p.qty || 0),
+            })));
+
             const empData = Array.isArray(empC?.data) ? empC.data : [];
-            // Consolidar por usuario (puede haber VENDOR + TECHNICIAN del mismo user)
             const empMap = {};
             empData.forEach(e => {
                 const key = e.user_id;
                 if (!empMap[key]) {
                     empMap[key] = {
-                        user_id:        e.user_id,
-                        username:       e.user_name,
-                        full_name:      e.full_name || e.user_name,
+                        user_id:         e.user_id,
+                        username:        e.user_name,
+                        full_name:       e.full_name || e.user_name,
                         commission_role: e.commission_role,
-                        total_earned:   Number(e.total_earned || 0),
-                        total_pending:  Number(e.pending_amount || 0),
+                        total_earned:    Number(e.total_earned || 0),
+                        total_pending:   Number(e.pending_amount || 0),
                     };
                 } else {
                     empMap[key].total_earned  += Number(e.total_earned || 0);
                     empMap[key].total_pending += Number(e.pending_amount || 0);
                 }
             });
-            const consolidated = Object.values(empMap)
-                .sort((a, b) => b.total_earned - a.total_earned)
-                .slice(0, 5);
-            setTopEmployees(consolidated);
+            setTopEmployees(Object.values(empMap).sort((a, b) => b.total_earned - a.total_earned).slice(0, 5));
             setCredits(cred);
             setRecentSales(Array.isArray(recent) ? recent : []);
 
-            /* métodos de pago → pie */
             const PIE_COLORS = ['#6366f1','#10b981','#f59e0b','#3b82f6','#8b5cf6','#ef4444'];
-            const pieArr = Array.isArray(payments) ? payments : (payments?.data || []);
-            setPaymentPie(pieArr.slice(0, 6).map((p, i) => ({
+            setPaymentPie((init?.payment_methods || []).slice(0, 6).map((p, i) => ({
                 name:  p.method || p.payment_method || 'Otro',
                 value: Number(p.total_amount || p.total || p.amount || 0),
                 color: PIE_COLORS[i % PIE_COLORS.length],
             })));
 
-            /* gráfico diario del periodo */
-            await buildChart(start, end);
+            setChartData(buildChartFromDaily(init?.daily || [], start, end));
 
-            /* alertas */
-            const [lowStockData, tallerData] = await Promise.all([
-                unifiedReportService.getLowStock(5).catch(() => []),
-                apiClient.get('/services/orders/status/ready').catch(() => ({ data: [] })),
-            ]);
             const overdueCount = cred?.overdue_count || 0;
-            const pendingComm  = empC?.data?.filter(e => Number(e.total_pending || 0) > 0)?.length || 0;
+            const pendingComm  = empData.filter(e => Number(e.pending_amount || e.total_pending || 0) > 0).length;
             setAlerts({
-                lowStock:            Array.isArray(lowStockData) ? lowStockData.length : 0,
-                tallerReady:         Array.isArray(tallerData?.data) ? tallerData.data.length : 0,
-                overdueCredits:      overdueCount,
-                pendingCommissions:  pendingComm,
+                lowStock:           Array.isArray(init?.low_stock) ? init.low_stock.length : 0,
+                tallerReady:        Array.isArray(tallerData?.data) ? tallerData.data.length : 0,
+                overdueCredits:     overdueCount,
+                pendingCommissions: pendingComm,
             });
 
         } catch (e) {
@@ -332,100 +478,186 @@ const Dashboard = () => {
         } finally {
             setLoading(false);
         }
-    }, [period]);
-
-    const buildChart = async (start, end) => {
-        const startD = new Date(start + 'T12:00:00');
-        const endD   = new Date(end   + 'T12:00:00');
-        const days   = Math.round((endD - startD) / 86400000) + 1;
-        const points = Math.min(days, 30);
-        const dayNames = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-        const pad = (n) => String(n).padStart(2, '0');
-        const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-
-        const promises = [];
-        const labels   = [];
-        for (let i = 0; i < points; i++) {
-            const d = new Date(startD); d.setDate(startD.getDate() + i);
-            const ds = iso(d);
-            labels.push(points <= 7 ? (i === points-1 && preset === 'today' ? 'Hoy' : dayNames[d.getDay()]) : `${d.getDate()}/${d.getMonth()+1}`);
-            promises.push(
-                Promise.all([
-                    unifiedReportService.getSalesSummary({ start_date: ds, end_date: ds }).catch(() => ({ total_revenue: 0 })),
-                    unifiedReportService.getProfitability({ start_date: ds, end_date: ds }).catch(() => ({ realized_profit: 0 })),
-                ])
-            );
-        }
-        const results = await Promise.all(promises);
-        setChartData(results.map(([s, p], i) => ({
-            name:    labels[i],
-            Ventas:  Number(s?.total_revenue || 0),
-            Ganancia: Number(p?.realized_profit || p?.total_profit || 0),
-        })));
-    };
+    }, [period, buildChartFromDaily, modules?.services]);
 
     useEffect(() => { if (user && user.role !== 'CASHIER') load(); }, [load, user]);
     useEffect(() => {
         if (!user || user.role === 'CASHIER') return;
-        return subscribe('sale:created', () => load(true));
+        return subscribe('sale:created', () => load(true, true));
     }, [subscribe, user, load]);
 
     /* cajero → panel simplificado */
+    const kpiDetails = useMemo(() => {
+        const revenue = Number(salesCurr?.total_revenue || 0);
+        const prevRevenue = Number(salesPrev?.total_revenue || 0);
+        const profit = Number(profitCurr?.realized_profit || profitCurr?.total_profit || 0);
+        const prevProfit = Number(profitPrev?.realized_profit || profitPrev?.total_profit || 0);
+        const transactions = Number(salesCurr?.net_transactions || salesCurr?.total_transactions || 0);
+        const prevTransactions = Number(salesPrev?.net_transactions || salesPrev?.total_transactions || 0);
+        const avgTicket = Number(salesCurr?.average_ticket || 0);
+        const prevAvgTicket = Number(salesPrev?.average_ticket || 0);
+        const pendingCredits = Number(credits?.total_pending_usd || 0);
+        const pendingServices = Number(alerts.tallerReady || 0);
+        const marginPct = revenue > 0 ? (profit / revenue) * 100 : 0;
+
+        return {
+            revenue: {
+                title: 'Ingresos del periodo',
+                badge: period.label,
+                icon: DollarSign,
+                iconClass: 'border-emerald-100 bg-emerald-50 text-emerald-600',
+                description: 'Ventas cobradas en el rango seleccionado, con desglose por forma de pago cuando existe data.',
+                metrics: [
+                    { label: 'Ingresos', value: fmt(revenue), className: 'text-emerald-600' },
+                    { label: 'Periodo anterior', value: fmt(prevRevenue), hint: prevRevenue > 0 ? 'Base comparativa' : 'Sin ventas previas' },
+                    { label: 'Pagos usados', value: fmtNumber(paymentPie.length), hint: 'M\u00e9todos activos en el periodo' },
+                ],
+                itemsLabel: 'M\u00e9todos de pago',
+                items: paymentPie.map(item => ({ label: item.name, value: fmt(item.value) })),
+                action: { label: 'Ver reportes', onClick: () => navigate('/reports') },
+            },
+            profit: {
+                title: 'Ganancia real',
+                badge: `${marginPct.toFixed(1)}% margen`,
+                icon: TrendingUp,
+                iconClass: 'border-indigo-100 bg-indigo-50 text-indigo-600',
+                description: 'Utilidad estimada contra el costo registrado de los productos vendidos.',
+                metrics: [
+                    { label: 'Ganancia', value: fmt(profit), className: 'text-indigo-600' },
+                    { label: 'Anterior', value: fmt(prevProfit) },
+                    { label: 'Margen', value: `${marginPct.toFixed(1)}%`, className: marginPct > 0 ? 'text-emerald-600' : 'text-slate-900' },
+                ],
+                itemsLabel: 'Productos con m\u00e1s ingreso',
+                items: topProducts.map(item => ({ label: item.product_name, value: fmt(item.revenue) })),
+                action: { label: 'Top productos', onClick: () => navigate('/reports?tab=ventas') },
+            },
+            transactions: {
+                title: 'Transacciones',
+                badge: `${fmtNumber(transactions)} ventas`,
+                icon: ShoppingCart,
+                iconClass: 'border-blue-100 bg-blue-50 text-blue-600',
+                description: 'Operaciones cerradas durante el periodo actual y lectura r\u00e1pida de actividad reciente.',
+                metrics: [
+                    { label: 'Actual', value: fmtNumber(transactions), className: 'text-blue-600' },
+                    { label: 'Anterior', value: fmtNumber(prevTransactions) },
+                    { label: 'Ticket prom.', value: fmt(avgTicket), className: 'text-violet-600' },
+                ],
+                itemsLabel: 'Ventas recientes',
+                items: recentSales.map(item => ({ label: item.customer_name || item.client_name || `Venta #${item.id || ''}`, value: fmt(item.total || item.total_amount || 0) })),
+                action: { label: 'Abrir POS', onClick: () => navigate('/pos') },
+            },
+            ticket: {
+                title: 'Ticket promedio',
+                badge: period.label,
+                icon: BarChart2,
+                iconClass: 'border-violet-100 bg-violet-50 text-violet-600',
+                description: 'Valor promedio por venta. Sirve para medir calidad de venta y oportunidades de venta cruzada.',
+                metrics: [
+                    { label: 'Ticket actual', value: fmt(avgTicket), className: 'text-violet-600' },
+                    { label: 'Ticket anterior', value: fmt(prevAvgTicket) },
+                    { label: 'Transacciones', value: fmtNumber(transactions) },
+                ],
+                itemsLabel: 'Comportamiento diario',
+                items: chartData.slice(-4).map(item => ({ label: item.name, value: fmt(item.Ventas || 0) })),
+                action: { label: 'Ver ventas', onClick: () => navigate('/reports?tab=ventas') },
+            },
+            credits: {
+                title: 'Cr\u00e9ditos pendientes',
+                badge: pendingCredits > 0 ? 'Por cobrar' : 'Al d\u00eda',
+                icon: CreditCard,
+                iconClass: 'border-amber-100 bg-amber-50 text-amber-600',
+                description: 'Saldo por cobrar y alertas de vencimiento de clientes.',
+                metrics: [
+                    { label: 'Pendiente', value: fmt(pendingCredits), className: pendingCredits > 0 ? 'text-amber-600' : 'text-emerald-600' },
+                    { label: 'Vencidos', value: fmtNumber(alerts.overdueCredits), className: alerts.overdueCredits > 0 ? 'text-rose-600' : 'text-slate-900' },
+                    { label: 'Estado', value: pendingCredits > 0 ? 'Revisar' : 'OK' },
+                ],
+                itemsLabel: 'Estado de cobranza',
+                items: alerts.overdueCredits > 0 ? [{ label: 'Clientes vencidos', value: fmtNumber(alerts.overdueCredits) }] : [],
+                action: { label: 'Ver cr\u00e9ditos', onClick: () => navigate('/accounts-receivable') },
+            },
+            services: {
+                title: '\u00d3rdenes de taller',
+                badge: modules?.services ? 'Servicios' : 'Inactivo',
+                icon: Wrench,
+                iconClass: 'border-rose-100 bg-rose-50 text-rose-600',
+                description: '\u00d3rdenes listas o pendientes de atenci\u00f3n en servicios y taller.',
+                metrics: [
+                    { label: 'Listas', value: fmtNumber(pendingServices), className: pendingServices > 0 ? 'text-rose-600' : 'text-slate-900' },
+                    { label: 'M\u00f3dulo', value: modules?.services ? 'Activo' : 'Inactivo' },
+                    { label: 'Acci\u00f3n', value: pendingServices > 0 ? 'Cobrar' : 'Sin pendientes' },
+                ],
+                itemsLabel: 'Pendientes de servicio',
+                items: pendingServices > 0 ? [{ label: '\u00d3rdenes listas', value: fmtNumber(pendingServices) }] : [],
+                action: { label: 'Ir a servicios', onClick: () => navigate('/services') },
+            },
+        };
+    }, [salesCurr, salesPrev, profitCurr, profitPrev, credits, alerts, paymentPie, topProducts, recentSales, chartData, period.label, modules?.services, navigate]);
+
     if (user?.role === 'CASHIER') return <CashierDashboard />;
 
     /* ── RENDER ── */
     return (
-        <div className="space-y-6 animate-in fade-in duration-300 max-w-7xl mx-auto pb-12 px-1">
+        <div id="tour-dashboard-container" className="space-y-3 animate-in fade-in duration-300 max-w-[1540px] mx-auto pb-8 px-1">
 
             {/* ── HEADER ── */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-1">
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">Resumen del Negocio</h1>
-                    <p className="text-slate-500 text-sm mt-0.5">Vista general de tu actividad</p>
+                    <h1 className="text-xl font-black text-slate-900 tracking-tight">Resumen del Negocio</h1>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+                        <span>Vista ejecutiva de ventas, ganancia y actividad</span>
+                        <span className="hidden sm:inline text-slate-300">/</span>
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">{period.start} a {period.end}</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end">
                     {/* Selector de periodo */}
-                    <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
+                    <div className="flex bg-slate-100 p-1 rounded-lg gap-1 shadow-inner shadow-slate-200/60">
                         {PRESETS.map(p => (
                             <button key={p.id} onClick={() => setPreset(p.id)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${preset === p.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                                className={`px-3 py-1.5 rounded-md text-xs font-black transition-all ${preset === p.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                                 {p.label}
                             </button>
                         ))}
                     </div>
                     <HelpButton contextKey="dashboard" onClick={help.open} />
-                    <button onClick={() => load()} title="Actualizar"
-                        className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm">
+                    <button onClick={() => load(false, true)} title="Actualizar"
+                        className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm">
                         <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
                     </button>
                     <button onClick={() => navigate('/pos')}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl shadow-sm transition-all">
+                        className="h-9 flex items-center gap-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-lg shadow-sm transition-all">
                         <Monitor size={15} /> Abrir POS
                     </button>
                 </div>
             </div>
 
-            {/* ── KPIs ── */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                <KPICard title="Ingresos"     value={salesCurr?.total_revenue || 0}      prevValue={salesPrev?.total_revenue}                             icon={DollarSign}   color="emerald" loading={loading} />
-                <KPICard title="Ganancia real" value={profitCurr?.realized_profit || profitCurr?.total_profit || 0} prevValue={profitPrev?.realized_profit || profitPrev?.total_profit} icon={TrendingUp}  color="indigo"  loading={loading} />
-                <KPICard title="Transacciones" value={salesCurr?.net_transactions || salesCurr?.total_transactions || 0} prevValue={salesPrev?.net_transactions || salesPrev?.total_transactions} icon={ShoppingCart} color="blue" isCurrency={false} loading={loading} />
-                <KPICard title="Ticket prom."  value={salesCurr?.average_ticket || 0}     prevValue={salesPrev?.average_ticket}                            icon={BarChart2}    color="violet"  loading={loading} />
-                <KPICard title="Créditos pend." value={credits?.total_pending_usd || 0}   prevValue={null}                                                 icon={CreditCard}   color="amber"   loading={loading} />
-                <KPICard title="Órdenes taller" value={alerts.tallerReady}                prevValue={null}                                                 icon={Wrench}       color="rose"    loading={loading} isCurrency={false} />
+            {/* KPIs */}
+            <div className={cn("grid grid-cols-2 sm:grid-cols-3 gap-3", modules?.services ? "lg:grid-cols-6" : "lg:grid-cols-5")}>
+                <KPICard title="Ingresos" value={salesCurr?.total_revenue || 0} prevValue={salesPrev?.total_revenue} icon={DollarSign} color="emerald" loading={loading} active={activeKpi === 'revenue'} onClick={() => setActiveKpi(activeKpi === 'revenue' ? null : 'revenue')} />
+                <KPICard title="Ganancia real" value={profitCurr?.realized_profit || profitCurr?.total_profit || 0} prevValue={profitPrev?.realized_profit || profitPrev?.total_profit} icon={TrendingUp} color="indigo" loading={loading} active={activeKpi === 'profit'} onClick={() => setActiveKpi(activeKpi === 'profit' ? null : 'profit')} />
+                <KPICard title="Transacciones" value={salesCurr?.net_transactions || salesCurr?.total_transactions || 0} prevValue={salesPrev?.net_transactions || salesPrev?.total_transactions} icon={ShoppingCart} color="blue" isCurrency={false} loading={loading} active={activeKpi === 'transactions'} onClick={() => setActiveKpi(activeKpi === 'transactions' ? null : 'transactions')} />
+                <KPICard title="Ticket prom." value={salesCurr?.average_ticket || 0} prevValue={salesPrev?.average_ticket} icon={BarChart2} color="violet" loading={loading} active={activeKpi === 'ticket'} onClick={() => setActiveKpi(activeKpi === 'ticket' ? null : 'ticket')} />
+                <KPICard title="Creditos pend." value={credits?.total_pending_usd || 0} prevValue={null} icon={CreditCard} color="amber" loading={loading} active={activeKpi === 'credits'} onClick={() => setActiveKpi(activeKpi === 'credits' ? null : 'credits')} />
+                {modules?.services && (
+                    <KPICard title="Ordenes taller" value={alerts.tallerReady} prevValue={null} icon={Wrench} color="rose" loading={loading} isCurrency={false} active={activeKpi === 'services'} onClick={() => setActiveKpi(activeKpi === 'services' ? null : 'services')} />
+                )}
             </div>
+            {!loading && activeKpi && (
+                <KPIDetailPanel detail={kpiDetails[activeKpi]} onClose={() => setActiveKpi(null)} />
+            )}
 
             {/* ── ALERTAS ACCIONABLES ── */}
-            {!loading && (alerts.lowStock > 0 || alerts.tallerReady > 0 || alerts.overdueCredits > 0 || alerts.pendingCommissions > 0) && (
-                <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+            {!loading && (alerts.lowStock > 0 || (modules?.services && alerts.tallerReady > 0) || alerts.overdueCredits > 0 || alerts.pendingCommissions > 0) && (
+                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                         <Bell size={12} /> Requieren atención
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                         {alerts.lowStock > 0 && (
                             <AlertCard icon={Package}     title="Stock bajo"         count={alerts.lowStock}           desc="Productos por debajo del mínimo"         color="red"    onClick={() => navigate('/products')} />
                         )}
-                        {alerts.tallerReady > 0 && (
+                        {modules?.services && alerts.tallerReady > 0 && (
                             <AlertCard icon={Wrench}      title="Taller listo"       count={alerts.tallerReady}        desc="Órdenes listas para cobrar"              color="amber"  onClick={() => navigate('/services')} />
                         )}
                         {alerts.overdueCredits > 0 && (
@@ -439,17 +671,17 @@ const Dashboard = () => {
             )}
 
             {/* ── GRÁFICO PRINCIPAL + MÉTODOS DE PAGO ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
                 {/* Gráfico combinado */}
-                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200 shadow-sm p-4">
                     <div className="flex items-center justify-between mb-4">
                         <div>
-                            <h3 className="font-bold text-slate-800">Ventas vs Ganancia</h3>
+                            <h3 className="font-black text-slate-900 text-sm">Ventas vs Ganancia</h3>
                             <p className="text-xs text-slate-400 mt-0.5">{period.label} — comparativa diaria</p>
                         </div>
                     </div>
-                    <div className="h-64">
+                    <div className="h-[260px]">
                         {loading ? (
                             <div className="h-full bg-slate-50 rounded-xl animate-pulse" />
                         ) : chartData.length > 0 ? (
@@ -469,51 +701,85 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* Métodos de pago */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                    <h3 className="font-bold text-slate-800 mb-1">Métodos de Pago</h3>
-                    <p className="text-xs text-slate-400 mb-3">Distribución del periodo</p>
+                {/* Metodos de pago */}
+                <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                        <div>
+                            <h3 className="font-black text-slate-900 text-sm">Metodos de Pago</h3>
+                            <p className="text-xs text-slate-400">Distribucion del periodo</p>
+                        </div>
+                        {!loading && paymentPie.length > 0 && (
+                            <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-black text-slate-600">
+                                {paymentPie.length} activos
+                            </span>
+                        )}
+                    </div>
                     {loading ? (
-                        <div className="h-44 bg-slate-50 rounded-xl animate-pulse" />
-                    ) : paymentPie.length > 0 ? (
-                        <>
-                            <div className="h-36">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie data={paymentPie} cx="50%" cy="50%" innerRadius="55%" outerRadius="80%"
-                                             paddingAngle={3} dataKey="value" animationDuration={800}>
-                                            {paymentPie.map((e, i) => <Cell key={i} fill={e.color} stroke="none" />)}
-                                        </Pie>
-                                        <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`]} contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgb(0 0 0 / .1)', fontSize: 12 }} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            </div>
-                            <div className="space-y-1.5 mt-2">
-                                {paymentPie.map((e, i) => (
-                                    <div key={i} className="flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-1.5">
-                                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: e.color }} />
-                                            <span className="text-slate-600 font-medium">{e.name}</span>
-                                        </div>
-                                        <span className="font-bold text-slate-700">${Number(e.value).toFixed(0)}</span>
+                        <div className="h-52 bg-slate-50 rounded-lg animate-pulse" />
+                    ) : paymentPie.length > 0 ? (() => {
+                        const paymentTotal = paymentPie.reduce((sum, item) => sum + Number(item.value || 0), 0);
+                        const mainPayment = paymentPie.reduce((max, item) => Number(item.value || 0) > Number(max.value || 0) ? item : max, paymentPie[0]);
+                        return (
+                            <>
+                                <div className="relative h-40">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie data={paymentPie} cx="50%" cy="50%" innerRadius="62%" outerRadius="86%"
+                                                 paddingAngle={3} dataKey="value" animationDuration={700}>
+                                                {paymentPie.map((e, i) => <Cell key={i} fill={e.color} stroke="none" />)}
+                                            </Pie>
+                                            <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`]} contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 8px 20px rgb(15 23 42 / .10)', fontSize: 12 }} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total</span>
+                                        <span className="text-xl font-black tracking-tight text-slate-950">{fmtCompact(paymentTotal)}</span>
                                     </div>
-                                ))}
-                            </div>
-                        </>
-                    ) : (
-                        <div className="h-44 flex items-center justify-center text-slate-400 text-xs">Sin pagos en el periodo</div>
+                                </div>
+                                <div className="mb-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                                    <div className="flex items-center justify-between gap-3 text-xs">
+                                        <span className="font-bold text-slate-500">Principal</span>
+                                        <span className="font-black text-slate-900 truncate">{mainPayment.name}</span>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    {paymentPie.map((e, i) => {
+                                        const pct = paymentTotal > 0 ? Math.round((Number(e.value || 0) / paymentTotal) * 100) : 0;
+                                        return (
+                                            <div key={i}>
+                                                <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                                                    <div className="flex min-w-0 items-center gap-1.5">
+                                                        <div className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: e.color }} />
+                                                        <span className="truncate font-bold text-slate-600">{e.name}</span>
+                                                    </div>
+                                                    <div className="shrink-0 text-right">
+                                                        <span className="font-black text-slate-800">${Number(e.value).toFixed(0)}</span>
+                                                        <span className="ml-1 text-[10px] font-bold text-slate-400">{pct}%</span>
+                                                    </div>
+                                                </div>
+                                                <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                                                    <div className="h-full rounded-full" style={{ width: `${Math.max(pct, 4)}%`, background: e.color }} />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
+                        );
+                    })() : (
+                        <EmptyState icon={CreditCard} title="Sin pagos en el periodo" desc="Los metodos usados apareceran cuando existan ventas." />
                     )}
                 </div>
             </div>
 
-            {/* ── TOP PRODUCTOS + TOP EMPLEADOS ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Top productos + equipo */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
                 {/* Top productos */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                         <div>
-                            <h3 className="font-bold text-slate-800 text-sm">Top Productos</h3>
+                            <h3 className="font-black text-slate-800 text-sm">Top Productos</h3>
                             <p className="text-xs text-slate-400">Por ingresos — {period.label}</p>
                         </div>
                         <button onClick={() => navigate('/reports?tab=ventas')} className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-0.5">
@@ -524,27 +790,36 @@ const Dashboard = () => {
                         <div className="p-4 space-y-3">{[...Array(5)].map((_,i) => <div key={i} className="h-8 bg-slate-50 rounded-xl animate-pulse" />)}</div>
                     ) : topProducts.length > 0 ? (
                         <div className="divide-y divide-slate-50">
-                            {topProducts.map((p, i) => (
-                                <div key={p.product_id || i} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors">
-                                    <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-500 text-xs font-black flex items-center justify-center shrink-0">{i+1}</span>
-                                    <p className="flex-1 text-sm font-semibold text-slate-700 truncate">{p.product_name}</p>
-                                    <div className="text-right">
-                                        <p className="text-sm font-bold text-slate-900">${Number(p.revenue || 0).toFixed(0)}</p>
-                                        <p className="text-xs text-slate-400">{Number(p.quantity_sold || 0).toFixed(0)} uds</p>
+                            {topProducts.map((p, i) => {
+                                const maxRevenue = Math.max(...topProducts.map(item => Number(item.revenue || 0)), 1);
+                                const width = Math.max(8, Math.round((Number(p.revenue || 0) / maxRevenue) * 100));
+                                return (
+                                    <div key={p.product_id || i} className="px-4 py-2.5 hover:bg-slate-50 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <span className="w-5 h-5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-black flex items-center justify-center shrink-0">{i+1}</span>
+                                            <p className="flex-1 text-sm font-bold text-slate-700 truncate">{p.product_name}</p>
+                                            <div className="text-right shrink-0">
+                                                <p className="text-sm font-black text-slate-900">${Number(p.revenue || 0).toFixed(0)}</p>
+                                                <p className="text-[11px] font-semibold text-slate-400">{Number(p.quantity_sold || 0).toFixed(0)} uds</p>
+                                            </div>
+                                        </div>
+                                        <div className="ml-8 mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                            <div className="h-full rounded-full bg-indigo-500" style={{ width: `${width}%` }} />
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     ) : (
-                        <div className="py-10 text-center text-slate-400 text-sm">Sin ventas en el periodo</div>
+                        <EmptyState icon={Package} title="Sin ventas en el periodo" desc="Cuando registres ventas apareceran aqui los productos con mejor rendimiento." />
                     )}
                 </div>
 
                 {/* Top empleados por comisiones */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                         <div>
-                            <h3 className="font-bold text-slate-800 text-sm">Rendimiento Equipo</h3>
+                            <h3 className="font-black text-slate-800 text-sm">Rendimiento Equipo</h3>
                             <p className="text-xs text-slate-400">Comisiones generadas acumuladas</p>
                         </div>
                         <button onClick={() => navigate('/reports?tab=comisiones')} className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-0.5">
@@ -559,7 +834,7 @@ const Dashboard = () => {
                                 const total   = Number(e.total_earned || 0);
                                 const pending = Number(e.total_pending || 0);
                                 return (
-                                    <div key={e.user_id || i} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors">
+                                    <div key={e.user_id || i} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
                                         <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 text-xs font-black flex items-center justify-center shrink-0 uppercase">
                                             {(e.full_name || e.username || '?')[0]}
                                         </div>
@@ -576,89 +851,59 @@ const Dashboard = () => {
                             })}
                         </div>
                     ) : (
-                        <div className="py-10 text-center text-slate-400 text-sm">Sin comisiones registradas</div>
+                        <EmptyState icon={Users} title="Sin comisiones registradas" desc="El rendimiento del equipo aparecera cuando existan comisiones." />
                     )}
                 </div>
             </div>
 
-            {/* ── ACTIVIDAD RECIENTE MEJORADA ── */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            {/* Actividad reciente */}
+            <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
                     <div>
-                        <h3 className="font-bold text-slate-800 text-sm">Actividad Reciente</h3>
-                        <p className="text-xs text-slate-400">Últimas 8 transacciones</p>
+                        <h3 className="font-black text-slate-800 text-sm">Actividad Reciente</h3>
+                        <p className="text-xs text-slate-400">Ultimas 8 transacciones</p>
                     </div>
-                    <button onClick={() => navigate('/sales-history')} className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-0.5">
+                    <button onClick={() => navigate('/sales-history')} className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-0.5 shrink-0">
                         Ver todo <ChevronRight size={13} />
                     </button>
                 </div>
                 {loading ? (
-                    <div className="p-4 space-y-2">{[...Array(5)].map((_,i) => <div key={i} className="h-10 bg-slate-50 rounded-xl animate-pulse" />)}</div>
+                    <div className="grid gap-2 p-4 md:grid-cols-2">{[...Array(6)].map((_,i) => <div key={i} className="h-16 bg-slate-50 rounded-lg animate-pulse" />)}</div>
                 ) : recentSales.length > 0 ? (
-                    <>
-                        {/* Mobile */}
-                        <div className="block md:hidden divide-y divide-slate-50">
-                            {recentSales.slice(0,5).map(sale => (
-                                <div key={sale.id} className="px-5 py-3 hover:bg-slate-50">
-                                    <div className="flex justify-between items-start">
-                                        <p className="font-semibold text-slate-800 text-sm">{sale.customer?.name || 'Cliente General'}</p>
-                                        <span className="font-bold text-slate-900 text-sm">${Number(sale.total_amount||0).toFixed(2)}</span>
+                    <div className="grid gap-2 p-3 md:grid-cols-2 xl:grid-cols-4">
+                        {recentSales.map(sale => {
+                            const isCredit = !!sale.credit_sale;
+                            const saleDate = sale.date ? new Date(sale.date) : null;
+                            return (
+                                <button key={sale.id} onClick={() => navigate('/sales-history')}
+                                    className="group rounded-lg border border-slate-100 bg-slate-50/60 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-indigo-100 hover:bg-white hover:shadow-md">
+                                    <div className="mb-2 flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-black text-slate-900">{sale.customer?.name || 'Cliente General'}</p>
+                                            <p className="mt-0.5 text-[11px] font-bold text-slate-400">#{sale.id}</p>
+                                        </div>
+                                        <span className="shrink-0 text-sm font-black text-slate-950">${Number(sale.total_amount||0).toFixed(2)}</span>
                                     </div>
-                                    <div className="flex justify-between text-xs text-slate-400 mt-0.5">
-                                        <span>#{sale.id} · {sale.payment_method || 'Efectivo'}</span>
-                                        <span>{sale.date ? new Date(sale.date).toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'}) : ''}</span>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-white px-2 py-1 text-[11px] font-bold text-slate-600 shadow-sm">
+                                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" />
+                                            <span className="truncate">{sale.payment_method || 'Efectivo'}</span>
+                                        </span>
+                                        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[11px] font-black ${isCredit ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                                            {isCredit ? <Clock size={10}/> : <CheckCircle size={10}/>}
+                                            {isCredit ? 'Credito' : 'Pagado'}
+                                        </span>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                        {/* Desktop */}
-                        <div className="hidden md:block overflow-x-auto">
-                            <table className="min-w-full text-sm">
-                                <thead className="border-b border-slate-100 bg-slate-50/50">
-                                    <tr>
-                                        <th className="px-5 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Cliente</th>
-                                        <th className="px-5 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Fecha</th>
-                                        <th className="px-5 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Método</th>
-                                        <th className="px-5 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Estado</th>
-                                        <th className="px-5 py-3 text-right font-semibold text-slate-500 text-xs uppercase tracking-wider">Monto</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {recentSales.map(sale => (
-                                        <tr key={sale.id} className="hover:bg-slate-50/80 transition-colors">
-                                            <td className="px-5 py-3.5">
-                                                <p className="font-semibold text-slate-800">{sale.customer?.name || 'Cliente General'}</p>
-                                                <p className="text-xs text-slate-400">#{sale.id}</p>
-                                            </td>
-                                            <td className="px-5 py-3.5 text-slate-500 text-xs">
-                                                {sale.date ? new Date(sale.date).toLocaleDateString('es-VE',{ month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '—'}
-                                            </td>
-                                            <td className="px-5 py-3.5">
-                                                <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 font-medium">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-300" />
-                                                    {sale.payment_method || 'Efectivo'}
-                                                </span>
-                                            </td>
-                                            <td className="px-5 py-3.5">
-                                                <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${sale.credit_sale ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
-                                                    {sale.credit_sale ? <Clock size={10}/> : <CheckCircle size={10}/>}
-                                                    {sale.credit_sale ? 'Crédito' : 'Pagado'}
-                                                </span>
-                                            </td>
-                                            <td className="px-5 py-3.5 text-right font-bold text-slate-900">
-                                                ${Number(sale.total_amount||0).toFixed(2)}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </>
-                ) : (
-                    <div className="py-14 text-center">
-                        <Package size={36} className="text-slate-200 mx-auto mb-3" />
-                        <p className="text-slate-400 text-sm font-medium">Sin transacciones recientes</p>
+                                    <div className="mt-2 flex items-center justify-between text-[11px] font-semibold text-slate-400">
+                                        <span>{saleDate ? saleDate.toLocaleDateString('es-VE',{ month:'short', day:'numeric' }) : 'Sin fecha'}</span>
+                                        <span>{saleDate ? saleDate.toLocaleTimeString('es-VE',{ hour:'2-digit', minute:'2-digit' }) : ''}</span>
+                                    </div>
+                                </button>
+                            );
+                        })}
                     </div>
+                ) : (
+                    <EmptyState icon={ShoppingCart} title="Sin transacciones recientes" desc="Las ultimas ventas apareceran en esta seccion." />
                 )}
             </div>
 

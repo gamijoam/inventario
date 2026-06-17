@@ -1,7 +1,9 @@
+import { useSearchParams } from 'react-router-dom';
 import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
 import {
+    Building2,
     BarChart3, ShoppingCart, Landmark, CreditCard, Truck,
     Package, DollarSign, Calendar, Download, RefreshCw,
     TrendingUp, ArrowUpRight, ArrowDownRight, Pill
@@ -11,6 +13,7 @@ import {
     ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 import unifiedReportService from '../../services/unifiedReportService';
 import reportService from '../../services/reportService';
 import { useConfig } from '../../context/ConfigContext';
@@ -22,6 +25,8 @@ const SuppliersTab = lazy(() => import('./tabs/SuppliersTab'));
 const InventoryTab = lazy(() => import('./tabs/InventoryTab'));
 const PharmacyTab = lazy(() => import('./tabs/PharmacyTab'));
 const CommissionsTab = lazy(() => import('./tabs/CommissionsTab'));
+const IntelligenceTab = lazy(() => import('./tabs/IntelligenceTab'));
+const FinanciadoresTab = lazy(() => import('./tabs/FinanciadoresTab'));
 
 // --- Tab definitions ---
 const TABS = [
@@ -33,6 +38,8 @@ const TABS = [
     { id: 'inventario', label: 'Inventario', icon: Package },
     { id: 'farmacia', label: 'Farmacia', icon: Pill, moduleRequired: 'pharmacy' },
     { id: 'comisiones', label: 'Comisiones', icon: DollarSign },
+    { id: 'intelligence', label: '🧠 Inteligencia', icon: TrendingUp },
+    { id: 'financiadoras', label: 'Financiadoras', icon: Building2, moduleRequired: 'external_financing' },
 ];
 
 // --- Date helpers ---
@@ -196,10 +203,11 @@ const renderPieLabel = ({ name, percent }) => {
 // MAIN COMPONENT
 // ============================================================
 const ReportsCenter = () => {
-    const { modules } = useConfig();
+    const { modules, business } = useConfig();
 
     // --- State ---
-    const [activeTab, setActiveTab] = useState('resumen');
+    const [searchParams] = useSearchParams();
+    const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'resumen');
     const help = useHelp();
     const [activePreset, setActivePreset] = useState('month');
     const [loading, setLoading] = useState(false);
@@ -287,7 +295,6 @@ const ReportsCenter = () => {
             const prevParams = { start_date: prevPeriod.start, end_date: prevPeriod.end };
 
             const results = await Promise.allSettled([
-                // Current period
                 unifiedReportService.getSalesSummary(params),
                 unifiedReportService.getProfitability(params),
                 unifiedReportService.getCreditsSummary(),
@@ -295,25 +302,21 @@ const ReportsCenter = () => {
                 unifiedReportService.getSalesByCustomer({ ...params, limit: 10 }),
                 unifiedReportService.getSalesByPaymentMethod(params),
                 unifiedReportService.getSalesDetailed(params),
-                // Previous period (for comparison)
                 unifiedReportService.getSalesSummary(prevParams),
                 unifiedReportService.getProfitability(prevParams),
             ]);
 
-            const getValue = (result) => result.status === 'fulfilled' ? result.value : null;
+            const gv = (r) => r.status === 'fulfilled' ? r.value : null;
 
-            setSalesSummary(getValue(results[0]));
-            setProfitData(getValue(results[1]));
-            setCreditsSummary(getValue(results[2]));
-            setTopProducts(Array.isArray(getValue(results[3])) ? getValue(results[3]) : []);
-            setTopCustomers(Array.isArray(getValue(results[4])) ? getValue(results[4]) : []);
+            setSalesSummary(gv(results[0]));
+            setProfitData(gv(results[1]));
+            setCreditsSummary(gv(results[2]));
+            setTopProducts(Array.isArray(gv(results[3])) ? gv(results[3]) : []);
+            setTopCustomers(Array.isArray(gv(results[4])) ? gv(results[4]) : []);
+            setPaymentMethods(Array.isArray(gv(results[5])) ? gv(results[5]) : []);
 
-            // Payment methods
-            const pmData = getValue(results[5]);
-            setPaymentMethods(Array.isArray(pmData) ? pmData : []);
-
-            // Daily sales aggregation
-            const detailedData = getValue(results[6]);
+            // Ventas diarias
+            const detailedData = gv(results[6]);
             if (detailedData && Array.isArray(detailedData)) {
                 const byDay = {};
                 detailedData.forEach(sale => {
@@ -323,19 +326,16 @@ const ReportsCenter = () => {
                     byDay[day].revenue += Number(sale.total_amount || sale.total || 0);
                     byDay[day].count += 1;
                 });
-                const sorted = Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date));
-                setDailySales(sorted);
+                setDailySales(Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date)));
             } else {
                 setDailySales([]);
             }
 
-            // Previous period
-            setPrevSalesSummary(getValue(results[7]));
-            setPrevProfitData(getValue(results[8]));
+            setPrevSalesSummary(gv(results[7]));
+            setPrevProfitData(gv(results[8]));
 
         } catch (error) {
             console.error('Error loading resumen data:', error);
-            toast.error('Error cargando datos del resumen');
         } finally {
             setLoading(false);
         }
@@ -356,7 +356,7 @@ const ReportsCenter = () => {
             toast.success('Reporte descargado correctamente', { id: toastId });
         } catch (error) {
             console.error('Export error:', error);
-            toast.error('Error al generar el reporte Excel', { id: toastId });
+            toast.error(getApiErrorMessage(error, 'Error al generar el reporte Excel'), { id: toastId });
         }
     };
 
@@ -371,6 +371,9 @@ const ReportsCenter = () => {
     const visibleTabs = useMemo(() => {
         return TABS.filter(tab => {
             if (!tab.moduleRequired) return true;
+            if (tab.moduleRequired === 'external_financing') {
+                return business?.external_financing_enabled === true || business?.external_financing_enabled === 'true';
+            }
             return modules?.[tab.moduleRequired];
         });
     }, [modules]);
@@ -751,6 +754,18 @@ const ReportsCenter = () => {
                         <PharmacyTab dateRange={dateRange} />
                     </Suspense>
                 );
+            case 'intelligence':
+                return (
+                    <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full" /></div>}>
+                        <IntelligenceTab />
+                    </Suspense>
+                );
+            case 'financiadoras':
+                return (
+                    <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400 animate-pulse">Cargando...</div>}>
+                        <FinanciadoresTab />
+                    </Suspense>
+                );
             case 'comisiones':
                 return (
                     <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400 animate-pulse">Cargando...</div>}>
@@ -768,26 +783,26 @@ const ReportsCenter = () => {
     // MAIN RENDER
     // ============================================================
     return (
-        <div className="min-h-screen bg-slate-50/50">
+        <div id="tour-reports-container" className="min-h-screen bg-slate-50">
             {/* Header */}
-            <div className="bg-white border-b border-slate-200 sticky top-0 z-30">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6">
+            <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+                <div className="max-w-[1520px] mx-auto px-4 sm:px-5">
                     {/* Title row + date controls */}
-                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 py-4">
+                    <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 py-3">
                         <div>
-                            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Centro de Reportes</h1>
-                            <p className="text-slate-500 text-sm font-medium">Analítica avanzada de tu negocio</p>
+                            <h1 className="text-xl font-black text-slate-900 tracking-tight">Centro de Reportes</h1>
+                            <p className="text-slate-500 text-xs font-semibold">Analitica avanzada de tu negocio</p>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div id="tour-reports-controls" className="flex flex-wrap items-center gap-1.5">
                             {helpKey && <HelpButton contextKey={helpKey} onClick={help.open} />}
                             {/* Date presets */}
-                            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+                            <div id="tour-reports-presets" className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 shadow-inner shadow-slate-200/60">
                                 {presets.map(p => (
                                     <button
                                         key={p.id}
                                         onClick={() => applyPreset(p.id)}
-                                        className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                                        className={`px-2 py-1 text-[11px] font-black rounded-md transition-all ${
                                             activePreset === p.id
                                                 ? 'bg-white text-slate-900 shadow-sm'
                                                 : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
@@ -799,7 +814,7 @@ const ReportsCenter = () => {
                             </div>
 
                             {/* Date inputs */}
-                            <div className="flex items-center gap-1.5 bg-slate-100 rounded-lg px-2.5 py-1.5">
+                            <div id="tour-reports-date-range" className="flex items-center gap-1.5 bg-slate-100 rounded-lg px-2 py-1 shadow-inner shadow-slate-200/60">
                                 <Calendar size={14} className="text-slate-400" />
                                 <input
                                     type="date"
@@ -822,7 +837,7 @@ const ReportsCenter = () => {
                             <button
                                 onClick={() => { if (activeTab === 'resumen') loadResumenData(); }}
                                 disabled={loading}
-                                className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50"
+                                className="h-8 w-8 inline-flex items-center justify-center bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50"
                                 title="Actualizar"
                             >
                                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -830,8 +845,9 @@ const ReportsCenter = () => {
 
                             {/* Export */}
                             <button
+                                id="tour-reports-export"
                                 onClick={handleExport}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
+                                className="h-8 inline-flex items-center gap-1.5 px-3 bg-emerald-600 text-white text-xs font-black rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
                                 title="Descargar reporte Excel"
                             >
                                 <Download size={14} />
@@ -841,21 +857,22 @@ const ReportsCenter = () => {
                     </div>
 
                     {/* Tab Navigation */}
-                    <div className="flex overflow-x-auto gap-0 -mb-px scrollbar-hide">
+                    <div id="tour-reports-tabs" className="flex overflow-x-auto gap-1 -mb-px scrollbar-hide pt-1">
                         {visibleTabs.map(tab => {
                             const TabIcon = tab.icon;
                             const isActive = activeTab === tab.id;
                             return (
                                 <button
                                     key={tab.id}
+                                    id={`tour-reports-tab-${tab.id}`}
                                     onClick={() => setActiveTab(tab.id)}
-                                    className={`flex items-center gap-2 px-4 py-3 text-sm font-bold whitespace-nowrap border-b-2 transition-all ${
+                                    className={`flex items-center gap-2 px-3 py-2.5 text-xs font-black whitespace-nowrap border-b-2 rounded-t-lg transition-all ${
                                         isActive
-                                            ? 'text-emerald-600 border-emerald-600'
-                                            : 'text-slate-500 border-transparent hover:text-slate-700 hover:border-slate-300'
+                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-600'
+                                            : 'text-slate-500 border-transparent hover:bg-slate-50 hover:text-slate-700 hover:border-slate-300'
                                     }`}
                                 >
-                                    <TabIcon size={16} />
+                                    <TabIcon size={15} />
                                     {tab.label}
                                 </button>
                             );
@@ -865,7 +882,7 @@ const ReportsCenter = () => {
             </div>
 
             {/* Tab Content */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+            <div id="tour-reports-content" className="max-w-[1520px] mx-auto px-4 sm:px-5 py-4">
                 {renderTabContent()}
             </div>
             {help.isOpen && helpKey && <HelpDrawer contextKey={helpKey} onClose={help.close} />}

@@ -1,18 +1,21 @@
 import { useAuth } from '../context/AuthContext';
+import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
 import { useHelp } from '../help/useHelp';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2, LayoutGrid, Image, Search, ChevronDown, CheckCircle2, Printer, ReceiptText } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
 import { Button } from '../components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
 import { useCart } from '../context/CartContext';
 import { useCash } from '../context/CashContext';
 import { useConfig } from '../context/ConfigContext';
 import { useWebSocket } from '../context/WebSocketContext';
 import { Link, useSearchParams } from 'react-router-dom';
+import { cn } from '../lib/utils';
 
 // New Components
 import POSCatalog from '../components/pos/POSCatalog';
@@ -27,18 +30,21 @@ import CashOpeningModal from '../components/cash/CashOpeningModal';
 import CashMovementModal from '../components/cash/CashMovementModal';
 import CashAdvanceModal from '../components/cash/CashAdvanceModal';
 import SaleSuccessModal from '../components/pos/SaleSuccessModal';
+import ProductLookupModal from '../components/pos/ProductLookupModal';
 import useBarcodeScanner from '../hooks/useBarcodeScanner';
-import SplitCartModal from "../components/pos/SplitCartModal";
+import SplitCartModal from '../components/pos/SplitCartModal';
 import usePOSCatalog from '../hooks/usePOSCatalog';
 import ServiceImportModal from './POS/ServiceImportModal';
 import SerializedItemModal from '../components/pos/SerializedItemModal';
 import POSSettingsModal from '../components/pos/POSSettingsModal';
+import ReprintSalesSheet from '../components/pos/ReprintSalesSheet';
 import PinAuthModal from '../components/common/PinAuthModal';
 import EmployeeSelectionModal from '../components/pos/EmployeeSelectionModal';
 import { DEFAULT_THEME, POS_THEMES } from '../constants/posThemes';
 
 import apiClient from '../config/axios';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../utils/apiErrors';
 
 // Helper to format stock: show as integer if whole number, otherwise show decimals
 const formatStock = (stock) => {
@@ -49,15 +55,17 @@ const formatStock = (stock) => {
 const POS = () => {
     const { user, updateUserPreferences } = useAuth();
     const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart, overwriteCart } = useCart();
-    const { isSessionOpen, openSession, loading: isCashLoading } = useCash();
-    const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency } = useConfig();
+    const { isSessionOpen, openSession, loading: isCashLoading, session, activeRegister, registers, selectStationRegister } = useCash();
+    const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency, posSettings, priceLists, posCategories, posWarehouses } = useConfig();
     const { subscribe } = useWebSocket();
     const {
         products: displayProducts, isLoading: catalogLoading, isLoadingMore,
         hasMore, total: totalProducts, loadMore, setSearch: setServerSearch,
-        setCategoryId: setServerCategory, lookupProduct, getFromCache, refreshProduct
+        setCategoryId: setServerCategory, lookupProduct, getFromCache, refreshProduct,
+        mergeProductUpdate, applyStockUpdate, removeProductFromCatalog
     } = usePOSCatalog();
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
+    const currentRegister = session?.register || activeRegister || null;
 
     // Toggle por moneda: { VES: true, COP: false } — default ON para todas
     const help = useHelp();
@@ -69,6 +77,14 @@ const POS = () => {
         } catch { return {}; }
     });
     
+    // Config por tenant: viene de ConfigContext (/config/pos-init cacheado en Redis).
+    const posShowBs = posSettings?.pos_show_bs !== false;
+    useEffect(() => {
+        const listId = posSettings?.pos_default_price_list_id || '';
+        if (listId) localStorage.setItem('pos_default_price_list_id', listId);
+        else localStorage.removeItem('pos_default_price_list_id');
+    }, [posSettings?.pos_default_price_list_id]);
+
     const isCurrencyVisible = (code) => showCurrencies[code] !== false;
     const toggleCurrency = (code) => {
         setShowCurrencies(prev => {
@@ -85,16 +101,37 @@ const POS = () => {
             .map(c => [c.currency_code, c])
     ).values()];
     // Solo las monedas que el usuario habilitó
-    const visibleSecondaryCurrencies = secondaryCurrencies.filter(c => isCurrencyVisible(c.currency_code));
+    const visibleSecondaryCurrencies = posShowBs
+        ? secondaryCurrencies.filter(c => isCurrencyVisible(c.currency_code))
+        : [];  // Si la config del tenant oculta Bs, no mostrar monedas secundarias
     const showSecondaryPrice = visibleSecondaryCurrencies.length > 0;
 
     // Theme State - Resolve by ID to ensure latest styles
     const themeId = user?.preferences?.pos_theme?.id || 'default';
     const currentTheme = POS_THEMES.find(t => t.id === themeId) || DEFAULT_THEME;
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isReprintOpen, setIsReprintOpen] = useState(false);
+    const [newReprintCount, setNewReprintCount] = useState(0);
 
     // Express Mode State
     const isExpressMode = user?.preferences?.pos_mode === 'express';
+    const isCashier = user?.role === 'CASHIER';
+    const [simpleMode, setSimpleMode] = useState(() => user?.preferences?.pos_simple_mode === true);
+    const showCreditosExternos  = useFeatureFlag('creditos_externos');
+
+    const handleToggleSimpleMode = async () => {
+        const next = !simpleMode;
+        try {
+            await updateUserPreferences({ pos_simple_mode: next });
+        } catch {}
+        toast(
+            next ? '✅ Modo Sencillo activado — recarga para aplicar' : '🖼️ Modo Normal activado — recarga para aplicar',
+            { icon: null, duration: 4000,
+              style: { fontWeight: 700, borderRadius: '12px', padding: '12px 16px' } }
+        );
+        setTimeout(() => window.location.reload(), 1500);
+    };
+    const showCajeroRestringido = useFeatureFlag('cajero_restringido_pos');
     const handleToggleExpressMode = () => {
         updateUserPreferences({ pos_mode: isExpressMode ? 'full' : 'express' });
     };
@@ -117,12 +154,12 @@ const POS = () => {
     const [isAdvanceOpen, setIsAdvanceOpen] = useState(false);
     const [isClosingOpen, setIsClosingOpen] = useState(false);
     const [lastSaleData, setLastSaleData] = useState(null);
+    const [isLookupOpen, setIsLookupOpen] = useState(false);
     const [selectedProductIndex, setSelectedProductIndex] = useState(-1);
     const [quoteCustomer, setQuoteCustomer] = useState(null);
     const [activeQuoteId, setActiveQuoteId] = useState(null);
 
     // NEW: Price Lists & Security State
-    const [priceLists, setPriceLists] = useState([]);
     const [pinModalOpen, setPinModalOpen] = useState(false);
     const [pendingPriceUpdate, setPendingPriceUpdate] = useState(null); // { itemId, price, listId }
     const [activePricePopover, setActivePricePopover] = useState(null); // itemId
@@ -132,15 +169,19 @@ const POS = () => {
     const [activeServiceOrderId, setActiveServiceOrderId] = useState(null);
     const [serviceOrderTicket, setServiceOrderTicket] = useState(null);
     const [selectedProductForSerialized, setSelectedProductForSerialized] = useState(null);
+    // Combo con componentes serializados
+    const [comboImeiQueue, setComboImeiQueue] = useState([]); // [{product, qty, index}]
+    const [comboImeiCollected, setComboImeiCollected] = useState({}); // {product_id: [serials]}
+    const [pendingComboProduct, setPendingComboProduct] = useState(null); // combo padre
     const [selectedProductForEmployee, setSelectedProductForEmployee] = useState(null);
     const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
 
     // Data State
-    const [categories, setCategories] = useState([]);
-    const [warehouses, setWarehouses] = useState([]);
+    const categories = posCategories || [];
+    const warehouses = posWarehouses || [];
     const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
-    const [salespeople, setSalespeople] = useState([]);
     const [employees, setEmployees] = useState([]);
+    const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
     const [selectedSalespersonId, setSelectedSalespersonId] = useState(''); // NEW: Global Salesperson
 
     const [isLoading, setIsLoading] = useState(true);
@@ -152,6 +193,7 @@ const POS = () => {
 
     // Refs
     const catalogRef = useRef(null);
+    const employeesLoadedRef = useRef(false);
 
     // ... (Existing hotkeys remain same) ...
     // F3: Focus search input
@@ -209,6 +251,12 @@ const POS = () => {
             if (cart.length === 0 || confirm('¿Reemplazar el carrito actual con la venta pausada?')) resumeHeldCart();
         }
     });
+
+    // Alt+B: Product Lookup Modal (estándar de buscadores)
+    useHotkeys('alt+b', (e) => {
+        e.preventDefault();
+        setIsLookupOpen(prev => !prev);
+    }, { enableOnFormTags: true, preventDefault: true });
 
     // F2: New sale (clear cart with confirmation)
     useHotkeys('f2', (e) => {
@@ -291,16 +339,25 @@ const POS = () => {
     const handleGlobalScan = async (code) => {
         const foundProduct = await lookupProduct(code);
         if (foundProduct) {
+            // Si viene de búsqueda por IMEI, validar que no esté vendido
+            if (foundProduct._imei_status === 'SOLD') {
+                toast.error(`❌ IMEI ${foundProduct._imei} ya fue vendido`, { duration: 3000 });
+                return;
+            }
             handleProductClick(foundProduct);
+            // Si tiene IMEI, pre-llenar el serial en el carrito
+            if (foundProduct._imei) {
+                toast.success(`📱 ${foundProduct.name} — IMEI: ${foundProduct._imei}`, { duration: 2000 });
+            }
         } else {
-            toast.error(`Producto no encontrado: ${code}`);
+            toast.error(`Producto no encontrado: ${code}`, { duration: 2000 });
         }
     };
 
     useBarcodeScanner(handleGlobalScan, {
         minLength: 3,
         maxTimeBetweenKeys: 50,
-        enabled: !pinModalOpen && !selectedProductForSerialized && !isPaymentOpen && !isSettingsOpen
+        enabled: !pinModalOpen && !selectedProductForSerialized && !isPaymentOpen && !isSettingsOpen && !isLookupOpen
     });
 
 
@@ -312,37 +369,8 @@ const POS = () => {
             // Assuming session check is handled by context/other logic or implicit here
 
             try {
-                const [categoriesRes, warehousesRes, priceListsRes] = await Promise.all([
-                    apiClient.get('/categories'),
-                    apiClient.get('/warehouses'),
-                    apiClient.get('/price-lists/') // NEW
-                ]);
-                setCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : []);
-                setWarehouses(Array.isArray(warehousesRes.data) ? warehousesRes.data : []);
-
-                if (priceListsRes && Array.isArray(priceListsRes.data)) {
-                    setPriceLists(priceListsRes.data.filter(pl => pl.is_active));
-                }
                 setSelectedWarehouseId('all');
 
-                try {
-                    // _silent403 + _silentNetworkError: these are optional background calls
-                    // (salesperson dropdown / barbershop employees). POS works without them.
-                    // The catch block already handles errors silently, so no toast needed.
-                    const [usersRes, employeesRes] = await Promise.all([
-                        apiClient.get('/users', { _silent403: true, _silentNetworkError: true }),
-                        apiClient.get('/employees', { _silent403: true, _silentNetworkError: true })
-                    ]);
-
-                    if (Array.isArray(usersRes.data)) {
-                        setSalespeople(usersRes.data.filter(u => u.is_active));
-                    }
-                    if (Array.isArray(employeesRes.data)) {
-                        setEmployees(employeesRes.data.filter(e => e.status === 'ACTIVE'));
-                    }
-                } catch (err) {
-                    console.error("Failed to load staff/employees:", err);
-                }
 
                 if (modules?.services) {
                     // Other service-specific logic if any
@@ -353,19 +381,17 @@ const POS = () => {
         fetchData();
     }, [modules]);
 
-    // WebSocket: real-time product updates
+    // WebSocket: real-time product updates without refetching each changed item
     useEffect(() => {
-        const unsub1 = subscribe('product:updated', (data) => {
-            refreshProduct(data.id || data.product_id);
-        });
-        const unsub2 = subscribe('product:deleted', (data) => {
-            refreshProduct(data.id || data.product_id);
-        });
+        const unsubUpdate = subscribe('product:updated', mergeProductUpdate);
+        const unsubStock = subscribe('product:stock_updated', applyStockUpdate);
+        const unsubDelete = subscribe('product:deleted', removeProductFromCatalog);
         return () => {
-            if (unsub1) unsub1();
-            if (unsub2) unsub2();
+            if (unsubUpdate) unsubUpdate();
+            if (unsubStock) unsubStock();
+            if (unsubDelete) unsubDelete();
         };
-    }, [subscribe, refreshProduct]);
+    }, [subscribe, mergeProductUpdate, applyStockUpdate, removeProductFromCatalog]);
 
     // ... Quote Loading Logic ...
     useEffect(() => {
@@ -394,7 +420,7 @@ const POS = () => {
             const items = quote.details || quote.items || [];
 
             for (const item of items) {
-                const product = getFromCache(item.product_id) || await lookupProduct(item.product_id);
+                const product = item.product || getFromCache(item.product_id) || await lookupProduct(item.product_id);
                 if (product) {
                     // Try to match unit or use base
                     const unitName = item.is_box ? 'Caja' : 'Unidad';
@@ -424,7 +450,7 @@ const POS = () => {
             toast.success(`Cotización #${id} cargada (${addedCount} productos)`);
         } catch (error) {
             console.error("Error loading quote into POS:", error);
-            toast.error("No se pudo cargar la cotización");
+            toast.error(getApiErrorMessage(error, "No se pudo cargar la cotizacion"));
         }
     };
 
@@ -441,29 +467,63 @@ const POS = () => {
 
     const focusSearch = focusAndSelectSearch;
 
-    const handleProductClick = (product) => {
+    const loadEmployees = useCallback(async () => {
+        if (employeesLoadedRef.current || isLoadingEmployees) return;
+        setIsLoadingEmployees(true);
+        try {
+            const { data } = await apiClient.get('/employees', { _silent403: true, _silentNetworkError: true });
+            setEmployees(Array.isArray(data) ? data.filter(e => e.status === 'ACTIVE' || e.is_active) : []);
+            employeesLoadedRef.current = true;
+        } catch {
+            setEmployees([]);
+        } finally {
+            setIsLoadingEmployees(false);
+        }
+    }, [isLoadingEmployees]);
+
+    const handleProductClick = async (product) => {
         // Bug [006] fix: clear search text and keep focus on search bar
         setSearchTerm('');
         if (catalogRef.current) {
             catalogRef.current.clearAndFocusSearch();
         }
 
+        const productForSale = product.is_combo
+            ? (await refreshProduct(product.id)) || product
+            : product;
+
         // NEW: Barbershop Service check
-        if (product.is_barbershop_service) {
-            setSelectedProductForEmployee(product);
+        if (productForSale.is_barbershop_service) {
+            setSelectedProductForEmployee(productForSale);
             setIsEmployeeModalOpen(true);
+            loadEmployees();
             return;
         }
 
-        if (product.has_imei) {
-            setSelectedProductForSerialized(product);
+        if (productForSale.has_imei) {
+            setSelectedProductForSerialized(productForSale);
             return;
         }
 
-        if (product.units?.length > 0) {
-            setSelectedProductForUnits(product);
+        // Combo con componentes serializados
+        if (productForSale.is_combo && productForSale.combo_items?.some(ci => ci.child_product?.has_imei)) {
+            const serializedComponents = productForSale.combo_items
+                .filter(ci => ci.child_product?.has_imei)
+                .map(ci => ({
+                    product: ci.child_product,
+                    qty: Math.ceil(ci.quantity),
+                    combo_item_id: ci.id
+                }));
+            setPendingComboProduct(productForSale);
+            setComboImeiCollected({});
+            setComboImeiQueue(serializedComponents);
+            return;
+        }
+
+        if (productForSale.units?.length > 0) {
+            setSelectedProductForUnits(productForSale);
         } else {
-            addBaseProductToCart(product);
+            addBaseProductToCart(productForSale);
         }
     };
 
@@ -504,6 +564,45 @@ const POS = () => {
         focusSearch();
     }
 
+    // ── Combo IMEI: confirmar serial de un componente y avanzar al siguiente ──
+    const handleComboComponentSerialConfirm = (serials) => {
+        if (comboImeiQueue.length === 0) return;
+        const current = comboImeiQueue[0];
+        const newCollected = {
+            ...comboImeiCollected,
+            [String(current.product.id)]: serials
+        };
+        const remaining = comboImeiQueue.slice(1);
+
+        if (remaining.length > 0) {
+            // Hay más componentes serializados -- pedir el siguiente
+            setComboImeiCollected(newCollected);
+            setComboImeiQueue(remaining);
+        } else {
+            // Todos los seriales recolectados -- agregar el combo al carrito
+            setComboImeiQueue([]);
+            setComboImeiCollected({});
+            if (pendingComboProduct) {
+                addToCart(pendingComboProduct, {
+                    name: 'Unidad',
+                    price_usd: parseFloat(pendingComboProduct.price),
+                    factor: 1,
+                    is_base: true,
+                    combo_serials: newCollected,
+                    salesperson_id: selectedSalespersonId || null
+                });
+                setPendingComboProduct(null);
+                focusSearch();
+            }
+        }
+    };
+
+    const handleCancelComboImei = () => {
+        setComboImeiQueue([]);
+        setComboImeiCollected({});
+        setPendingComboProduct(null);
+    };
+
     const handleSerializedConfirm = (serials) => {
         if (!selectedProductForSerialized) return;
 
@@ -542,7 +641,7 @@ const POS = () => {
         for (const item of order.details) {
             // Logic to find or mock product
             let product;
-            if (item.product_id) product = getFromCache(item.product_id) || await lookupProduct(item.product_id);
+            if (item.product_id) product = item.product || getFromCache(item.product_id) || await lookupProduct(item.product_id);
             if (!product) {
                 product = {
                     id: `SRV_${item.id}`,
@@ -658,9 +757,10 @@ const POS = () => {
     const handleSuccessClose = () => {
         // Refrescar stock de los productos vendidos antes de limpiar el carrito
         if (lastSaleData?.cart?.length > 0) {
-            lastSaleData.cart.forEach(item => {
-                if (item.product_id) refreshProduct(item.product_id);
-            });
+            const soldProductIds = [...new Set(lastSaleData.cart
+                .map(item => item.product_id)
+                .filter(Boolean))];
+            soldProductIds.forEach(productId => refreshProduct(productId));
         }
         setLastSaleData(null);
         clearCart();
@@ -678,22 +778,30 @@ const POS = () => {
     };
 
     // NEW: Price List Logic
-    const handlePriceListSelect = (list, item) => {
+    const handlePriceListSelect = async (list, item) => {
         // null list = revert to base price
         if (!list) {
             const itemProduct = getFromCache(item.product_id);
             const basePrice = itemProduct ? parseFloat(itemProduct.price) : item.unit_price_usd;
-            updateCartItem(item.id, { unit_price_usd: basePrice, price_list_id: null, auth_user_id: null });
+            updateCartItem(item.id, { unit_price_usd: basePrice, price_list_id: null, price_list_name: null, auth_user_id: null });
             toast.success('Precio revertido al precio base');
             return;
         }
 
-        const itemProduct = getFromCache(item.product_id);
-        let newPrice = null;
-        if (itemProduct && itemProduct.prices) {
-            const priceEntry = itemProduct.prices.find(p => p.price_list_id === list.id);
-            if (priceEntry) newPrice = parseFloat(priceEntry.price);
+        let itemProduct = getFromCache(item.product_id);
+        let priceEntry = itemProduct?.prices?.find(p => p.price_list_id === list.id);
+
+        // Si el cache no tiene precio para esta lista, refrescar del servidor
+        // (evita falsos "no tiene lista" por cache desactualizado)
+        if (!priceEntry) {
+            const fresh = await refreshProduct(item.product_id);
+            if (fresh) {
+                itemProduct = fresh;
+                priceEntry = fresh?.prices?.find(p => p.price_list_id === list.id);
+            }
         }
+
+        let newPrice = priceEntry ? parseFloat(priceEntry.price) : null;
 
         if (newPrice === null) {
             toast.error("Este producto no tiene precio asignado en esta lista");
@@ -701,10 +809,10 @@ const POS = () => {
         }
 
         if (list.requires_auth) {
-            setPendingPriceUpdate({ itemId: item.id, price: newPrice, listId: list.id });
+            setPendingPriceUpdate({ itemId: item.id, price: newPrice, listId: list.id, listName: list.name });
             setPinModalOpen(true);
         } else {
-            updateCartItem(item.id, { unit_price_usd: newPrice, price_list_id: list.id, auth_user_id: null });
+            updateCartItem(item.id, { unit_price_usd: newPrice, price_list_id: list.id, price_list_name: list.name, auth_user_id: null });
             setActivePricePopover(null);
             toast.success(`Precio actualizado a lista: ${list.name}`);
         }
@@ -715,6 +823,7 @@ const POS = () => {
             updateCartItem(pendingPriceUpdate.itemId, {
                 unit_price_usd: pendingPriceUpdate.price,
                 price_list_id: pendingPriceUpdate.listId,
+                price_list_name: pendingPriceUpdate.listName,
                 auth_user_id: userId
             });
             setPendingPriceUpdate(null);
@@ -737,65 +846,158 @@ const POS = () => {
                         <ArrowLeft size={20} />
                     </Link>
                     <div className="h-8 w-[1px] bg-slate-200 mx-2"></div>
-                    <h1 className="text-lg font-black text-slate-800 tracking-tight hidden md:block">Punto de Venta</h1>
+                    <div className="hidden md:flex flex-col">
+                        <h1 className="text-base font-black text-slate-800 tracking-tight leading-none">Punto de Venta</h1>
+                        {user && (
+                            <span className="text-sm font-bold text-slate-500 mt-1 flex flex-wrap items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+                                {user.full_name || user.username || user.email}
+                                {currentRegister && (
+                                    <span className="ml-1 rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-black uppercase tracking-wide text-indigo-700">
+                                        {currentRegister.code || currentRegister.name} / {currentRegister.hardware_client_id || 'sin impresora'}
+                                    </span>
+                                )}
+                            </span>
+                        )}
+                    </div>
                         <HelpButton contextKey={helpKey} onClick={help.open} />
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 md:gap-3">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                id="tour-pos-cash-menu"
+                                variant="outline"
+                                size="sm"
+                                className="hidden md:flex h-9 gap-2 rounded-xl border-slate-200 bg-white px-3 font-black text-slate-700 hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200"
+                            >
+                                <Banknote size={16} />
+                                {currentRegister?.code || 'Caja'}
+                                <ChevronDown size={14} className="text-slate-400" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56 rounded-xl border-slate-200 p-1.5 shadow-xl">
+                            <DropdownMenuLabel className="px-2 py-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                Acciones de caja
+                            </DropdownMenuLabel>
+                            {registers?.length > 0 && (
+                                <>
+                                    <DropdownMenuLabel className="px-2 pt-2 pb-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                        Caja de esta terminal
+                                    </DropdownMenuLabel>
+                                    {registers.map((reg) => {
+                                        const selected = Number(currentRegister?.id || activeRegister?.id) === Number(reg.id);
+                                        const hasPrinter = Boolean(reg.hardware_client_id);
+                                        return (
+                                            <DropdownMenuItem
+                                                key={reg.id}
+                                                onClick={async () => {
+                                                    await selectStationRegister(reg);
+                                                    toast.success(`Esta terminal usara ${reg.code || reg.name}${reg.hardware_client_id ? ' / ' + reg.hardware_client_id : ''}`);
+                                                }}
+                                                className="cursor-pointer rounded-lg py-2 font-bold text-slate-700 focus:bg-indigo-50 focus:text-indigo-700"
+                                            >
+                                                {selected ? (
+                                                    <CheckCircle2 size={15} className="mr-2 text-emerald-500" />
+                                                ) : (
+                                                    <Printer size={15} className={hasPrinter ? 'mr-2 text-indigo-500' : 'mr-2 text-slate-300'} />
+                                                )}
+                                                <span className="min-w-0 flex-1 truncate">{reg.code || reg.name}</span>
+                                                <span className={`ml-2 rounded-md px-1.5 py-0.5 text-[10px] font-black ${hasPrinter ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'}`}>
+                                                    {reg.hardware_client_id || 'sin impresora'}
+                                                </span>
+                                            </DropdownMenuItem>
+                                        );
+                                    })}
+                                    <DropdownMenuSeparator />
+                                </>
+                            )}
+                            {!(isCashier && showCajeroRestringido) && (
+                                <>
+                                    <DropdownMenuItem
+                                        id="tour-pos-cash-movement"
+                                        onClick={() => setIsMovementOpen(true)}
+                                        className="cursor-pointer rounded-lg py-2 font-bold text-slate-700 focus:bg-indigo-50 focus:text-indigo-700"
+                                    >
+                                        <ArrowRightLeft size={15} className="mr-2 text-indigo-500" />
+                                        Movimientos
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        id="tour-pos-cash-advance"
+                                        onClick={() => setIsAdvanceOpen(true)}
+                                        className="cursor-pointer rounded-lg py-2 font-bold text-slate-700 focus:bg-emerald-50 focus:text-emerald-700"
+                                    >
+                                        <Banknote size={15} className="mr-2 text-emerald-500" />
+                                        Avance
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                            {!heldCart && (
+                                <DropdownMenuItem
+                                    id="tour-pos-hold-btn"
+                                    onClick={holdCart}
+                                    disabled={cart.length === 0}
+                                    className="cursor-pointer rounded-lg py-2 font-bold text-amber-700 focus:bg-amber-50 focus:text-amber-700"
+                                    title={cart.length === 0 ? 'Agrega productos para pausar la venta' : 'Pausar venta y atender otro cliente (F6)'}
+                                >
+                                    <PauseCircle size={15} className="mr-2 text-amber-500" />
+                                    Pausar venta
+                                    <span className="ml-auto text-[10px] text-amber-400">F6</span>
+                                </DropdownMenuItem>
+                            )}
+                            {!(isCashier && showCajeroRestringido) && (
+                                <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        id="tour-pos-cash-close"
+                                        onClick={() => {
+                                            if (window.confirm('Desea cerrar la caja actual? Se generara un resumen de ventas.')) {
+                                                setIsClosingOpen(true);
+                                            }
+                                        }}
+                                        className="cursor-pointer rounded-lg py-2 font-bold text-rose-600 focus:bg-rose-50 focus:text-rose-700"
+                                    >
+                                        <Lock size={15} className="mr-2" />
+                                        Cerrar caja
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
                     <Button
+                        id="tour-pos-reprint"
                         variant="outline"
-                        size="sm"
-                        onClick={() => setIsMovementOpen(true)}
-                        className="hidden md:flex gap-2 font-bold text-slate-600 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200"
-                    >
-                        <ArrowRightLeft size={16} /> Movimientos
-                    </Button>
-
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsAdvanceOpen(true)}
-                        className="hidden md:flex gap-2 font-bold text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200"
-                    >
-                        <Banknote size={16} /> Avance
-                    </Button>
-
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsServiceImportOpen(true)}
-                        className="hidden md:flex gap-2 font-bold text-slate-600 border-slate-200 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200"
-                    >
-                        <Layers size={16} /> Órdenes
-                    </Button>
-
-                    {/* Pausar venta — siempre visible, desactivado sin items o con pausa activa */}
-                    {!heldCart && (
-                        <Button
-                            id="tour-pos-hold-btn"
-                            variant="outline"
-                            size="sm"
-                            onClick={holdCart}
-                            disabled={cart.length === 0}
-                            className="hidden md:flex gap-2 font-bold text-amber-600 border-amber-300 hover:bg-amber-50 hover:border-amber-400 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title={cart.length === 0 ? 'Agrega productos para pausar la venta' : 'Pausar venta y atender otro cliente (F6)'}
-                        >
-                            <PauseCircle size={16} /> Pausar
-                        </Button>
-                    )}
-
-                    <Button
-                        variant="ghost"
                         size="sm"
                         onClick={() => {
-                            if (window.confirm('¿Desea cerrar la caja actual? Se generará un resumen de ventas.')) {
-                                setIsClosingOpen(true);
-                            }
+                            setIsReprintOpen(true);
+                            setNewReprintCount(0);
                         }}
-                        className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 font-bold gap-2"
+                        className="relative hidden md:flex h-9 gap-2 rounded-xl border-slate-200 bg-white px-3 font-black text-slate-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                        title="Reimprimir tickets y garantias"
                     >
-                        <Lock size={16} /> Cerrar Caja
+                        <ReceiptText size={16} />
+                        Tickets
+                        {newReprintCount > 0 && (
+                            <span className="ml-1 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] leading-none text-white">
+                                {newReprintCount > 9 ? '9+' : newReprintCount}
+                            </span>
+                        )}
                     </Button>
+
+                    {/* Buscador rapido F1 - siempre visible */}
+                    <button
+                        onClick={() => setIsLookupOpen(true)}
+                        className="flex h-9 items-center gap-1.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs transition-all border border-indigo-200"
+                        title="Buscador de productos (Alt+B)"
+                    >
+                        <Search size={15} />
+                        <span className="hidden sm:block">Buscar</span>
+                        <kbd className="text-[9px] font-mono text-indigo-300 bg-indigo-100 px-1 rounded hidden lg:block">Alt+B</kbd>
+                    </button>
+
+                    {/* Ordenes - oculto temporalmente para todos */}
 
                     {/* Botón Modo Express — temporalmente oculto
                     <Button
@@ -847,6 +1049,16 @@ const POS = () => {
                 </div>
             </div>
 
+            <ReprintSalesSheet
+                open={isReprintOpen}
+                onOpenChange={(nextOpen) => {
+                    setIsReprintOpen(nextOpen);
+                    if (nextOpen) setNewReprintCount(0);
+                }}
+                currentRegister={currentRegister}
+                onRemoteSale={() => setNewReprintCount((count) => Math.min(count + 1, 99))}
+            />
+
             {/* BANNER VENTA PAUSADA */}
             {heldCart && (
                 <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between shrink-0 z-10">
@@ -881,7 +1093,7 @@ const POS = () => {
                 </div>
             )}
 
-            <div className="flex flex-col md:flex-row flex-1 overflow-hidden gap-4 p-4">
+            <div className="flex flex-col md:flex-row flex-1 overflow-hidden gap-2 p-2 lg:gap-3 lg:p-3">
                 {isExpressMode ? (
                     /* ===== MODO EXPRESS ===== */
                     <>
@@ -901,7 +1113,7 @@ const POS = () => {
                             </div>
                         </div>
                         {/* Derecha: carrito normal (igual que modo completo) */}
-                        <div className="md:w-[400px] lg:w-[450px] flex-none h-full z-10 w-full hidden md:block">
+                        <div className="md:w-[300px] lg:w-[330px] xl:w-[360px] 2xl:w-[390px] flex-none h-full z-10 w-full hidden md:block">
                             <POSCart
                                 cartItems={cart}
                                 onRemoveItem={removeFromCart}
@@ -914,6 +1126,8 @@ const POS = () => {
                                 onItemClick={(item) => setSelectedItemForEdit(item)}
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
+                                priceLists={priceLists}
+                                getFromCache={getFromCache}
                             />
                         </div>
                     </>
@@ -945,11 +1159,12 @@ const POS = () => {
                                 totalCount={totalProducts}
                                 onSearchChange={setServerSearch}
                                 onCategoryChange={setServerCategory}
+                                simpleMode={simpleMode}
                             />
                         </div>
 
                         {/* SECCIÓN DERECHA: CARRITO (Fixed Width on Desktop) */}
-                        <div className="md:w-[400px] lg:w-[450px] flex-none h-full z-10 w-full hidden md:block">
+                        <div className="md:w-[300px] lg:w-[330px] xl:w-[360px] 2xl:w-[390px] flex-none h-full z-10 w-full hidden md:block">
                             <POSCart
                                 cartItems={cart}
                                 onRemoveItem={removeFromCart}
@@ -964,6 +1179,8 @@ const POS = () => {
                                 onItemClick={(item) => setSelectedItemForEdit(item)}
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
+                                priceLists={priceLists}
+                                getFromCache={getFromCache}
                             />
                         </div>
                     </>
@@ -974,10 +1191,11 @@ const POS = () => {
                     {cart.length > 0 && (
                         <Button
                             size="icon"
-                            className="rounded-full h-14 w-14 shadow-xl bg-indigo-600 text-white hover:bg-indigo-700 relative"
+                            className="h-12 min-h-12 w-auto rounded-full px-4 shadow-xl bg-indigo-600 text-white hover:bg-indigo-700 relative gap-2"
                             onClick={() => setIsMobileCartOpen(true)}
                         >
-                            <ShoppingCart size={22} />
+                            <ShoppingCart size={20} />
+                            <span className="text-sm font-black tabular-nums">{anchorCurrency.symbol}{totalUSD.toFixed(2)}</span>
                             <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs font-black rounded-full h-6 w-6 flex items-center justify-center shadow-md">
                                 {cart.reduce((sum, item) => sum + item.quantity, 0)}
                             </span>
@@ -987,11 +1205,11 @@ const POS = () => {
 
                 {/* Mobile Cart Sheet */}
                 <Sheet open={isMobileCartOpen} onOpenChange={setIsMobileCartOpen}>
-                    <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl">
-                        <SheetHeader className="px-4 pt-4 pb-2 border-b border-slate-100">
-                            <SheetTitle className="text-lg font-black text-slate-800">Carrito ({cart.length})</SheetTitle>
+                    <SheetContent side="bottom" className="h-[88vh] p-0 rounded-t-2xl">
+                        <SheetHeader className="px-4 pt-3 pb-2 border-b border-slate-100">
+                            <SheetTitle className="text-base font-black text-slate-800">Carrito ({cart.length})</SheetTitle>
                         </SheetHeader>
-                        <div className="flex-1 overflow-y-auto h-[calc(85vh-60px)]">
+                        <div className="flex-1 overflow-y-auto h-[calc(88vh-54px)]">
                             <POSCart
                                 cartItems={cart}
                                 onRemoveItem={removeFromCart}
@@ -1006,6 +1224,8 @@ const POS = () => {
                                 onItemClick={(item) => { setIsMobileCartOpen(false); setSelectedItemForEdit(item); }}
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
+                                priceLists={priceLists}
+                                getFromCache={getFromCache}
                             />
                         </div>
                     </SheetContent>
@@ -1034,6 +1254,7 @@ const POS = () => {
                     isOpen={isEmployeeModalOpen}
                     onClose={() => setIsEmployeeModalOpen(false)}
                     employees={employees}
+                    loading={isLoadingEmployees}
                     onSelect={handleEmployeeSelect}
                 />
 
@@ -1055,10 +1276,22 @@ const POS = () => {
 
                 <PinAuthModal isOpen={pinModalOpen} onClose={() => { setPinModalOpen(false); setPendingPriceUpdate(null); setActivePricePopover(null); }} onSuccess={handlePinSuccess} title="Autorización Requerida" message="Ingrese PIN de supervisor." />
                 <SerializedItemModal isOpen={!!selectedProductForSerialized} product={selectedProductForSerialized} quantity={0} onClose={() => setSelectedProductForSerialized(null)} onConfirm={handleSerializedConfirm} />
+
+                {/* Modal seriales para componentes de combo */}
+                <SerializedItemModal
+                    isOpen={comboImeiQueue.length > 0}
+                    product={comboImeiQueue[0]?.product || null}
+                    quantity={comboImeiQueue[0]?.qty || 1}
+                    onClose={handleCancelComboImei}
+                    onConfirm={handleComboComponentSerialConfirm}
+                    title={`Componente del combo: ${pendingComboProduct?.name || ''}`}
+                    subtitle={`Paso ${Object.keys(comboImeiCollected).length + 1} de ${(Object.keys(comboImeiCollected).length) + comboImeiQueue.length}`}
+                />
                 <ServiceImportModal isOpen={isServiceImportOpen} onClose={() => setIsServiceImportOpen(false)} onSelect={handleServiceOrderSelect} />
                 <CashMovementModal isOpen={isMovementOpen} onClose={() => { setIsMovementOpen(false); focusSearch(); }} />
                 <CashAdvanceModal isOpen={isAdvanceOpen} onClose={() => setIsAdvanceOpen(false)} />
                 <SaleSuccessModal isOpen={!!lastSaleData} saleData={lastSaleData} onClose={handleSuccessClose} />
+                <ProductLookupModal isOpen={isLookupOpen} onClose={() => setIsLookupOpen(false)} />
                 {!isLoading && !isCashLoading && !isSessionOpen && (<CashOpeningModal onOpen={openSession} />)}
                 <SplitCartModal 
                     isOpen={isSplitCartModalOpen} 

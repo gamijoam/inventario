@@ -44,11 +44,11 @@ const AdjustmentModal = ({ isOpen, onClose, onSuccess }) => {
             // Parallel fetch: Products + Warehouses
             setLoadingProducts(true);
             Promise.all([
-                apiClient.get('/products/', { params: { limit: 500 } }),
+                apiClient.get('/products/', { params: { limit: 2000 } }),
                 apiClient.get('/warehouses')
             ])
                 .then(([prodRes, whRes]) => {
-                    setProducts(prodRes.data);
+                    setProducts(Array.isArray(prodRes.data) ? prodRes.data : (prodRes.data?.items || []));
                     setWarehouses(whRes.data);
                     // Default to first warehouse (Main usually)
                     if (whRes.data?.length > 0) {

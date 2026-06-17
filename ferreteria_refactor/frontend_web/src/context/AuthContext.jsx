@@ -31,7 +31,10 @@ export const AuthProvider = ({ children }) => {
                 full_name: currentUser.full_name,
                 is_active: currentUser.is_active,
                 preferences: currentUser.preferences || {},
-                tenant_id: currentUser.tenant_id // NEW: Expose tenant_id to frontend components
+                tenant_id: currentUser.tenant_id, // NEW: Expose tenant_id to frontend components
+                is_superuser: currentUser.is_superuser || false,
+                org_role: currentUser.org_role || null,
+                is_org_owner: currentUser.is_org_owner || false
             };
 
             setUser(userData);
@@ -57,7 +60,7 @@ export const AuthProvider = ({ children }) => {
         const initAuth = async () => {
             // Skip auth check for public routes
             // Skip auth check for public routes
-            const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/mobile/login', '/mobile-welcome'];
+            const publicRoutes = ['/login', '/owner/login', '/forgot-password', '/reset-password', '/mobile/login', '/mobile-welcome'];
 
             // ADAPTATION FOR HASH ROUTER
             const currentHash = window.location.hash || '#/';
@@ -150,6 +153,8 @@ export const AuthProvider = ({ children }) => {
             // 🧹 PURGE STORAGE (preserve API URL, tenant, and notification seen-flags)
             const apiUrl        = localStorage.getItem('api_url');
             const selectedTenant = localStorage.getItem('selected_tenant');
+            const activeRegisterId = localStorage.getItem('cash_active_register_id');
+            const hardwareClientId = localStorage.getItem('hardware_client_id');
 
             // Preserve "seen" flags so announcements and banners don't repeat after re-login
             const preserved = {};
@@ -159,8 +164,11 @@ export const AuthProvider = ({ children }) => {
                 if (
                     key &&
                     (key.startsWith('announced_') ||       // AnnouncementModal seen
+                     key.startsWith('announced:') ||       // scoped AnnouncementModal seen
                      key.startsWith('dismissed_popup_') || // GlobalBanner dismissed
-                     key === 'read_notifications')         // Notification read list
+                     key.startsWith('dismissed_popup:') || // scoped GlobalBanner dismissed
+                     key === 'read_notifications' ||       // legacy Notification read list
+                     key.startsWith('read_notifications:'))         // Notification read list
                 ) {
                     preserved[key] = localStorage.getItem(key);
                 }
@@ -172,6 +180,8 @@ export const AuthProvider = ({ children }) => {
             // Restore critical config
             if (apiUrl) localStorage.setItem('api_url', apiUrl);
             if (selectedTenant && !selectedTenant.includes('public')) localStorage.setItem('selected_tenant', selectedTenant);
+            if (activeRegisterId) localStorage.setItem('cash_active_register_id', activeRegisterId);
+            if (hardwareClientId) localStorage.setItem('hardware_client_id', hardwareClientId);
 
             // Restore notification seen-flags
             Object.entries(preserved).forEach(([k, v]) => localStorage.setItem(k, v));

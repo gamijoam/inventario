@@ -67,62 +67,308 @@ export const TOUR_FLOWS = {
     POS_COMPLETE: {
         id: 'pos_complete',
         title: 'Punto de Venta (POS)',
-        description: 'Aprende a facturar, buscar productos, pausar ventas y cobrar.',
+        description: 'Vender rapido: caja activa, catalogo, carrito, cobro e impresion.',
         startUrl: '/pos',
         module: null,
         steps: [
             {
                 element: '#tour-pos-container',
                 popover: {
-                    title: 'Tu Terminal de Ventas',
-                    description: 'Este es el Punto de Venta. Está dividido en dos secciones: el catálogo de productos a la izquierda y el carrito de compras a la derecha.',
+                    title: 'Terminal de venta',
+                    description: 'Esta pantalla se usa durante la atencion al cliente. A la izquierda eliges productos y a la derecha controlas carrito, total y cobro.',
                     side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-pos-cash-menu',
+                popover: {
+                    title: 'Caja y estacion',
+                    description: 'Antes de cobrar confirma que la caja este abierta y corresponda a esta estacion. Si aparece sin impresora, revisa la configuracion antes de facturar.',
+                    side: 'bottom', align: 'end'
                 }
             },
             {
                 element: '#tour-pos-search',
                 popover: {
-                    title: 'Buscar Productos (F3)',
-                    description: 'Escribe el nombre o código del producto para buscarlo. También puedes escanear un código de barras con el ícono de la cámara. Presiona F3 para enfocar este campo rápidamente.',
+                    title: 'Buscar o escanear',
+                    description: 'Busca por nombre, SKU o codigo. Con lector de barras, el campo recibe el codigo y agrega el producto sin navegar por categorias.',
                     side: 'bottom', align: 'start'
                 }
             },
             {
                 element: '#tour-pos-cart',
                 popover: {
-                    title: 'Carrito de Compras',
-                    description: 'Los productos agregados aparecen aquí con su cantidad y precio. Puedes editar cantidades con +/-, hacer clic en un ítem para editar su precio, o eliminarlo con el ícono de basura.',
+                    title: 'Carrito',
+                    description: 'Revisa cantidades, precio, descuentos, cliente y seriales antes de cobrar. Si el producto tiene IMEI, debe quedar seleccionada la unidad exacta.',
                     side: 'left', align: 'start'
                 }
             },
             {
                 element: '#tour-pos-hold-btn',
                 popover: {
-                    title: 'Pausar Venta (F6)',
-                    description: '¿El cliente olvidó su billetera? Presiona "Pausar" para guardar la venta actual temporalmente. Puedes atender a otro cliente y luego retomar la venta pausada.',
+                    title: 'Pausar venta',
+                    description: 'Usa Pausar cuando el cliente se detiene y necesitas atender a otro. Luego retomas la venta sin reconstruir el carrito.',
                     side: 'bottom', align: 'center'
                 }
             },
             {
                 element: '#tour-pos-pay-btn',
                 popover: {
-                    title: 'Cobrar (F5)',
-                    description: 'Cuando estés listo para cobrar, presiona este botón o F5. Se abrirá el modal de pago donde podrás seleccionar el método (efectivo, tarjeta, transferencia), calcular el vuelto y completar la venta.',
+                    title: 'Cobrar',
+                    description: 'Abre el cobro con F5 o este boton. El modal valida metodo, referencia, credito, vuelto y pago completo antes de confirmar.',
                     side: 'top', align: 'center'
                 }
             },
             {
                 element: '#tour-pos-settings',
                 popover: {
-                    title: 'Configuración de Estación',
-                    description: 'Personaliza tu terminal: cambia el tema visual, el almacén desde el que vendes y otras preferencias de tu estación de trabajo.',
+                    title: 'Configuracion de estacion',
+                    description: 'Aqui ajustas almacen activo, preferencias visuales y datos locales de la estacion. Es clave cuando una PC vende desde otro almacen.',
                     side: 'bottom', align: 'end'
                 }
             },
             {
                 popover: {
-                    title: 'Atajos de Teclado',
-                    description: 'Domina el POS con estos atajos:\n• F2 — Nueva venta (limpiar carrito)\n• F3 — Buscar producto\n• F4 — Editar último ítem\n• F5 — Cobrar\n• F6 — Pausar/Retomar venta\n• ↑↓ — Navegar productos\n• Enter — Agregar seleccionado',
+                    title: 'Atajos utiles',
+                    description: 'F2 limpia venta, F3 busca producto, F5 cobra y F6 pausa o retoma. En horas pico estos atajos reducen pasos del cajero.',
+                }
+            }
+        ]
+    },
+
+
+    POS_CHECKOUT: {
+        id: 'pos_checkout',
+        title: 'Cobrar en POS',
+        description: 'Guia corta para pasar del carrito al cobro.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            {
+                element: '#tour-pos-cart',
+                popover: {
+                    title: 'Revisa el carrito',
+                    description: 'Confirma productos, cantidades, seriales si aplica y total antes de cobrar. Si falta algo, vuelve al catalogo y agregalo.',
+                    side: 'left', align: 'start'
+                }
+            },
+            {
+                element: '#tour-pos-pay-btn',
+                popover: {
+                    title: 'Abrir cobro',
+                    description: 'Presiona Cobrar o F5. Se abrira el modal de pago con cliente, metodos, pagos mixtos, credito y confirmacion.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                popover: {
+                    title: 'Dentro del modal',
+                    description: 'Selecciona metodo de pago, escribe el monto recibido y confirma solo cuando el sistema marque el pago como completo.'
+                }
+            }
+        ]
+    },
+
+    POS_MIXED_PAYMENT: {
+        id: 'pos_mixed_payment',
+        title: 'Pago mixto',
+        description: 'Cobrar una venta con dos o mas metodos de pago.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            {
+                element: '#tour-pos-pay-btn',
+                popover: {
+                    title: 'Primero abre Cobrar',
+                    description: 'El pago mixto vive dentro del modal de cobro. Abre Cobrar cuando el carrito este listo.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                element: '#tour-payment-add-row',
+                popover: {
+                    title: 'Agregar otro metodo',
+                    description: 'Usa + Agregar para dividir el pago entre efectivo, punto, transferencia, Zelle u otros metodos activos.',
+                    side: 'bottom', align: 'end'
+                }
+            },
+            {
+                element: '#tour-payment-methods',
+                popover: {
+                    title: 'Completa cada linea',
+                    description: 'En cada linea elige metodo, moneda, monto y referencia si el metodo la exige. El sistema calcula cuanto falta.',
+                    side: 'left', align: 'start'
+                }
+            },
+            {
+                element: '#tour-payment-confirm',
+                popover: {
+                    title: 'Confirmar solo cuando cuadre',
+                    description: 'Cuando el pago este completo, confirma. Si falta monto o referencia, el boton queda bloqueado para evitar errores.',
+                    side: 'top', align: 'center'
+                }
+            }
+        ]
+    },
+
+    POS_CREDIT_SALE: {
+        id: 'pos_credit_sale',
+        title: 'Venta a credito',
+        description: 'Registrar una venta que queda como cuenta por cobrar.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            {
+                element: '#tour-pos-pay-btn',
+                popover: {
+                    title: 'Abre el cobro',
+                    description: 'La venta a credito se activa desde el modal de cobro. Primero agrega productos y abre Cobrar.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                element: '#tour-payment-customer',
+                popover: {
+                    title: 'Cliente obligatorio',
+                    description: 'Busca o registra el cliente. El credito siempre debe quedar asociado a una persona o empresa.',
+                    side: 'left', align: 'start'
+                }
+            },
+            {
+                element: '#tour-payment-credit-toggle',
+                popover: {
+                    title: 'Activa Venta a Credito',
+                    description: 'Al activar credito, el sistema consulta limite, deuda y bloqueos antes de permitir registrar la venta.',
+                    side: 'left', align: 'center'
+                }
+            },
+            {
+                element: '#tour-payment-confirm',
+                popover: {
+                    title: 'Registrar credito',
+                    description: 'Confirma solo si el cliente tiene credito disponible y no esta bloqueado. La deuda aparece en Creditos CxC.',
+                    side: 'top', align: 'center'
+                }
+            }
+        ]
+    },
+
+    POS_SERIAL_SALE: {
+        id: 'pos_serial_sale',
+        title: 'Venta con IMEI o serial',
+        description: 'Seleccionar la unidad exacta al vender productos serializados.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            {
+                element: '#tour-pos-search',
+                popover: {
+                    title: 'Busca el producto serializado',
+                    description: 'Agrega el producto desde el catalogo. Si maneja IMEI o serial, el sistema abrira el selector antes de enviarlo al carrito.',
+                    side: 'bottom', align: 'start'
+                }
+            },
+            {
+                element: '#tour-serial-input',
+                popover: {
+                    title: 'Escanea o escribe el serial',
+                    description: 'Usa el lector o escribe el IMEI. Presiona Enter para validar y agregar cada unidad.',
+                    side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-serial-confirm',
+                popover: {
+                    title: 'Completa la cantidad',
+                    description: 'El boton se activa cuando escaneaste todos los seriales requeridos. Asi se descuenta la unidad exacta.',
+                    side: 'top', align: 'center'
+                }
+            }
+        ]
+    },
+
+    PURCHASES_LIST: {
+        id: 'purchases_list',
+        title: 'Compras y recepcion',
+        description: 'Historial de compras, recepciones, costos, pagos, stock recibido e IMEIs.',
+        startUrl: '/purchases',
+        module: null,
+        steps: [
+            { element: '#tour-purchases-container', popover: { title: 'Centro de compras', description: 'Aqui controlas mercancia recibida, facturas de proveedor, pagos, anulaciones y deuda pendiente.', side: 'bottom', align: 'center' } },
+            { element: '#tour-purchases-summary', popover: { title: 'Resumen financiero', description: 'Compara comprado, pagado y pendiente. Si pendiente crece, revisa compras a credito y vencimientos.', side: 'bottom', align: 'center' } },
+            { element: '#tour-purchases-list', popover: { title: 'Historial auditable', description: 'Cada compra debe explicar proveedor, factura, productos, costos, seriales si aplica, condicion de pago y estado.', side: 'top', align: 'center' } },
+            { element: '#tour-purchases-add-btn', popover: { title: 'Nueva recepcion', description: 'Usa Nueva Compra cuando llega mercancia. Para telefonos/equipos con IMEI, captura seriales dentro de la misma compra.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Despues de procesar', description: 'Valida detalle, Kardex, stock y deuda del proveedor. Si algo no cuadra, corrige la causa antes de cargar otra compra.' } }
+        ]
+    },
+
+    PURCHASES_CREATE: {
+        id: 'purchases_create',
+        title: 'Nueva compra',
+        description: 'Registrar proveedor, factura, productos, costos, IMEIs y forma de pago.',
+        startUrl: '/purchases/new',
+        module: null,
+        steps: [
+            { element: '#tour-purchase-supplier', popover: { title: 'Proveedor correcto', description: 'Selecciona el proveedor real antes de cargar productos. La deuda, historial y pagos dependen de esta seleccion.', side: 'bottom', align: 'start' } },
+            { element: '#tour-purchase-product-search', popover: { title: 'Buscar antes de crear', description: 'Busca por nombre, SKU o codigo. Crear duplicados divide stock, compras y reportes.', side: 'bottom', align: 'start' } },
+            { element: '#tour-purchase-new-product', popover: { title: 'Crear producto desde compra', description: 'Si no existe, crealo con nombre, SKU, costo, precio y tipo correcto. Para celulares activa Serial/IMEI antes de recibir unidades.', side: 'bottom', align: 'end' } },
+            { element: '#tour-purchase-items', popover: { title: 'Cantidad y costo real', description: 'Cantidad aumenta inventario. Costo alimenta ganancia real. No confirmes costo cero salvo una excepcion documentada.', side: 'top', align: 'center' } },
+            { element: '#tour-purchase-imei-lines', popover: { title: 'Seriales si aplica', description: 'Si la linea maneja IMEI, la cantidad debe coincidir con seriales validos. Escanea o pega antes de procesar.', side: 'top', align: 'center' } },
+            { element: '#tour-purchase-conditions', popover: { title: 'Contado o credito', description: 'Contado no deja deuda. Credito crea cuenta por pagar. Revisa factura, fecha, vencimiento, referencia y saldo pendiente.', side: 'left', align: 'start' } },
+            { element: '#tour-purchase-submit', popover: { title: 'Procesar con control', description: 'Al procesar sube stock una sola vez, registra Kardex, guarda seriales y actualiza proveedor. Revisa el resumen antes de confirmar.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    PURCHASES_IMEI: {
+        id: 'purchases_imei',
+        title: 'Compra con IMEI',
+        description: 'Recibir equipos serializados sin duplicar stock ni dejar IMEIs huerfanos.',
+        startUrl: '/purchases/new',
+        module: null,
+        steps: [
+            { element: '#tour-purchase-product-search', popover: { title: 'Producto serializado', description: 'Agrega el modelo correcto. Si no esta marcado como Serial/IMEI, corrige la ficha antes de recibir.', side: 'bottom', align: 'start' } },
+            { element: '#tour-purchase-items', popover: { title: 'Cantidad fisica', description: 'La cantidad debe ser exactamente la cantidad de equipos recibidos en mano.', side: 'top', align: 'center' } },
+            { element: '#tour-purchase-imei-lines', popover: { title: 'Captura rapida', description: 'Escanea un IMEI y presiona Enter para el siguiente, o pega una lista. El sistema debe validar cantidad, vacios y duplicados.', side: 'top', align: 'center' } },
+            { element: '#tour-purchase-submit', popover: { title: 'Guardar recepcion', description: 'Al confirmar, cada IMEI queda disponible para venta o traslado. No vuelvas a cargar esos seriales desde Seriales.', side: 'top', align: 'center' } },
+            { popover: { title: 'Si algo no cuadra', description: 'Si stock y seriales no coinciden, revisa esta compra antes de hacer ajustes manuales o recepciones adicionales.' } }
+        ]
+    },
+
+    SERIALIZED_RECEPTION: {
+        id: 'serialized_reception',
+        title: 'Recepcion serializada',
+        description: 'Ingreso rapido de IMEIs con asignacion de producto.',
+        startUrl: '/inventory/serialized-reception',
+        module: null,
+        steps: [
+            {
+                element: '#tour-serialized-warehouse',
+                popover: {
+                    title: 'Almacen destino',
+                    description: 'Elige donde entraran fisicamente las unidades antes de empezar a escanear.',
+                    side: 'bottom', align: 'end'
+                }
+            },
+            {
+                element: '#tour-serialized-scanner',
+                popover: {
+                    title: 'Scanner de IMEI',
+                    description: 'Escanea o escribe el IMEI y presiona Enter. Cada codigo se agrupa para luego guardar la entrada.',
+                    side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-serialized-groups',
+                popover: {
+                    title: 'Grupos y asignacion',
+                    description: 'Si alguna unidad queda sin producto asignado, toca la tarjeta y vincula el modelo correcto antes de guardar.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                popover: {
+                    title: 'Guardar entrada',
+                    description: 'Cuando todos los IMEIs esten asignados, Guardar todo crea las entradas, suma stock y deja trazabilidad por serial.'
                 }
             }
         ]
@@ -133,67 +379,291 @@ export const TOUR_FLOWS = {
     // =============================================
     INVENTORY_COMPLETE: {
         id: 'inventory_complete',
-        title: 'Gestión de Inventario',
-        description: 'Productos, categorías, almacenes y movimientos de stock.',
-        startUrl: '/products',
+        title: 'Gestion de Inventario',
+        description: 'Vista general de productos, categorias, kardex, traslados y almacenes.',
+        startUrl: '/inventory-center?tab=productos',
         module: null,
         steps: [
             {
+                element: '#tour-inventory-tabs',
+                popover: {
+                    title: 'Centro de Inventario',
+                    description: 'Estas pestanas separan el trabajo diario: catalogo, categorias, kardex, traslados, almacenes y seriales cuando el negocio los usa.',
+                    side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-products-search',
+                popover: {
+                    title: 'Buscar productos',
+                    description: 'Busca por nombre, SKU o serial. Es la forma mas rapida de ubicar productos antes de editar, revisar stock o diagnosticar precios.',
+                    side: 'bottom', align: 'start'
+                }
+            },
+            {
                 element: '#tour-products-add-btn',
                 popover: {
-                    title: 'Crear Producto',
-                    description: 'Haz clic aquí para registrar un nuevo producto. Podrás definir nombre, precio, stock inicial, categoría, código de barras y hasta múltiples presentaciones (ej: unidad, caja, paquete).',
+                    title: 'Crear producto',
+                    description: 'Aqui registras productos nuevos con precio, costo, categoria, stock, IMEI/serial, servicios o combos segun corresponda.',
                     side: 'bottom', align: 'end'
                 }
             },
             {
-                popover: {
-                    title: 'Tipos de Productos',
-                    description: 'Puedes crear:\n• Productos con stock — Mercancía física que se descuenta al vender\n• Servicios — Sin control de stock (ej: reparación, corte)\n• Kits/Combos — Agrupan varios productos en un precio especial',
-                }
-            },
-            {
-                navigate: '/categories',
+                navigate: '/inventory-center?tab=categorias',
                 element: '#tour-categories-add-btn',
                 popover: {
-                    title: 'Categorías',
-                    description: 'Organiza tu inventario en categorías y subcategorías. Esto te ayudará a filtrar productos en el POS y generar reportes más detallados.',
+                    title: 'Categorias',
+                    description: 'Organiza el catalogo para filtrar mejor en inventario y POS. Crea categorias simples o subcategorias si necesitas mas orden.',
                     side: 'bottom', align: 'end'
                 }
             },
             {
-                navigate: '/warehouses',
+                navigate: '/inventory-center?tab=kardex',
+                element: '#tour-kardex-adjust-btn',
+                popover: {
+                    title: 'Kardex y ajustes',
+                    description: 'El Kardex muestra entradas, salidas, ventas, compras, traslados y ajustes. Usa Nuevo ajuste manual solo para correcciones controladas.',
+                    side: 'bottom', align: 'end'
+                }
+            },
+            {
+                navigate: '/inventory-center?tab=traslados',
+                element: '#tour-transfers-modes',
+                popover: {
+                    title: 'Traslados',
+                    description: 'Elige entre traslados internos, exportar inventario a otra empresa o importar un paquete recibido. Cada modo tiene su flujo propio.',
+                    side: 'bottom', align: 'center'
+                }
+            },
+            {
+                navigate: '/inventory-center?tab=almacenes',
                 element: '#tour-warehouses-add-btn',
                 popover: {
                     title: 'Almacenes',
-                    description: 'Si tienes varias bodegas o sucursales, créalas aquí. Cada almacén maneja su propio stock de forma independiente.',
-                    side: 'bottom', align: 'end'
-                }
-            },
-            {
-                navigate: '/transfers',
-                element: '#tour-transfers-add-btn',
-                popover: {
-                    title: 'Traslados',
-                    description: 'Mueve mercancía entre almacenes de forma controlada. Selecciona origen, destino, productos y cantidades.',
-                    side: 'bottom', align: 'end'
-                }
-            },
-            {
-                navigate: '/inventory',
-                element: '#tour-inventory-add-btn',
-                popover: {
-                    title: 'Ajustes de Inventario (Kardex)',
-                    description: 'Aquí puedes ver el historial completo de entradas y salidas (Kardex). También puedes registrar ajustes manuales: entradas por conteo físico, salidas por daño, uso interno, etc.',
+                    description: 'Administra ubicaciones de stock. Define almacen principal, revisa inventario por ubicacion y crea almacenes cuando el negocio crezca.',
                     side: 'bottom', align: 'end'
                 }
             },
             {
                 popover: {
-                    title: 'Alertas de Stock Bajo',
-                    description: 'El sistema te alertará automáticamente en el Dashboard cuando un producto baje de su stock mínimo. Configura el stock mínimo al crear o editar cada producto.',
+                    title: 'Listo para operar',
+                    description: 'Usa la ayuda contextual de cada pestana cuando necesites pasos especificos. Si algo no cuadra, abre soporte desde la ayuda y se enviara con contexto.',
                 }
             }
+        ]
+    },
+
+    INVENTORY_PRODUCTS: {
+        id: 'inventory_products',
+        title: 'Productos de Inventario',
+        description: 'Busqueda, filtros, diagnostico y creacion de productos.',
+        startUrl: '/inventory-center?tab=productos',
+        module: null,
+        steps: [
+            {
+                element: '#tour-products-search',
+                popover: {
+                    title: 'Busqueda rapida',
+                    description: 'Busca por nombre, SKU o serial. La lista se actualiza para encontrar rapido lo que quieres editar o revisar.',
+                    side: 'bottom', align: 'start'
+                }
+            },
+            {
+                element: '#tour-products-filters-btn',
+                popover: {
+                    title: 'Filtros y diagnostico',
+                    description: 'Filtra por categoria, almacen, tipo de producto o problemas como precio cero, SKU faltante o listas pendientes.',
+                    side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-products-panel',
+                popover: {
+                    title: 'Catalogo operativo',
+                    description: 'El panel resume productos, categoria, precios, stock y estado. Desde aqui puedes editar y corregir datos sin entrar al POS.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                element: '#tour-products-add-btn',
+                popover: {
+                    title: 'Nuevo producto',
+                    description: 'Abre el formulario compacto para crear o editar la ficha completa: datos principales, precio, inventario, imagen y opciones avanzadas.',
+                    side: 'bottom', align: 'end'
+                }
+            }
+        ]
+    },
+
+    PRODUCT_FORM_PRESENTATIONS: {
+        id: 'product_form_presentations',
+        title: 'Formulario de Producto',
+        description: 'Crear o editar productos, precios, listas y presentaciones sin duplicar datos.',
+        startUrl: '/inventory-center?tab=productos',
+        module: null,
+        steps: [
+            {
+                element: '#tour-product-form-shell',
+                popover: {
+                    title: 'Ficha de producto',
+                    description: 'Esta guia corre dentro del formulario. Si no ves este panel, abre Nuevo Producto o Editar desde Productos y vuelve a iniciar la guia.',
+                    side: 'left', align: 'start'
+                }
+            },
+            {
+                element: '#tour-product-form-main',
+                popover: {
+                    title: 'Datos principales',
+                    description: 'Nombre, SKU y categoria son la identidad del producto. Evita SKU repetidos para que busqueda, POS y reportes apunten al mismo item.',
+                    side: 'right', align: 'start'
+                }
+            },
+            {
+                element: '#tour-product-form-type',
+                popover: {
+                    title: 'Tipo y flags',
+                    description: 'Producto fisico maneja stock. Serial/IMEI se recibe por unidades identificadas. Servicio y Combo ocultan presentaciones porque no se venden como cajas/fracciones del mismo producto.',
+                    side: 'right', align: 'start'
+                }
+            },
+            {
+                element: '#tour-product-form-price',
+                popover: {
+                    title: 'Precio base',
+                    description: 'Es el precio principal que ve POS y catalogo. Debe ser mayor que cero antes de guardar.',
+                    side: 'bottom', align: 'start'
+                }
+            },
+            {
+                element: '#tour-product-form-price-lists',
+                popover: {
+                    title: 'Listas de precios',
+                    description: 'Usalas para detal, mayor, promociones o clientes especiales. No reemplazan presentaciones: son precios alternos del mismo producto base.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                element: '#tour-product-form-presentations',
+                popover: {
+                    title: 'Presentaciones',
+                    description: 'Aqui van cajas, bultos, litros o fracciones del mismo producto. El formulario valida nombre, precio, codigo y conversion para evitar repetidos.',
+                    side: 'top', align: 'center'
+                }
+            },
+            {
+                element: '#tour-product-form-tabs',
+                popover: {
+                    title: 'Secciones por contexto',
+                    description: 'Inventario, Imagen y Avanzado cambian segun el tipo de producto y los modulos activos del negocio. Si un flag no aplica, la seccion no se muestra.',
+                    side: 'bottom', align: 'center'
+                }
+            },
+            {
+                element: '#tour-product-form-save',
+                popover: {
+                    title: 'Guardar con validacion',
+                    description: 'Al guardar se actualizan listas y presentaciones. Si eliminas una presentacion sin ventas, se borra; si ya tiene historial, se conserva para no romper facturas.',
+                    side: 'left', align: 'end'
+                }
+            }
+        ]
+    },
+
+
+    INVENTORY_CATEGORIES: {
+        id: 'inventory_categories',
+        title: 'Categorias de Inventario',
+        description: 'Organizacion del catalogo para busqueda y POS.',
+        startUrl: '/inventory-center?tab=categorias',
+        module: null,
+        steps: [
+            {
+                element: '#tour-categories-add-btn',
+                popover: {
+                    title: 'Nueva categoria',
+                    description: 'Crea categorias para ordenar productos y facilitar filtros en inventario y punto de venta.',
+                    side: 'bottom', align: 'end'
+                }
+            },
+            {
+                popover: {
+                    title: 'Buenas practicas',
+                    description: 'Usa nombres cortos y claros. Evita duplicar categorias parecidas porque eso hace mas dificil buscar productos en el POS.'
+                }
+            }
+        ]
+    },
+
+    INVENTORY_KARDEX: {
+        id: 'inventory_kardex',
+        title: 'Kardex de Inventario',
+        description: 'Auditar cada entrada, salida, traslado, devolucion y ajuste.',
+        startUrl: '/inventory-center?tab=kardex',
+        module: null,
+        steps: [
+            { element: '#tour-kardex-panel', popover: { title: 'Bitacora de stock', description: 'Kardex es la historia del inventario. Antes de ajustar, revisa aqui que movimiento cambio la cantidad.', side: 'bottom', align: 'center' } },
+            { element: '#tour-kardex-search', popover: { title: 'Buscar producto o IMEI', description: 'Busca por producto, SKU, IMEI o descripcion. Para descuadres, empieza por el producto exacto y luego reduce el rango de fechas.', side: 'bottom', align: 'start' } },
+            { element: '#tour-kardex-date-range', popover: { title: 'Rango de fechas', description: 'Usa el mismo rango del problema: turno, dia de venta, fecha de compra o fecha del traslado. Rangos grandes esconden la causa.', side: 'bottom', align: 'end' } },
+            { element: '#tour-kardex-type-btn', popover: { title: 'Filtrar por movimiento', description: 'Filtra ventas, compras, traslados, devoluciones o ajustes. Esto acelera la auditoria cuando ya sospechas el origen.', side: 'bottom', align: 'center' } },
+            { element: '#tour-kardex-adjust-btn', popover: { title: 'Ajuste manual', description: 'Usalo solo despues de investigar. Debe tener motivo claro: conteo fisico, merma, dano, robo, error de carga o conciliacion.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Regla de oro', description: 'Si el producto maneja IMEI, cruza Kardex con Seriales. El stock numerico y las unidades disponibles deben contar la misma historia.' } }
+        ]
+    },
+
+    INVENTORY_TRANSFERS: {
+        id: 'inventory_transfers',
+        title: 'Traslados de Inventario',
+        description: 'Mover stock interno o entre empresas con trazabilidad e IMEI exacto.',
+        startUrl: '/inventory-center?tab=traslados',
+        module: null,
+        steps: [
+            { element: '#tour-transfers-panel', popover: { title: 'Centro de traslados', description: 'Aqui decides si el stock se mueve dentro del mismo negocio o viaja a otra empresa mediante archivo.', side: 'bottom', align: 'center' } },
+            { element: '#tour-transfers-modes', popover: { title: 'Tres flujos distintos', description: 'Interno mueve entre almacenes. Exportar descuenta y genera archivo. Importar suma en la empresa destino al cargar ese archivo.', side: 'bottom', align: 'center' } },
+            { element: '#tour-transfers-mode-internal', popover: { title: 'Interno', description: 'Usalo para mover de deposito a tienda, vitrina o sucursal interna. Debe quedar salida y entrada dentro del mismo tenant.', side: 'bottom', align: 'start' } },
+            { element: '#tour-transfers-mode-export', popover: { title: 'Exportar', description: 'Exportar descuenta del origen desde ese momento. El destino no sube hasta importar el archivo en el otro tenant.', side: 'bottom', align: 'center' } },
+            { element: '#tour-transfers-mode-import', popover: { title: 'Importar', description: 'Importar recibe el paquete en destino. Revisa modelos, unidades totales, costos e IMEIs antes de aceptar.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Unidades vs modelos', description: 'Si envias 5 unidades del mismo modelo, el resumen debe hablar de 5 unidades aunque sea 1 modelo. Para IMEI, cada unidad viaja identificada.' } },
+            { popover: { title: 'Despues del traslado', description: 'Revisa Kardex y Seriales. En externos, un IMEI puede quedar en transito hasta que el destino importe el archivo.' } }
+        ]
+    },
+
+    INVENTORY_WAREHOUSES: {
+        id: 'inventory_warehouses',
+        title: 'Almacenes',
+        description: 'Ubicaciones y control por almacen.',
+        startUrl: '/inventory-center?tab=almacenes',
+        module: null,
+        steps: [
+            {
+                element: '#tour-warehouses-add-btn',
+                popover: {
+                    title: 'Nuevo almacen',
+                    description: 'Crea ubicaciones de stock cuando tienes tienda, deposito, vitrina o sucursales internas.',
+                    side: 'bottom', align: 'end'
+                }
+            },
+            {
+                popover: {
+                    title: 'Almacen principal',
+                    description: 'Mantener un almacen principal claro ayuda al POS y a los reportes. Evita tener stock disperso sin necesidad.'
+                }
+            }
+        ]
+    },
+
+    INVENTORY_SERIALS: {
+        id: 'inventory_serials',
+        title: 'Seriales e IMEI',
+        description: 'Auditar unidades individuales, disponibles, vendidas y en transito.',
+        startUrl: '/inventory-center?tab=seriales',
+        module: null,
+        steps: [
+            { element: '#tour-serials-panel', popover: { title: 'Trazabilidad por unidad', description: 'Esta vista no audita cantidades generales: audita cada IMEI o serial como una unidad unica.', side: 'bottom', align: 'center' } },
+            { element: '#tour-serials-modes', popover: { title: 'Catalogo y transitos', description: 'Catalogo muestra modelos serializados. En transito muestra IMEIs exportados o movidos que aun no cerraron destino.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Stock vs IMEI', description: 'Si un producto dice 12 pero cuentas 11, busca disponibles, vendidos y en transito. Puede haber una unidad exportada que aun no se importo.' } },
+            { popover: { title: 'Conteo fisico', description: 'Cuando dudes, escanea los IMEIs fisicos y compara contra el sistema. No corrijas con ajuste general sin identificar la unidad exacta.' } },
+            { popover: { title: 'Ingreso correcto', description: 'Para compras nuevas, captura IMEIs desde Compras o Recepcion IMEI. Evita registrar dos veces la misma unidad.' } },
+            { popover: { title: 'Garantias y devoluciones', description: 'El serial vendido permite validar si el equipo que vuelve es el mismo que salio, y mantiene historial para reclamos.' } }
         ]
     },
 
@@ -242,66 +712,407 @@ export const TOUR_FLOWS = {
         ]
     },
 
+
+    SALES_QUOTES: {
+        id: 'sales_quotes',
+        title: 'Cotizaciones',
+        description: 'Crear, filtrar, dar seguimiento y convertir cotizaciones en ventas.',
+        startUrl: '/sales-center?tab=cotizaciones',
+        module: null,
+        steps: [
+            { element: '#tour-sales-tabs', popover: { title: 'Centro de ventas', description: 'Estas pestanas separan cotizaciones, clientes, devoluciones, garantias y creditos para que cada flujo quede trazado.', side: 'bottom', align: 'center' } },
+            { element: '#tour-quotes-summary', popover: { title: 'Resumen comercial', description: 'Mide pendientes, facturadas y conversion. Si hay muchas pendientes, toca hacer seguimiento antes de perder ventas.', side: 'bottom', align: 'center' } },
+            { element: '#tour-quotes-filters', popover: { title: 'Estados de seguimiento', description: 'Filtra pendientes para llamar al cliente, facturadas para confirmar ventas y vencidas para limpiar propuestas viejas.', side: 'bottom', align: 'start' } },
+            { element: '#tour-quotes-search', popover: { title: 'Buscar cliente o numero', description: 'Usa la busqueda cuando el cliente vuelve con una cotizacion. Evita crear otra si ya existe una pendiente.', side: 'bottom', align: 'start' } },
+            { element: '#tour-quotes-add-btn', popover: { title: 'Nueva cotizacion', description: 'Crea la propuesta con cliente, productos, cantidades, precios y vigencia. La cotizacion no descuenta stock hasta facturar.', side: 'bottom', align: 'end' } },
+            { element: '#tour-quotes-list', popover: { title: 'Acciones por cotizacion', description: 'Desde cada tarjeta puedes imprimir, duplicar, editar, enviar o facturar. Facturar lleva la cotizacion al POS para cobrar.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    SALES_QUOTES_CREATE: {
+        id: 'sales_quotes_create',
+        title: 'Crear cotizacion',
+        description: 'Preparar una propuesta sin descontar inventario.',
+        startUrl: '/sales-center?tab=cotizaciones',
+        module: null,
+        steps: [
+            { element: '#tour-quotes-add-btn', popover: { title: 'Comienza aqui', description: 'Pulsa Nueva Cotizacion cuando el cliente aun no va a pagar, pero necesita una propuesta formal.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Cliente y productos', description: 'Dentro del formulario selecciona cliente, agrega productos, revisa cantidades, precios, descuentos y vigencia.' } },
+            { popover: { title: 'No descuenta stock', description: 'La cotizacion reserva la informacion comercial, pero el inventario baja solo cuando se factura y se cobra en POS.' } },
+            { popover: { title: 'Seguimiento', description: 'Guarda y comparte. Luego vuelve a Pendientes para contactar al cliente o convertirla en venta.' } }
+        ]
+    },
+
+    SALES_QUOTES_INVOICE: {
+        id: 'sales_quotes_invoice',
+        title: 'Facturar cotizacion',
+        description: 'Convertir una cotizacion aprobada en venta real.',
+        startUrl: '/sales-center?tab=cotizaciones',
+        module: null,
+        steps: [
+            { element: '#tour-quotes-filters', popover: { title: 'Ubica pendientes', description: 'Filtra por pendientes o busca por cliente para encontrar la propuesta aprobada.', side: 'bottom', align: 'start' } },
+            { element: '#tour-quotes-list', popover: { title: 'Accion Facturar', description: 'Usa Facturar solo cuando el cliente confirma. El sistema carga productos y cantidades en POS.', side: 'top', align: 'center' } },
+            { popover: { title: 'Revisa antes de cobrar', description: 'En POS confirma stock, precios, cliente y seriales si aplica. Luego cobra con el metodo correcto.' } },
+            { popover: { title: 'Estado final', description: 'Al completar la venta, la cotizacion queda facturada y la venta aparece en reportes.' } }
+        ]
+    },
+
+    SALES_CUSTOMERS: {
+        id: 'sales_customers',
+        title: 'Clientes',
+        description: 'Datos, historial, precios especiales, credito y seguimiento comercial.',
+        startUrl: '/sales-center?tab=clientes',
+        module: null,
+        steps: [
+            { element: '#tour-sales-tab-clientes', popover: { title: 'Clientes', description: 'Aqui administras datos del cliente para ventas, creditos, garantias, cotizaciones y seguimiento.', side: 'bottom', align: 'center' } },
+            { element: '#tour-customers-add-btn', popover: { title: 'Nuevo cliente', description: 'Crea clientes con documento y telefono siempre que sea posible. Evita duplicados porque dividen deuda e historial.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Datos que impactan ventas', description: 'Lista de precios, limite de credito, documento, telefono y estado activo afectan POS, CxC y reportes.' } },
+            { popover: { title: 'Mejor practica', description: 'Desactiva clientes problematicos o inactivos en vez de borrarlos, para conservar ventas y garantias.' } }
+        ]
+    },
+
+    SALES_CUSTOMER_CREATE: {
+        id: 'sales_customer_create',
+        title: 'Crear cliente',
+        description: 'Registrar datos limpios para ventas, creditos y garantias.',
+        startUrl: '/sales-center?tab=clientes',
+        module: null,
+        steps: [
+            { element: '#tour-customers-add-btn', popover: { title: 'Agregar cliente', description: 'Pulsa Nuevo cliente y completa nombre, documento, telefono y direccion si el negocio los exige.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Evita duplicados', description: 'Busca por documento o telefono antes de crear. Un duplicado divide creditos, garantias e historial de compras.' } },
+            { popover: { title: 'Credito y precios', description: 'Configura limite de credito y lista de precios solo cuando el cliente realmente tiene condiciones especiales.' } }
+        ]
+    },
+
+    SALES_RETURNS: {
+        id: 'sales_returns',
+        title: 'Devoluciones',
+        description: 'Buscar venta original, seleccionar items y resolver reembolso o canje.',
+        startUrl: '/sales-center?tab=devoluciones',
+        module: null,
+        steps: [
+            { element: '#tour-returns-search-panel', popover: { title: 'Venta original', description: 'Toda devolucion debe partir de una venta real. Busca por factura, cedula o cliente para mantener trazabilidad.', side: 'bottom', align: 'center' } },
+            { element: '#tour-returns-results', popover: { title: 'Selecciona la venta correcta', description: 'Compara cliente, fecha y total. No proceses devoluciones contra una venta parecida.', side: 'top', align: 'center' } },
+            { element: '#tour-returns-items', popover: { title: 'Items a devolver', description: 'Marca cantidades o seriales exactos. En productos con IMEI, la unidad devuelta debe ser la misma vendida.', side: 'top', align: 'center' } },
+            { element: '#tour-returns-resolution', popover: { title: 'Resolucion', description: 'Elige reembolso o canje. El resumen debe mostrar cuanto vuelve al cliente o cuanto falta cobrar.', side: 'left', align: 'start' } },
+            { element: '#tour-returns-summary', popover: { title: 'Resumen final', description: 'Confirma solo cuando cantidades, motivo, moneda, caja y resolucion cuadren.', side: 'left', align: 'center' } }
+        ]
+    },
+
+    SALES_RETURN_PROCESS: {
+        id: 'sales_return_process',
+        title: 'Procesar devolucion',
+        description: 'Reembolso controlado desde una venta original.',
+        startUrl: '/sales-center?tab=devoluciones',
+        module: null,
+        steps: [
+            { element: '#tour-returns-search-input', popover: { title: 'Buscar venta', description: 'Escribe factura, cedula o cliente. Mientras mas exacta la busqueda, menor riesgo de devolver la venta equivocada.', side: 'bottom', align: 'start' } },
+            { element: '#tour-returns-results', popover: { title: 'Cargar venta', description: 'Abre la venta correcta para ver productos, cantidades disponibles y seriales vendidos.', side: 'top', align: 'center' } },
+            { element: '#tour-returns-items', popover: { title: 'Cantidad o serial', description: 'En productos normales indica cantidad. En IMEI selecciona la unidad exacta devuelta.', side: 'top', align: 'center' } },
+            { element: '#tour-returns-summary', popover: { title: 'Reembolso', description: 'Revisa moneda y monto. Si sale de caja, confirma que el turno tenga saldo suficiente y deja motivo claro.', side: 'left', align: 'center' } }
+        ]
+    },
+
+    SALES_RETURN_EXCHANGE: {
+        id: 'sales_return_exchange',
+        title: 'Canje por producto',
+        description: 'Usar el valor devuelto para entregar otro producto.',
+        startUrl: '/sales-center?tab=devoluciones',
+        module: null,
+        steps: [
+            { element: '#tour-returns-search-panel', popover: { title: 'Parte de la venta original', description: 'Primero busca la venta y selecciona lo que el cliente devuelve. El canje usa ese valor como credito.', side: 'bottom', align: 'center' } },
+            { element: '#tour-returns-resolution', popover: { title: 'Selecciona Canje', description: 'Al elegir canje se habilita la busqueda de producto de reemplazo y el calculo de diferencia.', side: 'left', align: 'start' } },
+            { element: '#tour-returns-replacement', popover: { title: 'Producto de reemplazo', description: 'Busca el producto que se llevara el cliente. Si cuesta mas, se cobra diferencia; si cuesta menos, queda monto a devolver.', side: 'top', align: 'center' } },
+            { element: '#tour-returns-summary', popover: { title: 'Diferencia final', description: 'Confirma si el resultado es cero, cobro adicional o efectivo a devolver. Revisa stock/IMEI del reemplazo.', side: 'left', align: 'center' } }
+        ]
+    },
+
+    SALES_WARRANTIES: {
+        id: 'sales_warranties',
+        title: 'Garantias',
+        description: 'Verificar venta, IMEI/serial, cobertura y resolucion.',
+        startUrl: '/sales-center?tab=garantias',
+        module: null,
+        steps: [
+            { element: '#tour-warranties-search', popover: { title: 'Busca IMEI o serial', description: 'La garantia debe validarse contra la unidad vendida. Esto evita recibir un equipo que no corresponde.', side: 'bottom', align: 'center' } },
+            { element: '#tour-warranties-result', popover: { title: 'Resultado de cobertura', description: 'Revisa cliente, producto, fecha de venta, politica y vigencia antes de decidir.', side: 'bottom', align: 'center' } },
+            { element: '#tour-warranties-decision', popover: { title: 'Decision', description: 'Define condicion, motivo, accion y monto si hay reembolso. Documenta bien el diagnostico.', side: 'left', align: 'start' } },
+            { element: '#tour-warranties-confirm', popover: { title: 'Confirmar garantia', description: 'Confirma solo cuando la unidad, motivo y resolucion cuadren. Puede afectar inventario, caja y comisiones.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    SALES_WARRANTY_PROCESS: {
+        id: 'sales_warranty_process',
+        title: 'Resolver garantia',
+        description: 'Procesar una garantia con trazabilidad por unidad.',
+        startUrl: '/sales-center?tab=garantias',
+        module: null,
+        steps: [
+            { element: '#tour-warranties-search', popover: { title: 'Escanea la unidad', description: 'Usa serial/IMEI exacto. No resuelvas garantia por nombre de producto si el item fue serializado.', side: 'bottom', align: 'center' } },
+            { element: '#tour-warranties-result', popover: { title: 'Valida cobertura', description: 'Confirma que la garantia este vigente y que el equipo corresponda a la venta original.', side: 'bottom', align: 'center' } },
+            { element: '#tour-warranties-decision', popover: { title: 'Completa diagnostico', description: 'Indica condicion, motivo y accion: reparacion, reemplazo, reembolso o rechazo segun politica.', side: 'left', align: 'start' } },
+            { element: '#tour-warranties-confirm', popover: { title: 'Confirmar', description: 'Confirma cuando caja, inventario y motivo esten claros. El historial queda como respaldo ante reclamos.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    SALES_CREDITS: {
+        id: 'sales_credits',
+        title: 'Creditos y cuentas por cobrar',
+        description: 'Seguimiento de facturas pendientes, vencidas, abonos y riesgo de mora.',
+        startUrl: '/sales-center?tab=creditos',
+        module: null,
+        steps: [
+            { element: '#tour-credits-tabs', popover: { title: 'Vistas de credito', description: 'Alterna entre cuentas por cobrar, creditos celulares, antiguedad y estado de cuenta segun la investigacion.', side: 'bottom', align: 'start' } },
+            { element: '#tour-credits-summary', popover: { title: 'Resumen CxC', description: 'Mide saldo pendiente, vencido y cobrado. Prioriza vencidos y montos altos.', side: 'bottom', align: 'center' } },
+            { element: '#tour-credits-controls', popover: { title: 'Filtros y busqueda', description: 'Filtra por pendiente, vencido o pagado y busca cliente/factura antes de registrar abonos.', side: 'bottom', align: 'center' } },
+            { element: '#tour-credits-list', popover: { title: 'Facturas y abonos', description: 'Desde la lista puedes ver detalle, registrar pago individual o seleccionar varias facturas para pago masivo.', side: 'top', align: 'center' } },
+            { element: '#tour-credits-bulk-bar', popover: { title: 'Pago masivo', description: 'Si seleccionas varias facturas, revisa total, cliente y metodo antes de confirmar el abono.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    SALES_CREDIT_PAYMENT: {
+        id: 'sales_credit_payment',
+        title: 'Registrar abono',
+        description: 'Aplicar pagos a facturas a credito sin romper saldo.',
+        startUrl: '/sales-center?tab=creditos',
+        module: null,
+        steps: [
+            { element: '#tour-credits-controls', popover: { title: 'Filtra pendientes', description: 'Trabaja con facturas pendientes o vencidas y busca el cliente correcto antes de pagar.', side: 'bottom', align: 'center' } },
+            { element: '#tour-credits-list', popover: { title: 'Abonar factura', description: 'En una factura pendiente usa Abonar. Para varias facturas del mismo cliente, selecciona y usa pago masivo.', side: 'top', align: 'center' } },
+            { popover: { title: 'Datos del pago', description: 'Ingresa monto, moneda, metodo, tasa y referencia si aplica. El monto no debe exceder el saldo pendiente.' } },
+            { popover: { title: 'Despues de confirmar', description: 'El saldo baja, queda historial de pago y el reporte de creditos debe reflejar el cambio.' } }
+        ]
+    },
+
     // =============================================
     // TOUR 5: FINANZAS (Core)
     // =============================================
     FINANCE: {
         id: 'finance',
-        title: 'Finanzas y Caja',
-        description: 'Caja, compras, proveedores y cuentas por pagar/cobrar.',
-        startUrl: '/reports',
+        title: 'Finanzas y caja',
+        description: 'Dinero operativo: caja, compras, proveedores, cuentas por pagar y cuentas por cobrar.',
+        startUrl: '/cash-registers',
         module: null,
         steps: [
-            {
-                element: '#tour-cash-container',
-                popover: {
-                    title: 'Historial de Caja',
-                    description: 'Cada cajero debe abrir y cerrar su caja diariamente. Aquí ves el historial de todos los cierres: ventas totales, efectivo esperado vs contado, y diferencias.',
-                    side: 'bottom', align: 'center'
-                }
-            },
-            {
-                popover: {
-                    title: 'Apertura y Cierre de Caja',
-                    description: 'Al entrar al POS se te pedirá abrir caja con un monto inicial. Al cerrar, el sistema compara lo esperado con lo contado y genera un reporte Z automático.',
-                }
-            },
-            {
-                navigate: '/purchases',
-                element: '#tour-purchases-add-btn',
-                popover: {
-                    title: 'Registrar Compras',
-                    description: 'Cuando recibes mercancía de un proveedor, regístrala aquí. El stock se actualiza automáticamente y se genera la cuenta por pagar.',
-                    side: 'bottom', align: 'end'
-                }
-            },
-            {
-                navigate: '/suppliers',
-                element: '#tour-suppliers-add-btn',
-                popover: {
-                    title: 'Directorio de Proveedores',
-                    description: 'Registra tus proveedores con nombre, teléfono, email y condiciones de crédito (días de plazo). Asocia cada compra a un proveedor para llevar el control.',
-                    side: 'bottom', align: 'end'
-                }
-            },
-            {
-                navigate: '/accounts-payable',
-                element: '#tour-payables-container',
-                popover: {
-                    title: 'Cuentas por Pagar',
-                    description: 'Monitorea cuánto debes a cada proveedor. Ve las facturas pendientes, vencidas y registra pagos parciales o totales.',
-                    side: 'bottom', align: 'center'
-                }
-            },
-            {
-                navigate: '/accounts-receivable',
-                element: '#tour-receivables-container',
-                popover: {
-                    title: 'Cuentas por Cobrar',
-                    description: 'Controla las ventas a crédito de tus clientes. Ve facturas pendientes, registra abonos y mantén el balance actualizado.',
-                    side: 'bottom', align: 'center'
-                }
-            }
+            { element: '#tour-cash-container', popover: { title: 'Punto de control financiero', description: 'Aqui revisas cajas y sesiones. Es el primer lugar para validar si cada venta quedo asociada a la caja correcta.', side: 'bottom', align: 'center' } },
+            { element: '#tour-cash-registers-summary', popover: { title: 'Estado antes de operar', description: 'Confirma cajas abiertas, cerradas u ocupadas antes de iniciar turno. Una caja abierta ya tiene responsable.', side: 'bottom', align: 'center' } },
+            { navigate: '/reports?tab=caja', element: '#tour-reports-content', popover: { title: 'Reporte de caja', description: 'Cuadra efectivo, pagos digitales, devoluciones, avances y movimientos usando el mismo turno o rango horario.', side: 'top', align: 'center' } },
+            { navigate: '/purchases', element: '#tour-purchases-add-btn', popover: { title: 'Compras y recepcion', description: 'Las compras aumentan stock y pueden crear cuentas por pagar. En productos con IMEI, registra seriales desde la recepcion.', side: 'bottom', align: 'end' } },
+            { navigate: '/reports?tab=proveedores', popover: { title: 'Cuentas por pagar', description: 'Revisa compras a credito, vencimientos y pagos a proveedores para que la deuda no quede fuera del flujo de caja.' } },
+            { navigate: '/reports?tab=creditos', popover: { title: 'Cuentas por cobrar', description: 'Controla ventas a credito, abonos y clientes vencidos. Venta a credito no es efectivo disponible en caja.' } }
+        ]
+    },
+
+    CASH_OVERVIEW: {
+        id: 'cash-overview',
+        title: 'Caja operativa',
+        description: 'Abrir turno, cobrar, registrar movimientos, cerrar e investigar diferencias.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            { element: '#tour-pos-cash-menu', popover: { title: 'Menu Caja', description: 'Desde aqui abres movimientos, avances y cierre. Si no hay caja abierta, el POS pedira seleccionar una caja libre antes de vender.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Responsabilidad del turno', description: 'Cada turno queda unido a caja, usuario y estacion. No vendas desde una caja abierta por otra persona.' } },
+            { popover: { title: 'Pagos por metodo', description: 'Efectivo se cuenta fisicamente. Punto, transferencia, pago movil y Zelle se cuadran por referencia y reporte.' } },
+            { navigate: '/reports?tab=caja', element: '#tour-reports-content', popover: { title: 'Cuadre posterior', description: 'Usa Reportes > Caja para comparar contado contra esperado por el mismo rango, usuario y caja.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CASH_REGISTERS: {
+        id: 'cash-registers',
+        title: 'Gestion de cajas',
+        description: 'Cajas fisicas, sesiones activas, bloqueo, estacion e impresora.',
+        startUrl: '/cash-registers',
+        module: null,
+        steps: [
+            { element: '#tour-cash-container', popover: { title: 'Mapa de cajas', description: 'Administra las cajas disponibles para cada punto de venta. Crea una caja por mostrador o equipo que maneje dinero.', side: 'bottom', align: 'center' } },
+            { element: '#tour-cash-registers-summary', popover: { title: 'Estado general', description: 'Revisa abiertas, cerradas y bloqueadas. Una caja abierta esta ocupada por un usuario y no deberia reutilizarse.', side: 'bottom', align: 'center' } },
+            { element: '#tour-cash-new-register', popover: { title: 'Crear caja', description: 'Usa codigos cortos: C01, C02, Taller. Si hay impresora por caja, documenta el Client ID del bridge.', side: 'bottom', align: 'end' } },
+            { element: '#tour-cash-registers-list', popover: { title: 'Sesion activa', description: 'La tarjeta muestra usuario, estado, caja y estacion. Si esta abierta, primero debe cerrarse antes de editar.', side: 'top', align: 'center' } },
+            { element: '#tour-cash-registers-rules', popover: { title: 'Cierre forzado', description: 'Forzar cierre es emergencia: equipo apagado, sesion trabada o cajero ausente. Registra motivo y revisa reporte despues.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CASH_OPENING: {
+        id: 'cash-opening',
+        title: 'Abrir caja',
+        description: 'Seleccionar caja libre, contar fondo inicial y validar estacion.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            { popover: { title: 'Apertura obligatoria', description: 'Antes de cobrar, el POS necesita una caja abierta. Selecciona una caja libre, no una ocupada por otro usuario.' } },
+            { popover: { title: 'Fondo inicial real', description: 'Cuenta el efectivo fisico por moneda. Ese monto entra al esperado del cierre y sirve para dar vuelto.' } },
+            { popover: { title: 'Estacion correcta', description: 'Confirma que esta computadora tenga almacen e impresora correctos en Configuracion > Estacion POS.' } },
+            { popover: { title: 'Prueba rapida', description: 'Si es una caja nueva, realiza una venta pequena o prueba controlada para confirmar caja, almacen e impresion.' } }
+        ]
+    },
+
+    CASH_POS_ACTIONS: {
+        id: 'cash-pos-actions',
+        title: 'Acciones de caja en POS',
+        description: 'Movimientos, avances, cierre y diagnostico desde el menu Caja.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            { element: '#tour-pos-cash-menu', popover: { title: 'Menu Caja', description: 'Desde aqui registras lo que afecta el turno: movimientos, avances y cierre.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Movimientos', description: 'Entrada o salida que no es venta: gasto, retiro autorizado, reposicion, ingreso externo. Siempre deja descripcion clara.' } },
+            { popover: { title: 'Avances', description: 'Un avance mueve efectivo a banco o punto con comision. Requiere referencia para poder cuadrar despues.' } },
+            { popover: { title: 'Cierre', description: 'Cuenta efectivo fisico por moneda. Si hay diferencia, revisa movimientos, avances, devoluciones y pagos mixtos antes de confirmar.' } }
+        ]
+    },
+
+    CASH_MOVEMENTS: {
+        id: 'cash-movements',
+        title: 'Movimientos de caja',
+        description: 'Entradas, salidas y retiros no asociados a ventas.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            { element: '#tour-pos-cash-menu', popover: { title: 'Abrir menu Caja', description: 'Desde el menu Caja abre Movimiento de Caja cuando el dinero entra o sale sin venta.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Tipo correcto', description: 'Entrada aumenta caja; salida disminuye caja. Elige moneda y monto exacto.' } },
+            { popover: { title: 'Motivo auditable', description: 'Escribe una descripcion concreta: compra de insumos, retiro autorizado, reposicion de fondo o correccion aprobada.' } },
+            { popover: { title: 'Impacto en cierre', description: 'Un movimiento mal registrado se convierte en sobrante o faltante al cerrar. Registra en el momento.' } }
+        ]
+    },
+
+    CASH_CLOSING: {
+        id: 'cash-closing',
+        title: 'Cerrar caja',
+        description: 'Arqueo fisico, comparacion por metodo y observacion de diferencias.',
+        startUrl: '/pos',
+        module: null,
+        steps: [
+            { element: '#tour-pos-cash-menu', popover: { title: 'Cerrar desde Caja', description: 'El cierre se inicia desde el menu Caja del POS. No cierres si todavia quedan ventas por cobrar.', side: 'bottom', align: 'end' } },
+            { popover: { title: 'Cuenta efectivo', description: 'Cuenta billetes y monedas por divisa. Pagos digitales no se suman como efectivo fisico.' } },
+            { popover: { title: 'Compara esperado', description: 'El sistema calcula fondo inicial + ventas en efectivo + entradas - salidas - devoluciones/avances.' } },
+            { popover: { title: 'Diferencias', description: 'Si hay faltante o sobrante, revisa pagos mixtos, vuelto, egresos, avances, devoluciones y ventas anuladas. Deja observacion.' } }
+        ]
+    },
+
+    CASH_RECONCILE: {
+        id: 'cash-reconcile',
+        title: 'Investigar diferencias',
+        description: 'Revisar faltantes y sobrantes sin perder trazabilidad.',
+        startUrl: '/reports?tab=caja',
+        module: null,
+        steps: [
+            { element: '#tour-reports-content', popover: { title: 'Mismo turno', description: 'Empieza por el cierre exacto: misma caja, cajero y rango horario. No mezcles turnos.', side: 'top', align: 'center' } },
+            { navigate: '/reports?tab=ventas', element: '#tour-reports-content', popover: { title: 'Ventas del periodo', description: 'Compara ventas, anulaciones, devoluciones, creditos, pagos mixtos y metodo de pago.', side: 'top', align: 'center' } },
+            { navigate: '/pos', element: '#tour-pos-cash-menu', popover: { title: 'Movimientos y avances', description: 'Un egreso no registrado suele ser faltante; un ingreso no registrado suele ser sobrante. Revisa referencias.', side: 'bottom', align: 'end' } },
+            { navigate: '/config-center?tab=pos', element: '#tour-config-content', popover: { title: 'Caja equivocada', description: 'Si la venta o impresion salio por otra caja, revisa estacion POS, impresora local y caja seleccionada antes de seguir vendiendo.', side: 'top', align: 'center' } }
+        ]
+    },
+
+
+    SUPPLIERS: {
+        id: 'suppliers',
+        title: 'Proveedores',
+        description: 'Contactos, condiciones de credito, deuda actual, compras y pagos.',
+        startUrl: '/suppliers',
+        module: null,
+        steps: [
+            { element: '#tour-suppliers-container', popover: { title: 'Directorio de proveedores', description: 'Centraliza contactos, condiciones de credito, limite, deuda y compras por proveedor.', side: 'bottom', align: 'center' } },
+            { element: '#tour-suppliers-search', popover: { title: 'Buscar antes de crear', description: 'Busca por nombre, RIF, telefono o contacto para evitar duplicados y saldos divididos.', side: 'bottom', align: 'start' } },
+            { element: '#tour-suppliers-add-btn', popover: { title: 'Nuevo proveedor', description: 'Registra datos de contacto y terminos de pago antes de cargar compras a credito.', side: 'bottom', align: 'end' } },
+            { element: '#tour-suppliers-list', popover: { title: 'Deuda y condiciones', description: 'La lista muestra deuda, limite y plazo. Si el saldo no cuadra, revisa compras pendientes, pagos y duplicados.', side: 'top', align: 'center' } },
+            { popover: { title: 'Pagos con trazabilidad', description: 'Registra pagos desde detalle de compra o reporte de proveedores. No corrijas deuda cambiando saldos sin historial.' } }
+        ]
+    },
+
+
+    REPORTS: {
+        id: 'reports',
+        title: 'Centro de Reportes',
+        description: 'Leer indicadores, filtrar periodos y cruzar datos del negocio.',
+        startUrl: '/reports?tab=resumen',
+        module: null,
+        steps: [
+            { element: '#tour-reports-container', popover: { title: 'Centro de decisiones', description: 'Aqui no solo ves numeros: cruzas ventas, caja, creditos, proveedores e inventario para explicar diferencias.', side: 'bottom', align: 'center' } },
+            { element: '#tour-reports-presets', popover: { title: 'Atajos de periodo', description: 'Usa Hoy, Semana o Mes para una lectura rapida. Para auditorias, cambia al rango exacto del problema.', side: 'bottom', align: 'end' } },
+            { element: '#tour-reports-date-range', popover: { title: 'Rango exacto', description: 'El rango controla todo el reporte activo. Para cierres de caja usa el mismo turno; para compras o creditos usa fechas reales del documento.', side: 'bottom', align: 'end' } },
+            { element: '#tour-reports-tabs', popover: { title: 'Pestanas de analisis', description: 'Resumen responde como va el negocio. Ventas, Caja, Creditos, Proveedores e Inventario sirven para investigar la causa.', side: 'bottom', align: 'start' } },
+            { element: '#tour-reports-export', popover: { title: 'Exportar respaldo', description: 'Exporta cuando necesites enviar al contador, revisar con administracion o guardar evidencia de una auditoria.', side: 'bottom', align: 'end' } },
+            { element: '#tour-reports-content', popover: { title: 'Leer antes de actuar', description: 'Si un numero se ve raro, no corrijas de inmediato. Cambia de pestana y cruza ventas, caja, Kardex, compras o pagos.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    REPORTS_SALES: {
+        id: 'reports_sales',
+        title: 'Reporte de Ventas',
+        description: 'Auditar ventas, pagos, devoluciones, anulaciones y descuentos.',
+        startUrl: '/reports?tab=ventas',
+        module: null,
+        steps: [
+            { element: '#tour-reports-date-range', popover: { title: 'Periodo de venta', description: 'Primero fija el rango exacto. Para cierre diario, usa el mismo dia o el mismo turno que caja.', side: 'bottom', align: 'end' } },
+            { element: '#tour-reports-content', popover: { title: 'Detalle comercial', description: 'Busca por factura, cliente, vendedor, metodo de pago o estado. Abre el detalle si hay descuentos, devoluciones o pagos mixtos.', side: 'top', align: 'center' } },
+            { popover: { title: 'Cruce con caja', description: 'Ventas puede incluir credito o pagos digitales. Caja mide dinero por turno. Si no coinciden, revisa metodo de pago, devoluciones y anulaciones.' } },
+            { popover: { title: 'Cruce con inventario', description: 'Si la venta afecto stock o IMEI, valida Kardex y Seriales para confirmar que se desconto la unidad correcta.' } }
+        ]
+    },
+
+    REPORTS_CASH: {
+        id: 'reports_cash',
+        title: 'Reporte de Caja',
+        description: 'Cuadrar turnos, efectivo, pagos digitales, egresos y diferencias.',
+        startUrl: '/reports?tab=caja',
+        module: null,
+        steps: [
+            { element: '#tour-reports-date-range', popover: { title: 'Rango del turno', description: 'No compares todo el dia si hubo varios turnos. Usa cajero, caja y horario lo mas parecido al cierre.', side: 'bottom', align: 'end' } },
+            { element: '#tour-reports-content', popover: { title: 'Cuadre de caja', description: 'Revisa apertura, ventas, egresos, avances, esperado, contado y diferencia. Efectivo y pagos digitales se auditan distinto.', side: 'top', align: 'center' } },
+            { popover: { title: 'Faltante o sobrante', description: 'Faltante suele venir de egresos no registrados, vuelto mal dado o venta mal clasificada. Sobrante suele ser ingreso no registrado o cobro de mas.' } },
+            { popover: { title: 'Cruce recomendado', description: 'Abre Ventas con el mismo periodo y compara pagos mixtos, creditos, devoluciones y anulaciones antes de cerrar una investigacion.' } }
+        ]
+    },
+
+    REPORTS_CREDITS: {
+        id: 'reports_credits',
+        title: 'Reporte de Creditos',
+        description: 'Cuentas por cobrar, vencimientos, abonos y saldo por cliente.',
+        startUrl: '/reports?tab=creditos',
+        module: null,
+        steps: [
+            { element: '#tour-reports-date-range', popover: { title: 'Periodo de cartera', description: 'El rango ayuda a ver ventas a credito, pagos y vencimientos. Para deuda actual, revisa tambien saldos abiertos.', side: 'bottom', align: 'end' } },
+            { element: '#tour-reports-content', popover: { title: 'Cartera por cobrar', description: 'Prioriza vencidos, montos altos y clientes con muchos dias de atraso. Abre detalle antes de contactar o bloquear credito.', side: 'top', align: 'center' } },
+            { popover: { title: 'Cuando el saldo no baja', description: 'Verifica si el abono se aplico al cliente/factura correcta y si existen clientes duplicados dividiendo la deuda.' } }
+        ]
+    },
+
+    REPORTS_SUPPLIERS: {
+        id: 'reports_suppliers',
+        title: 'Reporte de Proveedores',
+        description: 'Cuentas por pagar, compras a credito, pagos y facturas pendientes.',
+        startUrl: '/reports?tab=proveedores',
+        module: null,
+        steps: [
+            { element: '#tour-reports-date-range', popover: { title: 'Periodo de compras/pagos', description: 'Usa fechas de factura o pago segun lo que investigas. Para deuda actual, revisa tambien saldos pendientes.', side: 'bottom', align: 'end' } },
+            { element: '#tour-reports-content', popover: { title: 'Deuda por proveedor', description: 'La deuda debe salir de compras a credito menos pagos registrados. Revisa vencimientos y facturas parciales.', side: 'top', align: 'center' } },
+            { popover: { title: 'Si no cuadra', description: 'Busca compras duplicadas, proveedor duplicado, compras marcadas como credito por error o pagos aplicados al proveedor equivocado.' } }
+        ]
+    },
+
+    REPORTS_INVENTORY: {
+        id: 'reports_inventory',
+        title: 'Reporte de Inventario',
+        description: 'Valoracion, costo, precio de venta, stock bajo y capital detenido.',
+        startUrl: '/reports?tab=inventario',
+        module: null,
+        steps: [
+            { element: '#tour-reports-content', popover: { title: 'Valoracion y riesgo', description: 'Mide dinero invertido, valor potencial de venta, stock bajo y productos sin movimiento.', side: 'top', align: 'center' } },
+            { popover: { title: 'Costo cero o margen raro', description: 'Si la ganancia se ve inflada o baja, revisa costos en productos, compras recientes y listas de precios.' } },
+            { popover: { title: 'Stock raro', description: 'No ajustes desde el reporte. Abre Kardex para movimientos y Seriales si el producto maneja IMEI.' } },
+            { popover: { title: 'Decision operativa', description: 'Stock bajo pide reposicion o traslado. Capital detenido pide promocion, liquidacion o dejar de reponer.' } }
+        ]
+    },
+
+    REPORTS_COMMISSIONS: {
+        id: 'reports_commissions',
+        title: 'Reporte de Comisiones',
+        description: 'Liquidar comisiones con reglas, devoluciones y pagos previos claros.',
+        startUrl: '/reports?tab=comisiones',
+        module: null,
+        steps: [
+            { element: '#tour-reports-date-range', popover: { title: 'Periodo de liquidacion', description: 'Usa el rango exacto de pago: semanal, quincenal o mensual. Evita mezclar periodos parciales.', side: 'bottom', align: 'end' } },
+            { element: '#tour-reports-content', popover: { title: 'Detalle por empleado', description: 'Revisa empleado, venta/servicio, porcentaje, monto generado, pagado y pendiente antes de liquidar.', side: 'top', align: 'center' } },
+            { popover: { title: 'Antes de pagar', description: 'Confirma reglas activas, devoluciones, anulaciones y pagos previos para evitar doble liquidacion.' } }
         ]
     },
 
@@ -310,40 +1121,134 @@ export const TOUR_FLOWS = {
     // =============================================
     SYSTEM: {
         id: 'system',
-        title: 'Sistema y Seguridad',
-        description: 'Usuarios, roles, auditoría y configuración general.',
-        startUrl: '/users',
+        title: 'Configuracion del sistema',
+        description: 'Ajustes del negocio, usuarios, monedas, pagos, impresoras y seguridad.',
+        startUrl: '/config-center',
         module: null,
         steps: [
-            {
-                element: '#tour-users-add-btn',
-                popover: {
-                    title: 'Crear Usuarios',
-                    description: 'Crea cuentas para tu personal. Cada usuario tiene un rol que define qué puede hacer en el sistema.',
-                    side: 'bottom', align: 'end'
-                }
-            },
-            {
-                popover: {
-                    title: 'Roles Disponibles',
-                    description: '• Admin — Control total del sistema\n• Cajero — Solo POS y caja\n• Almacén — Solo inventario y movimientos\n• Mesero — Solo toma de pedidos (restaurante)\n• Cocina — Solo pantalla de cocina (KDS)',
-                }
-            },
-            {
-                navigate: '/settings',
-                element: '#tour-settings-container',
-                popover: {
-                    title: 'Configuración General',
-                    description: 'Ajusta los datos de tu empresa (nombre, logo, dirección), configura impuestos, métodos de pago, monedas y tasas de cambio.',
-                    side: 'bottom', align: 'center'
-                }
-            },
-            {
-                popover: {
-                    title: 'Impresión y Hardware',
-                    description: 'Conecta tu impresora térmica con la aplicación Invensoft Bridge para Windows. Soporta impresoras de 58mm y 80mm vía USB o red.',
-                }
-            }
+            { element: '#tour-config-container', popover: { title: 'Centro de configuracion', description: 'Aqui estan los ajustes que afectan POS, reportes, caja, tickets y permisos.', side: 'bottom', align: 'center' } },
+            { element: '#tour-config-tabs', popover: { title: 'Pestanas por area', description: 'Negocio, finanzas y sistema estan separados para que el admin cambie solo lo necesario.', side: 'bottom', align: 'center' } },
+            { element: '#tour-config-content', popover: { title: 'Contenido activo', description: 'Cada pestana tiene sus propios campos. Antes de guardar, revisa que entiendes que modulo se vera afectado.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_GENERAL: {
+        id: 'config-general', title: 'Datos del negocio', description: 'Nombre, RIF, direccion, logo y datos impresos.', startUrl: '/config-center?tab=general', module: null,
+        steps: [
+            { element: '#tour-config-tab-general', popover: { title: 'General', description: 'Datos visibles en tickets, facturas, reportes y login.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Ficha del negocio', description: 'Actualiza nombre comercial, identificacion fiscal, contacto, direccion y logo. Imprime una prueba despues de cambios importantes.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_USERS: {
+        id: 'config-users', title: 'Usuarios y permisos', description: 'Cuentas, roles, PIN y acceso del personal.', startUrl: '/config-center?tab=usuarios', module: null,
+        steps: [
+            { element: '#tour-config-tab-usuarios', popover: { title: 'Usuarios', description: 'Administra quien entra al sistema y con que permisos.', side: 'bottom', align: 'start' } },
+            { element: '#tour-users-add-btn', popover: { title: 'Nuevo usuario', description: 'Crea cuentas individuales. Evita compartir el admin con cajeros o empleados.', side: 'bottom', align: 'end' } },
+            { element: '#tour-config-content', popover: { title: 'Roles y seguridad', description: 'Revisa rol, estado activo, PIN, contrasena y comisiones. Desactiva usuarios que ya no trabajan en el negocio.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_CURRENCY: {
+        id: 'config-currency', title: 'Monedas y tasa', description: 'Tasa del dia y conversiones del POS.', startUrl: '/config-center?tab=monedas', module: null,
+        steps: [
+            { element: '#tour-config-tab-monedas', popover: { title: 'Monedas', description: 'Controla la tasa que usa el POS para mostrar y cobrar en Bs u otras monedas.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Actualizar tasa', description: 'Si los precios en Bs no aparecen o se ven mal, revisa aqui que la moneda este activa y la tasa sea la del dia.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_PAYMENTS: {
+        id: 'config-payments', title: 'Metodos de pago', description: 'Formas de cobro disponibles en POS.', startUrl: '/config-center?tab=pagos', module: null,
+        steps: [
+            { element: '#tour-config-tab-pagos', popover: { title: 'Metodos de pago', description: 'Solo los metodos activos aparecen al cobrar en POS.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Referencia y datos', description: 'Activa referencia obligatoria en pagos digitales y guarda datos bancarios claros para el cajero.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_TAXES: {
+        id: 'config-taxes', title: 'Impuestos', description: 'IVA, IGTF y exenciones.', startUrl: '/config-center?tab=impuestos', module: null,
+        steps: [
+            { element: '#tour-config-content', popover: { title: 'Impuestos', description: 'Activa impuestos solo con criterio contable. Estos cambios afectan el total cobrado y reportes.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_PRINTERS: {
+        id: 'config-printers', title: 'Impresoras', description: 'Bridge, papel y pruebas de ticket.', startUrl: '/config-center?tab=impresoras', module: null,
+        steps: [
+            { element: '#tour-config-tab-impresoras', popover: { title: 'Impresoras', description: 'Configura impresora termica y ancho de papel.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Prueba de impresion', description: 'Si no imprime, revisa Bridge abierto, impresora detectada y ancho 58mm/80mm.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_WARRANTIES: {
+        id: 'config-warranties', title: 'Politicas de garantia', description: 'Periodos y reglas de garantia.', startUrl: '/config-center?tab=garantias', module: null,
+        steps: [
+            { element: '#tour-config-tab-garantias', popover: { title: 'Garantias', description: 'Define periodos de garantia que luego se asignan a productos.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Politicas', description: 'Crea politicas claras como Sin garantia, 30 dias o 90 dias. Revisa la predeterminada.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_POS: {
+        id: 'config-pos', title: 'Estacion POS', description: 'Ajustes locales de la caja.', startUrl: '/config-center?tab=pos', module: null,
+        steps: [
+            { element: '#tour-config-tab-pos', popover: { title: 'Estacion POS', description: 'Afecta esta caja o computadora: almacen activo, tema, impresora y modo de uso.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Almacen activo', description: 'Si el POS descuenta de un lugar errado, revisa aqui el almacen asignado a esta estacion.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_AUDIT: {
+        id: 'config-audit', title: 'Auditoria', description: 'Rastrea cambios y acciones por usuario.', startUrl: '/config-center?tab=auditoria', module: null,
+        steps: [
+            { element: '#tour-config-tab-auditoria', popover: { title: 'Auditoria', description: 'Investiga cambios de precios, eliminaciones, descuentos y accesos.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Filtros de investigacion', description: 'Filtra por usuario, fecha y tipo de accion. Cruza con Kardex si el problema es inventario.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_COMMISSIONS: {
+        id: 'config-commissions', title: 'Comisiones', description: 'Reglas de vendedores y tecnicos.', startUrl: '/config-center?tab=comisiones', module: null,
+        steps: [
+            { element: '#tour-config-tab-comisiones', popover: { title: 'Comisiones', description: 'Activa modulos y porcentajes antes de esperar calculos automaticos.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Reglas', description: 'Revisa reglas por usuario y categoria. Los cambios suelen aplicar a ventas futuras.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_PRICES: {
+        id: 'config-prices', title: 'Precios masivos', description: 'Ajustes grandes de precios.', startUrl: '/config-center?tab=precios', module: null,
+        steps: [
+            { element: '#tour-config-tab-precios', popover: { title: 'Precios masivos', description: 'Usa filtros antes de aplicar margenes o precios en lote.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Cambios con cuidado', description: 'Verifica una muestra despues de guardar para confirmar precio base, listas y conversion en Bs.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_FINANCERS: {
+        id: 'config-financers', title: 'Financiadoras', description: 'Credito externo y aliados.', startUrl: '/config-center?tab=financiadoras', module: null,
+        steps: [
+            { element: '#tour-config-tab-financiadoras', popover: { title: 'Financiadoras', description: 'Configura aliados de credito externo y sus condiciones.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Validacion', description: 'Haz una prueba controlada en POS y conserva referencias de aprobacion.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_CATALOG: {
+        id: 'config-catalog', title: 'Catalogo publico', description: 'Link publico, QR y carrito.', startUrl: '/config-center?tab=catalogo', module: null,
+        steps: [
+            { element: '#tour-config-tab-catalogo', popover: { title: 'Catalogo publico', description: 'Controla que productos y precios ve el cliente desde el enlace publico.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Antes de compartir', description: 'Revisa stock, precio, imagen y estado activo del catalogo.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_WHATSAPP: {
+        id: 'config-whatsapp', title: 'WhatsApp', description: 'Mensajes y notificaciones.', startUrl: '/config-center?tab=whatsapp', module: null,
+        steps: [
+            { element: '#tour-config-tab-whatsapp', popover: { title: 'WhatsApp', description: 'Configura conexion y mensajes que salen hacia clientes.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Prueba primero', description: 'Envia una prueba a un numero propio antes de usar plantillas con clientes.', side: 'top', align: 'center' } }
+        ]
+    },
+
+    CONFIG_INTEGRATIONS: {
+        id: 'config-integrations', title: 'Integraciones', description: 'Servicios externos y credenciales.', startUrl: '/config-center?tab=integraciones', module: null,
+        steps: [
+            { element: '#tour-config-tab-integraciones', popover: { title: 'Integraciones', description: 'Conecta sistemas externos solo cuando las credenciales y ambiente sean correctos.', side: 'bottom', align: 'start' } },
+            { element: '#tour-config-content', popover: { title: 'Credenciales', description: 'No mezcles QA con produccion. Si falla, revisa token, endpoint y estado del proveedor.', side: 'top', align: 'center' } }
         ]
     },
 
@@ -486,35 +1391,147 @@ export const TOUR_FLOWS = {
     // =============================================
     SERVICES: {
         id: 'services',
-        title: 'Servicios Técnicos',
-        description: 'Recepción de equipos, diagnóstico y reparación.',
-        startUrl: '/laundry',
+        title: 'Servicios / Taller',
+        description: 'Recepcion, diagnostico, repuestos, pagos y entrega.',
+        startUrl: '/services',
         module: 'services',
         steps: [
             {
                 element: '#tour-services-container',
                 popover: {
-                    title: 'Tablero de Servicios',
-                    description: 'Gestiona las órdenes de servicio técnico: recepción de equipos, diagnóstico, aprobación del presupuesto y entrega al cliente.',
+                    title: 'Tablero de servicios',
+                    description: 'Aqui controlas las ordenes desde que el cliente deja el equipo hasta que se cobra y entrega.',
                     side: 'bottom', align: 'center'
                 }
             },
             {
+                element: '#tour-services-list',
                 popover: {
-                    title: 'Nueva Recepción',
-                    description: 'Registra el equipo que trae el cliente: tipo, marca, modelo, problema reportado, accesorios que deja y una foto del estado inicial.',
+                    title: 'Lista de ordenes',
+                    description: 'La columna izquierda es la cola de trabajo. Cada orden muestra cliente, equipo, estado y si tiene pagos registrados.',
+                    side: 'right', align: 'start'
+                }
+            },
+            {
+                element: '#tour-services-filters',
+                popover: {
+                    title: 'Filtra por estado',
+                    description: 'Usa estos filtros para trabajar por prioridad: recibidas, en diagnostico, reparando, listas o entregadas.',
+                    side: 'bottom', align: 'start'
+                }
+            },
+            {
+                element: '#tour-services-detail',
+                popover: {
+                    title: 'Detalle de la orden',
+                    description: 'Al seleccionar una orden, aqui revisas la ficha completa: cliente, falla, estado, items, pagos y diagnostico.',
+                    side: 'left', align: 'start'
+                }
+            }
+        ]
+    },
+
+    SERVICES_CREATE_ORDER: {
+        id: 'services-create-order',
+        title: 'Crear orden de servicio',
+        description: 'Registra un equipo de forma ordenada y trazable.',
+        startUrl: '/services',
+        module: 'services',
+        steps: [
+            {
+                element: '#tour-services-new-order',
+                popover: {
+                    title: 'Nueva orden',
+                    description: 'Comienza aqui cuando el cliente deja un equipo. Registra cliente, equipo, falla, serial/IMEI y accesorios recibidos.',
+                    side: 'bottom', align: 'end'
+                }
+            },
+            {
+                element: '#tour-services-templates',
+                popover: {
+                    title: 'Plantillas',
+                    description: 'Si repites servicios, crea plantillas para cargar mano de obra y repuestos frecuentes con menos errores.',
+                    side: 'bottom', align: 'end'
                 }
             },
             {
                 popover: {
-                    title: 'Diagnóstico y Presupuesto',
-                    description: 'El técnico examina el equipo, registra el diagnóstico y crea un presupuesto con los repuestos y mano de obra necesarios. El cliente aprueba o rechaza.',
+                    title: 'Datos que no deben faltar',
+                    description: 'Confirma telefono del cliente, falla reportada, condicion fisica y accesorios. Esa informacion evita reclamos al entregar.'
+                }
+            }
+        ]
+    },
+
+    SERVICES_ORDER_FLOW: {
+        id: 'services-order-flow',
+        title: 'Gestionar una orden',
+        description: 'Avanza estados y carga repuestos o mano de obra.',
+        startUrl: '/services',
+        module: 'services',
+        steps: [
+            {
+                element: '#tour-services-detail',
+                popover: {
+                    title: 'Selecciona una orden',
+                    description: 'Abre una orden para ver la informacion completa del cliente, equipo y falla reportada.',
+                    side: 'left', align: 'start'
+                }
+            },
+            {
+                element: '#tour-services-status',
+                popover: {
+                    title: 'Estados de trabajo',
+                    description: 'Actualiza el estado segun avance real: recibido, diagnostico, reparacion, listo y entregado.',
+                    side: 'bottom', align: 'start'
+                }
+            },
+            {
+                element: '#tour-services-items',
+                popover: {
+                    title: 'Repuestos y mano de obra',
+                    description: 'Carga repuestos desde inventario para que baje el stock. Usa servicio manual para mano de obra o diagnosticos.',
+                    side: 'top', align: 'start'
+                }
+            },
+            {
+                element: '#tour-services-diagnosis',
+                popover: {
+                    title: 'Diagnostico y notas',
+                    description: 'Documenta hallazgos, autorizaciones y observaciones tecnicas. Guarda despues de editar.',
+                    side: 'top', align: 'start'
+                }
+            }
+        ]
+    },
+
+    SERVICES_PAYMENT: {
+        id: 'services-payment',
+        title: 'Pagos y entrega',
+        description: 'Controla abonos, saldo pendiente y cierre de la orden.',
+        startUrl: '/services',
+        module: 'services',
+        steps: [
+            {
+                element: '#tour-services-payments',
+                popover: {
+                    title: 'Pagos de la orden',
+                    description: 'Aqui ves total, abonado y pendiente. Registra cada abono con metodo y referencia para que el cierre cuadre.',
+                    side: 'top', align: 'start'
+                }
+            },
+            {
+                element: '#tour-services-status',
+                popover: {
+                    title: 'Antes de entregar',
+                    description: 'La orden deberia estar lista y con el pendiente claro. Si falta cobrar, confirma si se pagara ahora o si queda autorizado como credito.',
+                    side: 'bottom', align: 'start'
                 }
             },
             {
                 popover: {
-                    title: 'Reparación y Entrega',
-                    description: 'Una vez aprobado, el técnico trabaja en la reparación. Al terminar, la orden se marca como "Lista" y cuando el cliente recoge, se envía al POS para cobrar.',
+                    title: 'Cierre correcto',
+                    description: 'Al cobrar, verifica abonos previos y cobra solo el pendiente. Luego entrega el equipo y deja el historial limpio.'
                 }
             }
         ]

@@ -22,6 +22,78 @@ def _should_log_ws_fail(ip: str) -> bool:
     return False
 
 
+def _validate_frontend_ws_access(websocket: WebSocket, tenant_id: str):
+    """Validate frontend WebSocket access with the HTTP auth tenant rules."""
+    from jose import JWTError, jwt
+    from ..config import settings
+    from ..database.db import SessionLocal
+    from ..models.models import User
+    from ..models.tenant import Tenant
+    from ..models.organization import OrganizationUser
+
+    client_ip = websocket.client.host if websocket.client else "unknown"
+    token = websocket.cookies.get("access_token") or websocket.query_params.get("token")
+
+    if not token:
+        if _should_log_ws_fail(client_ip):
+            print(f"[WS] Frontend rejected from {client_ip}: missing auth token")
+        return None
+
+    db = SessionLocal()
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        email = payload.get("sub")
+        if not email:
+            if _should_log_ws_fail(client_ip):
+                print(f"[WS] Frontend rejected from {client_ip}: token missing subject")
+            return None
+
+        user = db.query(User).filter(User.email == email).first()
+        if not user or not user.is_active:
+            if _should_log_ws_fail(client_ip):
+                print(f"[WS] Frontend rejected from {client_ip}: inactive or missing user")
+            return None
+
+        tenant_id = (tenant_id or "public").strip().lower()
+        if tenant_id == "public":
+            if user.is_superuser or user.tenant_id is None:
+                return user
+            if _should_log_ws_fail(client_ip):
+                print(f"[WS] Frontend rejected: user '{email}' tried public WS")
+            return None
+
+        target_tenant = db.query(Tenant).filter(Tenant.schema_name == tenant_id).first()
+        if not target_tenant or not target_tenant.is_active:
+            if _should_log_ws_fail(client_ip):
+                print(f"[WS] Frontend rejected: tenant '{tenant_id}' not found or inactive")
+            return None
+
+        if user.is_superuser or user.tenant_id == target_tenant.id:
+            return user
+
+        if target_tenant.organization_id:
+            membership = db.query(OrganizationUser).filter(
+                OrganizationUser.organization_id == target_tenant.organization_id,
+                OrganizationUser.user_email == email,
+                OrganizationUser.can_switch == True
+            ).first()
+            if membership:
+                return user
+
+        if _should_log_ws_fail(client_ip):
+            print(f"[WS] Frontend rejected: user '{email}' has no access to '{tenant_id}'")
+        return None
+    except JWTError as e:
+        if _should_log_ws_fail(client_ip):
+            print(f"[WS] Frontend rejected from {client_ip}: invalid token ({e})")
+        return None
+    except Exception as e:
+        print(f"[WS] Unexpected frontend auth error: {e}")
+        return None
+    finally:
+        db.close()
+
+
 @router.websocket("/hardware/connect")
 async def hardware_connect(
     websocket: WebSocket,
@@ -148,8 +220,10 @@ async def hardware_connect(
                 else:
                     print(f"📥 [WS] Received unexpected data from {client_id}: {data}")
             except asyncio.TimeoutError:
-                print(f"⚠️ [WS] Connection timeout for '{client_id}'. No ping received.")
-                break # Exit loop to trigger disconnect
+                # Some deployed Bridge versions do not send heartbeat pings reliably.
+                # Keep the socket registered and let send_to_client validate it when a print job arrives.
+                print(f"[WS] Bridge {client_id!r} idle without ping; keeping connection registered.")
+                continue
                 
     except WebSocketDisconnect as e:
         print(f"🔌 [WS] Client '{client_id}' disconnected normally (Code: {e.code})")
@@ -166,21 +240,35 @@ async def hardware_connect(
 @router.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
     """
-    Legacy/Frontend WebSocket endpoint
-    Kept for compatibility, assigns to 'public' tenant
+    Frontend WebSocket endpoint.
+    Lee el tenant del header X-Tenant-ID o del query param tenant_id.
+    Si no se especifica, usa 'public'.
     """
-    # 0. Accept connection first
+    import uuid
+
+    # Resolver tenant desde headers o query params
+    tenant_id = (
+        websocket.headers.get("x-tenant-id")
+        or websocket.headers.get("X-Tenant-ID")
+        or websocket.query_params.get("tenant_id")
+        or "public"
+    ).strip().lower() or "public"
+
+    # Aceptar la conexión
     await websocket.accept()
-    
+    temp_id = f"web_{str(uuid.uuid4())[:8]}"
+
     try:
-        # Assign temporary ID for frontend clients
-        import uuid
-        temp_id = f"web_{str(uuid.uuid4())[:8]}"
-        
-        await manager.connect(websocket, client_id=temp_id, tenant_id="public")
-        await websocket.send_text(json.dumps({"type": "conn_ack", "msg": "Connected"}))
+        current_user = _validate_frontend_ws_access(websocket, tenant_id)
+        if not current_user:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
+        await manager.connect(websocket, client_id=temp_id, tenant_id=tenant_id)
+        await websocket.send_text(json.dumps({"type": "conn_ack", "msg": "Connected", "tenant": tenant_id}))
+        print(f"[WS] Frontend connected: tenant={tenant_id} id={temp_id} user={current_user.email}")
     except Exception as e:
-        print(f"[WS] Error connecting WebSocket: {e}")
+        print(f"[WS] Error conectando WebSocket: {e}")
         return
     
     try:
@@ -200,13 +288,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 }))
                 
     except WebSocketDisconnect:
-        # We need to know the ID to disconnect, but here it's local scope.
-        # Ideally we'd store it. For now, we catch the generic disconnect.
-        # In a real app, we'd restructure this too.
-        # calling disconnect without ID is impossible with new manager.
-        # So we skip explicit disconnect here for the legacy endpoint or rely on the manager not leaking too much.
-        # Actually, let's just pass the temp_id if we can.
-        pass # manager.disconnect(temp_id, "public") - tricky to access temp_id in except block if defined inside try
+        print(f"🔌 [WS] Frontend disconnected: tenant={tenant_id} id={temp_id}")
          
     except Exception as e:
         print(f"WebSocket error: {e}")
+    finally:
+        manager.disconnect(temp_id, tenant_id)

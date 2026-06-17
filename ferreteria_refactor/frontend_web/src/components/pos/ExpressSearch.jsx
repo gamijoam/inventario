@@ -17,42 +17,65 @@ const ExpressSearch = ({ onAddToCart, lookupProduct }) => {
     const [lastAdded, setLastAdded] = useState(null); // feedback visual
     const inputRef = useRef(null);
     const debounceRef = useRef(null);
+    const lastAddedTimerRef = useRef(null);
+    const searchSeqRef = useRef(0);
+    const mountedRef = useRef(true);
 
     useEffect(() => {
         inputRef.current?.focus();
+        return () => {
+            mountedRef.current = false;
+            clearTimeout(debounceRef.current);
+            clearTimeout(lastAddedTimerRef.current);
+        };
     }, []);
 
     // Retorna array de productos encontrados (para poder usarlo en async)
     const search = async (value) => {
-        if (!value || value.trim().length < 1) {
+        const term = value.trim();
+        const requestId = ++searchSeqRef.current;
+
+        if (!term) {
             setResults([]);
             setDropdownOpen(false);
+            setIsSearching(false);
             return [];
         }
+
         setIsSearching(true);
         try {
-            const found = await lookupProduct(value.trim());
+            const found = await lookupProduct(term);
             const list = found ? [found] : [];
+            if (!mountedRef.current || requestId !== searchSeqRef.current) return [];
+
             setResults(list);
-            setDropdownOpen(list.length > 0 || value.trim().length > 0);
+            setDropdownOpen(list.length > 0 || term.length > 0);
             setHighlightIndex(0);
             return list;
         } catch {
+            if (!mountedRef.current || requestId !== searchSeqRef.current) return [];
             setResults([]);
             setDropdownOpen(false);
             return [];
         } finally {
-            setIsSearching(false);
+            if (mountedRef.current && requestId === searchSeqRef.current) {
+                setIsSearching(false);
+            }
         }
     };
 
     const selectProduct = (product) => {
         onAddToCart(product);
         setLastAdded(product.name);
-        setTimeout(() => setLastAdded(null), 1500);
+        clearTimeout(lastAddedTimerRef.current);
+        lastAddedTimerRef.current = setTimeout(() => {
+            if (mountedRef.current) setLastAdded(null);
+        }, 1500);
+        searchSeqRef.current += 1;
         setQuery('');
         setResults([]);
         setDropdownOpen(false);
+        setIsSearching(false);
         inputRef.current?.focus();
     };
 
@@ -94,9 +117,12 @@ const ExpressSearch = ({ onAddToCart, lookupProduct }) => {
                 // Si hay > 1 resultado el dropdown quedará abierto para que elija
             }
         } else if (e.key === 'Escape') {
+            searchSeqRef.current += 1;
+            clearTimeout(debounceRef.current);
             setDropdownOpen(false);
             setQuery('');
             setResults([]);
+            setIsSearching(false);
         }
     };
 
@@ -124,7 +150,15 @@ const ExpressSearch = ({ onAddToCart, lookupProduct }) => {
                 />
                 {query && (
                     <button
-                        onClick={() => { setQuery(''); setResults([]); setDropdownOpen(false); inputRef.current?.focus(); }}
+                        onClick={() => {
+                            searchSeqRef.current += 1;
+                            clearTimeout(debounceRef.current);
+                            setQuery('');
+                            setResults([]);
+                            setDropdownOpen(false);
+                            setIsSearching(false);
+                            inputRef.current?.focus();
+                        }}
                         className="absolute right-4 text-slate-400 hover:text-slate-600"
                     >
                         <X size={18} />

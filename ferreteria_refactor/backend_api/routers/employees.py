@@ -11,12 +11,21 @@ from ..schemas.employees import (
     CommissionResponse, CommissionPayoutRequest, CommissionPayoutResponse
 )
 from ..dependencies import get_current_user
+from ..cache import get_cached, set_cached, invalidate_resource
 
 router = APIRouter(
     prefix="/employees",
     tags=["barbershop", "employees"],
     dependencies=[Depends(get_current_user)]
 )
+
+
+def _invalidate_employees_cache(tenant_id: str):
+    try:
+        invalidate_resource(tenant_id, "employees")
+    except Exception:
+        pass
+
 
 @router.get("", response_model=List[EmployeeResponse])
 def get_employees(
@@ -27,8 +36,14 @@ def get_employees(
     """
     Retrieve all employees for the current tenant.
     """
+    cached = get_cached(tenant_id, "employees", "all")
+    if cached is not None:
+        return cached
+
     employees = db.query(Employee).filter(Employee.tenant_id == tenant_id).all()
-    return employees
+    result = [EmployeeResponse.model_validate(employee).model_dump(mode="json") for employee in employees]
+    set_cached(tenant_id, "employees", result, "all", ttl=300)
+    return result
 
 @router.post("", response_model=EmployeeResponse, status_code=status.HTTP_201_CREATED)
 def create_employee(
@@ -47,6 +62,7 @@ def create_employee(
     db.add(new_employee)
     db.flush()
     db.commit()
+    _invalidate_employees_cache(tenant_id)
     return new_employee
 
 @router.put("/{employee_id}", response_model=EmployeeResponse)
@@ -69,6 +85,7 @@ def update_employee(
         setattr(employee, key, value)
 
     db.commit()
+    _invalidate_employees_cache(tenant_id)
     return employee
 
 @router.delete("/{employee_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -87,6 +104,7 @@ def delete_employee(
 
     employee.status = "INACTIVE"
     db.commit()
+    _invalidate_employees_cache(tenant_id)
     return None
 
 @router.get("/commissions", response_model=List[CommissionResponse])

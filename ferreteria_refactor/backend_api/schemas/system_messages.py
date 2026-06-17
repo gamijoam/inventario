@@ -18,6 +18,7 @@ class SystemMessageBase(BaseModel):
     level        : MessageLevel  = MessageLevel.INFO
     message_type : MessageType   = MessageType.BANNER
     version_tag  : Optional[str] = None
+    target_tenant_schema: Optional[str] = None
     starts_at    : Optional[datetime] = None
     expires_at   : Optional[datetime] = None
     is_active    : bool = True
@@ -31,10 +32,12 @@ class SystemMessageUpdate(BaseModel):
     level        : Optional[MessageLevel] = None
     message_type : Optional[MessageType] = None
     version_tag  : Optional[str]         = None
+    target_tenant_schema: Optional[str]  = None
     is_active    : Optional[bool]        = None
 
 class SystemMessageResponse(SystemMessageBase):
     id         : int
+    created_by_user_id: Optional[int] = None
     created_at : datetime
 
     model_config = ConfigDict(from_attributes=True)

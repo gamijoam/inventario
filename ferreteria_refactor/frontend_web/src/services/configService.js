@@ -4,7 +4,7 @@ const configService = {
     // Business Info
     getBusinessInfo: async () => {
         // GET /config/business
-        const response = await apiClient.get('/config/business');
+        const response = await apiClient.get('/config/business', { _silentNetworkError: true });
         return response.data;
     },
 
@@ -26,7 +26,7 @@ const configService = {
     // Currencies
     getCurrencies: async () => {
         // GET /config/currencies
-        const response = await apiClient.get('/config/currencies');
+        const response = await apiClient.get('/config/currencies', { _silentNetworkError: true });
         return response.data;
     },
 

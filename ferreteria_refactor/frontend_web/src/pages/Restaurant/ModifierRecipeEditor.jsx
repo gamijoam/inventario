@@ -30,7 +30,7 @@ const ModifierRecipeEditor = () => {
                 apiClient.get('/products?limit=1000')
             ]);
             setModifierGroups(groupsRes.data);
-            const parsedProducts = productsRes.data.map(p => ({
+            const parsedProducts = (Array.isArray(productsRes.data) ? productsRes.data : (productsRes.data?.items || [])).map(p => ({
                 ...p,
                 cost: parseFloat(p.cost_price || p.cost || 0),
                 price: parseFloat(p.price || 0),

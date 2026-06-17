@@ -4,11 +4,23 @@ from typing import List
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
+from ..cache import invalidate_resource
+from ..tenant_context import get_tenant_schema
 
 router = APIRouter(
     prefix="/categories",
     tags=["categories"]
 )
+
+
+def _invalidate_pos_category_cache():
+    try:
+        schema = get_tenant_schema()
+        invalidate_resource(schema, "pos_init")
+        invalidate_resource(schema, "pos-init")
+        invalidate_resource(schema, "catalog")
+    except Exception:
+        pass
 
 @router.get("/", response_model=List[schemas.CategoryResponse])
 @router.get("", response_model=List[schemas.CategoryResponse], include_in_schema=False)
@@ -73,6 +85,7 @@ def create_category(category: schemas.CategoryCreate, db: Session = Depends(get_
     }
     
     db.commit()
+    _invalidate_pos_category_cache()
     
     # Return independent data, NOT the ORM object
     return response_data
@@ -115,6 +128,7 @@ def update_category(category_id: int, category: schemas.CategoryUpdate, db: Sess
         db_category.is_no_kitchen_category = category.is_no_kitchen_category
     
     db.commit()
+    _invalidate_pos_category_cache()
     db.expunge(db_category)
     return db_category
 
@@ -143,5 +157,6 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
     
     db.delete(category)
     db.commit()
+    _invalidate_pos_category_cache()
     return {"message": "Category deleted successfully"}
 

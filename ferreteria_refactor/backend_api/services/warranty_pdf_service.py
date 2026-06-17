@@ -97,10 +97,16 @@ def generate_warranty_pdf(
     if not sale:
         raise HTTPException(status_code=404, detail="Venta no encontrada")
 
-    # Find IMEI products with warranty policies
+    # Buscar productos con política de garantía asignada (no solo IMEI)
     imei_items = []
     for detail in sale.details:
-        if not detail.product or not getattr(detail.product, 'has_imei', False):
+        if not detail.product:
+            continue
+
+        warranty_policy = getattr(detail.product, 'warranty_policy', None)
+        # Incluir si tiene política de garantía O si tiene IMEI
+        has_imei = getattr(detail.product, 'has_imei', False)
+        if not warranty_policy and not has_imei:
             continue
 
         serials = []
@@ -113,12 +119,8 @@ def generate_warranty_pdf(
         except Exception:
             pass
 
-        if not serials:
-            continue
-
-        warranty_policy = getattr(detail.product, 'warranty_policy', None)
         imei_items.append({
-            "product_name": detail.description or (detail.product.name if detail.product else "Producto"),
+            "product_name": detail.description or detail.product.name,
             "serials": serials,
             "quantity": detail.quantity,
             "warranty_policy": warranty_policy,
@@ -126,7 +128,10 @@ def generate_warranty_pdf(
         })
 
     if not imei_items:
-        raise HTTPException(status_code=400, detail="La venta no contiene productos con IMEI/serial")
+        raise HTTPException(
+            status_code=400,
+            detail="La venta no contiene productos con garantía asignada. Asigna una política de garantía al producto."
+        )
 
     # Business info
     business_config = {}
@@ -140,12 +145,12 @@ def generate_warranty_pdf(
     business_logo = business_config.get("business_logo", "")
 
     # Customer info
-    customer_name = sale.customer.full_name if sale.customer else "Cliente Genérico"
-    customer_doc = sale.customer.document_id if sale.customer else "N/A"
+    customer_name = sale.customer.name if sale.customer else "Cliente Genérico"
+    customer_doc = sale.customer.id_number if sale.customer else "N/A"
     customer_phone = sale.customer.phone if sale.customer else ""
     customer_email = sale.customer.email if sale.customer else ""
 
-    sale_date = sale.created_at.strftime("%d/%m/%Y %H:%M") if sale.created_at else "N/A"
+    sale_date = sale.date.strftime("%d/%m/%Y %H:%M") if sale.date else "N/A"
     sale_total = f"${sale.total_amount:,.2f}" if sale.currency == "USD" else f"Bs {sale.total_amount_bs:,.2f}"
 
     # ── Check if any item has a PDF template ──
@@ -166,11 +171,15 @@ def generate_warranty_pdf(
             sale_date, sale_total, sale_id,
         )
     else:
+        # Leer plantilla configurada (default 'moderno')
+        warranty_style = business_config.get("warranty_pdf_style") or "moderno"
+        warranty_logo_size = business_config.get("business_logo_size") or "medium"
         return _generate_basic_pdf(
             imei_items,
-            business_name, business_rif, business_address, business_phone,
+            business_name, business_rif, business_address, business_phone, business_logo, warranty_logo_size,
             customer_name, customer_doc, customer_phone, customer_email,
             sale_date, sale_total, sale_id,
+            style=warranty_style,
         )
 
 
@@ -264,17 +273,36 @@ def _fill_template_pdf(
         can.drawString(72, y, f"Producto: {item['product_name']}")
         y -= 14
         can.setFont("Helvetica", 9)
-        can.drawString(72, y, f"Cantidad: {item['quantity']}")
+        qty = int(item['quantity']) if float(item['quantity']) == int(float(item['quantity'])) else item['quantity']
+        can.drawString(72, y, f"Cantidad: {qty} unidad(es)")
         y -= 14
-        can.drawString(72, y, f"Seriales: {', '.join(item['serials'])}")
+        serials_text = ', '.join(item['serials']) if item['serials'] else 'N/A'
+        can.drawString(72, y, f"Seriales: {serials_text}")
         y -= 14
 
         wp = item.get('warranty_policy')
         if wp:
-            unit_map = {"DAYS": "días", "MONTHS": "meses", "YEARS": "años", "LIFETIME": "De por vida"}
-            dur_text = f"{wp.duration} {unit_map.get(wp.type, '')}" if wp.duration else unit_map.get(wp.type, "")
-            can.drawString(72, y, f"Cobertura: {wp.name} ({dur_text})")
-            y -= 14
+            unit_map = {"DAYS": "días", "MONTHS": "meses", "YEARS": "años", "LIFETIME": "de por vida"}
+            dur_text = f"{wp.duration} {unit_map.get(wp.type, 'días')}" if wp.duration else unit_map.get(wp.type, "")
+            # Línea 1: Nombre de la política
+            can.setFont("Helvetica-Bold", 9)
+            can.drawString(72, y, f"Garantía: {wp.name}")
+            y -= 13
+            # Línea 2: Duración
+            can.setFont("Helvetica", 9)
+            can.drawString(72, y, f"Duración: {dur_text}")
+            y -= 13
+            # Línea 3: Descripción si existe
+            if hasattr(wp, 'description') and wp.description:
+                can.setFont("Helvetica-Oblique", 8)
+                # Cortar descripción si es muy larga (max 90 chars por línea)
+                desc = wp.description
+                while desc:
+                    line = desc[:90]
+                    desc = desc[90:]
+                    can.drawString(72, y, line)
+                    y -= 12
+                can.setFont("Helvetica", 9)
 
         if item.get('warranty_expiration'):
             exp_date = item['warranty_expiration']
@@ -282,7 +310,9 @@ def _fill_template_pdf(
                 exp_str = exp_date.strftime("%d/%m/%Y")
             else:
                 exp_str = str(exp_date)
-            can.drawString(72, y, f"Vence: {exp_str}")
+            can.setFont("Helvetica-Bold", 9)
+            can.drawString(72, y, f"Fecha de vencimiento: {exp_str}")
+            can.setFont("Helvetica", 9)
             y -= 14
 
         # Separator between items
@@ -316,122 +346,23 @@ def _fill_template_pdf(
 
 def _generate_basic_pdf(
     imei_items: list,
-    business_name, business_rif, business_address, business_phone,
+    business_name, business_rif, business_address, business_phone, business_logo, business_logo_size,
     customer_name, customer_doc, customer_phone, customer_email,
     sale_date, sale_total, sale_id,
+    style: str = "moderno",
 ) -> bytes:
-    """Genera un PDF básico de garantía cuando no hay template subido."""
-    from reportlab.pdfgen import canvas
-    from reportlab.lib.pagesizes import letter
-    from reportlab.lib.units import mm
-
-    buffer = io.BytesIO()
-    can = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
-
-    # Header
-    can.setFont("Helvetica-Bold", 18)
-    can.drawCentredString(width / 2, height - 60, "CERTIFICADO DE GARANTÍA")
-
-    can.setStrokeColorRGB(0.2, 0.4, 0.6)
-    can.setLineWidth(2)
-    can.line(72, height - 75, width - 72, height - 75)
-
-    y = height - 100
-
-    # Business info
-    can.setFont("Helvetica-Bold", 13)
-    can.drawString(72, y, business_name or "Mi Negocio")
-    y -= 18
-    can.setFont("Helvetica", 10)
-    if business_rif:
-        can.drawString(72, y, f"RIF: {business_rif}")
-        y -= 14
-    if business_address:
-        can.drawString(72, y, business_address)
-        y -= 14
-    if business_phone:
-        can.drawString(72, y, f"Tel: {business_phone}")
-        y -= 22
-
-    # Sale info
-    can.setFont("Helvetica-Bold", 11)
-    can.drawString(72, y, "Datos de la Venta")
-    can.setFillColorRGB(0.9, 0.92, 0.95)
-    can.rect(70, y - 40, width - 140, 35, fill=1)
-    can.setFillColorRGB(0, 0, 0)
-    y -= 16
-    can.setFont("Helvetica", 10)
-    can.drawString(80, y, f"Venta #{sale_id}    |    Fecha: {sale_date}    |    Total: {sale_total}")
-    y -= 28
-
-    # Customer info
-    can.setFont("Helvetica-Bold", 11)
-    can.drawString(72, y, "Datos del Cliente")
-    can.setFillColorRGB(0.9, 0.92, 0.95)
-    can.rect(70, y - 40, width - 140, 35, fill=1)
-    can.setFillColorRGB(0, 0, 0)
-    y -= 16
-    can.setFont("Helvetica", 10)
-    can.drawString(80, y, f"Nombre: {customer_name}    |    Documento: {customer_doc}")
-    y -= 16
-    if customer_phone or customer_email:
-        contact = " | ".join(filter(None, [f"Tel: {customer_phone}", f"Email: {customer_email}"]))
-        can.drawString(80, y, contact)
-        y -= 28
-
-    # Equipment details
-    can.setFont("Helvetica-Bold", 11)
-    can.drawString(72, y, "Equipos Cubiertos por esta Garantía")
-    y -= 20
-
-    for item in imei_items:
-        # Box for each item
-        item_height = 70
-        can.setStrokeColorRGB(0.7, 0.7, 0.7)
-        can.setLineWidth(0.5)
-        can.roundRect(70, y - item_height + 10, width - 140, item_height, 4, fill=0)
-
-        can.setFont("Helvetica-Bold", 10)
-        can.drawString(80, y - 8, item['product_name'])
-
-        can.setFont("Helvetica", 9)
-        can.drawString(80, y - 22, f"Cantidad: {item['quantity']}")
-        can.drawString(80, y - 36, f"Seriales: {', '.join(item['serials'])}")
-
-        wp = item.get('warranty_policy')
-        if wp:
-            unit_map = {"DAYS": "días", "MONTHS": "meses", "YEARS": "años", "LIFETIME": "De por vida"}
-            dur_text = f"{wp.duration} {unit_map.get(wp.type, '')}" if wp.duration else unit_map.get(wp.type, "")
-            can.drawString(80, y - 50, f"Cobertura: {wp.name} ({dur_text})")
-
-        if item.get('warranty_expiration'):
-            exp = item['warranty_expiration']
-            exp_str = exp.strftime("%d/%m/%Y") if isinstance(exp, datetime) else str(exp)
-            exp_x = 400 if wp else 80
-            can.drawString(exp_x, y - 50, f"Vence: {exp_str}")
-
-        y -= item_height + 10
-
-    # Terms
-    y -= 20
-    can.setFont("Helvetica-Oblique", 8)
-    can.setFillColorRGB(0.4, 0.4, 0.4)
-    terms = (
-        "Esta garantía cubre defectos de fabricación. No cubre daños por mal uso, "
-        "accidentes, caídas, líquidos, o modificaciones no autorizadas. "
-        "Para hacer efectiva la garantía, presente este certificado junto con el comprobante de pago."
+    """
+    Dispatcher: genera el PDF usando la plantilla elegida por el tenant.
+    Si no se especifica style, intenta leerlo de business_config.warranty_pdf_style.
+    """
+    from .warranty_templates import render
+    return render(
+        style=style,
+        imei_items=imei_items,
+        business_name=business_name, business_rif=business_rif,
+        business_address=business_address, business_phone=business_phone,
+        business_logo=business_logo, business_logo_size=business_logo_size,
+        customer_name=customer_name, customer_doc=customer_doc,
+        customer_phone=customer_phone, customer_email=customer_email,
+        sale_date=sale_date, sale_total=sale_total, sale_id=sale_id,
     )
-    can.drawString(72, y, terms)
-
-    y -= 30
-    can.setStrokeColorRGB(0.3, 0.3, 0.3)
-    can.setLineWidth(0.5)
-    can.line(72, y, 250, y)
-    can.line(350, y, 520, y)
-    can.drawCentredString(161, y - 14, "Firma del Cliente")
-    can.drawCentredString(435, y - 14, "Firma Autorizada")
-
-    can.save()
-    buffer.seek(0)
-    return buffer.read()

@@ -42,8 +42,10 @@ from .routers.websocket import router as websocket_router
 from .routers.audit import router as audit_router
 from .routers.system import router as system_router
 from .routers.payment_methods import router as payment_methods_router
+from .routers.external_financing import router as external_financing_router
 from .routers.sync import router as sync_router
 from .routers.cloud import router as cloud_router
+from .routers.chatbot import router as chatbot_router
 from .routers.credits import router as credits_router
 from .routers.services import router as services_router
 from .routers.service_templates import router as service_templates_router
@@ -251,6 +253,7 @@ v1_router.include_router(audit_router, tags=["Auditoría"])
 v1_router.include_router(system_router, tags=["Sistema y Licencias"])
 v1_router.include_router(credits_router, tags=["Créditos y Cobranzas"])
 v1_router.include_router(payment_methods_router, tags=["Métodos de Pago"])
+v1_router.include_router(external_financing_router, tags=["Créditos Externos"])
 v1_router.include_router(sync_router, tags=["Sincronización Híbrida"])
 v1_router.include_router(warehouses_router, tags=["Almacenes"])
 v1_router.include_router(transfers_router, tags=["Traslados"])
@@ -262,6 +265,7 @@ v1_router.include_router(rma_router, tags=["Garantías RMA"])
 v1_router.include_router(price_lists_router, tags=["Listas de Precios"])
 v1_router.include_router(employees_router, tags=["Barbería y Empleados"])
 v1_router.include_router(cloud_router, tags=["Cloud Configuration"])
+v1_router.include_router(chatbot_router, tags=["ChatBot WhatsApp"])
 v1_router.include_router(warranties_router, tags=["Garantías"])
 v1_router.include_router(pharmacy_router, tags=["Farmacia"])
 from .routers.admin_tasks import router as admin_tasks_router # NEW: Admin Tasks
@@ -282,6 +286,7 @@ v1_router.include_router(admin_flags_router, tags=["Feature Flags"])
 from .routers import public_auth
 from .routers import organizations
 from .routers import inter_transfers, bloqueo as bloqueo_mod
+from .routers import pricing as pricing_mod
 v1_router.include_router(public_auth.router, tags=["Public Auth"])
 
 from .routers.modules.restaurant import tables as restaurant_tables
@@ -300,6 +305,7 @@ v1_router.include_router(restaurant_print.router, prefix="/restaurant")
 app.include_router(v1_router)
 app.include_router(organizations.router, prefix="/api/v1")
 app.include_router(inter_transfers.router, prefix="/api/v1")
+app.include_router(pricing_mod.router, prefix="/api/v1/config")
 app.include_router(bloqueo_mod.router,     prefix="/api/v1")
 
 # DEBUG ENDPOINT - Remove after debugging
@@ -317,8 +323,25 @@ def list_routes():
     return {"total": len(routes), "routes": routes}
 
 # HEALTH CHECK - Para detección de conexión
+@app.get("/api/v1/cache/stats")
+def cache_stats_endpoint():
+    """Estadísticas del caché Redis — solo superadmin"""
+    from .cache import cache_stats
+    return cache_stats()
+
+@app.get("/api/v1/cache/flush")
+def cache_flush_endpoint(tenant: str = None):
+    """Vaciar caché de un tenant o todo"""
+    from .cache import invalidate_tenant, invalidate_all
+    if tenant:
+        count = invalidate_tenant(tenant)
+        return {"flushed": count, "tenant": tenant}
+    count = invalidate_all()
+    return {"flushed": count, "scope": "all"}
+
 @app.get("/api/v1/health")
 def health_check():
+
     """Simple health check endpoint for connectivity testing"""
     return {"status": "ok", "service": "ferreteria-api"}
 
@@ -392,6 +415,8 @@ def repair_public_schema():
         sm_columns = [
             ("message_type", "VARCHAR(20) NOT NULL DEFAULT 'banner'"),
             ("version_tag",  "VARCHAR(20)"),
+            ("target_tenant_schema", "VARCHAR(120)"),
+            ("created_by_user_id", "INTEGER"),
         ]
 
         for col_name, col_type in sm_columns:
@@ -409,6 +434,13 @@ def repair_public_schema():
                     f"ALTER TABLE public.system_messages ADD COLUMN {col_name} {col_type}"
                 ))
                 print(f"[REPAIR] ✅ Columna {col_name} añadida.")
+
+        try:
+            conn.execute(text("UPDATE public.system_messages SET created_at = COALESCE(starts_at, NOW()) WHERE created_at IS NULL"))
+            conn.execute(text("ALTER TABLE public.system_messages ALTER COLUMN created_at SET DEFAULT NOW()"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_public_system_messages_target_tenant_schema ON public.system_messages(target_tenant_schema)"))
+        except Exception as e:
+            print(f"[REPAIR] Could not repair system_messages metadata: {e}")
 
         # 4. Reparar esquemas de inquilinos (Añadir is_menu_item a products)
         result = conn.execute(text("""
@@ -548,6 +580,24 @@ def startup_event():
         print("[INFO] ✅ Migración de multicajas completada.")
     except Exception as e:
         print(f"[ERROR] ⚠️ Error en migración de multicajas: {e}")
+
+    # NEW: image_url_original (para soporte de "eliminar fondo")
+    print("[INFO] Propagando columna image_url_original...")
+    try:
+        from .migrate_image_original import migrate_image_original
+        migrate_image_original(engine)
+        print("[INFO] ✅ Migración image_url_original completada.")
+    except Exception as e:
+        print(f"[ERROR] ⚠️ Error en migración image_url_original: {e}")
+
+    # NEW: tablas para audit de cambios masivos de precios
+    print("[INFO] Propagando tablas price_change_log...")
+    try:
+        from .migrate_price_change_log import migrate_price_change_log
+        migrate_price_change_log(engine)
+        print("[INFO] ✅ Migración price_change_log completada.")
+    except Exception as e:
+        print(f"[ERROR] ⚠️ Error en migración price_change_log: {e}")
     
     # FALLBACK: Create tables if they don't exist (for development/first run)
     # This ensures the app works even if migrations fail or DB is in inconsistent state

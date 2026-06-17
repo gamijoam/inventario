@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
 import { useHelp } from '../help/useHelp';
-import { Plus, FileText, DollarSign, Calendar, TrendingUp, Trash2 } from 'lucide-react';
+import { Plus, FileText, DollarSign, Calendar, TrendingUp, Trash2, Package, Upload, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../config/axios';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '../utils/apiErrors';
 
 const Purchases = () => {
     const navigate = useNavigate();
@@ -14,22 +15,25 @@ const Purchases = () => {
     const helpKey = 'purchases';
     const [purchases, setPurchases] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('ALL'); // ALL, PENDING, PARTIAL, PAID
+    const [filter, setFilter] = useState('ALL');
+
+    const formatMoney = (value) => `$${Number(value || 0).toFixed(2)}`;
+    const filterLabels = { ALL: 'Todas', PENDING: 'Pendientes', PARTIAL: 'Parciales', PAID: 'Pagadas' };
 
     useEffect(() => {
         fetchPurchases();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filter]);
 
     const fetchPurchases = async () => {
+        setLoading(true);
         try {
-            let endpoint = '/purchases';
-            if (filter !== 'ALL') {
-                endpoint = `/purchases?status=${filter}`;
-            }
+            const endpoint = filter !== 'ALL' ? `/purchases?status=${filter}` : '/purchases';
             const response = await apiClient.get(endpoint);
-            setPurchases(response.data);
+            setPurchases(Array.isArray(response.data) ? response.data : []);
         } catch (error) {
             console.error('Error fetching purchases:', error);
+            toast.error(getApiErrorMessage(error, 'Error al cargar compras'));
         } finally {
             setLoading(false);
         }
@@ -37,9 +41,9 @@ const Purchases = () => {
 
     const getStatusBadge = (status) => {
         const styles = {
-            PENDING: 'bg-red-100 text-red-700',
-            PARTIAL: 'bg-yellow-100 text-yellow-700',
-            PAID: 'bg-green-100 text-green-700'
+            PENDING: 'border-rose-200 bg-rose-50 text-rose-700',
+            PARTIAL: 'border-amber-200 bg-amber-50 text-amber-700',
+            PAID: 'border-emerald-200 bg-emerald-50 text-emerald-700'
         };
         const labels = {
             PENDING: 'Pendiente',
@@ -47,7 +51,7 @@ const Purchases = () => {
             PAID: 'Pagado'
         };
         return (
-            <span className={`px-2 py-1 rounded text-xs font-medium ${styles[status] || 'bg-gray-100 text-gray-700'}`}>
+            <span className={`inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-black uppercase tracking-wide ${styles[status] || 'border-slate-200 bg-slate-50 text-slate-600'}`}>
                 {labels[status] || status}
             </span>
         );
@@ -55,13 +59,13 @@ const Purchases = () => {
 
     const handleVoid = async (purchase) => {
         const ref = purchase.invoice_number || `#${purchase.id}`;
-        if (!window.confirm(`¿Anular la factura ${ref}? Esto revertirá el stock ingresado y no se puede deshacer.`)) return;
+        if (!window.confirm(`Anular la factura ${ref}? Esto revertira el stock ingresado y no se puede deshacer.`)) return;
         try {
             const res = await apiClient.delete(`/purchases/${purchase.id}`);
             toast.success(`Factura ${ref} anulada. Se revirtieron ${res.data.reversed_items?.length || 0} productos.`);
             fetchPurchases();
         } catch (err) {
-            toast.error(err.response?.data?.detail || 'Error al anular la factura');
+            toast.error(getApiErrorMessage(err, 'Error al anular la factura'));
         }
     };
 
@@ -69,143 +73,166 @@ const Purchases = () => {
         navigate(`/purchases/${purchaseId}`);
     };
 
+    const totalAmount = purchases.reduce((sum, purchase) => sum + Number(purchase.total_amount || 0), 0);
+    const paidAmount = purchases.reduce((sum, purchase) => sum + Number(purchase.paid_amount || 0), 0);
+    const pendingAmount = Math.max(totalAmount - paidAmount, 0);
+    const statusCounts = purchases.reduce((acc, purchase) => {
+        acc[purchase.payment_status] = (acc[purchase.payment_status] || 0) + 1;
+        return acc;
+    }, {});
+
     return (
-        <div className="p-4 md:p-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
-                <div>
-                    <h1 className="text-xl md:text-2xl font-bold text-gray-800">Compras</h1>
-                        <HelpButton contextKey={helpKey} onClick={help.open} />
-                    <p className="text-gray-600 text-sm">Gestión de compras y cuentas por pagar</p>
+        <div id="tour-purchases-container" className="space-y-4 p-4 md:p-6">
+            <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                <div className="flex flex-col gap-4 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                                <Package size={20} />
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-black text-slate-900">Compras</h1>
+                                <p className="text-sm font-semibold text-slate-500">Recepcion de inventario, facturas y cuentas por pagar.</p>
+                            </div>
+                            <HelpButton contextKey={helpKey} onClick={help.open} />
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
+                            <button
+                                onClick={() => navigate('/purchases/import')}
+                                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-600 transition-colors hover:border-indigo-300 hover:text-indigo-600"
+                                title="Importar historial desde Excel"
+                            >
+                                <Upload size={16} /> Importar
+                            </button>
+                        )}
+                        <button
+                            id="tour-purchases-add-btn"
+                            onClick={() => navigate('/purchases/new')}
+                            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-black text-white shadow-sm shadow-indigo-100 transition-colors hover:bg-indigo-700"
+                        >
+                            <Plus size={18} /> Nueva compra
+                        </button>
+                    </div>
                 </div>
-                {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
-                    <button
-                        onClick={() => navigate('/purchases/import')}
-                        className="flex items-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                        title="Importar historial desde Excel"
-                    >
-                        📥 Importar historial
-                    </button>
-                )}
-                <button
-                        id="tour-purchases-add-btn"
-                        onClick={() => navigate('/purchases/new')}
-                        className="flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl shadow transition-colors text-sm whitespace-nowrap"
-                    >
-                        <Plus size={18} className="mr-1.5" />
-                        Nueva Compra
-                    </button>
+
+                <div id="tour-purchases-summary" className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
+                    {[
+                        { label: 'Compras en vista', value: purchases.length, icon: FileText, cls: 'text-slate-900' },
+                        { label: 'Total comprado', value: formatMoney(totalAmount), icon: DollarSign, cls: 'text-indigo-600' },
+                        { label: 'Por pagar', value: formatMoney(pendingAmount), icon: TrendingUp, cls: pendingAmount > 0 ? 'text-amber-600' : 'text-emerald-600' },
+                    ].map(item => {
+                        const Icon = item.icon;
+                        return (
+                            <div key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">{item.label}</span>
+                                    <Icon size={16} className="text-slate-400" />
+                                </div>
+                                <div className={`mt-2 text-2xl font-black leading-none ${item.cls}`}>{item.value}</div>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
 
-            {/* Filters */}
-            <div className="flex flex-wrap gap-2 mb-4">
-                {['ALL', 'PENDING', 'PARTIAL', 'PAID'].map(status => (
-                    <button
-                        key={status}
-                        onClick={() => setFilter(status)}
-                        className={`px-3 md:px-4 py-2 rounded-lg font-medium transition-colors text-sm ${filter === status
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                    >
-                        {status === 'ALL' ? 'Todas' : status === 'PENDING' ? 'Pendientes' : status === 'PARTIAL' ? 'Parciales' : 'Pagadas'}
-                    </button>
-                ))}
+            <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="flex flex-wrap gap-1.5">
+                    {['ALL', 'PENDING', 'PARTIAL', 'PAID'].map(status => {
+                        const count = status === 'ALL' ? purchases.length : (statusCounts[status] || 0);
+                        const active = filter === status;
+                        return (
+                            <button
+                                key={status}
+                                onClick={() => setFilter(status)}
+                                className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs font-black transition-colors ${active ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:text-indigo-600'}`}
+                            >
+                                {filterLabels[status]}
+                                <span className={`rounded px-1.5 py-0.5 text-[10px] ${active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>{count}</span>
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
 
-            {/* Mobile Card View */}
-            <div className="md:hidden space-y-3">
+            <div className="space-y-3 md:hidden">
                 {loading ? (
-                    <div className="text-center py-10 text-gray-500">Cargando...</div>
+                    <div className="rounded-lg border border-slate-200 bg-white py-10 text-center text-sm font-semibold text-slate-500">Cargando compras...</div>
                 ) : purchases.length === 0 ? (
-                    <div className="text-center py-10 text-gray-500">No hay compras registradas</div>
+                    <div className="rounded-lg border border-dashed border-slate-300 bg-white py-10 text-center text-sm font-semibold text-slate-500">No hay compras registradas</div>
                 ) : (
                     purchases.map(purchase => (
                         <div
                             key={purchase.id}
                             onClick={() => handleViewDetails(purchase.id)}
-                            className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm active:bg-slate-50 transition-colors cursor-pointer"
+                            className="cursor-pointer rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors active:bg-slate-50"
                         >
-                            <div className="flex justify-between items-start mb-3">
-                                <div className="flex-1 min-w-0 mr-3">
-                                    <p className="font-semibold text-slate-800 truncate">{purchase.supplier?.name || 'N/A'}</p>
-                                    <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-                                        <Calendar size={12} />
-                                        <span>{new Date(purchase.purchase_date).toLocaleDateString()}</span>
-                                        {purchase.invoice_number && (
-                                            <>
-                                                <span className="text-slate-300">•</span>
-                                                <span className="flex items-center gap-1"><FileText size={12} />{purchase.invoice_number}</span>
-                                            </>
-                                        )}
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate font-black text-slate-900">{purchase.supplier?.name || 'Sin proveedor'}</p>
+                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-400">
+                                        <span className="inline-flex items-center gap-1"><Calendar size={12} />{new Date(purchase.purchase_date).toLocaleDateString()}</span>
+                                        <span className="inline-flex items-center gap-1"><FileText size={12} />{purchase.invoice_number || 'Sin factura'}</span>
                                     </div>
                                 </div>
                                 {getStatusBadge(purchase.payment_status)}
                             </div>
-                            <div className="flex items-end justify-between border-t border-slate-100 pt-3">
-                                <div className="flex gap-6">
-                                    <div>
-                                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total</p>
-                                        <p className="text-base font-bold text-slate-800">${Number(purchase.total_amount || 0).toFixed(2)}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Pagado</p>
-                                        <p className="text-base font-semibold text-green-600">${Number(purchase.paid_amount || 0).toFixed(2)}</p>
-                                    </div>
+                            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Total</p>
+                                    <p className="text-base font-black text-slate-900">{formatMoney(purchase.total_amount)}</p>
                                 </div>
-                                <span className="text-blue-600 text-xs font-semibold">
-                                    {purchase.payment_status === 'PAID' ? 'Ver Detalles →' : 'Ver / Pagar →'}
-                                </span>
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Pagado</p>
+                                    <p className="text-base font-black text-emerald-600">{formatMoney(purchase.paid_amount)}</p>
+                                </div>
                             </div>
                         </div>
                     ))
                 )}
             </div>
 
-            {/* Desktop Table View */}
-            <div className="hidden md:block bg-white rounded-xl shadow">
+            <div id="tour-purchases-list" className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:block">
                 <table className="w-full">
-                    <thead className="bg-gray-50 border-b">
+                    <thead className="border-b border-slate-200 bg-slate-50">
                         <tr>
-                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Fecha</th>
-                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Proveedor</th>
-                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Nro. Factura</th>
-                            <th className="text-right p-4 font-semibold text-gray-700 text-sm">Total</th>
-                            <th className="text-right p-4 font-semibold text-gray-700 text-sm">Pagado</th>
-                            <th className="text-center p-4 font-semibold text-gray-700 text-sm">Estado</th>
-                            <th className="text-right p-4 font-semibold text-gray-700 text-sm">Acciones</th>
+                            <th className="px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-slate-400">Fecha</th>
+                            <th className="px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-slate-400">Proveedor</th>
+                            <th className="px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-slate-400">Factura</th>
+                            <th className="px-4 py-3 text-right text-[11px] font-black uppercase tracking-wide text-slate-400">Total</th>
+                            <th className="px-4 py-3 text-right text-[11px] font-black uppercase tracking-wide text-slate-400">Pagado</th>
+                            <th className="px-4 py-3 text-center text-[11px] font-black uppercase tracking-wide text-slate-400">Estado</th>
+                            <th className="px-4 py-3 text-right text-[11px] font-black uppercase tracking-wide text-slate-400">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y">
+                    <tbody className="divide-y divide-slate-100">
                         {loading ? (
-                            <tr>
-                                <td colSpan="7" className="text-center p-8 text-gray-500">Cargando...</td>
-                            </tr>
+                            <tr><td colSpan="7" className="p-8 text-center text-sm font-semibold text-slate-500">Cargando compras...</td></tr>
                         ) : purchases.length === 0 ? (
-                            <tr>
-                                <td colSpan="7" className="text-center p-8 text-gray-500">No hay compras registradas</td>
-                            </tr>
+                            <tr><td colSpan="7" className="p-8 text-center text-sm font-semibold text-slate-500">No hay compras registradas</td></tr>
                         ) : (
                             purchases.map(purchase => (
-                                <tr key={purchase.id} className="hover:bg-gray-50">
-                                    <td className="p-4 text-sm whitespace-nowrap">{new Date(purchase.purchase_date).toLocaleDateString()}</td>
-                                    <td className="p-4 font-medium text-sm">{purchase.supplier?.name || 'N/A'}</td>
-                                    <td className="p-4 text-sm">{purchase.invoice_number || '-'}</td>
-                                    <td className="p-4 text-right font-bold text-sm">${Number(purchase.total_amount || 0).toFixed(2)}</td>
-                                    <td className="p-4 text-right text-green-600 font-medium text-sm">${Number(purchase.paid_amount || 0).toFixed(2)}</td>
-                                    <td className="p-4 text-center">{getStatusBadge(purchase.payment_status)}</td>
-                                    <td className="p-4 text-right">
-                                        <div className="flex items-center justify-end gap-2">
+                                <tr key={purchase.id} className="transition-colors hover:bg-slate-50">
+                                    <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-slate-600">{new Date(purchase.purchase_date).toLocaleDateString()}</td>
+                                    <td className="px-4 py-3 text-sm font-black text-slate-900">{purchase.supplier?.name || 'Sin proveedor'}</td>
+                                    <td className="px-4 py-3 text-sm font-mono font-semibold text-slate-500">{purchase.invoice_number || '-'}</td>
+                                    <td className="px-4 py-3 text-right text-sm font-black text-slate-900">{formatMoney(purchase.total_amount)}</td>
+                                    <td className="px-4 py-3 text-right text-sm font-black text-emerald-600">{formatMoney(purchase.paid_amount)}</td>
+                                    <td className="px-4 py-3 text-center">{getStatusBadge(purchase.payment_status)}</td>
+                                    <td className="px-4 py-3 text-right">
+                                        <div className="flex items-center justify-end gap-1.5">
                                             <button
                                                 onClick={() => handleViewDetails(purchase.id)}
-                                                className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                                                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-black text-indigo-600 transition-colors hover:bg-indigo-50"
                                             >
-                                                {purchase.payment_status === 'PAID' ? 'Ver Detalles' : 'Ver / Pagar'}
+                                                <Eye size={14} /> Ver
                                             </button>
                                             {user?.role === 'ADMIN' && (
                                                 <button
                                                     onClick={() => handleVoid(purchase)}
                                                     title="Anular factura"
-                                                    className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors"
+                                                    className="rounded-md p-1.5 text-rose-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
                                                 >
                                                     <Trash2 size={15} />
                                                 </button>

@@ -1,177 +1,137 @@
 /**
- * SharedCatalog.jsx
- * Sprint 4 — Multi-Empresa
- *
- * Catálogo compartido entre todas las empresas del grupo organizacional.
- * Permite ver, agregar e importar productos al catálogo compartido.
- *
- * Funcionalidades:
- *   - Ver todos los productos del catálogo de la organización
- *   - Buscar por nombre
- *   - Agregar un producto de esta empresa al catálogo compartido
- *   - Importar productos del catálogo a esta empresa (crea el producto localmente)
- *
- * Ruta: /org/catalog
- * Solo visible para usuarios con membresía en una organización multi-empresa.
+ * SharedCatalog.jsx - Catalogo compartido multiempresa
  */
-
-import React, {
-    useState, useEffect, useCallback, useRef
-} from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    BookOpen, Plus, Search, Download, Upload,
-    Package, Tag, DollarSign, X, Check,
-    Loader2, AlertCircle, RefreshCw, ChevronDown
+    BookOpen, Plus, Search, Download, Package, Tag, DollarSign,
+    X, Check, Loader2, RefreshCw, Layers, Building2, Info
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
-import { useAuth } from '../../context/AuthContext';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Formatea un número como precio USD */
 const fmt = (n) => `$${Number(n || 0).toFixed(2)}`;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-componente: ProductCard del catálogo compartido
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * CatalogProductCard — Tarjeta de un producto en el catálogo compartido.
- * Muestra nombre, SKU, categoría, precio sugerido y costo.
- * Incluye botón para importar el producto a la empresa actual.
- */
-function CatalogProductCard({ product, selected, onToggle, onImport, importing }) {
+function MetricCard({ icon: Icon, label, value, tone = 'indigo' }) {
+    const tones = {
+        indigo : 'bg-indigo-50 text-indigo-600 border-indigo-100',
+        emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+        amber  : 'bg-amber-50 text-amber-600 border-amber-100',
+        slate  : 'bg-slate-50 text-slate-600 border-slate-100',
+    };
     return (
-        <div
-            className={`
-                relative bg-white rounded-2xl border-2 transition-all cursor-pointer
-                ${selected
-                    ? 'border-indigo-400 shadow-md shadow-indigo-100'
-                    : 'border-slate-100 hover:border-indigo-200 hover:shadow-sm'}
-            `}
-            onClick={() => onToggle(product.id)}
-        >
-            {/* Indicador de selección */}
-            {selected && (
-                <div className="absolute top-3 right-3 w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center z-10">
-                    <Check size={12} className="text-white" strokeWidth={3} />
+        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+                <div>
+                    <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+                    <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
                 </div>
-            )}
-
-            <div className="p-4">
-                {/* Inicial / avatar del producto */}
-                <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center mb-3">
-                    <Package size={22} className="text-indigo-500" />
+                <div className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${tones[tone]}`}>
+                    <Icon size={18} />
                 </div>
-
-                {/* Nombre */}
-                <h3 className="font-bold text-slate-800 text-sm leading-snug mb-1 pr-6">
-                    {product.name}
-                </h3>
-
-                {/* SKU y categoría */}
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                    {product.sku && (
-                        <span className="text-[10px] font-mono text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
-                            {product.sku}
-                        </span>
-                    )}
-                    {product.category_name && (
-                        <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
-                            {product.category_name}
-                        </span>
-                    )}
-                </div>
-
-                {/* Precios */}
-                <div className="flex items-center justify-between text-xs">
-                    <div>
-                        <p className="text-slate-400 text-[10px]">Precio sugerido</p>
-                        <p className="font-black text-emerald-600">{fmt(product.suggested_price)}</p>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-slate-400 text-[10px]">Costo</p>
-                        <p className="font-semibold text-slate-600">{fmt(product.cost_price)}</p>
-                    </div>
-                </div>
-
-                {/* Botón importar individual */}
-                <button
-                    onClick={(e) => { e.stopPropagation(); onImport([product.id]); }}
-                    disabled={importing}
-                    className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors disabled:opacity-50"
-                >
-                    {importing
-                        ? <Loader2 size={12} className="animate-spin" />
-                        : <Download size={12} />
-                    }
-                    Importar a esta empresa
-                </button>
             </div>
         </div>
     );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-componente: Modal para agregar producto al catálogo compartido
-// ─────────────────────────────────────────────────────────────────────────────
+function CatalogProductCard({ product, selected, onToggle, onImport, importing }) {
+    return (
+        <article
+            className={`relative bg-white rounded-lg border transition-all cursor-pointer overflow-hidden ${selected ? 'border-indigo-400 shadow-md shadow-indigo-100' : 'border-slate-200 hover:border-indigo-200 hover:shadow-sm'}`}
+            onClick={() => onToggle(product.id)}
+        >
+            <div className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border ${selected ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>
+                        {selected ? <Check size={18} strokeWidth={3} /> : <Package size={18} />}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onToggle(product.id); }}
+                        className={`w-6 h-6 rounded-md border flex items-center justify-center ${selected ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-200 text-slate-300 hover:text-indigo-600'}`}
+                        title={selected ? 'Quitar de seleccion' : 'Seleccionar'}
+                    >
+                        {selected && <Check size={14} strokeWidth={3} />}
+                    </button>
+                </div>
 
-/**
- * AddToCatalogModal — Formulario para agregar un producto nuevo al catálogo compartido.
- * Los campos coinciden con SharedProductCreate en el backend.
- */
+                <div className="min-h-[72px]">
+                    <h3 className="font-black text-slate-900 text-sm leading-snug line-clamp-2">{product.name}</h3>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                        {product.sku && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                                <Tag size={10} /> {product.sku}
+                            </span>
+                        )}
+                        {product.category_name && (
+                            <span className="text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+                                {product.category_name}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-2.5">
+                        <p className="text-[10px] font-black uppercase text-emerald-600">Precio</p>
+                        <p className="text-sm font-black text-emerald-800">{fmt(product.suggested_price)}</p>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 border border-slate-100 p-2.5">
+                        <p className="text-[10px] font-black uppercase text-slate-400">Costo</p>
+                        <p className="text-sm font-black text-slate-700">{fmt(product.cost_price)}</p>
+                    </div>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onImport([product.id]); }}
+                    disabled={importing}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-black text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-50"
+                >
+                    {importing ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                    Importar
+                </button>
+            </div>
+        </article>
+    );
+}
+
 function AddToCatalogModal({ orgId, onClose, onSuccess }) {
-    // Estado del formulario
     const [form, setForm] = useState({
-        name           : '',
-        sku            : '',
-        description    : '',
-        cost_price     : '',
-        suggested_price: '',
-        category_name  : '',
+        name: '', sku: '', description: '', cost_price: '', suggested_price: '', category_name: '',
     });
     const [saving, setSaving] = useState(false);
     const [errors, setErrors] = useState({});
-
-    // Referencia al primer input para auto-foco
     const firstInputRef = useRef(null);
+
     useEffect(() => { firstInputRef.current?.focus(); }, []);
 
-    /** Actualizar un campo del formulario */
     const set = (field, value) => {
         setForm(prev => ({ ...prev, [field]: value }));
         if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }));
     };
 
-    /** Validar campos requeridos antes de guardar */
     const validate = () => {
         const errs = {};
-        if (!form.name.trim())            errs.name = 'El nombre es requerido';
-        if (form.suggested_price !== '' && isNaN(Number(form.suggested_price)))
-            errs.suggested_price = 'Precio inválido';
-        if (form.cost_price !== '' && isNaN(Number(form.cost_price)))
-            errs.cost_price = 'Costo inválido';
+        if (!form.name.trim()) errs.name = 'El nombre es requerido';
+        if (form.suggested_price !== '' && isNaN(Number(form.suggested_price))) errs.suggested_price = 'Precio invalido';
+        if (form.cost_price !== '' && isNaN(Number(form.cost_price))) errs.cost_price = 'Costo invalido';
         setErrors(errs);
         return Object.keys(errs).length === 0;
     };
 
-    /** Enviar el formulario al backend */
     const handleSave = async () => {
         if (!validate()) return;
         setSaving(true);
         try {
             await apiClient.post(`/organizations/${orgId}/catalog`, {
-                name           : form.name.trim(),
-                sku            : form.sku.trim() || null,
-                description    : form.description.trim() || null,
-                cost_price     : Number(form.cost_price)      || 0,
+                name: form.name.trim(),
+                sku: form.sku.trim() || null,
+                description: form.description.trim() || null,
+                cost_price: Number(form.cost_price) || 0,
                 suggested_price: Number(form.suggested_price) || 0,
-                category_name  : form.category_name.trim() || null,
+                category_name: form.category_name.trim() || null,
             });
-            toast.success('✅ Producto agregado al catálogo compartido');
+            toast.success('Producto agregado al catalogo compartido');
             onSuccess();
         } catch (err) {
             toast.error(err.response?.data?.detail || 'Error al guardar el producto');
@@ -181,149 +141,78 @@ function AddToCatalogModal({ orgId, onClose, onSuccess }) {
     };
 
     return (
-        /* Overlay */
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
-            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl">
-
-                {/* Header del modal */}
-                <div className="flex items-center justify-between p-5 border-b border-slate-100">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-indigo-100 rounded-xl flex items-center justify-center">
-                            <BookOpen size={18} className="text-indigo-600" />
+        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
+            <div className="bg-white rounded-lg w-full max-w-lg shadow-2xl overflow-hidden">
+                <div className="flex items-start justify-between gap-3 p-5 border-b border-slate-100">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
+                            <BookOpen size={18} className="text-white" />
                         </div>
-                        <div>
-                            <h2 className="font-black text-slate-800 text-base">Agregar al catálogo</h2>
-                            <p className="text-xs text-slate-400">Este producto estará disponible para todas las empresas del grupo</p>
+                        <div className="min-w-0">
+                            <h2 className="font-black text-slate-900">Agregar al catalogo</h2>
+                            <p className="text-xs text-slate-500">Quedara disponible para importar en las empresas del grupo.</p>
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
-                    >
+                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors">
                         <X size={18} />
                     </button>
                 </div>
 
-                {/* Cuerpo del formulario */}
-                <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
-
-                    {/* Nombre — requerido */}
+                <div className="p-5 space-y-4 max-h-[68vh] overflow-y-auto">
                     <div>
-                        <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                            Nombre del producto <span className="text-rose-500">*</span>
-                        </label>
+                        <label className="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1.5">Nombre *</label>
                         <input
                             ref={firstInputRef}
                             type="text"
                             value={form.name}
                             onChange={e => set('name', e.target.value)}
                             placeholder="Ej: Cable HDMI 2.0"
-                            className={`w-full px-4 py-2.5 rounded-xl border text-sm outline-none transition-colors
-                                ${errors.name
-                                    ? 'border-rose-300 focus:border-rose-500'
-                                    : 'border-slate-200 focus:border-indigo-400'}`}
+                            className={`w-full px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors ${errors.name ? 'border-rose-300 focus:border-rose-500' : 'border-slate-200 focus:border-indigo-400'}`}
                         />
-                        {errors.name && (
-                            <p className="text-rose-500 text-xs mt-1">{errors.name}</p>
-                        )}
+                        {errors.name && <p className="text-rose-500 text-xs mt-1">{errors.name}</p>}
                     </div>
 
-                    {/* SKU y categoría — en la misma fila */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1.5">SKU</label>
-                            <input
-                                type="text"
-                                value={form.sku}
-                                onChange={e => set('sku', e.target.value)}
-                                placeholder="HDMI-20-BLK"
-                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-400 text-sm outline-none transition-colors font-mono"
-                            />
+                            <label className="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1.5">SKU</label>
+                            <input type="text" value={form.sku} onChange={e => set('sku', e.target.value)} placeholder="HDMI-20-BLK" className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:border-indigo-400 text-sm outline-none font-mono" />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1.5">Categoría</label>
-                            <input
-                                type="text"
-                                value={form.category_name}
-                                onChange={e => set('category_name', e.target.value)}
-                                placeholder="Accesorios"
-                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-400 text-sm outline-none transition-colors"
-                            />
+                            <label className="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1.5">Categoria</label>
+                            <input type="text" value={form.category_name} onChange={e => set('category_name', e.target.value)} placeholder="Accesorios" className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:border-indigo-400 text-sm outline-none" />
                         </div>
                     </div>
 
-                    {/* Costo y precio sugerido */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1.5">Costo (USD)</label>
+                            <label className="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1.5">Costo USD</label>
                             <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={form.cost_price}
-                                    onChange={e => set('cost_price', e.target.value)}
-                                    placeholder="0.00"
-                                    className={`w-full pl-7 pr-4 py-2.5 rounded-xl border text-sm outline-none transition-colors
-                                        ${errors.cost_price ? 'border-rose-300' : 'border-slate-200 focus:border-indigo-400'}`}
-                                />
+                                <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input type="number" min="0" step="0.01" value={form.cost_price} onChange={e => set('cost_price', e.target.value)} placeholder="0.00" className={`w-full pl-8 pr-4 py-2.5 rounded-lg border text-sm outline-none ${errors.cost_price ? 'border-rose-300' : 'border-slate-200 focus:border-indigo-400'}`} />
                             </div>
-                            {errors.cost_price && (
-                                <p className="text-rose-500 text-xs mt-1">{errors.cost_price}</p>
-                            )}
+                            {errors.cost_price && <p className="text-rose-500 text-xs mt-1">{errors.cost_price}</p>}
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1.5">Precio sugerido (USD)</label>
+                            <label className="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1.5">Precio sugerido</label>
                             <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={form.suggested_price}
-                                    onChange={e => set('suggested_price', e.target.value)}
-                                    placeholder="0.00"
-                                    className={`w-full pl-7 pr-4 py-2.5 rounded-xl border text-sm outline-none transition-colors
-                                        ${errors.suggested_price ? 'border-rose-300' : 'border-slate-200 focus:border-indigo-400'}`}
-                                />
+                                <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input type="number" min="0" step="0.01" value={form.suggested_price} onChange={e => set('suggested_price', e.target.value)} placeholder="0.00" className={`w-full pl-8 pr-4 py-2.5 rounded-lg border text-sm outline-none ${errors.suggested_price ? 'border-rose-300' : 'border-slate-200 focus:border-indigo-400'}`} />
                             </div>
-                            {errors.suggested_price && (
-                                <p className="text-rose-500 text-xs mt-1">{errors.suggested_price}</p>
-                            )}
+                            {errors.suggested_price && <p className="text-rose-500 text-xs mt-1">{errors.suggested_price}</p>}
                         </div>
                     </div>
 
-                    {/* Descripción opcional */}
                     <div>
-                        <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                            Descripción <span className="text-slate-400 font-normal">(opcional)</span>
-                        </label>
-                        <textarea
-                            value={form.description}
-                            onChange={e => set('description', e.target.value)}
-                            placeholder="Descripción del producto para las otras empresas del grupo..."
-                            rows={3}
-                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-400 text-sm outline-none resize-none transition-colors"
-                        />
+                        <label className="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1.5">Descripcion</label>
+                        <textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder="Notas visibles para las otras empresas del grupo..." rows={3} className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:border-indigo-400 text-sm outline-none resize-none" />
                     </div>
                 </div>
 
-                {/* Botones de acción */}
                 <div className="p-5 border-t border-slate-100 flex gap-3">
-                    <button
-                        onClick={onClose}
-                        className="flex-1 py-3 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
-                    >
-                        Cancelar
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="flex-1 py-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                    >
+                    <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">Cancelar</button>
+                    <button onClick={handleSave} disabled={saving} className="flex-1 py-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                         {saving ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
-                        {saving ? 'Guardando...' : 'Agregar al catálogo'}
+                        {saving ? 'Guardando...' : 'Agregar'}
                     </button>
                 </div>
             </div>
@@ -331,84 +220,56 @@ function AddToCatalogModal({ orgId, onClose, onSuccess }) {
     );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Componente principal
-// ─────────────────────────────────────────────────────────────────────────────
-
 export default function SharedCatalog() {
-    const { user }  = useAuth();
-
-    // Estado del catálogo
-    const [products, setProducts]   = useState([]);    // Productos del catálogo compartido
-    const [loading, setLoading]     = useState(true);
-    const [search, setSearch]       = useState('');    // Filtro de búsqueda
-
-    // Estado de selección múltiple (para importar varios a la vez)
-    const [selected, setSelected]   = useState(new Set());
-
-    // Estado de los modales
+    const [products, setProducts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [selected, setSelected] = useState(new Set());
     const [showAddModal, setShowAddModal] = useState(false);
+    const [importing, setImporting] = useState(false);
+    const [orgId, setOrgId] = useState(null);
+    const [orgName, setOrgName] = useState('');
 
-    // Estado de operaciones en curso
-    const [importing, setImporting] = useState(false);  // Importando productos a esta empresa
-
-    // ID de la organización — se obtiene de localStorage (org_companies)
-    const [orgId, setOrgId]         = useState(null);
-    const [orgName, setOrgName]     = useState('');
-
-    // ── Detectar la organización del usuario ──────────────────────────────────
     useEffect(() => {
-        // Obtener org_id desde localStorage (viene en el login response)
-        // o como fallback desde el endpoint consolidated-mine
         const loadOrg = async () => {
             try {
-                // Primero intentar desde localStorage (más rápido, sin petición extra)
                 const stored = localStorage.getItem('org_companies');
                 if (stored) {
                     const orgs = JSON.parse(stored);
                     const current = orgs.find(o => o.is_current) || orgs[0];
                     if (current?.org_id) {
                         setOrgId(current.org_id);
-                        // Obtener nombre desde consolidated-mine
                         const consolidatedRes = await apiClient.get('/organizations/consolidated-mine');
                         setOrgName(consolidatedRes.data?.organization_name || 'Mi Grupo');
                         return;
                     }
                 }
-                // Fallback: endpoint directo
                 const consolidatedRes = await apiClient.get('/organizations/consolidated-mine');
                 const orgIdFromConsolidated = consolidatedRes.data?.organization_id;
                 if (orgIdFromConsolidated && orgIdFromConsolidated > 0) {
                     setOrgId(orgIdFromConsolidated);
                     setOrgName(consolidatedRes.data?.organization_name || 'Mi Grupo');
                 }
-            } catch {
-                // Sin organización
-            }
+            } catch {}
         };
         loadOrg();
     }, []);
 
-    // ── Cargar catálogo compartido ────────────────────────────────────────────
     const fetchCatalog = useCallback(async () => {
         if (!orgId) return;
         setLoading(true);
         try {
-            const res = await apiClient.get(`/organizations/${orgId}/catalog`, {
-                params: { search: search || undefined }
-            });
-            setProducts(res.data || []);
-        } catch (err) {
-            toast.error('Error al cargar el catálogo compartido');
+            const res = await apiClient.get(`/organizations/${orgId}/catalog`, { params: { search: search || undefined } });
+            setProducts(Array.isArray(res.data) ? res.data : (res.data?.items || []));
+        } catch {
+            toast.error('Error al cargar el catalogo compartido');
         } finally {
             setLoading(false);
         }
     }, [orgId, search]);
 
-    // Recargar cuando cambia el orgId o el filtro de búsqueda
     useEffect(() => { fetchCatalog(); }, [fetchCatalog]);
 
-    // ── Toggle de selección ───────────────────────────────────────────────────
     const toggleSelect = (id) => {
         setSelected(prev => {
             const next = new Set(prev);
@@ -417,38 +278,24 @@ export default function SharedCatalog() {
         });
     };
 
-    /** Seleccionar / deseleccionar todos */
     const toggleAll = () => {
-        if (selected.size === products.length) {
-            setSelected(new Set());
-        } else {
-            setSelected(new Set(products.map(p => p.id)));
-        }
+        if (selected.size === products.length) setSelected(new Set());
+        else setSelected(new Set(products.map(p => p.id)));
     };
 
-    // ── Importar productos a esta empresa ────────────────────────────────────
-    /**
-     * handleImport — Llama al endpoint /organizations/{id}/catalog/import
-     * con los IDs de los productos seleccionados.
-     * Crea los productos en el schema del tenant actual si no existen por SKU.
-     */
     const handleImport = async (ids = null) => {
         const toImport = ids || Array.from(selected);
-        if (toImport.length === 0) {
-            toast.error('Selecciona al menos un producto para importar');
-            return;
-        }
+        if (toImport.length === 0) return toast.error('Selecciona al menos un producto para importar');
         setImporting(true);
         try {
             const res = await apiClient.post(`/organizations/${orgId}/catalog/import`, {
-                product_ids        : toImport,
-                warehouse_id       : 1,
-                initial_stock      : 0,
+                product_ids: toImport,
+                warehouse_id: 1,
+                initial_stock: 0,
                 use_suggested_price: true,
             });
-            const { imported, skipped, message } = res.data;
-            toast.success(`✅ ${message}`);
-            // Limpiar selección después de importar
+            const { imported = 0, skipped = 0, message } = res.data || {};
+            toast.success(message || `${imported} importados, ${skipped} omitidos`);
             setSelected(new Set());
         } catch (err) {
             toast.error(err.response?.data?.detail || 'Error al importar productos');
@@ -457,171 +304,117 @@ export default function SharedCatalog() {
         }
     };
 
-    // ── Render: sin organización ──────────────────────────────────────────────
+    const selectedProducts = products.filter(p => selected.has(p.id));
+    const avgPrice = products.length ? products.reduce((sum, p) => sum + Number(p.suggested_price || 0), 0) / products.length : 0;
+    const categories = new Set(products.map(p => p.category_name).filter(Boolean));
+
     if (!loading && !orgId) {
         return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-                <div className="text-center max-w-sm">
-                    <BookOpen size={48} className="text-slate-300 mx-auto mb-4" />
-                    <h2 className="text-xl font-bold text-slate-700 mb-2">Sin catálogo compartido</h2>
-                    <p className="text-slate-400 text-sm">
-                        No perteneces a ningún grupo empresarial.
-                        Contacta al administrador para habilitar el catálogo compartido.
-                    </p>
-                </div>
+            <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg p-10 text-center">
+                <BookOpen size={42} className="text-slate-300 mx-auto mb-3" />
+                <h2 className="text-lg font-black text-slate-700 mb-1">Sin catalogo compartido</h2>
+                <p className="text-slate-500 text-sm">No perteneces a ningun grupo empresarial.</p>
             </div>
         );
     }
 
-    // ── Render principal ──────────────────────────────────────────────────────
     return (
-        <div className="min-h-screen bg-slate-50">
-            <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
-
-                {/* ── Header ── */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <BookOpen size={20} className="text-indigo-600" />
-                            <h1 className="text-xl font-black text-slate-900">Catálogo compartido</h1>
+        <div className="space-y-5 max-w-6xl">
+            <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div className="flex items-start gap-3 min-w-0">
+                        <div className="w-11 h-11 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-100 shrink-0">
+                            <BookOpen size={22} className="text-white" />
                         </div>
-                        <p className="text-sm text-slate-400">
-                            {orgName} • {products.length} producto{products.length !== 1 ? 's' : ''} disponibles para todas las empresas
-                        </p>
+                        <div className="min-w-0">
+                            <p className="text-[11px] font-black uppercase tracking-wide text-indigo-500">Operacion empresarial</p>
+                            <h1 className="text-2xl font-black text-slate-950 truncate">Catalogo compartido</h1>
+                            <p className="text-sm text-slate-500">Biblioteca central de productos para importar entre empresas.</p>
+                        </div>
                     </div>
-                    {/* Botón agregar al catálogo */}
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        disabled={!orgId}
-                        className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors shadow-sm shadow-indigo-200 disabled:opacity-50"
-                    >
-                        <Plus size={16} />
-                        Agregar producto
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {orgName && (
+                            <span className="inline-flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-black text-slate-600">
+                                <Building2 size={14} /> {orgName}
+                            </span>
+                        )}
+                        <button onClick={() => setShowAddModal(true)} disabled={!orgId} className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-lg shadow-indigo-100 disabled:opacity-50">
+                            <Plus size={16} /> Agregar producto
+                        </button>
+                    </div>
                 </div>
+            </div>
 
-                {/* ── Barra de búsqueda + acciones de selección ── */}
-                <div className="flex gap-3 flex-wrap">
-                    {/* Búsqueda */}
-                    <div className="relative flex-1 min-w-[200px]">
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+                <MetricCard icon={Package} label="Productos" value={products.length} tone="indigo" />
+                <MetricCard icon={Layers} label="Categorias" value={categories.size} tone="slate" />
+                <MetricCard icon={Check} label="Seleccionados" value={selected.size} tone={selected.size > 0 ? 'emerald' : 'slate'} />
+                <MetricCard icon={DollarSign} label="Precio prom." value={fmt(avgPrice)} tone="emerald" />
+            </div>
+
+            <section className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-4 flex flex-col xl:flex-row xl:items-center gap-3 border-b border-slate-100">
+                    <div className="relative flex-1 min-w-[220px]">
                         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            placeholder="Buscar producto en el catálogo..."
-                            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-400 transition-colors"
-                        />
+                        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar producto en el catalogo" className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
                     </div>
-
-                    {/* Botón seleccionar todos */}
-                    {products.length > 0 && (
-                        <button
-                            onClick={toggleAll}
-                            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 transition-colors"
-                        >
-                            <Check size={15} />
-                            {selected.size === products.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
+                    <div className="flex flex-wrap gap-2">
+                        {products.length > 0 && (
+                            <button onClick={toggleAll} className="flex items-center gap-2 px-3 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 transition-colors">
+                                <Check size={15} /> {selected.size === products.length ? 'Limpiar seleccion' : 'Seleccionar todo'}
+                            </button>
+                        )}
+                        {selected.size > 0 && (
+                            <button onClick={() => handleImport()} disabled={importing} className="flex items-center gap-2 px-3 py-2.5 text-sm font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-60">
+                                {importing ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+                                Importar {selected.size}
+                            </button>
+                        )}
+                        <button onClick={fetchCatalog} disabled={loading} className="p-2.5 text-slate-500 hover:text-indigo-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 transition-colors" title="Refrescar catalogo">
+                            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                         </button>
-                    )}
-
-                    {/* Botón importar seleccionados */}
-                    {selected.size > 0 && (
-                        <button
-                            onClick={() => handleImport()}
-                            disabled={importing}
-                            className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors disabled:opacity-60"
-                        >
-                            {importing
-                                ? <Loader2 size={15} className="animate-spin" />
-                                : <Download size={15} />
-                            }
-                            Importar {selected.size} seleccionado{selected.size !== 1 ? 's' : ''}
-                        </button>
-                    )}
-
-                    {/* Botón refrescar */}
-                    <button
-                        onClick={fetchCatalog}
-                        disabled={loading}
-                        className="p-2.5 text-slate-400 hover:text-indigo-600 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 transition-colors"
-                        title="Refrescar catálogo"
-                    >
-                        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                    </button>
+                    </div>
                 </div>
 
-                {/* ── Banner informativo ── */}
-                <div className="flex items-start gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
-                    <BookOpen size={16} className="text-indigo-500 shrink-0 mt-0.5" />
-                    <p className="text-xs text-indigo-700">
-                        <span className="font-bold">¿Cómo funciona?</span> Los productos del catálogo compartido
-                        son una biblioteca central para todo el grupo. Al importar un producto, se crea una copia
-                        en tu empresa con el precio sugerido. Los cambios en el catálogo no afectan las copias ya importadas.
-                    </p>
-                </div>
+                {selectedProducts.length > 0 && (
+                    <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100 flex flex-wrap items-center gap-2 text-xs text-emerald-800">
+                        <Info size={14} />
+                        <span className="font-bold">Importacion:</span>
+                        <span>se crean productos locales con stock 0 y precio sugerido.</span>
+                    </div>
+                )}
 
-                {/* ── Grid de productos ── */}
                 {loading ? (
-                    /* Estado de carga */
                     <div className="flex items-center justify-center py-16">
                         <div className="text-center">
-                            <Loader2 size={36} className="text-indigo-400 animate-spin mx-auto mb-3" />
-                            <p className="text-slate-400 text-sm">Cargando catálogo compartido...</p>
+                            <Loader2 size={32} className="text-indigo-500 animate-spin mx-auto mb-3" />
+                            <p className="text-slate-500 text-sm font-semibold">Cargando catalogo compartido...</p>
                         </div>
                     </div>
                 ) : products.length === 0 ? (
-                    /* Sin productos */
-                    <div className="flex flex-col items-center justify-center py-16 text-center">
-                        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
-                            <Package size={28} className="text-slate-400" />
+                    <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+                        <div className="w-14 h-14 bg-slate-100 rounded-lg flex items-center justify-center mb-4">
+                            <Package size={26} className="text-slate-400" />
                         </div>
-                        <h3 className="font-bold text-slate-600 mb-1">
-                            {search ? 'Sin resultados' : 'Catálogo vacío'}
-                        </h3>
-                        <p className="text-slate-400 text-sm max-w-xs">
-                            {search
-                                ? `No hay productos que coincidan con "${search}"`
-                                : 'Todavía no hay productos en el catálogo compartido. Sé el primero en agregar uno.'}
-                        </p>
+                        <h3 className="font-black text-slate-700 mb-1">{search ? 'Sin resultados' : 'Catalogo vacio'}</h3>
+                        <p className="text-slate-500 text-sm max-w-sm">{search ? `No hay productos que coincidan con "${search}"` : 'Agrega productos base para que las empresas del grupo puedan importarlos.'}</p>
                         {!search && (
-                            <button
-                                onClick={() => setShowAddModal(true)}
-                                className="mt-4 flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors"
-                            >
-                                <Plus size={15} />
-                                Agregar primer producto
+                            <button onClick={() => setShowAddModal(true)} className="mt-4 flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors">
+                                <Plus size={15} /> Agregar primer producto
                             </button>
                         )}
                     </div>
                 ) : (
-                    /* Grid de tarjetas */
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                         {products.map(product => (
-                            <CatalogProductCard
-                                key={product.id}
-                                product={product}
-                                selected={selected.has(product.id)}
-                                onToggle={toggleSelect}
-                                onImport={handleImport}
-                                importing={importing}
-                            />
+                            <CatalogProductCard key={product.id} product={product} selected={selected.has(product.id)} onToggle={toggleSelect} onImport={handleImport} importing={importing} />
                         ))}
                     </div>
                 )}
+            </section>
 
-            </div>
-
-            {/* ── Modal para agregar producto al catálogo ── */}
             {showAddModal && orgId && (
-                <AddToCatalogModal
-                    orgId={orgId}
-                    onClose={() => setShowAddModal(false)}
-                    onSuccess={() => {
-                        setShowAddModal(false);
-                        fetchCatalog();  // Recargar catálogo
-                    }}
-                />
+                <AddToCatalogModal orgId={orgId} onClose={() => setShowAddModal(false)} onSuccess={() => { setShowAddModal(false); fetchCatalog(); }} />
             )}
         </div>
     );

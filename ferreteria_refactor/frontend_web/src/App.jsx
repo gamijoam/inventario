@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import OwnerProtectedRoute from './components/OwnerProtectedRoute';
 import { CartProvider } from './context/CartContext';
 import { CashProvider } from './context/CashContext';
 import { ConfigProvider } from './context/ConfigContext';
@@ -13,6 +14,7 @@ import { Toaster } from 'react-hot-toast';
 import AppWithCloudConfig from './components/setup/AppWithCloudConfig';
 import { Capacitor } from '@capacitor/core';
 import AndroidBackButton from './components/common/AndroidBackButton';
+import ChunkReloadGuard from './components/ChunkReloadGuard';
 
 // Eager imports — critical path only
 import OnboardingWizard from './components/onboarding/OnboardingWizard';
@@ -34,6 +36,8 @@ const Categories = React.lazy(() => import('./pages/Categories'));
 const Inventory = React.lazy(() => import('./pages/Inventory'));
 const POS = React.lazy(() => import('./pages/POS'));
 const CashClose = React.lazy(() => import('./pages/CashClose'));
+const POSExpress = React.lazy(() => import('./pages/POSExpress'));
+const ExternalFinancing = React.lazy(() => import('./pages/ExternalFinancing'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const Purchases = React.lazy(() => import('./pages/Purchases'));
 const CreatePurchase  = React.lazy(() => import('./pages/Purchases/CreatePurchase'));
@@ -95,11 +99,14 @@ const SupportTickets = React.lazy(() => import('./pages/SupportTickets'));
 const MiSuscripcion = React.lazy(() => import('./pages/MiSuscripcion'));
 const FuncionesPage = React.lazy(() => import('./pages/Settings/FuncionesPage'));
 // Multi-empresa — Sprint 3
+const OrgPanel = React.lazy(() => import('./pages/Org/OrgPanel'));
+const OrgMembers = React.lazy(() => import('./pages/Org/OrgMembers'));
 const ConsolidatedDashboard = React.lazy(() => import('./pages/Org/ConsolidatedDashboard'));
 // Multi-empresa — Sprint 4
 const SharedCatalog = React.lazy(() => import('./pages/Org/SharedCatalog'));
 // Multi-empresa — Sprint 5
 const InterCompanyTransfers = React.lazy(() => import('./pages/Org/InterCompanyTransfers'));
+const StockSearch = React.lazy(() => import('./pages/Org/StockSearch'));
 // Multi-empresa — Sprint 6
 const OrgConfig = React.lazy(() => import('./pages/Org/OrgConfig'));
 
@@ -273,6 +280,7 @@ function App() {
           containerStyle={{ zIndex: 99999, top: 16, left: 16 }}
         />
         <AppWithCloudConfig>
+          <ChunkReloadGuard />
           <AutoSyncProvider>
             <WebSocketProvider>
               <NotificationProvider>
@@ -285,6 +293,7 @@ function App() {
                         <Suspense fallback={SuspenseFallback}>
                         <Routes>
                           <Route path="/login" element={<Login />} />
+                          <Route path="/owner/login" element={<Login ownerMode />} />
                           <Route path="/forgot-password" element={<ForgotPassword />} />
                           <Route path="/reset-password" element={<ResetPassword />} />
 
@@ -313,21 +322,45 @@ function App() {
                           {/* Standalone POS Routes (No Dashboard Layout) */}
                           <Route element={<ProtectedRoute roles={['ADMIN', 'CASHIER']} />}>
                             <Route path="/pos" element={<POS />} />
+                            <Route path="/pos-express" element={<POSExpress />} />
                             <Route path="/cash-close" element={<CashClose />} />
+                          </Route>
+
+                          {/* Owner Portal Routes - outside operative dashboard layout */}
+                          <Route path="/owner" element={
+                            <OwnerProtectedRoute>
+                              <OrgPanel />
+                            </OwnerProtectedRoute>
+                          }>
+                            <Route index element={<Navigate to="dashboard" replace />} />
+                            <Route path="dashboard" element={<ConsolidatedDashboard />} />
+                            <Route path="transfers" element={<InterCompanyTransfers />} />
+                            <Route path="stock-search" element={<StockSearch />} />
+                            <Route path="catalog" element={<SharedCatalog />} />
+                            <Route path="admin" element={<OrgConfig />} />
+                            <Route path="members" element={<Navigate to="/owner/admin" replace />} />
+                            <Route path="config" element={<Navigate to="/owner/admin" replace />} />
                           </Route>
 
                           {/* Dashboard Layout Routes */}
                           <Route element={<ProtectedRoute />}>
                             <Route element={<DashboardLayout />}>
                               <Route path="/" element={<OnboardingGate><Dashboard /></OnboardingGate>} />
-                              {/* Multi-empresa: dashboard consolidado del grupo */}
-                              <Route path="/org/dashboard" element={<ConsolidatedDashboard />} />
-                              {/* Multi-empresa: catálogo compartido del grupo */}
-                              <Route path="/org/catalog" element={<SharedCatalog />} />
-                              {/* Multi-empresa: transferencias de stock entre empresas */}
-                              <Route path="/org/transfers" element={<InterCompanyTransfers />} />
-                              {/* Multi-empresa: configuración del grupo */}
-                              <Route path="/org/config" element={<OrgConfig />} />
+                              {/* Panel Multi-Empresa con layout propio */}
+                              <Route path="/org" element={
+                                <OwnerProtectedRoute>
+                                  <OrgPanel />
+                                </OwnerProtectedRoute>
+                              }>
+                                <Route index element={<ConsolidatedDashboard />} />
+                                <Route path="dashboard" element={<ConsolidatedDashboard />} />
+                                <Route path="transfers" element={<InterCompanyTransfers />} />
+                                <Route path="stock-search" element={<StockSearch />} />
+                                <Route path="catalog" element={<SharedCatalog />} />
+                                <Route path="admin" element={<OrgConfig />} />
+                                <Route path="members" element={<Navigate to="/org/admin" replace />} />
+                                <Route path="config" element={<Navigate to="/org/admin" replace />} />
+                              </Route>
 
                               {/* Unified Inventory Center */}
                               <Route path="/inventory-center" element={
@@ -344,7 +377,11 @@ function App() {
                               <Route path="/transfers" element={<Navigate to="/inventory-center?tab=traslados" replace />} />
                               <Route path="/transfers/external/out" element={<Navigate to="/inventory-center?tab=traslados" replace />} />
                               <Route path="/transfers/external/in" element={<Navigate to="/inventory-center?tab=traslados" replace />} />
-                              <Route path="/inventory/serialized-reception" element={<Navigate to="/inventory-center?tab=seriales" replace />} />
+                              <Route path="/inventory/serialized-reception" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <SerializedReception />
+                                </ProtectedRoute>
+                              } />
 
                               {/* Old Inventory Routes (kept for reference)
                               <Route path="/products" element={
@@ -478,7 +515,7 @@ function App() {
                               <Route path="/hr/commissions" element={<Navigate to="/reports" replace />} />
 
                               {/* Unified Reports Center */}
-                              <Route path="/reports" element={
+                                <Route path="/reports" element={
                                 <ProtectedRoute roles={['ADMIN']}>
                                   <ReportsCenter />
                                 </ProtectedRoute>

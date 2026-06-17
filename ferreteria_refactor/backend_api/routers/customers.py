@@ -1,16 +1,43 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from typing import List, Optional
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
+from ..cache import get_cached, set_cached, invalidate_resource, TTL
+from ..tenant_context import get_tenant_schema
 
 router = APIRouter(
     prefix="/customers",
     tags=["customers"]
 )
+
+
+def _invalidate_customers_cache():
+    try:
+        invalidate_resource(get_tenant_schema(), "customers")
+    except Exception:
+        pass
+
+
+def _serialize_customer(customer):
+    return {
+        "id": customer.id,
+        "name": customer.name,
+        "id_number": customer.id_number,
+        "phone": customer.phone,
+        "email": customer.email,
+        "address": customer.address,
+        "credit_limit": str(customer.credit_limit or 0),
+        "payment_term_days": customer.payment_term_days if customer.payment_term_days is not None else 15,
+        "unique_uuid": getattr(customer, "unique_uuid", None),
+        "is_blocked": bool(customer.is_blocked),
+        "is_active": customer.is_active if customer.is_active is not None else True,
+    }
+
 
 @router.get("/")
 @router.get("", include_in_schema=False)
@@ -21,18 +48,37 @@ def read_customers(
     include_inactive: bool = Query(default=False, description="Incluir clientes inactivos (soft-deleted)"),
     db: Session = Depends(get_db)
 ):
+    schema = get_tenant_schema()
+    cache_extra = f"skip={skip}:limit={limit}:q={q or ''}:inactive={include_inactive}"
+    cached = get_cached(schema, "customers", cache_extra)
+    if cached is not None:
+        return cached
+
     query = db.query(models.Customer)
     if not include_inactive:
         query = query.filter(models.Customer.is_active == True)
     if q:
         search = f"%{q}%"
-        query = query.filter(
-            (models.Customer.name.ilike(search)) |
-            (models.Customer.id_number.ilike(search))
-        )
+        filters = [
+            models.Customer.name.ilike(search),
+            models.Customer.id_number.ilike(search),
+            models.Customer.phone.ilike(search),
+        ]
+        digits = "".join(ch for ch in q if ch.isdigit())
+        if digits.startswith("0") and len(digits) > 1:
+            filters.append(models.Customer.phone.ilike(f"%58{digits[1:]}%"))
+        elif digits and not digits.startswith("58"):
+            filters.append(models.Customer.phone.ilike(f"%58{digits}%"))
+        query = query.filter(or_(*filters))
     total = query.count()
     items = query.offset(skip).limit(limit).all()
-    return {"items": items, "total": total, "has_more": (skip + limit) < total}
+    result = {
+        "items": [_serialize_customer(item) for item in items],
+        "total": total,
+        "has_more": (skip + limit) < total
+    }
+    set_cached(schema, "customers", result, cache_extra, ttl=TTL.get("customers", 120))
+    return result
 
 @router.post("/", response_model=schemas.CustomerRead)
 @router.post("", response_model=schemas.CustomerRead, include_in_schema=False)
@@ -41,7 +87,7 @@ async def create_customer(customer: schemas.CustomerCreate, db: Session = Depend
     if customer.id_number:
         exists = db.query(models.Customer).filter(models.Customer.id_number == customer.id_number).first()
         if exists:
-            raise HTTPException(status_code=400, detail="Customer with this ID Number already exists")
+            raise HTTPException(status_code=400, detail="Ya existe un cliente con esa cedula/RIF.")
             
     db_customer = models.Customer(**customer.model_dump())
     db.add(db_customer)
@@ -62,6 +108,7 @@ async def create_customer(customer: schemas.CustomerCreate, db: Session = Depend
     }
 
     db.commit()
+    _invalidate_customers_cache()
     # db.refresh(db_customer) # REMOVED
 
     # Broadcast customer created
@@ -107,9 +154,19 @@ async def create_customer(customer: schemas.CustomerCreate, db: Session = Depend
 async def update_customer(customer_id: int, customer_data: schemas.CustomerCreate, db: Session = Depends(get_db)):
     db_customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not db_customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+    update_payload = customer_data.model_dump(exclude_unset=True)
+    new_id_number = update_payload.get("id_number")
+    if new_id_number:
+        exists = db.query(models.Customer).filter(
+            models.Customer.id_number == new_id_number,
+            models.Customer.id != customer_id
+        ).first()
+        if exists:
+            raise HTTPException(status_code=400, detail="Ya existe un cliente con esa cedula/RIF.")
         
-    for key, value in customer_data.model_dump(exclude_unset=True).items():
+    for key, value in update_payload.items():
         setattr(db_customer, key, value)
         
     # Capture data before commit
@@ -127,6 +184,7 @@ async def update_customer(customer_id: int, customer_data: schemas.CustomerCreat
     }
 
     db.commit()
+    _invalidate_customers_cache()
     # db.refresh(db_customer) # REMOVED
 
     # Broadcast customer updated
@@ -188,7 +246,7 @@ def get_customer_financial_status(customer_id: int, db: Session = Depends(get_db
         
         customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
         if not customer:
-            raise HTTPException(status_code=404, detail="Customer not found")
+            raise HTTPException(status_code=404, detail="Cliente no encontrado")
         
         # Calculate total debt from balance_pending of unpaid credit sales
         # Use coalesce to handle None
@@ -241,10 +299,11 @@ def delete_customer(customer_id: int, db: Session = Depends(get_db)):
     """Soft-delete a customer (set is_active=False)"""
     customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
     customer.is_active = False
     db.commit()
+    _invalidate_customers_cache()
     return {"status": "success", "message": "Cliente desactivado"}
 
 
@@ -253,10 +312,11 @@ def deactivate_customer(customer_id: int, db: Session = Depends(get_db)):
     """Deactivate (soft-delete) a customer"""
     customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
     customer.is_active = False
     db.commit()
+    _invalidate_customers_cache()
     return {"status": "success", "message": "Cliente desactivado"}
 
 
@@ -265,7 +325,7 @@ def activate_customer(customer_id: int, db: Session = Depends(get_db)):
     """Reactivate a soft-deleted customer"""
     customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
     customer.is_active = True
     db.commit()
@@ -277,7 +337,7 @@ from ..dependencies import cashier_or_admin
 def create_customer_payment(customer_id: int, payment: schemas.CustomerPaymentCreate, db: Session = Depends(get_db)):
     db_customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not db_customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
         
     new_payment = models.Payment(
         customer_id=customer_id,

@@ -1,13 +1,86 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
-import { Printer, Download } from 'lucide-react';
+import { Printer, Download, Zap } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { API_ROOT_URL } from '../../../config/constants';
 import { toast } from 'react-hot-toast';
+import apiClient from '../../../config/axios';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 
 const EstacionPOSTab = () => {
     const { user } = useAuth();
+    const [autoPrint, setAutoPrint] = useState(false);
+    const [loadingAutoPrint, setLoadingAutoPrint] = useState(true);
+    const [savingAutoPrint, setSavingAutoPrint] = useState(false);
+
+    // ── Lista de precio predeterminada + visibilidad Bs (por tenant) ──
+    const [priceLists, setPriceLists] = useState([]);
+    const [defaultPriceListId, setDefaultPriceListId] = useState('');  // '' = Precio Base
+    const [showBs, setShowBs] = useState(true);
+    const [savingPricing, setSavingPricing] = useState(false);
+
+    useEffect(() => {
+        // Cargar listas de precio activas
+        apiClient.get('/price-lists/', { params: { active_only: true } })
+            .then(r => setPriceLists(r.data || []))
+            .catch(() => {});
+        // Cargar config actual (manejar 404 si no existe la key)
+        apiClient.get('/config/pos_default_price_list_id')
+            .then(r => setDefaultPriceListId(r.data?.value || ''))
+            .catch(() => setDefaultPriceListId(''));
+        apiClient.get('/config/pos_show_bs')
+            .then(r => setShowBs(r.data?.value !== 'false'))
+            .catch(() => setShowBs(true));
+    }, []);
+
+    const saveDefaultPriceList = async (value) => {
+        setSavingPricing(true);
+        setDefaultPriceListId(value);
+        try {
+            await apiClient.put('/config/pos_default_price_list_id', { key: 'pos_default_price_list_id', value: value || '' });
+            toast.success(value
+                ? `Lista predeterminada: ${priceLists.find(l => String(l.id) === String(value))?.name || value}`
+                : 'Precio base predeterminado');
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, 'No se pudo guardar la lista predeterminada'));
+        } finally { setSavingPricing(false); }
+    };
+
+    const toggleShowBs = async () => {
+        const next = !showBs;
+        setShowBs(next);
+        try {
+            await apiClient.put('/config/pos_show_bs', { key: 'pos_show_bs', value: next ? 'true' : 'false' });
+            toast.success(next ? 'Mostrando equivalente en Bs' : 'Bs oculto en el POS');
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, 'No se pudo guardar la preferencia de Bs'));
+        }
+    };
+
+    useEffect(() => {
+        apiClient.get('/config/pos/auto-print-ticket')
+            .then(r => setAutoPrint(r.data.auto_print_ticket))
+            .catch(() => {})
+            .finally(() => setLoadingAutoPrint(false));
+    }, []);
+
+    const toggleAutoPrint = async () => {
+        setSavingAutoPrint(true);
+        try {
+            const newValue = !autoPrint;
+            const res = await apiClient.post('/config/pos/auto-print-ticket', { enabled: newValue });
+            setAutoPrint(res.data.auto_print_ticket);
+            toast.success(res.data.auto_print_ticket
+                ? '✅ Impresión automática activada'
+                : 'Impresión automática desactivada');
+        } catch (err) {
+            console.error('Error guardando auto-print:', err);
+            toast.error(getApiErrorMessage(err, 'No se pudo guardar la configuracion de impresion'));
+        } finally {
+            setSavingAutoPrint(false);
+        }
+    };
 
     const getMagicLink = () => {
         let token = localStorage.getItem('token') || '';
@@ -38,24 +111,123 @@ const EstacionPOSTab = () => {
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="space-y-5 animate-in fade-in duration-300">
+
+            {/* ── Precios en el POS — Solo ADMIN ──────────────────────────────── */}
+            {user?.role === 'ADMIN' && (
+                <Card className="rounded-lg border-slate-200 shadow-sm">
+                    <CardHeader className="p-5 pb-3">
+                        <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
+                            <Zap className="h-5 w-5 text-emerald-600" />
+                            Precios en el Punto de Venta
+                        </CardTitle>
+                        <CardDescription className="text-xs font-medium text-slate-500">
+                            Configura qué lista de precios se aplica por defecto al agregar
+                            productos al carrito, y si se muestra el equivalente en Bolívares.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3 p-5 pt-0">
+                        {/* Lista de precio predeterminada */}
+                        <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                            <p className="font-bold text-slate-800 text-sm mb-1">Lista de precio predeterminada</p>
+                            <p className="text-xs text-slate-500 mb-3">
+                                Se aplica automáticamente al agregar cada producto al carrito.
+                            </p>
+                            <select
+                                value={defaultPriceListId}
+                                onChange={e => saveDefaultPriceList(e.target.value)}
+                                disabled={savingPricing}
+                                className="w-full px-3 py-2.5 rounded-md border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-50"
+                            >
+                                <option value="">Precio Base (divisa)</option>
+                                {priceLists.map(l => (
+                                    <option key={l.id} value={l.id}>{l.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Toggle mostrar Bs */}
+                        <div className="flex items-center justify-between gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                            <div>
+                                <p className="font-bold text-slate-800 text-sm">Mostrar equivalente en Bolívares</p>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    {showBs
+                                        ? 'Activo: mostrando precios en $ y Bs'
+                                        : 'Inactivo: solo divisa ($), sin Bs'}
+                                </p>
+                            </div>
+                            <button
+                                onClick={toggleShowBs}
+                                className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none ${
+                                    showBs ? 'bg-emerald-600' : 'bg-slate-300'
+                                }`}
+                            >
+                                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${
+                                    showBs ? 'translate-x-6' : 'translate-x-0'
+                                }`} />
+                            </button>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* ── Auto Print Ticket — Solo ADMIN ──────────────────────────────── */}
+            {user?.role === 'ADMIN' && (
+                <Card className="rounded-lg border-slate-200 shadow-sm">
+                    <CardHeader className="p-5 pb-3">
+                        <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
+                            <Zap className="h-5 w-5 text-indigo-600" />
+                            Impresión Automática de Ticket
+                        </CardTitle>
+                        <CardDescription className="text-xs font-medium text-slate-500">
+                            Cuando está activo, el ticket se imprime automáticamente al confirmar el pago, sin necesidad de presionar "Imprimir Ticket".
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-5 pt-0">
+                        <div className="flex items-center justify-between gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                            <div>
+                                <p className="font-bold text-slate-800 text-sm">Imprimir ticket al confirmar pago</p>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    {autoPrint
+                                        ? 'Activo: el ticket se imprime automaticamente'
+                                        : 'Inactivo: flujo normal, requiere confirmar impresion'}
+                                </p>
+                            </div>
+                            <button
+                                onClick={toggleAutoPrint}
+                                disabled={loadingAutoPrint || savingAutoPrint}
+                                className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none disabled:opacity-50 ${
+                                    autoPrint ? 'bg-indigo-600' : 'bg-slate-300'
+                                }`}
+                            >
+                                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${
+                                    autoPrint ? 'translate-x-6' : 'translate-x-0'
+                                }`} />
+                            </button>
+                        </div>
+                        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-3 py-2 mt-3 flex items-center gap-1.5">
+                            Requiere que la impresora este configurada y el Hardware Bridge este activo.
+                        </p>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* HARDWARE BRIDGE - MANUAL CONFIGURATION GUIDE */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+            <Card className="rounded-lg border-slate-200 shadow-sm">
+                <CardHeader className="p-5 pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
                         <Printer className="h-5 w-5 text-indigo-600" />
                         Hardware Bridge (Puente de Impresión)
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-xs font-medium text-slate-500">
                         Sigue estos pasos para conectar tu impresora local:
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-4 p-5 pt-0">
 
                     {/* STEP 1: DOWNLOAD */}
-                    <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
-                        <div className="h-8 w-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold shrink-0">1</div>
+                    <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div className="h-8 w-8 bg-indigo-50 text-indigo-600 rounded-md flex items-center justify-center font-black shrink-0">1</div>
                         <div className="flex-1">
                             <h4 className="font-bold text-slate-800">Descargar e Instalar</h4>
                             <p className="text-sm text-slate-600 mb-3">
@@ -70,7 +242,7 @@ const EstacionPOSTab = () => {
                             <a
                                 href="/downloads/ConexionImpresora.zip"
                                 download
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors shadow-sm"
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-md text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors shadow-sm"
                             >
                                 <Download size={16} />
                                 Descargar ConexionImpresora.zip
@@ -79,8 +251,8 @@ const EstacionPOSTab = () => {
                     </div>
 
                     {/* STEP 2: CONFIGURE */}
-                    <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
-                        <div className="h-8 w-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold shrink-0">2</div>
+                    <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div className="h-8 w-8 bg-indigo-50 text-indigo-600 rounded-md flex items-center justify-center font-black shrink-0">2</div>
                         <div className="flex-1 space-y-4">
                             <div>
                                 <h4 className="font-bold text-slate-800">Configuración Manual</h4>
@@ -93,7 +265,7 @@ const EstacionPOSTab = () => {
                             <div className="grid gap-2">
                                 <label className="text-xs font-semibold text-slate-500 uppercase">Servidor WebSocket (Host)</label>
                                 <div className="flex gap-2">
-                                    <code className="flex-1 bg-white border border-slate-200 p-2 rounded text-sm font-mono text-slate-700">
+                                    <code className="flex-1 bg-white border border-slate-200 p-2 rounded-md text-sm font-mono text-slate-700">
                                         {(() => {
                                             let host = API_ROOT_URL;
                                             if (host.startsWith('https://')) host = host.replace('https://', 'wss://');
@@ -128,7 +300,7 @@ const EstacionPOSTab = () => {
                                 <div className="grid gap-2">
                                     <label className="text-xs font-semibold text-slate-500 uppercase">Tenant ID (Empresa)</label>
                                     <div className="flex gap-2">
-                                        <code className="flex-1 bg-white border border-slate-200 p-2 rounded text-sm font-mono text-slate-700">
+                                        <code className="flex-1 bg-white border border-slate-200 p-2 rounded-md text-sm font-mono text-slate-700">
                                             {(() => {
                                                 if (user?.tenant_id && user.tenant_id !== 'public') {
                                                     return user.tenant_id;
@@ -186,7 +358,7 @@ const EstacionPOSTab = () => {
                                 <div className="grid gap-2">
                                     <label className="text-xs font-semibold text-slate-500 uppercase">Client ID (Nombre Caja)</label>
                                     <div className="flex gap-2">
-                                        <code className="flex-1 bg-white border border-slate-200 p-2 rounded text-sm font-mono text-slate-700">
+                                        <code className="flex-1 bg-white border border-slate-200 p-2 rounded-md text-sm font-mono text-slate-700">
                                             caja-1
                                         </code>
                                         <Button
@@ -207,7 +379,7 @@ const EstacionPOSTab = () => {
                             <div className="grid gap-2">
                                 <label className="text-xs font-semibold text-slate-500 uppercase">Tu Token de Acceso</label>
                                 <div className="flex gap-2">
-                                    <code className="flex-1 bg-white border border-slate-200 p-2 rounded text-sm font-mono text-slate-700 break-all truncate">
+                                    <code className="flex-1 bg-white border border-slate-200 p-2 rounded-md text-sm font-mono text-slate-700 break-all truncate">
                                         {localStorage.getItem('token')?.replace(/^"|"$/g, '').substring(0, 20) || '...'}...
                                     </code>
                                     <Button
@@ -227,8 +399,8 @@ const EstacionPOSTab = () => {
                     </div>
 
                     {/* STEP 3: CONNECT */}
-                    <div className="flex items-start gap-4 p-4 bg-green-50 rounded-lg border border-green-100">
-                        <div className="h-8 w-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-bold shrink-0">3</div>
+                    <div className="flex items-start gap-4 p-4 bg-emerald-50 rounded-lg border border-emerald-100">
+                        <div className="h-8 w-8 bg-emerald-100 text-emerald-600 rounded-md flex items-center justify-center font-black shrink-0">3</div>
                         <div>
                             <h4 className="font-bold text-slate-800">Conectar</h4>
                             <p className="text-sm text-slate-600">

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import FinancingStep from './FinancingStep';
 import { createPortal } from 'react-dom';
 import { DollarSign, CreditCard, Banknote, CheckCircle, Calculator, Users, X, UserPlus, User, Receipt, Layers, Trash2, Tag, Calendar, FileText } from 'lucide-react';
 import { createPrescription } from '../../services/pharmacyService';
@@ -15,6 +16,7 @@ import CustomerSearch from './CustomerSearch';
 import CurrencyInput from '../common/CurrencyInput';
 import { cn } from '../../lib/utils';
 import CreditoCelularModal from '../credit/CreditoCelularModal';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 
 // Local formatCurrency removed to use ConfigContext one globaly
 
@@ -30,7 +32,7 @@ const formatLocalCurrency = (amount) => {
 };
 
 const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, cart, onConfirm, warehouseId, initialCustomer, quoteId, customSubmit = null, discountUSD = 0, cartDiscount = null }) => {
-    const { getActiveCurrencies, convertPrice, getExchangeRate, paymentMethods, formatCurrency, featureFlags } = useConfig();
+    const { getActiveCurrencies, convertPrice, getExchangeRate, paymentMethods, formatCurrency, featureFlags, business} = useConfig();
     const { subscribe } = useWebSocket();
     const { session } = useCash();
     const allCurrencies = [{ id: 'base', symbol: 'USD', name: 'Dólar', rate: 1, is_anchor: true }, ...getActiveCurrencies()];
@@ -46,9 +48,12 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
     // Credit sale states
     const [isCreditSale, setIsCreditSale]         = useState(false);
+    const [isFinancingMode, setIsFinancingMode]   = useState(false);
+    const [financingData, setFinancingData]       = useState(null);
     const [showCalcCredito, setShowCalcCredito]   = useState(false);
     const [customers, setCustomers] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [loadingCustomers, setLoadingCustomers] = useState(false);
 
     // Quick Customer Modal
     const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
@@ -92,9 +97,30 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
             const activeCurrencies = getActiveCurrencies();
             const primaryLocal = activeCurrencies.find(c => c.symbol !== 'USD' && !c.is_anchor);
             const defaultCurrency = primaryLocal ? primaryLocal.symbol : 'USD';
-            const defaultMethod = primaryLocal
-                ? (paymentMethods.find(m => m.is_active && m.name.toLowerCase().includes(defaultCurrency.toLowerCase()))?.name || paymentMethods.find(m => m.is_active)?.name || `Efectivo ${defaultCurrency}`)
-                : 'Efectivo USD';
+            const activeMethods = paymentMethods.filter(m => m.is_active);
+            const isDefaultUSD = !primaryLocal;
+
+            // Buscar el método por defecto que coincida con la moneda inicial
+            let defaultMethod;
+            if (isDefaultUSD) {
+                defaultMethod = activeMethods.find(m =>
+                    m.name.toLowerCase().includes('usd') ||
+                    m.name.toLowerCase().includes('dólar') ||
+                    m.name.toLowerCase().includes('dollar')
+                )?.name || activeMethods[0]?.name || 'Efectivo USD';
+            } else {
+                // Moneda local (Bs, VES, etc.) — buscar método que NO sea USD
+                defaultMethod = activeMethods.find(m =>
+                    m.name.toLowerCase().includes('ves') ||
+                    m.name.toLowerCase().includes('bs') ||
+                    m.name.toLowerCase().includes('bolívar') ||
+                    m.name.toLowerCase().includes('bolivar') ||
+                    (m.name.toLowerCase().includes('efectivo') && !m.name.toLowerCase().includes('usd'))
+                )?.name || activeMethods.find(m =>
+                    !m.name.toLowerCase().includes('usd')
+                )?.name || activeMethods[0]?.name || `Efectivo ${defaultCurrency}`;
+            }
+
             setPayments([{ amount: '', currency: defaultCurrency, method: defaultMethod, payment_date: new Date().toISOString().split('T')[0] }]);
             setIsCreditSale(false);
 
@@ -105,7 +131,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 setSelectedCustomer(null);
             }
 
-            fetchCustomers();
+            setCustomers(initialCustomer ? [initialCustomer] : []);
         }
     }, [isOpen, initialCustomer]);
 
@@ -125,14 +151,29 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         };
     }, [subscribe]);
 
-    const fetchCustomers = async () => {
-        try {
-            const response = await apiClient.get('/customers', { params: { limit: 500 } });
-            setCustomers(response.data.items || response.data);
-        } catch (error) {
-            console.error('Error fetching customers:', error);
+    const fetchCustomers = useCallback(async (query = '') => {
+        const q = query.trim();
+        if (q.length < 2) {
+            setCustomers(selectedCustomer ? [selectedCustomer] : []);
+            return;
         }
-    };
+        setLoadingCustomers(true);
+        try {
+            const response = await apiClient.get('/customers', { params: { q, limit: 20 } });
+            const items = response.data.items || response.data;
+            setCustomers(prev => {
+                const merged = selectedCustomer ? [selectedCustomer, ...items] : items;
+                return merged.filter((customer, index, arr) =>
+                    customer?.id && arr.findIndex(c => c?.id === customer.id) === index
+                );
+            });
+        } catch (error) {
+            console.error('Error searching customers:', error);
+            setCustomers(selectedCustomer ? [selectedCustomer] : []);
+        } finally {
+            setLoadingCustomers(false);
+        }
+    }, [selectedCustomer]);
 
     const handleQuickCustomerSuccess = (newCustomer) => {
         // Add new customer directly to list for immediate visibility in CustomerSearch
@@ -211,6 +252,42 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     const updatePayment = (index, field, value) => {
         const newPayments = [...payments];
         newPayments[index][field] = value;
+
+        // Si cambia la moneda → buscar automáticamente el método más apropiado
+        if (field === 'currency') {
+            const isUSD = value === 'USD' || value === '$';
+            const activeMethods = paymentMethods.filter(m => m.is_active);
+
+            // Buscar método que coincida con la moneda seleccionada
+            let bestMethod = null;
+            if (isUSD) {
+                // Para USD: buscar "Efectivo (USD)" o similar
+                bestMethod = activeMethods.find(m =>
+                    m.name.toLowerCase().includes('usd') ||
+                    m.name.toLowerCase().includes('dólar') ||
+                    m.name.toLowerCase().includes('dollar')
+                );
+            } else {
+                // Para Bs u otra moneda local: buscar "Efectivo (VES)" o similar
+                bestMethod = activeMethods.find(m =>
+                    m.name.toLowerCase().includes('ves') ||
+                    m.name.toLowerCase().includes('bs') ||
+                    m.name.toLowerCase().includes('bolívar') ||
+                    m.name.toLowerCase().includes('bolivar') ||
+                    m.name.toLowerCase().includes('efectivo') && !m.name.toLowerCase().includes('usd')
+                );
+            }
+
+            // Si no encontró método específico, usar el primer método activo
+            if (!bestMethod && activeMethods.length > 0) {
+                bestMethod = activeMethods[0];
+            }
+
+            if (bestMethod) {
+                newPayments[index]['method'] = bestMethod.name;
+            }
+        }
+
         setPayments(newPayments);
     };
 
@@ -295,7 +372,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     discount_type: item.is_discount_active ? "PERCENT" : "NONE",
                     salesperson_id: item.salesperson_id || null,
                     employee_id: item.employee_id || null,
-                    serial_numbers: item.serial_numbers || []
+                    serial_numbers: item.serial_numbers || [],
+                    combo_serials: item.combo_serials || null
                 })),
                 is_credit: isCreditSale,
                 customer_id: selectedCustomer ? selectedCustomer.id : null,
@@ -341,48 +419,100 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
             onClose();
         } catch (error) {
             console.error('Error creating sale:', error);
-            let errorMessage = "Error desconocido al procesar venta";
+            toast.error(getApiErrorMessage(error, 'No se pudo procesar la venta'));
+            setProcessing(false);
+        }
+    };
 
-            if (error.response?.data?.detail) {
-                const detail = error.response.data.detail;
-                if (typeof detail === 'string') {
-                    errorMessage = detail;
-                } else if (Array.isArray(detail)) {
-                    errorMessage = detail.map(e => {
-                        const field = e.loc?.[e.loc.length - 1];
-                        let msg = e.msg;
+    const processFinancingSale = async (fData) => {
+        setProcessing(true);
+        try {
+            const saleData = {
+                total_amount: totalUSD,
+                total_amount_bs: totalBs || (totalUSD * defaultBsRate),
+                change_amount: 0,
+                change_currency: "USD",
+                currency: "USD",
+                exchange_rate: defaultBsRate,
+                payment_method: fData.financer_name,
+                payments: fData.initial_payment > 0 ? [{
+                    amount: fData.initial_payment,
+                    currency: "USD",
+                    payment_method: fData.financer_name + " (Inicial)",
+                    exchange_rate: 1
+                }] : [],
+                items: cart.map(item => ({
+                    product_id: item.product_id,
+                    quantity: item.quantity,
+                    unit_price: item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_usd),
+                    subtotal: (item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_usd)) * item.quantity,
+                    discount: item.is_discount_active ? item.discount_percentage : 0,
+                    discount_type: item.is_discount_active ? "PERCENT" : "NONE",
+                    serial_numbers: item.serial_numbers || [],
+                    combo_serials: item.combo_serials || null
+                })),
+                is_credit: false,
+                customer_id: selectedCustomer ? selectedCustomer.id : null,
+                warehouse_id: (!warehouseId || warehouseId === 'all') ? null : warehouseId,
+                notes: "Financiamiento: " + fData.financer_name,
+                total_discount_usd: discountUSD || 0,
+            };
+            const response = await apiClient.post('/products/sales/', saleData);
+            // El backend devuelve { status: "success", sale_id: N }
+            const responseData = response?.data || response;
+            const saleId = responseData?.sale_id || responseData?.id;
 
-                        if (msg.includes('Decimal input should be')) msg = "debe ser un número válido o no estar vacío";
-                        else if (msg.includes('field required')) msg = "es obligatorio";
-
-                        const fieldMap = {
-                            'amount': 'El monto del pago',
-                            'payment_method': 'El método de pago',
-                            'reference': 'La referencia'
-                        };
-
-                        return `${fieldMap[field] || field}: ${msg}`;
-                    }).join('. ');
-                } else {
-                    errorMessage = JSON.stringify(detail);
+            // Registrar el financiamiento (no bloquear la venta si falla)
+            if (saleId) {
+                try {
+                    await apiClient.post('/external-financing/', {
+                        sale_id: saleId,
+                        customer_id: selectedCustomer ? selectedCustomer.id : null,
+                        financer_name: fData.financer_name,
+                        total_price: fData.total_price,
+                        initial_payment: fData.initial_payment,
+                        initial_currency: "USD",
+                        financed_amount: fData.financed_amount,
+                    });
+                } catch (finErr) {
+                    // El financiamiento falló pero la venta ya se creó
+                    console.warn('Financiamiento no registrado:', finErr?.response?.data?.detail || finErr?.message);
+                    toast('Venta creada. El registro de financiamiento falló, verifica en Reportes.', { icon: '⚠️' });
                 }
-            } else if (error.message) {
-                errorMessage = error.message;
             }
 
-            toast.error(errorMessage);
+            // Enviar estructura completa que espera el POS
+            onConfirm?.({
+                payments: fData.initial_payment > 0 ? [{
+                    amount: fData.initial_payment,
+                    currency: 'USD',
+                    payment_method: fData.financer_name + ' (Inicial)',
+                }] : [],
+                totalPaidUSD: fData.initial_payment,
+                changeUSD: 0,
+                isCreditSale: false,
+                isFinancing: true,
+                financingData: fData,
+                customer: selectedCustomer || null,
+                saleId: saleId,
+            });
+            setProcessing(false);
+            onClose();
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, 'No se pudo procesar la venta financiada'));
             setProcessing(false);
         }
     };
 
     const handleConfirm = async () => {
+        if (isFinancingMode && financingData) { await processFinancingSale(financingData); return; }
         if (isCreditSale && !selectedCustomer) {
             toast.error('Debe seleccionar un cliente para venta a crédito');
             return;
         }
 
         // Use the strict checking here too
-        if (!isCreditSale && !isComplete) {
+        if (!isCreditSale && !isComplete && !isFinancingMode) {
             toast.error('El pago no está completo');
             return;
         }
@@ -466,6 +596,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     const celularEnCarrito = cart.find(item => item.has_imei);
     const clienteSeleccionado = selectedCustomer;
 
+
     return (
         <>
         {showCalcCredito && celularEnCarrito && createPortal(
@@ -476,611 +607,381 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 cliente={clienteSeleccionado}
                 sessionId={session?.id || null}
                 exchangeRate={defaultBsRate}
-                onVentaExitosa={() => {
-                    // La venta fue registrada — cerrar TODO y limpiar el carrito
-                    setShowCalcCredito(false);
-                    onClose?.();
-                    onConfirm?.();   // limpia el carrito en el POS
-                }}
+                onVentaExitosa={() => { setShowCalcCredito(false); onClose?.(); onConfirm?.(); }}
             />,
             document.body
         )}
-        <div className="fixed inset-0 bg-[#0f172a]/70 flex items-end sm:items-center justify-center z-50 backdrop-blur-md p-0 sm:p-4 transition-all duration-300">
-            <div className="bg-white rounded-t-2xl sm:rounded-[2rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row h-[90vh] sm:h-auto sm:max-h-[85vh] animate-in fade-in zoom-in-95 slide-in-from-bottom-5 duration-300 ring-1 ring-white/20">
 
-                {/* LEFT COLUMN: Premium Summary */}
-                <div className="bg-[#1e293b] text-white p-6 md:w-5/12 flex flex-col relative overflow-hidden group shrink-0 max-h-[35vh] md:max-h-none overflow-y-auto">
-                    {/* Background Accents */}
-                    <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none">
-                        <DollarSign size={300} strokeWidth={0.5} />
-                    </div>
-                    <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+        {/* ── OVERLAY ──────────────────────────────────────────────────────── */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3"
+            style={{ background: 'rgba(15,23,42,0.62)', backdropFilter: 'blur(6px)' }}>
 
-                    <h3 className="text-indigo-400 uppercase text-xs font-black tracking-[0.2em] mb-4 z-10 flex items-center gap-2">
-                        <Receipt size={14} /> Resumen
-                    </h3>
+            <div id="tour-payment-modal" className="bg-white w-full max-w-xl rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
+                style={{ maxHeight: '94vh' }}>
 
-                    <div className="mb-4 z-10 relative">
-                        <div className="text-xs text-slate-400 font-medium mb-1">Total a Pagar (Divisa)</div>
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-xl text-blue-400 font-light">$</span>
-                            <span className="text-5xl font-black text-white tracking-tighter shadow-indigo-300/10 drop-shadow-lg">
-                                {formatLocalCurrency(totalUSD)}
-                            </span>
-                        </div>
-                        {discountUSD > 0 && (
-                            <div className="flex items-center gap-1.5 mt-2 bg-rose-500/20 border border-rose-500/30 rounded-lg px-3 py-1.5 text-rose-300">
-                                <Tag size={11} />
-                                <span className="text-[10px] font-black uppercase tracking-wider">
-                                    Descuento {cartDiscount?.type === 'percent' ? `(${cartDiscount.value}%)` : '(Fijo)'}
+                {/* ── TOP: Total destacado ──────────────────────────────────── */}
+                <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 px-4 py-3 relative overflow-hidden">
+                    <div className="absolute -top-8 -right-8 w-24 h-24 bg-white/5 rounded-full" />
+                    <div className="absolute -bottom-6 -left-6 w-20 h-20 bg-white/5 rounded-full" />
+
+                    <div className="flex items-start justify-between relative z-10">
+                        <div>
+                            <p className="text-indigo-200 text-[10px] font-bold uppercase tracking-widest mb-0.5">Total a Cobrar</p>
+                            <div className="flex items-baseline gap-1.5">
+                                <span className="text-indigo-300 text-lg font-light">$</span>
+                                <span className="text-3xl font-black text-white tracking-tighter leading-none">
+                                    {formatLocalCurrency(totalUSD)}
                                 </span>
-                                <span className="ml-auto text-[11px] font-black font-mono">−${formatLocalCurrency(discountUSD)}</span>
                             </div>
-                        )}
+                            {/* Equivalentes monedas */}
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                                {Object.entries(totalsByCurrency || {}).filter(([c, a]) => c !== 'USD' && a > 0.005).map(([code, amt]) => {
+                                    const curr = getActiveCurrencies().find(c => c.currency_code === code);
+                                    const sym = curr?.currency_symbol || code;
+                                    const rate = getExchangeRate(code) || 1;
+                                    return (
+                                        <span key={code} className="bg-white/10 text-white text-[11px] font-bold px-2 py-0.5 rounded-md">
+                                            {sym} {formatLocalCurrency(amt)} <span className="text-white/60 text-xs">· {formatLocalCurrency(rate)}</span>
+                                        </span>
+                                    );
+                                })}
+                                {Object.entries(totalsByCurrency || {}).filter(([c, a]) => c !== 'USD' && a > 0.005).length === 0 && (
+                                    <span className="bg-white/10 text-white text-[11px] font-bold px-2 py-0.5 rounded-md">
+                                        Bs {formatLocalCurrency(displayTotalBs)} <span className="text-white/60 text-xs">· {formatLocalCurrency(defaultBsRate)}</span>
+                                    </span>
+                                )}
+                                {discountUSD > 0 && (
+                                    <span className="bg-rose-500/30 text-rose-200 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1">
+                                        <Tag size={9} /> −${formatLocalCurrency(discountUSD)}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        <button onClick={onClose} className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/70 hover:text-white transition-all shrink-0">
+                            <X size={16} />
+                        </button>
                     </div>
 
-                    {/* Totales por moneda activa — dinámico */}
-                    <div className="z-10 space-y-2 mb-auto">
-                        {Object.entries(totalsByCurrency || {}).filter(([code, amt]) => code !== 'USD' && amt > 0.005).map(([code, amt]) => {
-                            const activeCurrs = getActiveCurrencies();
-                            const curr = activeCurrs.find(c => c.currency_code === code);
-                            const sym = curr?.currency_symbol || code;
-                            const rate = getExchangeRate(code) || 1;
-                            return (
-                                <div key={code} className="relative bg-slate-800/50 backdrop-blur-sm rounded-xl p-3 border border-slate-700/50 hover:bg-slate-800/80 transition-colors group/card">
-                                    <div className="flex justify-between items-start mb-1">
-                                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total en {curr?.name || code}</div>
-                                        <span className="text-[9px] bg-blue-500/10 text-blue-300 px-1.5 py-0.5 rounded-full border border-blue-500/20 font-mono">
-                                            Tasa: {formatLocalCurrency(rate)}
-                                        </span>
-                                    </div>
-                                    <div className="text-2xl font-bold text-emerald-400 font-mono tracking-tight group-hover/card:text-emerald-300 transition-colors">
-                                        {formatLocalCurrency(amt)} <span className="text-xs">{sym}</span>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        {/* Fallback: si no hay monedas no-USD activas */}
-                        {Object.entries(totalsByCurrency || {}).filter(([code, amt]) => code !== 'USD' && amt > 0.005).length === 0 && (
-                            <div className="relative bg-slate-800/50 backdrop-blur-sm rounded-xl p-3 border border-slate-700/50 hover:bg-slate-800/80 transition-colors group/card">
-                                <div className="flex justify-between items-start mb-1">
-                                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total en Bolívares</div>
-                                    <span className="text-[9px] bg-blue-500/10 text-blue-300 px-1.5 py-0.5 rounded-full border border-blue-500/20 font-mono">
-                                        Tasa: {formatLocalCurrency(defaultBsRate)}
+                    {/* Estado pago */}
+                    {!isCreditSale && totalPaidUSD > 0 && (
+                        <div className={`mt-2 rounded-lg px-3 py-2 relative z-10 transition-all ${
+                            isComplete ? 'bg-emerald-500/25 border border-emerald-400/30' : 'bg-rose-500/20 border border-rose-400/20'
+                        }`}>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    {isComplete
+                                        ? <CheckCircle size={15} className="text-emerald-300" strokeWidth={3} />
+                                        : <Calculator size={15} className="text-rose-300" />
+                                    }
+                                    <span className={`text-xs font-black ${isComplete ? 'text-emerald-200' : 'text-rose-200'}`}>
+                                        {isComplete ? (changeUSD > 0.005 ? 'Vuelto' : 'Pago completo ✓') : 'Falta por pagar'}
                                     </span>
                                 </div>
-                                <div className="text-2xl font-bold text-emerald-400 font-mono tracking-tight group-hover/card:text-emerald-300 transition-colors">
-                                    {formatLocalCurrency(displayTotalBs)} <span className="text-xs">Bs</span>
+                                {/* Montos: USD + equivalente en moneda local */}
+                                <div className="text-right">
+                                    {isComplete && changeUSD > 0.005 ? (() => {
+                                        // Calcular vuelto en la moneda del pago
+                                        const allUSD = payments.every(p => p.currency === "$" || p.currency === "USD");
+                                        const firstLocal = payments.find(p => p.currency !== "$" && p.currency !== "USD");
+                                        const localCurr = firstLocal?.currency;
+                                        let changeLocal = 0, localSym = "";
+                                        if (!allUSD && localCurr) {
+                                            if (localCurr === "Bs" || localCurr === "VES") {
+                                                const vesTotal = totalsByCurrency?.VES || totalsByCurrency?.Bs;
+                                                const eff = (vesTotal && totalUSD) ? (vesTotal / totalUSD) : defaultBsRate;
+                                                changeLocal = changeUSD * eff; localSym = "Bs";
+                                            } else {
+                                                changeLocal = changeUSD * (getExchangeRate(localCurr) || 1); localSym = localCurr;
+                                            }
+                                        }
+                                        return (
+                                            <>
+                                                <p className="text-white font-black text-base font-mono">${formatLocalCurrency(changeUSD)}</p>
+                                                {!allUSD && localSym && (
+                                                    <p className="text-emerald-300 font-bold text-xs font-mono">{localSym} {formatLocalCurrency(changeLocal)}</p>
+                                                )}
+                                                {allUSD && defaultBsRate > 1 && (
+                                                    <p className="text-emerald-300 font-bold text-xs font-mono">Bs {formatLocalCurrency(changeUSD * defaultBsRate)}</p>
+                                                )}
+                                            </>
+                                        );
+                                    })() : !isComplete ? (
+                                        <>
+                                            <p className={`font-black text-base font-mono ${isComplete ? "text-white" : "text-rose-200"}`}>${formatLocalCurrency(remainingUSD)}</p>
+                                            {defaultBsRate > 1 && (
+                                                <p className="text-rose-300 font-bold text-xs font-mono">Bs {formatLocalCurrency(remainingUSD * defaultBsRate)}</p>
+                                            )}
+                                        </>
+                                    ) : null}
                                 </div>
+                            </div>
+                        </div>
+                    )}
+                    {isCreditSale && (
+                        <div className="mt-2 bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 flex items-center gap-2 relative z-10">
+                            <CreditCard size={16} className="text-indigo-200 shrink-0" />
+                            <span className="text-xs font-black text-indigo-100">Venta a Crédito — pago diferido</span>
+                        </div>
+                    )}
+                    {isFinancingMode && (
+                        <div className="mt-2 bg-white/10 border border-emerald-300/30 rounded-lg px-3 py-1.5 flex items-center gap-2 relative z-10">
+                            <span className="text-emerald-200 shrink-0">🏦</span>
+                            <span className="text-xs font-black text-emerald-100">Financiamiento — Cashea / Krece</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* ── BODY scrollable ──────────────────────────────────────── */}
+                <div id="tour-payment-body" className="flex-1 overflow-y-auto p-3 space-y-2.5">
+
+                    {isFinancingMode ? (
+                        <FinancingStep
+                            totalUSD={totalUSD}
+                            onConfirm={(fData) => { setFinancingData(fData); processFinancingSale(fData); }}
+                            onCancel={() => setIsFinancingMode(false)}
+                        />
+                    ) : <>
+
+                    {/* Cliente */}
+                    <div id="tour-payment-customer">
+                        <div className="flex items-center justify-between mb-1">
+                            <p className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                <User size={12} /> Cliente {isCreditSale && <span className="text-rose-500">*</span>}
+                            </p>
+                            <button onClick={() => setIsQuickCustomerOpen(true)} className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors">
+                                <UserPlus size={10} /> Registrar nuevo cliente
+                            </button>
+                        </div>
+                        <CustomerSearch customers={customers} selectedCustomer={selectedCustomer} onSelect={setSelectedCustomer} onSearch={fetchCustomers} loading={loadingCustomers} />
+
+                        {isCreditSale && selectedCustomer && (
+                            <div className="mt-2">
+                                {loadingCredit ? (
+                                    <div className="flex items-center gap-2 py-2 text-[10px] text-slate-400">
+                                        <div className="w-3 h-3 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
+                                        Consultando crédito...
+                                    </div>
+                                ) : creditInfo ? (
+                                    <div className="space-y-1.5">
+                                        <div className="grid grid-cols-3 gap-1.5">
+                                            <div className="bg-slate-50 rounded-lg p-1.5 text-center border border-slate-100">
+                                                <p className="text-[8px] text-slate-400 font-bold uppercase mb-0.5">Límite</p>
+                                                <p className="text-xs font-black text-slate-700 font-mono">${formatLocalCurrency(creditInfo.credit_limit)}</p>
+                                            </div>
+                                            <div className="bg-rose-50 rounded-lg p-1.5 text-center border border-rose-100">
+                                                <p className="text-[8px] text-rose-400 font-bold uppercase mb-0.5">Deuda</p>
+                                                <p className="text-xs font-black text-rose-600 font-mono">${formatLocalCurrency(creditInfo.total_debt)}</p>
+                                            </div>
+                                            <div className={`rounded-lg p-1.5 text-center border ${creditInfo.available_credit >= totalUSD ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-200'}`}>
+                                                <p className={`text-[8px] font-bold uppercase mb-0.5 ${creditInfo.available_credit >= totalUSD ? 'text-emerald-500' : 'text-rose-500'}`}>Disp.</p>
+                                                <p className={`text-xs font-black font-mono ${creditInfo.available_credit >= totalUSD ? 'text-emerald-700' : 'text-rose-700'}`}>${formatLocalCurrency(creditInfo.available_credit)}</p>
+                                            </div>
+                                        </div>
+                                        {creditInfo.available_credit < totalUSD && <div className="flex items-center gap-1.5 p-2 bg-rose-50 border border-rose-200 rounded-lg text-[10px] text-rose-700 font-bold"><X size={11} className="shrink-0 text-rose-500" />Crédito insuficiente. Falta ${formatLocalCurrency(totalUSD - creditInfo.available_credit)}</div>}
+                                        {creditInfo.is_blocked && <div className="flex items-center gap-1.5 p-2 bg-rose-50 border border-rose-200 rounded-lg text-[10px] text-rose-700 font-bold"><X size={11} className="shrink-0 text-rose-500" />Cliente bloqueado</div>}
+                                        {creditInfo.overdue_invoices > 0 && <div className="flex items-center gap-1.5 p-2 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-700 font-bold"><Calculator size={11} className="shrink-0 text-amber-500" />{creditInfo.overdue_invoices} factura(s) vencida(s) — ${formatLocalCurrency(creditInfo.overdue_amount)}</div>}
+                                    </div>
+                                ) : (
+                                    <div className="mt-1 bg-indigo-50 rounded-lg p-1.5 border border-indigo-100 text-xs font-black text-indigo-700">
+                                        Límite: ${formatLocalCurrency(Number(selectedCustomer.credit_limit || 0))}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
 
-                    {/* Pending / Change Status */}
-                    <div className="z-10 mt-4">
-                        {!isCreditSale && (
-                            <div className={`
-                                relative overflow-hidden rounded-xl p-4 transition-all duration-500 border
-                                ${isComplete
-                                    ? 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400/50 shadow-lg shadow-emerald-900/20'
-                                    : 'bg-slate-800/80 border-slate-700'
-                                }
-                            `}>
-                                {isComplete ? (
-                                    <div className="text-center relative z-10">
-                                        <div className="flex items-center justify-center mb-1">
-                                            <div className="bg-white/20 p-1.5 rounded-full backdrop-blur-md">
-                                                <CheckCircle className="text-white" size={20} strokeWidth={3} />
-                                            </div>
-                                        </div>
-                                        <div className="text-[10px] font-bold text-white/80 uppercase tracking-widest mb-1">Pago Completado</div>
+                    {/* Toggle crédito */}
+                    <label id="tour-payment-credit-toggle" className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all select-none ${isCreditSale ? 'border-indigo-400 bg-indigo-50/50' : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'}`}>
+                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${isCreditSale ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
+                            {isCreditSale && <CheckCircle size={12} className="text-white" strokeWidth={4} />}
+                        </div>
+                        <input type="checkbox" checked={isCreditSale} onChange={e => { setIsCreditSale(e.target.checked); setIsFinancingMode(false); }} className="hidden" />
+                        <div>
+                            <p className={`font-black text-sm ${isCreditSale ? 'text-indigo-700' : 'text-slate-600'}`}>Venta a Crédito</p>
+                            <p className="text-[10px] text-slate-400">La cuenta se asignará al cliente</p>
+                        </div>
+                    </label>
+                    {business?.external_financing_enabled !== false && (
+                    <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all select-none ${isFinancingMode ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'}`}>
+                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${isFinancingMode ? 'bg-emerald-600 border-emerald-600' : 'border-slate-300'}`}>
+                            {isFinancingMode && <CheckCircle size={12} className="text-white" strokeWidth={4} />}
+                        </div>
+                        <input type="checkbox" checked={isFinancingMode} onChange={e => { setIsFinancingMode(e.target.checked); setIsCreditSale(false); }} className="hidden" />
+                        <div>
+                            <p className={`font-black text-sm ${isFinancingMode ? 'text-emerald-700' : 'text-slate-600'}`}>Financiamiento Externo</p>
+                            <p className="text-[10px] text-slate-400">Cashea, Krece u otras</p>
+                        </div>
+                    </label>
+                    )}
 
-                                        {changeUSD > 0.005 ? (() => {
-                                            const allUSD = payments.every(p => p.currency === '$' || p.currency === 'USD');
-                                            const firstLocalPayment = payments.find(p => p.currency !== '$' && p.currency !== 'USD');
-                                            const localCurrency = firstLocalPayment?.currency;
-                                            let changeLocalAmount = 0;
-                                            let changeLocalSymbol = '';
-                                            if (!allUSD && localCurrency) {
-                                                if (localCurrency === 'Bs' || localCurrency === 'VES') {
-                                                    const vesTotal = totalsByCurrency?.VES || totalsByCurrency?.Bs;
-                                                    const effectiveRate = (vesTotal && totalUSD) ? (vesTotal / totalUSD) : defaultBsRate;
-                                                    changeLocalAmount = changeUSD * effectiveRate;
-                                                    changeLocalSymbol = 'Bs';
-                                                } else {
-                                                    changeLocalAmount = changeUSD * (getExchangeRate(localCurrency) || 1);
-                                                    changeLocalSymbol = localCurrency;
-                                                }
-                                            }
-                                            return (
-                                                <div className="flex flex-col items-center">
-                                                    <div className="text-lg font-bold text-emerald-200">
-                                                        Su Vuelto: <span className="text-white text-xl">${formatLocalCurrency(changeUSD)}</span>
-                                                    </div>
-                                                    {!allUSD && changeLocalSymbol && (
-                                                        <div className="text-xs font-bold text-emerald-400 font-mono mt-0.5 bg-emerald-900/40 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                                                            {changeLocalSymbol} {formatLocalCurrency(changeLocalAmount)}
-                                                        </div>
+                    {/* Calculadora crédito celular */}
+                    {isCreditSale && cart.some(i => i.has_imei) && (
+                        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-2.5 flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-black text-indigo-700">📱 Celular en carrito</p>
+                                <p className="text-[10px] text-indigo-500 mt-0.5">Calcula las cuotas antes de confirmar</p>
+                            </div>
+                            <button onClick={() => setShowCalcCredito(true)} className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-black rounded-lg hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200">
+                                🧮 Calculadora
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Métodos de pago */}
+                    {!isCreditSale && (
+                        <div id="tour-payment-methods">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                    <Layers size={10} /> Métodos de Pago
+                                </p>
+                                <button id="tour-payment-add-row" onClick={addPaymentRow} className="text-[10px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-1 rounded-md transition-all">
+                                    + Agregar
+                                </button>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                {payments.map((payment, index) => {
+                                    const selMethod = paymentMethods.find(m => m.name === payment.method);
+                                    const needsRef = selMethod?.requires_reference;
+                                    const currTotal = totalsByCurrency?.[payment.currency];
+                                    const rate = payment.currency !== 'USD' && payment.currency !== '$'
+                                        ? ((currTotal && totalUSD) ? (currTotal / totalUSD) : (getExchangeRate(payment.currency) || 1))
+                                        : null;
+
+                                    return (
+                                        <div key={index} className="rounded-lg border border-slate-200 overflow-hidden focus-within:border-indigo-400 transition-all bg-white">
+                                            {/* Fila superior: método + moneda */}
+                                            <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-100 bg-slate-50/50">
+                                                <select
+                                                    className="flex-1 bg-transparent text-xs font-bold text-slate-700 focus:outline-none"
+                                                    value={payment.method}
+                                                    onChange={e => updatePayment(index, 'method', e.target.value)}
+                                                >
+                                                    {paymentMethods.filter(m => m.is_active).map(m => (
+                                                        <option key={m.id} value={m.name}>{m.name}</option>
+                                                    ))}
+                                                </select>
+                                                <div className="flex items-center gap-1 shrink-0">
+                                                    {currencies.map(c => (
+                                                        <button
+                                                            key={c.symbol}
+                                                            onClick={() => updatePayment(index, 'currency', c.symbol)}
+                                                            className={`px-2 py-0.5 rounded-md text-[11px] font-black transition-all ${
+                                                                payment.currency === c.symbol
+                                                                    ? 'bg-indigo-600 text-white shadow-sm'
+                                                                    : 'bg-white text-slate-500 border border-slate-200 hover:border-indigo-300'
+                                                            }`}
+                                                        >{c.symbol}</button>
+                                                    ))}
+                                                    {payments.length > 1 && (
+                                                        <button onClick={() => removePaymentRow(index)} className="ml-1 w-6 h-6 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-all">
+                                                            <Trash2 size={13} />
+                                                        </button>
                                                     )}
                                                 </div>
-                                            );
-                                        })() : (
-                                            <div className="text-lg font-bold text-white">Cuenta Saldada</div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="flex justify-between items-end">
-                                        <div>
-                                            <div className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-0.5">Falta por pagar</div>
-                                            <div className="text-2xl font-bold text-rose-400 font-mono">
-                                                ${formatLocalCurrency(Math.abs(remainingUSD))}
                                             </div>
-                                        </div>
-                                        <div className="text-right space-y-0.5">
-                                            {Object.entries(totalsByCurrency || {}).filter(([code, amt]) => code !== 'USD' && amt > 0.005).map(([code]) => {
-                                                const curr = getActiveCurrencies().find(c => c.currency_code === code);
-                                                const sym = curr?.currency_symbol || code;
-                                                const rate = getExchangeRate(code) || 1;
-                                                return (
-                                                    <div key={code}>
-                                                        <div className="text-[9px] text-slate-500 uppercase font-bold">{curr?.name || code}</div>
-                                                        <div className="text-base font-bold text-slate-400 font-mono">
-                                                            {sym} {formatLocalCurrency(Math.abs(remainingUSD) * rate)}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                            {Object.entries(totalsByCurrency || {}).filter(([code, amt]) => code !== 'USD' && amt > 0.005).length === 0 && (
-                                                <div>
-                                                    <div className="text-[9px] text-slate-500 uppercase font-bold">En Bolívares</div>
-                                                    <div className="text-base font-bold text-slate-400 font-mono">
-                                                        Bs {formatLocalCurrency(Math.abs(remainingUSD) * defaultBsRate)}
+                                            {/* Input monto grande */}
+                                            <div className="flex items-center px-3 py-2">
+                                                <span className="text-xl font-black text-slate-300 mr-2">
+                                                    {payment.currency === 'USD' || payment.currency === '$' ? '$' : payment.currency}
+                                                </span>
+                                                <CurrencyInput
+                                                    autoFocus={index === 0}
+                                                    className="flex-1 text-2xl font-black text-slate-900 bg-transparent border-none focus:ring-0 focus:outline-none text-right font-mono placeholder:text-slate-200"
+                                                    placeholder="0,00"
+                                                    value={payment.amount}
+                                                    onChange={val => updatePayment(index, 'amount', val)}
+                                                />
+                                            </div>
+                                            {/* Tasa hint */}
+                                            {rate && (
+                                                <div className="px-3 pb-1.5 flex justify-end">
+                                                    <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-2 py-0.5 rounded-md font-bold">
+                                                        Tasa: {formatLocalCurrency(rate)} {payment.currency}/$
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {/* Referencia */}
+                                            {needsRef && (
+                                                <div className="flex gap-2 px-3 pb-2 animate-in fade-in slide-in-from-top-1">
+                                                    <Input type="text" placeholder="Referencia / # Transferencia" className="flex-1 text-xs h-8 rounded-lg border-indigo-200 bg-indigo-50/50"
+                                                        value={payment.reference || ''} onChange={e => updatePayment(index, 'reference', e.target.value)} />
+                                                    <div className="relative w-36 shrink-0">
+                                                        <Calendar size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
+                                                        <Input type="date" className="text-xs h-8 rounded-lg border-indigo-200 bg-indigo-50/50 pl-6 w-full"
+                                                            value={payment.payment_date || new Date().toISOString().split('T')[0]}
+                                                            onChange={e => updatePayment(index, 'payment_date', e.target.value)} />
                                                     </div>
                                                 </div>
                                             )}
                                         </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Credit Sale Indicator */}
-                        {isCreditSale && (
-                            <div className="mt-3 bg-indigo-600/20 border border-indigo-500/30 rounded-xl p-3 flex items-center gap-3">
-                                <CreditCard className="text-indigo-400" size={20} />
-                                <div>
-                                    <div className="text-indigo-300 font-bold text-xs">Venta a Crédito</div>
-                                    <div className="text-indigo-400/70 text-[10px]">Pago diferido</div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* RIGHT COLUMN: Actions & Inputs */}
-                <div className="p-4 md:p-6 md:w-7/12 bg-slate-50 flex flex-col h-full overflow-hidden relative">
-                    {/* Header */}
-                    <div className="flex justify-between items-center mb-4 shrink-0">
-                        <h2 className="text-xl font-black text-slate-800 flex items-center gap-2 tracking-tight">
-                            <span className="w-1.5 h-6 bg-indigo-600 rounded-full inline-block"></span>
-                            Procesar Pago
-                        </h2>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={onClose}
-                            className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl h-9 w-9"
-                        >
-                            <X size={20} />
-                        </Button>
-                    </div>
-
-                    {/* Scrollable Content Area */}
-                    <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-4 pb-20"> {/* pb-20 prevents content from being hidden behind absolute footer if we used one, but here we use flex, so it's a buffer */}
-
-                        {/* Customer Section - Compact */}
-                        <div className={`group transition-all duration-300 border rounded-xl p-0.5 ${isCreditSale && !selectedCustomer ? 'bg-rose-50 border-rose-200 shadow-sm' : 'bg-white border-slate-200 shadow-sm hover:border-indigo-200'}`}>
-                            <div className="p-3">
-                                <div className="flex justify-between items-center mb-2">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                        <User size={12} /> Cliente
-                                        {isCreditSale && <span className="bg-rose-100 text-rose-600 text-[9px] px-2 py-0.5 rounded-full">Requerido</span>}
-                                    </label>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setIsQuickCustomerOpen(true)}
-                                        className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 h-6 text-[10px] font-bold px-2"
-                                    >
-                                        <UserPlus size={12} className="mr-1" /> Nuevo
-                                    </Button>
-                                </div>
-
-                                <CustomerSearch
-                                    customers={customers}
-                                    selectedCustomer={selectedCustomer}
-                                    onSelect={setSelectedCustomer}
-                                    className="scale-100"
-                                />
-
-                                {isCreditSale && selectedCustomer && (
-                                    <div className="mt-2 space-y-2">
-                                        {loadingCredit ? (
-                                            <div className="flex items-center justify-center p-3 bg-slate-50 rounded-lg border border-slate-200">
-                                                <div className="w-4 h-4 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin mr-2"></div>
-                                                <span className="text-[10px] text-slate-500 font-medium">Consultando crédito...</span>
-                                            </div>
-                                        ) : creditInfo ? (
-                                            <>
-                                                <div className="flex gap-2 p-2 bg-indigo-50/50 rounded-lg border border-indigo-100/50">
-                                                    <div className="flex-1 text-center">
-                                                        <span className="text-[9px] text-indigo-400 font-bold uppercase block">Límite</span>
-                                                        <div className="text-xs font-black text-indigo-900 font-mono">
-                                                            ${formatLocalCurrency(creditInfo.credit_limit)}
-                                                        </div>
-                                                    </div>
-                                                    <div className="w-px bg-indigo-200"></div>
-                                                    <div className="flex-1 text-center">
-                                                        <span className="text-[9px] text-rose-400 font-bold uppercase block">Deuda</span>
-                                                        <div className="text-xs font-black text-rose-600 font-mono">
-                                                            ${formatLocalCurrency(creditInfo.total_debt)}
-                                                        </div>
-                                                    </div>
-                                                    <div className="w-px bg-indigo-200"></div>
-                                                    <div className="flex-1 text-center">
-                                                        <span className="text-[9px] font-bold uppercase block" style={{ color: creditInfo.available_credit >= totalUSD ? '#16a34a' : '#dc2626' }}>
-                                                            Disponible
-                                                        </span>
-                                                        <div className={`text-sm font-black font-mono ${creditInfo.available_credit >= totalUSD ? 'text-green-600' : 'text-red-600'}`}>
-                                                            ${formatLocalCurrency(creditInfo.available_credit)}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Warning if insufficient credit */}
-                                                {creditInfo.available_credit < totalUSD && (
-                                                    <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                                                        <X size={14} className="text-red-500 shrink-0" />
-                                                        <span className="text-[10px] text-red-700 font-bold">
-                                                            Crédito insuficiente. Falta ${formatLocalCurrency(totalUSD - creditInfo.available_credit)} para cubrir esta venta.
-                                                        </span>
-                                                    </div>
-                                                )}
-
-                                                {/* Warning if customer is blocked */}
-                                                {creditInfo.is_blocked && (
-                                                    <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                                                        <X size={14} className="text-red-500 shrink-0" />
-                                                        <span className="text-[10px] text-red-700 font-bold">
-                                                            Cliente bloqueado para crédito.
-                                                        </span>
-                                                    </div>
-                                                )}
-
-                                                {/* Overdue invoices warning */}
-                                                {creditInfo.overdue_invoices > 0 && (
-                                                    <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                                                        <Calculator size={14} className="text-amber-500 shrink-0" />
-                                                        <span className="text-[10px] text-amber-700 font-bold">
-                                                            {creditInfo.overdue_invoices} factura(s) vencida(s) por ${formatLocalCurrency(creditInfo.overdue_amount)}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </>
-                                        ) : (
-                                            <div className="flex gap-3 p-2 bg-indigo-50/50 rounded-lg border border-indigo-100/50">
-                                                <div className="flex-1">
-                                                    <span className="text-[9px] text-indigo-400 font-bold uppercase">Límite Crédito</span>
-                                                    <div className="text-xs font-black text-indigo-900 font-mono">
-                                                        ${formatCurrency(Number(selectedCustomer.credit_limit || 0), 'USD')}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                                    );
+                                })}
                             </div>
                         </div>
+                    )}
+                {/* ── FOOTER: botones ───────────────────────────────────────── */}
+                    </>}
+                </div>
 
-                        {/* Credit Toggle - Compact */}
-                        <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${isCreditSale ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
-                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isCreditSale ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-slate-100'}`}>
-                                {isCreditSale && <CheckCircle size={12} className="text-white" strokeWidth={4} />}
-                            </div>
-                            <input type="checkbox" checked={isCreditSale} onChange={e => setIsCreditSale(e.target.checked)} className="hidden" />
-                            <div className="flex-1">
-                                <div className={`font-bold text-xs ${isCreditSale ? 'text-indigo-700' : 'text-slate-600'}`}>Venta a Crédito</div>
-                                <div className="text-[10px] text-slate-400">La cuenta por cobrar se asignará al cliente</div>
-                            </div>
-                        </label>
-
-                        {/* Calculadora de Crédito — solo si hay celulares y venta a crédito */}
-                        {isCreditSale && cart.some(item => item.has_imei) && (
-                            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs font-bold text-indigo-700">📱 Celular detectado en el carrito</p>
-                                    <p className="text-[10px] text-indigo-500">Calcula las cuotas exactas antes de confirmar</p>
-                                </div>
-                                <button
-                                    onClick={() => setShowCalcCredito(true)}
-                                    className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors whitespace-nowrap"
-                                >
-                                    🧮 Calculadora
-                                </button>
-                            </div>
+                {!isFinancingMode && (
+                <div className="px-3 pb-3 pt-2 border-t border-slate-100 flex gap-2 shrink-0 bg-white">
+                    <button onClick={onClose} className="px-4 py-2.5 rounded-lg border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all">
+                        Cancelar
+                    </button>
+                    <button
+                        id="tour-payment-confirm"
+                        onClick={handleConfirm}
+                        disabled={processing || (!isCreditSale && !isComplete && !isFinancingMode) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))}
+                        className={cn(
+                            'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-black text-sm transition-all',
+                            processing || (!isCreditSale && !isComplete && !isFinancingMode) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200/60 hover:-translate-y-0.5 active:scale-[0.98]'
                         )}
+                    >
+                        {processing
+                            ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            : <><CheckCircle size={16} strokeWidth={3} />{isCreditSale ? 'Registrar Crédito' : 'Confirmar Pago'}</>
+                        }
+                    </button>
+                </div>
+                )}
+            </div>
+        </div>
 
-                        {/* Payments Section - Compact */}
-                        {!isCreditSale && (
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-end">
-                                    <h3 className="text-xs font-bold text-slate-800 flex items-center gap-2">
-                                        <Layers size={14} className="text-slate-400" />
-                                        Métodos de Pago
-                                    </h3>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={addPaymentRow}
-                                        className="text-indigo-600 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 h-8 text-[10px] font-black px-3 rounded-lg shadow-sm"
-                                    >
-                                        + Agregar otro método de pago
-                                    </Button>
-                                </div>
+        {/* ── Modales auxiliares ───────────────────────────────────────────── */}
+        <QuickCustomerModal isOpen={isQuickCustomerOpen} onClose={() => setIsQuickCustomerOpen(false)} onSuccess={handleQuickCustomerSuccess} />
 
-                                <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1 custom-scrollbar">
-                                    {payments.map((payment, index) => {
-                                        const selectedMethod = paymentMethods.find(m => m.name === payment.method);
-                                        const needsReference = selectedMethod?.requires_reference;
-
-                                        return (
-                                            <div key={index} className="flex flex-col gap-2 p-2 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500">
-
-                                                {/* Mobile: stack vertically / Desktop: side by side */}
-                                                <div className="flex flex-col sm:flex-row gap-2">
-                                                    {/* Method & Currency */}
-                                                    <div className="flex flex-col gap-1.5 w-full sm:w-5/12">
-                                                        <select
-                                                            className="w-full bg-slate-50 border-none text-[11px] font-bold text-slate-700 rounded-lg py-1.5 pl-2 pr-6 focus:ring-0 leading-tight"
-                                                            value={payment.method}
-                                                            onChange={(e) => updatePayment(index, 'method', e.target.value)}
-                                                        >
-                                                            {paymentMethods.filter(m => m.is_active).map(m => (
-                                                                <option key={m.id} value={m.name}>{m.name}</option>
-                                                            ))}
-                                                        </select>
-                                                        <div className="flex gap-1">
-                                                            {currencies.map(c => (
-                                                                <Button
-                                                                    key={c.symbol}
-                                                                    size="sm"
-                                                                    variant={payment.currency === c.symbol ? "default" : "outline"}
-                                                                    onClick={() => updatePayment(index, 'currency', c.symbol)}
-                                                                    className={`flex-1 h-7 text-[11px] font-bold px-2 rounded-lg min-w-0 ${payment.currency === c.symbol ? 'bg-indigo-600 hover:bg-indigo-700' : 'text-slate-500 border-slate-200'}`}
-                                                                >
-                                                                    {c.symbol}
-                                                                </Button>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Amount Input + Remove */}
-                                                    <div className="flex gap-2 flex-1">
-                                                        <div className="flex-1 relative rounded-xl border-2 border-slate-200 bg-slate-50 transition-all p-1 focus-within:border-indigo-500 focus-within:bg-white focus-within:shadow-md focus-within:shadow-indigo-500/10">
-                                                            <div className="absolute inset-y-0 left-2 flex items-center pointer-events-none">
-                                                                <span className="font-bold text-sm text-slate-400">
-                                                                    {payment.currency === 'USD' ? '$' : payment.currency}
-                                                                </span>
-                                                            </div>
-                                                            <CurrencyInput
-                                                                autoFocus={index === 0}
-                                                                className="w-full h-full bg-transparent text-right font-mono text-xl font-black text-slate-900 placeholder:text-slate-300 border-none focus:ring-0 p-0 pr-2"
-                                                                placeholder="0.00"
-                                                                value={payment.amount}
-                                                                onChange={(val) => updatePayment(index, 'amount', val)}
-                                                            />
-                                                        </div>
-                                                        {/* Rate hint for non-USD currencies */}
-                                                        {payment.currency !== 'USD' && payment.currency !== '$' && (() => {
-                                                            const currTotal = totalsByCurrency?.[payment.currency];
-                                                            const displayRate = (currTotal && totalUSD)
-                                                                ? (currTotal / totalUSD)
-                                                                : (getExchangeRate(payment.currency) || 1);
-                                                            return (
-                                                                <div className="text-[10px] text-slate-400 font-mono mt-0.5 text-right pr-1">
-                                                                    Tasa: {displayRate.toFixed(2)} {payment.currency} / $
-                                                                </div>
-                                                            );
-                                                        })()}
-
-                                                        {/* Remove Button */}
-                                                        {payments.length > 1 && (
-                                                            <button
-                                                                onClick={() => removePaymentRow(index)}
-                                                                className="flex items-center justify-center w-8 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
-                                                            >
-                                                                <Trash2 size={14} />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                {/* Reference + Date Inputs */}
-                                                {needsReference && (
-                                                    <div className="animate-in fade-in slide-in-from-top-1 flex gap-2">
-                                                        <Input
-                                                            type="text"
-                                                            placeholder="Referencia / # Transferencia"
-                                                            className="flex-1 bg-indigo-50/50 border-indigo-100 text-[10px] text-indigo-800 placeholder:text-indigo-300 h-7 rounded-lg"
-                                                            value={payment.reference || ''}
-                                                            onChange={(e) => updatePayment(index, 'reference', e.target.value)}
-                                                        />
-                                                        <div className="relative w-[140px] shrink-0">
-                                                            <Calendar size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
-                                                            <Input
-                                                                type="date"
-                                                                className="bg-indigo-50/50 border-indigo-100 text-[10px] text-indigo-800 h-7 rounded-lg pl-6 w-full"
-                                                                value={payment.payment_date || new Date().toISOString().split('T')[0]}
-                                                                onChange={(e) => updatePayment(index, 'payment_date', e.target.value)}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-                        )}
+        {isPrescriptionModalOpen && (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
+                    <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-100">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 bg-teal-100 rounded-xl flex items-center justify-center"><FileText size={18} className="text-teal-600" /></div>
+                            <div><h3 className="font-black text-slate-800 text-sm">Receta Médica</h3><p className="text-[10px] text-slate-500">Este producto requiere receta</p></div>
+                        </div>
+                        <button onClick={() => setIsPrescriptionModalOpen(false)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"><X size={16} /></button>
                     </div>
-
-                    {/* Footer Actions - Pinned */}
-                    <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-white/90 backdrop-blur-sm border-t border-slate-100 flex gap-3 shrink-0 z-20">
-                        <Button
-                            variant="outline"
-                            onClick={onClose}
-                            className="font-bold text-slate-600 border-slate-200 hover:bg-slate-50 h-12 px-6 rounded-xl text-sm"
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            onClick={handleConfirm}
-                            disabled={processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))}
-                            title={
-                                (!isCreditSale && !isComplete) ? "El total pagado debe coincidir con el total de la venta"
-                                : (isCreditSale && creditInfo?.is_blocked) ? "Cliente bloqueado para crédito"
-                                : (isCreditSale && creditInfo && creditInfo.available_credit < totalUSD) ? "Crédito insuficiente para esta venta"
-                                : ""
-                            }
-                            className={`
-                                flex-1 rounded-xl font-black text-base tracking-wide shadow-xl transition-all h-12
-                                ${processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))
-                                    ? 'bg-slate-100 text-slate-400'
-                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:-translate-y-1 shadow-indigo-500/30'
-                                }
-                            `}
-                        >
-                            {processing ? (
-                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            ) : (
-                                <>
-                                    {isCreditSale ? 'REGISTRAR CRÉDITO' : 'CONFIRMAR PAGO'}
-                                    <CheckCircle size={18} strokeWidth={3} className="ml-2" />
-                                </>
-                            )}
-                        </Button>
+                    <div className="px-5 py-4 space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2"><label className="block text-xs font-bold text-slate-600 mb-1">Paciente *</label><input type="text" value={prescriptionForm.patient_name} onChange={e => setPrescriptionForm(p => ({ ...p, patient_name: e.target.value }))} placeholder="Nombre completo" className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400" autoFocus /></div>
+                            <div><label className="block text-xs font-bold text-slate-600 mb-1">Cédula</label><input type="text" value={prescriptionForm.patient_cedula} onChange={e => setPrescriptionForm(p => ({ ...p, patient_cedula: e.target.value }))} placeholder="V-12345678" className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400" /></div>
+                            <div><label className="block text-xs font-bold text-slate-600 mb-1">Fecha Receta *</label><input type="date" value={prescriptionForm.prescription_date} onChange={e => setPrescriptionForm(p => ({ ...p, prescription_date: e.target.value }))} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400" /></div>
+                            <div className="col-span-2"><label className="block text-xs font-bold text-slate-600 mb-1">Médico *</label><input type="text" value={prescriptionForm.doctor_name} onChange={e => setPrescriptionForm(p => ({ ...p, doctor_name: e.target.value }))} placeholder="Dr. Nombre Apellido" className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400" /></div>
+                            <div className="col-span-2"><label className="block text-xs font-bold text-slate-600 mb-1">MPPS / Registro</label><input type="text" value={prescriptionForm.doctor_mpps} onChange={e => setPrescriptionForm(p => ({ ...p, doctor_mpps: e.target.value }))} placeholder="MPPS-12345" className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400" /></div>
+                        </div>
                     </div>
-
+                    <div className="px-5 pb-5 flex gap-3">
+                        <button onClick={handlePrescriptionSkip} disabled={savingPrescription} className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 disabled:opacity-60">Omitir</button>
+                        <button onClick={handlePrescriptionSave} disabled={savingPrescription} className="flex-1 py-2.5 rounded-xl bg-teal-600 text-white font-bold text-sm hover:bg-teal-700 disabled:opacity-60 flex items-center justify-center gap-2">
+                            {savingPrescription && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                            Guardar y Confirmar
+                        </button>
+                    </div>
                 </div>
             </div>
-
-            <QuickCustomerModal
-                isOpen={isQuickCustomerOpen}
-                onClose={() => setIsQuickCustomerOpen(false)}
-                onSuccess={handleQuickCustomerSuccess}
-            />
-
-            {/* Prescription Modal */}
-            {isPrescriptionModalOpen && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
-                        {/* Header */}
-                        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 bg-teal-100 rounded-xl flex items-center justify-center">
-                                    <FileText size={18} className="text-teal-600" />
-                                </div>
-                                <div>
-                                    <h3 className="font-black text-slate-800 text-base">Datos de Receta Médica</h3>
-                                    <p className="text-xs text-slate-500 font-medium">Este producto requiere receta médica</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setIsPrescriptionModalOpen(false)}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                            >
-                                <X size={16} />
-                            </button>
-                        </div>
-
-                        {/* Form */}
-                        <div className="px-6 py-5 space-y-4">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="col-span-2">
-                                    <label className="block text-xs font-bold text-slate-600 mb-1.5">Nombre del Paciente *</label>
-                                    <input
-                                        type="text"
-                                        value={prescriptionForm.patient_name}
-                                        onChange={e => setPrescriptionForm(prev => ({ ...prev, patient_name: e.target.value }))}
-                                        placeholder="Nombre completo"
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400"
-                                        autoFocus
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-1.5">Cédula del Paciente</label>
-                                    <input
-                                        type="text"
-                                        value={prescriptionForm.patient_cedula}
-                                        onChange={e => setPrescriptionForm(prev => ({ ...prev, patient_cedula: e.target.value }))}
-                                        placeholder="V-12345678"
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-1.5">Fecha de Receta *</label>
-                                    <input
-                                        type="date"
-                                        value={prescriptionForm.prescription_date}
-                                        onChange={e => setPrescriptionForm(prev => ({ ...prev, prescription_date: e.target.value }))}
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400"
-                                    />
-                                </div>
-                                <div className="col-span-2">
-                                    <label className="block text-xs font-bold text-slate-600 mb-1.5">Nombre del Médico *</label>
-                                    <input
-                                        type="text"
-                                        value={prescriptionForm.doctor_name}
-                                        onChange={e => setPrescriptionForm(prev => ({ ...prev, doctor_name: e.target.value }))}
-                                        placeholder="Dr. Nombre Apellido"
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400"
-                                    />
-                                </div>
-                                <div className="col-span-2">
-                                    <label className="block text-xs font-bold text-slate-600 mb-1.5">MPPS / Nro. Registro Médico</label>
-                                    <input
-                                        type="text"
-                                        value={prescriptionForm.doctor_mpps}
-                                        onChange={e => setPrescriptionForm(prev => ({ ...prev, doctor_mpps: e.target.value }))}
-                                        placeholder="MPPS-12345"
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Footer */}
-                        <div className="px-6 pb-5 flex gap-3">
-                            <button
-                                onClick={handlePrescriptionSkip}
-                                disabled={savingPrescription}
-                                className="flex-shrink-0 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-colors disabled:opacity-60"
-                            >
-                                Omitir
-                            </button>
-                            <button
-                                onClick={handlePrescriptionSave}
-                                disabled={savingPrescription}
-                                className="flex-1 px-5 py-2.5 rounded-xl bg-teal-600 text-white font-bold text-sm hover:bg-teal-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                            >
-                                {savingPrescription && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                Guardar Receta y Confirmar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
+        )}
         </>
     );
 };

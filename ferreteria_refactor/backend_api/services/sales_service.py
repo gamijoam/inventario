@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, load_only
 from sqlalchemy import func, or_, text
 from datetime import datetime, timedelta
 from ..tenant_context import get_tenant_schema
@@ -18,6 +18,7 @@ import asyncio
 import uuid
 from ..template_presets import (
     get_classic_58_template,
+    get_classic_80_template,
     get_services_sale_58_template,
     get_services_sale_80_template,
 )
@@ -139,27 +140,40 @@ class SalesService:
                     if first_wh:
                         warehouse_id = first_wh.id
                     
-            # Validar si es una venta puramente de servicios (intangibles)
-            # Para permitir que warehouse_id sea None si no hay warehouses físicos
+            # Validar si es una venta puramente de servicios (intangibles).
+            # Carga todos los productos del carrito en una sola consulta para evitar
+            # consultar producto por producto antes del procesamiento real con lock.
+            item_product_ids = {item.product_id for item in sale_data.items}
+            service_check_products = db.query(models.Product).options(
+                load_only(
+                    models.Product.id,
+                    models.Product.is_service,
+                    models.Product.unit_type,
+                    models.Product.category_id,
+                ),
+                joinedload(models.Product.category),
+            ).filter(models.Product.id.in_(item_product_ids)).all() if item_product_ids else []
+            products_by_id = {prod.id: prod for prod in service_check_products}
+
             is_service_only = True
             for item in sale_data.items:
-                 prod = db.query(models.Product).filter(models.Product.id == item.product_id).first()
-                 
-                 is_service = False
-                 if prod:
-                     # PRIMARY CHECK: is_service field
-                     if prod.is_service:
-                         is_service = True
-                     # FALLBACK: Check Unit Type
-                     elif prod.unit_type and prod.unit_type.upper() in ['SERVICIO', 'SERVICE']:
-                         is_service = True
-                     # FALLBACK: Check Category Name (Robust fallback)
-                     elif prod.category and ('SERVICIO' in prod.category.name.upper() or 'LAVANDERIA' in prod.category.name.upper() or 'LAUNDRY' in prod.category.name.upper()):
-                         is_service = True
-                         
-                 if not is_service:
-                     is_service_only = False
-                     break
+                prod = products_by_id.get(item.product_id)
+                is_service = False
+                if prod:
+                    if prod.is_service:
+                        is_service = True
+                    elif prod.unit_type and prod.unit_type.upper() in ['SERVICIO', 'SERVICE']:
+                        is_service = True
+                    elif prod.category and (
+                        'SERVICIO' in prod.category.name.upper()
+                        or 'LAVANDERIA' in prod.category.name.upper()
+                        or 'LAUNDRY' in prod.category.name.upper()
+                    ):
+                        is_service = True
+
+                if not is_service:
+                    is_service_only = False
+                    break
             
             if not warehouse_id and not is_service_only:
                  raise HTTPException(status_code=500, detail="No active warehouse found to deduct stock")
@@ -253,11 +267,32 @@ class SalesService:
                     db.add(quote)       
             
             # 2. Process Items
+            employee_cache = {}
+            salesperson_cache = {}
+            product_cache = {}
+            product_stock_cache = {}
+
+            def get_locked_product(product_id):
+                if product_id not in product_cache:
+                    product_cache[product_id] = db.query(models.Product).filter(
+                        models.Product.id == product_id
+                    ).with_for_update().first()
+                return product_cache[product_id]
+
+            def get_product_stock(product_id):
+                key = (product_id, warehouse_id)
+                if key not in product_stock_cache:
+                    product_stock_cache[key] = db.query(models.ProductStock).filter(
+                        models.ProductStock.product_id == product_id,
+                        models.ProductStock.warehouse_id == warehouse_id
+                    ).first()
+                return product_stock_cache[key]
+
             for item in sale_data.items:
                 sold_instances = [] 
                 
                 # Fetch Product with Pessimistic Lock
-                product = db.query(models.Product).filter(models.Product.id == item.product_id).with_for_update().first()
+                product = get_locked_product(item.product_id)
                 if not product:
                     raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
                 
@@ -465,6 +500,11 @@ class SalesService:
                                     detail=f"Stock insuficiente para el componente '{child_product.name}' en '{wh_name}'. Se necesita: {qty_needed}, Disponible: {available_qty}"
                                 )
 
+                        # combo_serials: {str(child_product_id): [serial1, serial2, ...]}
+                        combo_serials_map = {}
+                        if hasattr(item, 'combo_serials') and item.combo_serials:
+                            combo_serials_map = {str(k): v for k, v in item.combo_serials.items()}
+
                         for combo_item in product.combo_items:
                             child_product = combo_item.child_product
 
@@ -495,6 +535,46 @@ class SalesService:
                                 balance_after=child_product.stock,
                                 description=f"Sale via combo: {product.name}{unit_description} (Sale #{new_sale_id})"
                             ))
+
+                            # ── Serializados dentro del combo ──────────────────────────────
+                            if child_product.has_imei:
+                                child_key = str(child_product.id)
+                                provided_serials = combo_serials_map.get(child_key, [])
+                                units_needed = int(qty_to_deduct)
+
+                                if provided_serials:
+                                    # Seriales enviados por el frontend
+                                    instances = db.query(models.ProductInstance).filter(
+                                        models.ProductInstance.product_id == child_product.id,
+                                        models.ProductInstance.warehouse_id == warehouse_id,
+                                        models.ProductInstance.serial_number.in_(provided_serials),
+                                        models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE
+                                    ).with_for_update().all()
+
+                                    found_sns = {i.serial_number for i in instances}
+                                    missing = set(provided_serials) - found_sns
+                                    if missing:
+                                        raise HTTPException(
+                                            status_code=400,
+                                            detail=f"Seriales no disponibles para componente '{child_product.name}': {list(missing)}"
+                                        )
+                                else:
+                                    # Auto-seleccionar los primeros disponibles
+                                    instances = db.query(models.ProductInstance).filter(
+                                        models.ProductInstance.product_id == child_product.id,
+                                        models.ProductInstance.warehouse_id == warehouse_id,
+                                        models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE
+                                    ).with_for_update().limit(units_needed).all()
+
+                                    if len(instances) < units_needed:
+                                        raise HTTPException(
+                                            status_code=400,
+                                            detail=f"Stock serializado insuficiente para componente '{child_product.name}': "
+                                                   f"necesita {units_needed}, disponibles {len(instances)}"
+                                        )
+
+                                for inst in instances:
+                                    inst.status = models.ProductInstanceStatus.SOLD
 
                             updated_products_info.append({
                                 "id": child_product.id,
@@ -546,10 +626,7 @@ class SalesService:
                             for instance in sold_instances:
                                 instance.status = models.ProductInstanceStatus.SOLD
 
-                            product_stock = db.query(models.ProductStock).filter(
-                                models.ProductStock.product_id == product.id,
-                                models.ProductStock.warehouse_id == warehouse_id
-                            ).first()
+                            product_stock = get_product_stock(product.id)
 
                             available_qty = product_stock.quantity if product_stock else 0
 
@@ -577,10 +654,7 @@ class SalesService:
                             ))
 
                         else:
-                            product_stock = db.query(models.ProductStock).filter(
-                                models.ProductStock.product_id == product.id,
-                                models.ProductStock.warehouse_id == warehouse_id
-                            ).first()
+                            product_stock = get_product_stock(product.id)
 
                             available_qty = product_stock.quantity if product_stock else 0
 
@@ -642,7 +716,10 @@ class SalesService:
                 # BARBERSHOP / SALON COMMISSION ENGINE
                 # =====================================================================
                 if getattr(item, 'employee_id', None):
-                    employee = db.query(models.Employee).filter(models.Employee.id == item.employee_id).first()
+                    employee = employee_cache.get(item.employee_id)
+                    if item.employee_id not in employee_cache:
+                        employee = db.query(models.Employee).filter(models.Employee.id == item.employee_id).first()
+                        employee_cache[item.employee_id] = employee
                     if employee:
                         calc_comm = Decimal("0.00")
                         
@@ -677,21 +754,39 @@ class SalesService:
                         db.add(sdi)
 
                 # ── COMMISSION ENGINE v2 ────────────────────────────────────
-                # Usa salesperson_id del ítem (no el usuario logueado)
-                # Jerarquía: regla de categoría > % del usuario > sin comisión
-                _sp_id = getattr(item, 'salesperson_id', None) or user_id
+                # Jerarquía de salesperson:
+                # 1. salesperson_id del ítem (selección manual en POS)
+                # 2. user_id de la sesión de caja (quien abrió caja = cajero real)
+                # 3. user_id del request (fallback)
+                _sp_id = getattr(item, 'salesperson_id', None)
+                if not _sp_id and open_session and open_session.user_id:
+                    _sp_id = open_session.user_id
+                if not _sp_id:
+                    _sp_id = user_id
                 if _sp_id:
-                    _salesperson = db.query(models.User).filter(models.User.id == _sp_id).first()
+                    _salesperson = salesperson_cache.get(_sp_id)
+                    if _sp_id not in salesperson_cache:
+                        _salesperson = db.query(models.User).filter(models.User.id == _sp_id).first()
+                        salesperson_cache[_sp_id] = _salesperson
                     if _salesperson:
+                        # Detectar si algún pago fue en Bs — desde sale_data antes de persistir
+                        _paid_in_bs = any(
+                            str(getattr(p, "currency", "") or "").upper() in ("VES", "BS", "BOLIVAR", "BOLIVARES")
+                            or str(getattr(p, "currency", "") or "").lower().startswith("bs")
+                            for p in (sale_data.payments or [])
+                        )
                         commission_engine.record_vendor_commission(
                             sale_id=new_sale.id,
                             detail=detail,
                             salesperson=_salesperson,
+                            exchange_rate=new_sale.exchange_rate_used,
+                            paid_in_bs=_paid_in_bs,
                         )
                 # ────────────────────────────────────────────────────────────
         
             # 3. Process Payments (New Multi-Payment Logic)
             total_paid_usd = Decimal("0.00")
+            exchange_rate_cache = {}
             if sale_data.payments:
 
                 for p in sale_data.payments:
@@ -701,31 +796,36 @@ class SalesService:
                     validated_exchange_rate = p.exchange_rate  # Default: use what frontend sent
 
                     if p.currency not in ("USD", "$"):
-                        # Fetch the active rate matching by currency_code OR currency_symbol
-                        # (frontend may send 'Bs' as symbol while DB stores code 'VES')
-                        db_rate = db.query(models.ExchangeRate).filter(
-                            or_(
-                                models.ExchangeRate.currency_code == p.currency,
-                                models.ExchangeRate.currency_symbol == p.currency,
-                            ),
-                            models.ExchangeRate.is_active == True,
-                            models.ExchangeRate.is_default == True
-                        ).first()
-
-                        # If no default found, fall back to any active rate
-                        if not db_rate:
+                        # Fetch each currency rate once per sale; multi-payment often repeats VES/Bs.
+                        db_rate = exchange_rate_cache.get(p.currency)
+                        if p.currency not in exchange_rate_cache:
+                            # Match by currency_code OR currency_symbol
+                            # (frontend may send 'Bs' as symbol while DB stores code 'VES')
                             db_rate = db.query(models.ExchangeRate).filter(
                                 or_(
                                     models.ExchangeRate.currency_code == p.currency,
                                     models.ExchangeRate.currency_symbol == p.currency,
                                 ),
-                                models.ExchangeRate.is_active == True
+                                models.ExchangeRate.is_active == True,
+                                models.ExchangeRate.is_default == True
                             ).first()
+
+                            # If no default found, fall back to any active rate
+                            if not db_rate:
+                                db_rate = db.query(models.ExchangeRate).filter(
+                                    or_(
+                                        models.ExchangeRate.currency_code == p.currency,
+                                        models.ExchangeRate.currency_symbol == p.currency,
+                                    ),
+                                    models.ExchangeRate.is_active == True
+                                ).first()
+
+                            exchange_rate_cache[p.currency] = db_rate
 
                         if not db_rate:
                             raise HTTPException(
                                 status_code=400,
-                                detail=f"Moneda no válida o no activa: {p.currency}"
+                                detail=f"Moneda no valida o no activa: {p.currency}"
                             )
 
                         db_rate_val = float(db_rate.rate)
@@ -762,7 +862,17 @@ class SalesService:
                     db.add(new_payment)
 
                 # Validate total coverage (tolerance $0.05 for rounding)
-                if total_paid_usd < (sale_data.total_amount - Decimal("0.05")):
+                # Excepción: ventas con financiamiento externo (Cashea, Krece, etc.)
+                # El inicial no cubre el total — la financiadora paga el resto después
+                _is_external_financing = (
+                    sale_data.notes and "Financiamiento:" in sale_data.notes
+                ) or (
+                    sale_data.payment_method and any(
+                        pm in str(sale_data.payment_method)
+                        for pm in ["Cashea", "Knece", "Krece", "cashea", "krece"]
+                    )
+                )
+                if not _is_external_financing and total_paid_usd < (sale_data.total_amount - Decimal("0.05")):
                     faltante = float(sale_data.total_amount - total_paid_usd)
                     raise HTTPException(
                         status_code=400,
@@ -1032,6 +1142,7 @@ class SalesService:
         # Get sale with all relationships (includes IMEI instances and warranty policies)
         sale = db.query(models.Sale).options(
             joinedload(models.Sale.details).joinedload(models.SaleDetail.product).joinedload(models.Product.warranty_policy),
+            joinedload(models.Sale.details).joinedload(models.SaleDetail.unit),
             joinedload(models.Sale.details).joinedload(models.SaleDetail.instances).joinedload(models.SaleDetailInstance.product_instance),
             joinedload(models.Sale.customer),
             joinedload(models.Sale.payments)
@@ -1201,7 +1312,8 @@ class SalesService:
             },
             "sale": {
                 "id": sale.id,
-                "date": sale.date.strftime("%d/%m/%Y %H:%M") if sale.date else "",
+                "date": sale.date.strftime("%d/%m/%Y") if sale.date else "",
+                "time": sale.date.strftime("%H:%M") if sale.date else "",
                 
                 # Raw Totals (Backward Compatibility)
                 "total": total_main,
@@ -1218,9 +1330,13 @@ class SalesService:
                 "discount": 0.0, # Added missing field for legacy templates
                 "is_credit": sale.is_credit,
                 "due_date": due_date_str,
+                # Cajero que procesó la venta
+                "cashier": sale.user.username if (sale.user if hasattr(sale, "user") else None) else "",
                 "customer": {
-                    "name": sale.customer.name[:25] if sale.customer else "CLIENTE CONTADO",
-                    "id_number": sale.customer.id_number if sale.customer else ""
+                    "name": sale.customer.name if sale.customer else "CONSUMIDOR FINAL",
+                    "id_number": sale.customer.id_number if sale.customer else "",
+                    "address": sale.customer.address if (sale.customer and hasattr(sale.customer, "address")) else "",
+                    "phone": sale.customer.phone if (sale.customer and hasattr(sale.customer, "phone")) else "",
                 },
                 "products": formatted_items,
                 "payments": formatted_payments,
@@ -1230,32 +1346,82 @@ class SalesService:
                 "formatted_change": fmt_money(change_val, change_curr)
             }
         }
+
+        # ── Datos de financiamiento externo (Cashea, Krece, etc.) ──
+        try:
+            from ..models.models import ExternalFinancing
+            ef = db.query(ExternalFinancing).filter(
+                ExternalFinancing.sale_id == sale_id
+            ).first()
+            if ef:
+                context["financing"] = {
+                    "is_financed":     True,
+                    "financer_name":   ef.financer_name,
+                    "total_price":     float(ef.total_price),
+                    "initial_payment": float(ef.initial_payment),
+                    "financed_amount": float(ef.financed_amount),
+                    "formatted_initial":  fmt_money(float(ef.initial_payment), "USD"),
+                    "formatted_financed": fmt_money(float(ef.financed_amount), "USD"),
+                }
+            else:
+                context["financing"] = {"is_financed": False}
+        except Exception:
+            context["financing"] = {"is_financed": False}
         
         # ── Template selection ─────────────────────────────────────
-        # 1. Load the general ticket_template from config
+        # 1. Determinar el ancho de papel configurado
+        paper_width = business_config.get("paper_width", "58")
+
+        # 2. Cargar template personalizado si existe en BD
         template_config = db.query(models.BusinessConfig).get("ticket_template")
         template = ""
 
         if template_config and template_config.value:
             template = template_config.value
-            # HOTFIX: legacy Jinja2 templates break the C# Bridge (Scriban)
+            # HOTFIX: solo descartar templates Jinja2 legacy ({% %})
             if "{%" in template:
-                print(f"[WARNING] Legacy Jinja2 template detected for Sale {sale_id}. Falling back to Scriban.")
-                template = get_classic_58_template()
-            # HOTFIX: rename old context key
-            if "sale.items" in template:
+                print(f"[WARNING] Template Jinja2 legacy detectado para venta {sale_id}. Usando preset.")
+                template = ""
+            elif "sale.items" in template:
                 template = template.replace("sale.items", "sale.products")
-        else:
-            template = get_classic_58_template()
 
-        # 2. If any item has IMEI/serial numbers → use services-specific template
-        #    (priority: saved services config → built-in services preset)
+        # 3. Si no hay template personalizado válido → usar preset según ancho
+        if not template:
+            template = get_classic_80_template() if paper_width == "80" else get_classic_58_template()
+
+        # 3.5. Inyectar sección de financiamiento si no está ya en el template
+        if context.get("financing", {}).get("is_financed") and "financing.is_financed" not in template:
+            financing_section = """
+================================
+{{ if financing.is_financed }}
+<center>** FINANCIAMIENTO EXTERNO **</center>
+<center>{{ financing.financer_name }}</center>
+--------------------------------
+<right>INICIAL COBRADO:  ${{ financing.initial_payment | math.format "F2" }}</right>
+<right>MONTO FINANCIADO: ${{ financing.financed_amount | math.format "F2" }}</right>
+<center>Saldo lo paga {{ financing.financer_name }}</center>
+{{ end }}"""
+            # Insertar antes del primer bloque de vuelto o al final del template
+            if "VUELTO" in template:
+                # Insertar antes del primer VUELTO
+                idx = template.find("{{ if sale.change_amount > 0 }}")
+                if idx > 0:
+                    template = template[:idx] + financing_section + "\n" + template[idx:]
+                else:
+                    template = template + financing_section
+            else:
+                template = template + financing_section
+
+        # 4. Si la venta tiene IMEI/seriales → usar template de servicios SOLO si el
+        # cliente NO tiene template personalizado. Si el cliente seleccionó una plantilla
+        # (via /ticket-templates/apply), esa GANA siempre, incluso con celulares/IMEI.
         has_serialized = any(item.get("serial_numbers") for item in formatted_items)
-        if has_serialized:
-            paper_width = business_config.get("paper_width", "58")
+        has_custom_template = bool(template_config and template_config.value
+                                   and "{%" not in template_config.value)
+        if has_serialized and not has_custom_template:
             svc_key = f"ticket_template_services_{paper_width}"
             svc_config = db.query(models.BusinessConfig).get(svc_key)
-            if svc_config and svc_config.value:
+            if svc_config and svc_config.value and "{%" not in svc_config.value:
                 template = svc_config.value
             else:
                 template = (

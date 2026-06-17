@@ -5,6 +5,9 @@ import {
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
 
 // ─── Status Badge ────────────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
@@ -289,6 +292,7 @@ const RegisterModal = ({ isOpen, onClose, onSave, editing }) => {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const CashRegistersPage = () => {
+    const help = useHelp();
     const [registers, setRegisters] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -304,7 +308,7 @@ const CashRegistersPage = () => {
             const enriched = data.map(r => ({ ...r, isDefault: r.code === 'C01' }));
             setRegisters(enriched);
         } catch (err) {
-            toast.error('Error al cargar las cajas');
+            toast.error(getApiErrorMessage(err, 'Error al cargar las cajas'));
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -342,7 +346,7 @@ const CashRegistersPage = () => {
             toast.success(`Caja ${register.is_active ? 'desactivada' : 'activada'}`);
             fetchRegisters(true);
         } catch (err) {
-            toast.error(err.response?.data?.detail || 'Error al actualizar');
+            toast.error(getApiErrorMessage(err, 'Error al actualizar'));
         }
     };
 
@@ -359,7 +363,7 @@ const CashRegistersPage = () => {
             toast.success(`✅ Sesión de ${register.name} liberada`);
             fetchRegisters(true);
         } catch (err) {
-            toast.error(err.response?.data?.detail || 'Error al forzar cierre');
+            toast.error(getApiErrorMessage(err, 'Error al forzar cierre'));
         }
     };
 
@@ -367,9 +371,9 @@ const CashRegistersPage = () => {
     const totalActive = registers.filter(r => r.is_active).length;
 
     return (
-        <div className="p-6 max-w-5xl mx-auto">
+        <div id="tour-cash-container" className="p-6 max-w-5xl mx-auto">
             {/* Page Header */}
-            <div className="flex items-start justify-between mb-6">
+            <div id="tour-cash-registers-header" className="flex items-start justify-between mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                         Gestión de Cajas
@@ -379,7 +383,9 @@ const CashRegistersPage = () => {
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
+                    <HelpButton contextKey="cash/registers" onClick={help.open} />
                     <button
+                        id="tour-cash-refresh"
                         onClick={() => fetchRegisters(true)}
                         disabled={refreshing}
                         className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200
@@ -389,6 +395,7 @@ const CashRegistersPage = () => {
                         <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                     </button>
                     <button
+                        id="tour-cash-new-register"
                         onClick={() => { setEditing(null); setModalOpen(true); }}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700
                                    text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
@@ -400,7 +407,7 @@ const CashRegistersPage = () => {
             </div>
 
             {/* Stats Row */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
+            <div id="tour-cash-registers-summary" className="grid grid-cols-3 gap-4 mb-6">
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-3">
                     <div className="w-9 h-9 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                         <Hash className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -452,7 +459,7 @@ const CashRegistersPage = () => {
                     <p className="text-sm mt-1">Crea la primera caja registradora</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div id="tour-cash-registers-list" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {registers.map(register => (
                         <RegisterCard
                             key={register.id}
@@ -466,7 +473,7 @@ const CashRegistersPage = () => {
             )}
 
             {/* Info box */}
-            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+            <div id="tour-cash-registers-rules" className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
                 <p className="text-sm text-blue-700 dark:text-blue-300 font-medium mb-1">¿Cómo funciona?</p>
                 <ul className="text-xs text-blue-600 dark:text-blue-400 space-y-1 list-disc list-inside">
                     <li>Cada caja puede ser abierta por un cajero diferente de forma simultánea.</li>
@@ -478,6 +485,8 @@ const CashRegistersPage = () => {
             </div>
 
             {/* Modal */}
+            {help.isOpen && <HelpDrawer contextKey="cash/registers" onClose={help.close} />}
+
             <RegisterModal
                 isOpen={modalOpen}
                 onClose={() => { setModalOpen(false); setEditing(null); }}

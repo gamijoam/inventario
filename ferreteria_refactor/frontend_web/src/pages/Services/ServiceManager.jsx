@@ -96,7 +96,7 @@ const ServiceManager = () => {
             const timeoutId = setTimeout(async () => {
                 try {
                     const res = await apiClient.get(`/products/?search=${productSearchTerm}`);
-                    setProducts(res.data);
+                    setProducts(Array.isArray(res.data) ? res.data : (res.data?.items || []));
                 } catch (error) {
                     console.error(error);
                 }

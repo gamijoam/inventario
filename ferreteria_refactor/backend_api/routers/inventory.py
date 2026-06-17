@@ -306,6 +306,23 @@ def validate_imei_for_entry(imei: str, db: Session = Depends(get_db)):
     """
     return InventoryService.validate_imei_for_entry(db, imei)
 
+
+@router.get("/serialized-instances", dependencies=[any_authenticated])
+def get_all_serialized_instances(db: Session = Depends(get_db)):
+    """
+    Get ALL serialized instances (IMEIs) across all products.
+    Used for the serialized report PDF.
+    """
+    instances = db.query(models.ProductInstance).options(
+        joinedload(models.ProductInstance.warehouse),
+        joinedload(models.ProductInstance.product)
+    ).order_by(
+        models.ProductInstance.product_id,
+        models.ProductInstance.status,
+        models.ProductInstance.created_at.desc()
+    ).all()
+    return instances
+
 @router.get("/product/{product_id}/instances")
 def get_product_instances(product_id: int, db: Session = Depends(get_db)):
     """
@@ -319,3 +336,143 @@ def get_product_instances(product_id: int, db: Session = Depends(get_db)):
     ).order_by(models.ProductInstance.status, models.ProductInstance.created_at.desc()).all()
 
     return instances
+
+
+@router.delete("/instance/{instance_id}", dependencies=[Depends(warehouse_or_admin)])
+def delete_imei_instance(
+    instance_id: int,
+    reason: str = "Corrección de error",
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(warehouse_or_admin)
+):
+    """
+    Eliminar un IMEI/serial ingresado por error.
+    - Si está AVAILABLE: descuenta el stock y elimina el registro
+    - Si está SOLD: solo elimina el registro (el stock ya salió con la venta)
+    """
+    instance = db.query(models.ProductInstance).filter(
+        models.ProductInstance.id == instance_id
+    ).options(
+        joinedload(models.ProductInstance.product),
+        joinedload(models.ProductInstance.warehouse)
+    ).first()
+
+    if not instance:
+        raise HTTPException(status_code=404, detail="IMEI no encontrado")
+
+    product = instance.product
+    if not product:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+
+    result = {
+        "imei": instance.serial_number,
+        "product_name": product.name,
+        "status_was": instance.status.value if hasattr(instance.status, 'value') else str(instance.status),
+        "stock_adjusted": False
+    }
+
+    if str(instance.status) in ("AVAILABLE", "ProductInstanceStatus.AVAILABLE"):
+        # Descontar del stock ya que el IMEI estaba disponible
+        product.stock = max(0, float(product.stock) - 1)
+
+        # Descontar también del product_stocks del almacén
+        if instance.warehouse_id:
+            ps = db.query(models.ProductStock).filter(
+                models.ProductStock.product_id == product.id,
+                models.ProductStock.warehouse_id == instance.warehouse_id
+            ).first()
+            if ps:
+                ps.quantity = max(0, float(ps.quantity) - 1)
+
+        # Kardex de ajuste
+        kardex = models.Kardex(
+            product_id=product.id,
+            warehouse_id=instance.warehouse_id,
+            movement_type="ADJUSTMENT_OUT",
+            quantity=-1,
+            balance_after=product.stock,
+            description=f"Eliminación IMEI {instance.serial_number} — {reason}",
+            date=datetime.now()
+        )
+        db.add(kardex)
+        result["stock_adjusted"] = True
+
+    # Eliminar el instance
+    db.delete(instance)
+    db.commit()
+
+    return {"status": "deleted", **result}
+
+
+@router.patch("/instance/{instance_id}/fix-serial", dependencies=[Depends(warehouse_or_admin)])
+def fix_imei_serial(
+    instance_id: int,
+    body: dict,
+    db: Session = Depends(get_db)
+):
+    """Corregir el número de serial/IMEI de un registro existente"""
+    instance = db.query(models.ProductInstance).filter(
+        models.ProductInstance.id == instance_id
+    ).first()
+    if not instance:
+        raise HTTPException(status_code=404, detail="IMEI no encontrado")
+
+    new_serial = body.get("serial_number", "").strip()
+    if not new_serial:
+        raise HTTPException(status_code=400, detail="Serial no puede estar vacío")
+
+    # Verificar que no exista otro con ese serial
+    existing = db.query(models.ProductInstance).filter(
+        models.ProductInstance.serial_number == new_serial,
+        models.ProductInstance.id != instance_id
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"El serial {new_serial} ya existe en el sistema")
+
+    old_serial = instance.serial_number
+    instance.serial_number = new_serial
+    db.commit()
+
+    return {
+        "status": "updated",
+        "old_serial": old_serial,
+        "new_serial": new_serial,
+        "product_id": instance.product_id
+    }
+
+
+@router.get("/lookup-imei", dependencies=[any_authenticated])
+def lookup_imei(imei: str, db: Session = Depends(get_db)):
+    """
+    Buscar un producto por IMEI/serial.
+    Devuelve el producto, almacén y estado del IMEI.
+    """
+    instance = db.query(models.ProductInstance).filter(
+        models.ProductInstance.serial_number.ilike(imei.strip())
+    ).options(
+        joinedload(models.ProductInstance.product),
+        joinedload(models.ProductInstance.warehouse),
+    ).first()
+
+    if not instance:
+        raise HTTPException(status_code=404, detail="IMEI no encontrado en el inventario")
+
+    product = instance.product
+    return {
+        "imei": instance.serial_number,
+        "status": instance.status,
+        "warehouse": instance.warehouse.name if instance.warehouse else None,
+        "product": {
+            "id": product.id,
+            "name": product.name,
+            "sku": product.sku,
+            "price": float(product.price),
+            "cost": float(getattr(product, "cost_price", None) or getattr(product, "cost", None) or 0),
+            "stock": float(product.stock),
+            "category_name": product.category.name if product.category else None,
+            "image_url": product.image_url,
+            "description": product.description,
+            "has_imei": product.has_imei,
+        } if product else None,
+        "sold_at": instance.updated_at.isoformat() if instance.status == "SOLD" and instance.updated_at else None,
+    }

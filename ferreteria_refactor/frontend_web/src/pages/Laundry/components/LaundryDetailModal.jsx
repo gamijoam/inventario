@@ -66,7 +66,7 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
             if (productSearch.length > 1 && (!selectedProduct || productSearch !== selectedProduct.name)) {
                 try {
                     const res = await apiClient.get(`/products?search=${productSearch}`);
-                    setProducts(res.data);
+                    setProducts(Array.isArray(res.data) ? res.data : (res.data?.items || []));
                     setShowProductResults(true);
                 } catch (error) {
                     console.error("Error searching products:", error);

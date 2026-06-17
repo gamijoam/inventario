@@ -1,12 +1,11 @@
-import React, { useState, useMemo, lazy, Suspense } from 'react';
+import React, { lazy, Suspense } from 'react';
+import { useConfig } from '../../context/ConfigContext';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
 import { useSearchParams } from 'react-router-dom';
 import {
-    Package, Tags, Archive, ArrowRightLeft, Warehouse, Barcode, Info, PlayCircle
+    Package, Tags, Archive, ArrowRightLeft, Warehouse, Barcode
 } from 'lucide-react';
-import { useOnboardingVideo } from '../../hooks/useOnboardingVideo';
-import OnboardingVideoModal from '../../components/common/OnboardingVideoModal';
 
 const ProductsTab = lazy(() => import('./tabs/ProductsTab'));
 const CategoriesTab = lazy(() => import('./tabs/CategoriesTab'));
@@ -26,14 +25,14 @@ const TAB_DESCRIPTIONS = {
 };
 
 // --- Tab definitions ---
-const TABS = [
+const BASE_TABS = [
     { id: 'productos', label: 'Productos', icon: Package },
     { id: 'categorias', label: 'Categorías', icon: Tags },
     { id: 'kardex', label: 'Kardex', icon: Archive },
     { id: 'traslados', label: 'Traslados', icon: ArrowRightLeft },
     { id: 'almacenes', label: 'Almacenes', icon: Warehouse },
-    { id: 'seriales', label: 'Seriales', icon: Barcode },
 ];
+const SERIALES_TAB = { id: 'seriales', label: 'Seriales', icon: Barcode };
 
 // --- Loading spinner for Suspense ---
 const TabSpinner = () => (
@@ -58,6 +57,10 @@ const TabPlaceholder = ({ label, icon: Icon }) => (
 // MAIN COMPONENT
 // ============================================================
 const InventoryCenter = () => {
+    const { modules } = useConfig();
+    const TABS = modules?.services
+        ? [...BASE_TABS, SERIALES_TAB]
+        : BASE_TABS;
     const [searchParams, setSearchParams] = useSearchParams();
     const activeTab = searchParams.get('tab') || 'productos';
     const help = useHelp();
@@ -70,9 +73,6 @@ const InventoryCenter = () => {
         seriales:   'inventory/seriales',
     }[activeTab] || null;
 
-    // Onboarding: clave dinámica según la pestaña activa
-    const onboardingKey = `inventory:${activeTab}`;
-    const { showModal: showVideoModal, dismiss: dismissVideo, open: openVideo, videoConfig } = useOnboardingVideo(onboardingKey);
 
     const setActiveTab = (tabId) => {
         setSearchParams({ tab: tabId });
@@ -126,84 +126,84 @@ const InventoryCenter = () => {
         }
     };
 
+    const activeTabMeta = TABS.find(tab => tab.id === activeTab) || TABS[0];
+    const ActiveIcon = activeTabMeta.icon;
+    const activeDescription = TAB_DESCRIPTIONS[activeTab];
+
     // ============================================================
     // MAIN RENDER
     // ============================================================
     return (
-        <div className="min-h-screen bg-slate-50/50">
-            {/* Header */}
-            <div className="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div className="min-h-screen bg-slate-50">
+            <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
-                    {/* Title row */}
-                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 py-4">
-                        <div>
-                            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Centro de Inventario</h1>
-                            <p className="text-slate-500 text-sm font-medium">Gestión completa de tu inventario</p>
+                    <div className="flex flex-col gap-3 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-400">
+                                    <Package size={14} /> Inventario
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Centro de Inventario</h1>
+                                    <span className="hidden sm:inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600">
+                                        <ActiveIcon size={13} /> {activeTabMeta.label}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                {helpKey && <HelpButton contextKey={helpKey} onClick={help.open} />}
+                            </div>
                         </div>
-                        {helpKey && <HelpButton contextKey={helpKey} onClick={help.open} />}
-                    </div>
 
-                    {/* Tab Navigation */}
-                    <div className="flex overflow-x-auto gap-0 -mb-px scrollbar-hide">
-                        {TABS.map(tab => {
-                            const TabIcon = tab.icon;
-                            const isActive = activeTab === tab.id;
-                            return (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    className={`flex items-center gap-2 px-4 py-3 text-sm font-bold whitespace-nowrap border-b-2 transition-all ${
-                                        isActive
-                                            ? 'text-emerald-600 border-emerald-600'
-                                            : 'text-slate-500 border-transparent hover:text-slate-700 hover:border-slate-300'
-                                    }`}
-                                >
-                                    <TabIcon size={16} />
-                                    {tab.label}
-                                </button>
-                            );
-                        })}
+                        <div id="tour-inventory-tabs" className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide" role="tablist" aria-label="Secciones de inventario">
+                            {TABS.map(tab => {
+                                const TabIcon = tab.icon;
+                                const isActive = activeTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        id={`tour-inventory-tab-${tab.id}`}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={isActive}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-bold transition-colors ${
+                                            isActive
+                                                ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-100'
+                                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                        }`}
+                                    >
+                                        <TabIcon size={15} className={isActive ? 'text-white' : 'text-slate-400'} />
+                                        {tab.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Description Banner */}
-            {TAB_DESCRIPTIONS[activeTab] && (
-                <div className="mx-6 mb-2 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                        <Info size={16} className="text-slate-400 mt-0.5 shrink-0" />
-                        <div>
-                            <p className="text-sm text-slate-600">{TAB_DESCRIPTIONS[activeTab].desc}</p>
-                            <p className="text-xs text-slate-400 mt-0.5">{TAB_DESCRIPTIONS[activeTab].tip}</p>
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
+                {activeDescription && (
+                    <section className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                        <div className="flex items-start gap-3">
+                            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-500">
+                                <ActiveIcon size={16} />
+                            </div>
+                            <div className="min-w-0">
+                                <h2 className="text-sm font-black text-slate-900">{activeTabMeta.label}</h2>
+                                <p className="mt-0.5 text-sm text-slate-600 leading-relaxed">{activeDescription.desc}</p>
+                                <p className="mt-1 text-xs font-medium text-slate-400">{activeDescription.tip}</p>
+                            </div>
                         </div>
-                    </div>
-                    {videoConfig && (
-                        <button
-                            onClick={openVideo}
-                            className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 whitespace-nowrap transition-colors"
-                        >
-                            <PlayCircle size={15} />
-                            Ver tutorial
-                        </button>
-                    )}
-                </div>
-            )}
+                    </section>
+                )}
 
-            {/* Tab Content */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
                 {renderTabContent()}
-            </div>
+            </main>
 
             {help.isOpen && helpKey && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
 
-            {/* Onboarding Video Modal */}
-            {showVideoModal && videoConfig && (
-                <OnboardingVideoModal
-                    videoId={videoConfig.videoId}
-                    title={videoConfig.title}
-                    onClose={dismissVideo}
-                />
-            )}
         </div>
     );
 };

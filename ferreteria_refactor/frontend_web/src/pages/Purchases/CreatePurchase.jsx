@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Trash2, Save, X, AlertCircle, Package, DollarSign, Calendar, FileText, ChevronDown, Check, ArrowRight } from 'lucide-react';
+import { Search, Plus, Trash2, Save, X, AlertCircle, Package, DollarSign, Calendar, FileText, ChevronDown, Check, ArrowRight, Barcode, ScanLine } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 import clsx from 'clsx';
 import { normalizeSearch } from '../../utils/search';
 
@@ -12,6 +13,229 @@ import { normalizeSearch } from '../../utils/search';
 const formatStock = (stock) => {
     const num = Number(stock);
     return num % 1 === 0 ? num.toFixed(0) : num.toFixed(3).replace(/\.?0+$/, '');
+};
+
+const createLineId = (prefix = 'line') => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+const toMoney = (value) => Number.parseFloat(value) || 0;
+
+const parseSerials = (value = '') => String(value)
+    .split(/[\s,;]+/)
+    .map(v => v.trim().toUpperCase())
+    .filter(Boolean);
+
+const getSerialMeta = (item) => {
+    const expected = Number.isInteger(toMoney(item.quantity)) ? toMoney(item.quantity) : 0;
+    const serials = parseSerials(item.serial_text);
+    const duplicates = serials.filter((serial, index) => serials.indexOf(serial) !== index);
+    const uniqueDuplicates = [...new Set(duplicates)];
+    const missing = Math.max(expected - serials.length, 0);
+    return {
+        expected,
+        captured: serials.length,
+        missing,
+        duplicates: uniqueDuplicates,
+        complete: expected > 0 && serials.length === expected && uniqueDuplicates.length === 0,
+    };
+};
+
+
+const SerialCaptureModal = ({ item, onClose, onSave }) => {
+    const inputRef = useRef(null);
+    const [serials, setSerials] = useState(() => parseSerials(item?.serial_text || ''));
+    const [inputValue, setInputValue] = useState('');
+    const [message, setMessage] = useState('');
+
+    const expected = Number.isInteger(toMoney(item?.quantity)) ? toMoney(item.quantity) : 0;
+    const duplicates = serials.filter((serial, index) => serials.indexOf(serial) !== index);
+    const uniqueDuplicates = [...new Set(duplicates)];
+    const missing = Math.max(expected - serials.length, 0);
+    const complete = expected > 0 && serials.length === expected && uniqueDuplicates.length === 0;
+
+    useEffect(() => {
+        inputRef.current?.focus();
+    }, []);
+
+    const addSerialTokens = (rawValue) => {
+        const tokens = parseSerials(rawValue);
+        if (tokens.length === 0) return;
+
+        setSerials(prev => {
+            const next = [...prev];
+            const rejected = [];
+            for (const token of tokens) {
+                if (next.includes(token)) {
+                    rejected.push(token);
+                    continue;
+                }
+                if (expected && next.length >= expected) {
+                    rejected.push(token);
+                    continue;
+                }
+                next.push(token);
+            }
+
+            if (rejected.length > 0) {
+                setMessage(expected && next.length >= expected
+                    ? 'Ya capturaste la cantidad esperada. Ajusta la cantidad si llegaron mas unidades.'
+                    : `Duplicados omitidos: ${rejected.slice(0, 3).join(', ')}`
+                );
+            } else {
+                setMessage('');
+            }
+            return next;
+        });
+        setInputValue('');
+        requestAnimationFrame(() => inputRef.current?.focus());
+    };
+
+    const handleKeyDown = (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            addSerialTokens(inputValue);
+        }
+    };
+
+    const handlePaste = (event) => {
+        const pasted = event.clipboardData?.getData('text') || '';
+        if (parseSerials(pasted).length > 1) {
+            event.preventDefault();
+            addSerialTokens(pasted);
+        }
+    };
+
+    const removeSerial = (serial) => {
+        setSerials(prev => prev.filter(value => value !== serial));
+        setMessage('');
+        requestAnimationFrame(() => inputRef.current?.focus());
+    };
+
+    const handleSave = () => {
+        if (!complete) {
+            setMessage(uniqueDuplicates.length > 0
+                ? 'Hay IMEIs duplicados. Elimina los repetidos antes de guardar.'
+                : `Faltan ${missing} IMEI(s) para completar esta linea.`
+            );
+            inputRef.current?.focus();
+            return;
+        }
+        onSave(serials);
+    };
+
+    return (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in zoom-in-95 duration-150">
+                <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-4">
+                    <div className="flex min-w-0 items-start gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                            <Barcode size={22} />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-[11px] font-black uppercase tracking-wide text-indigo-500">Captura serializada</p>
+                            <h3 className="truncate text-lg font-black text-slate-900">{item.product_name}</h3>
+                            <p className="text-sm font-semibold text-slate-500">Escanea o escribe un IMEI y presiona Enter para continuar.</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 border-b border-slate-100 bg-slate-50 p-3 text-center">
+                    <div className="rounded-xl bg-white px-3 py-2 shadow-sm">
+                        <div className="text-xl font-black text-slate-900">{expected || 0}</div>
+                        <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Esperados</div>
+                    </div>
+                    <div className="rounded-xl bg-white px-3 py-2 shadow-sm">
+                        <div className="text-xl font-black text-emerald-600">{serials.length}</div>
+                        <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Capturados</div>
+                    </div>
+                    <div className="rounded-xl bg-white px-3 py-2 shadow-sm">
+                        <div className={clsx('text-xl font-black', missing ? 'text-amber-600' : 'text-emerald-600')}>{missing}</div>
+                        <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Faltan</div>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4">
+                    <div className="rounded-2xl border-2 border-indigo-100 bg-indigo-50/40 p-3 focus-within:border-indigo-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-100">
+                        <div className="flex items-center gap-2">
+                            <ScanLine size={22} className="shrink-0 text-indigo-500" />
+                            <input
+                                ref={inputRef}
+                                value={inputValue}
+                                onChange={(event) => setInputValue(event.target.value.toUpperCase())}
+                                onKeyDown={handleKeyDown}
+                                onPaste={handlePaste}
+                                disabled={expected > 0 && serials.length >= expected}
+                                className="min-w-0 flex-1 bg-transparent px-1 py-2 font-mono text-base font-black text-slate-900 outline-none placeholder:font-semibold placeholder:text-slate-400"
+                                placeholder="Escanear IMEI y Enter"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => addSerialTokens(inputValue)}
+                                disabled={!inputValue.trim() || (expected > 0 && serials.length >= expected)}
+                                className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                Agregar
+                            </button>
+                        </div>
+                    </div>
+
+                    {message && (
+                        <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-700">
+                            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                            <span>{message}</span>
+                        </div>
+                    )}
+
+                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50">
+                        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                            <div>
+                                <p className="text-sm font-black text-slate-900">IMEIs capturados</p>
+                                <p className="text-xs font-semibold text-slate-500">Puedes eliminar uno si el scanner leyo algo incorrecto.</p>
+                            </div>
+                            {serials.length > 0 && (
+                                <button onClick={() => setSerials([])} className="text-xs font-black text-rose-600 hover:text-rose-700">Limpiar</button>
+                            )}
+                        </div>
+                        <div className="max-h-64 overflow-y-auto p-3">
+                            {serials.length === 0 ? (
+                                <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm font-bold text-slate-400">
+                                    Aun no hay IMEIs capturados.
+                                </div>
+                            ) : (
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    {serials.map(serial => {
+                                        const duplicated = uniqueDuplicates.includes(serial);
+                                        return (
+                                            <div key={serial} className={clsx('flex items-center justify-between gap-2 rounded-xl border bg-white px-3 py-2 font-mono text-sm font-black', duplicated ? 'border-rose-200 text-rose-700' : 'border-slate-200 text-slate-800')}>
+                                                <span className="min-w-0 truncate">{serial}</span>
+                                                <button onClick={() => removeSerial(serial)} className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-2 border-t border-slate-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className={clsx('text-sm font-black', complete ? 'text-emerald-600' : 'text-slate-500')}>
+                        {complete ? 'Linea completa para registrar la compra.' : 'Completa los IMEIs esperados para poder guardar.'}
+                    </div>
+                    <div className="flex gap-2">
+                        <button onClick={onClose} className="rounded-xl border border-slate-200 bg-white px-4 py-2 font-black text-slate-600 hover:bg-slate-50">Cancelar</button>
+                        <button onClick={handleSave} disabled={!complete} className="rounded-xl bg-indigo-600 px-5 py-2 font-black text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none">
+                            Guardar IMEIs
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 const CreatePurchase = () => {
@@ -30,6 +254,7 @@ const CreatePurchase = () => {
     const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
     const [paymentType, setPaymentType] = useState('CASH'); // CASH or CREDIT
     const [showCostUpdateModal, setShowCostUpdateModal] = useState(null);
+    const [serialCaptureLineId, setSerialCaptureLineId] = useState(null);
     const [activeTab, setActiveTab] = useState('ITEMS'); // 'ITEMS' | 'SUMMARY'
 
     const [invoiceData, setInvoiceData] = useState({
@@ -48,6 +273,7 @@ const CreatePurchase = () => {
     const [quickProductName,    setQuickProductName]    = useState('');
     const [quickProductSku,     setQuickProductSku]     = useState('');
     const [quickProductSalePrice, setQuickProductSalePrice] = useState('');
+    const [quickProductHasImei, setQuickProductHasImei] = useState(false);
     // ── Herramienta 2: Descuento global del proveedor ───────────
     const [globalDiscount, setGlobalDiscount] = useState({ amount: 0, type: 'NONE', notes: '' });
 
@@ -58,17 +284,17 @@ const CreatePurchase = () => {
             setSuppliers(response.data);
         } catch (error) {
             console.error('Error fetching suppliers:', error);
-            toast.error('Error al cargar proveedores');
+            toast.error(getApiErrorMessage(error, 'Error al cargar proveedores'));
         }
     };
 
     const fetchProducts = async () => {
         try {
-            const response = await apiClient.get('/products?limit=500');
-            setProducts(response.data);
+            const response = await apiClient.get('/products?limit=2000');
+            setProducts(Array.isArray(response.data) ? response.data : (response.data?.items || []));
         } catch (error) {
             console.error('Error fetching products:', error);
-            toast.error('Error al cargar productos');
+            toast.error(getApiErrorMessage(error, 'Error al cargar productos'));
         }
     };
 
@@ -130,36 +356,43 @@ const CreatePurchase = () => {
     }, [productSearch, products]);
 
     // Herramienta 2: Calcular totales con descuentos
-    const subtotalBruto = purchaseItems.reduce((s, i) => s + (i.unit_cost * i.quantity), 0);
-    const totalDescItems = purchaseItems.reduce((s, i) => s + (i.discount_amount || 0), 0);
-    const totalConDescItems = subtotalBruto - totalDescItems;
-    const descGlobal = parseFloat(globalDiscount.amount) || 0;
-    const totalFinal = totalConDescItems - descGlobal;
+    const subtotalBruto = purchaseItems.reduce((sum, item) => sum + toMoney(item.unit_cost) * toMoney(item.quantity), 0);
+    const totalDescItems = purchaseItems.reduce((sum, item) => sum + toMoney(item.discount_amount), 0);
+    const totalConDescItems = Math.max(0, subtotalBruto - totalDescItems);
+    const globalDiscountInput = Math.max(0, toMoney(globalDiscount.amount));
+    const descGlobal = globalDiscount.type === 'PERCENT'
+        ? Math.min(totalConDescItems, totalConDescItems * (globalDiscountInput / 100))
+        : Math.min(totalConDescItems, globalDiscountInput);
+    const totalFinal = Math.max(0, totalConDescItems - descGlobal);
 
     // Herramienta 1: Agregar producto rápido (sin existir en inventario)
     const handleAddQuickProduct = () => {
         if (!quickProductName.trim()) return;
-        const tempId = `quick_${Date.now()}`;
-        const cost = parseFloat(quickProductName) || 0;
+        const tempId = createLineId('quick');
         setPurchaseItems(prev => [...prev, {
+            line_id: tempId,
             product_id: null,
             quick_product: {
                 name: quickProductName.trim(),
                 sku: quickProductSku.trim() || null,
                 sale_price: parseFloat(quickProductSalePrice) || null,
+                has_imei: quickProductHasImei,
             },
-            product_name: quickProductName.trim() + ' ⭐ Nuevo',
+            product_name: quickProductName.trim() + (quickProductHasImei ? ' - Serial - Nuevo' : ' - Nuevo'),
             quantity: 1,
             unit_cost: 0,
             original_cost: 0,
             current_price: parseFloat(quickProductSalePrice) || 0,
             subtotal: 0,
+            has_imei: quickProductHasImei,
+            serial_text: '',
             isNew: true,
             tempId,
         }]);
         setQuickProductName('');
         setQuickProductSku('');
         setQuickProductSalePrice('');
+        setQuickProductHasImei(false);
         setShowQuickProduct(false);
     };
 
@@ -168,13 +401,19 @@ const CreatePurchase = () => {
         const existingItem = purchaseItems.find(item => item.product_id === product.id);
 
         if (existingItem) {
-            setPurchaseItems(prev => prev.map(item =>
-                item.product_id === product.id
-                    ? { ...item, quantity: item.quantity + 1 }
-                    : item
-            ));
+            setPurchaseItems(prev => prev.map(item => {
+                if (item.product_id !== product.id) return item;
+                const quantity = toMoney(item.quantity) + 1;
+                return {
+                    ...item,
+                    quantity,
+                    subtotal: Math.max(0, quantity * toMoney(item.unit_cost) - toMoney(item.discount_amount))
+                };
+            }));
         } else {
+            const lineId = createLineId('product');
             setPurchaseItems(prev => [...prev, {
+                line_id: lineId,
                 product_id: product.id,
                 product_name: product.name,
                 quantity: 1,
@@ -183,6 +422,8 @@ const CreatePurchase = () => {
                 current_price: Number(product.price) || 0,
                 profit_margin: Number(product.profit_margin) || 0,
                 tax_rate: Number(product.tax_rate) || 0,
+                has_imei: Boolean(product.has_imei),
+                serial_text: '',
                 subtotal: Number(product.cost_price) || 0
             }]);
         }
@@ -193,35 +434,36 @@ const CreatePurchase = () => {
         toast.success('Producto agregado');
     };
 
+    const updateLine = (lineId, updater) => {
+        setPurchaseItems(prev => prev.map(item => {
+            if ((item.line_id || item.product_id) !== lineId) return item;
+            const next = typeof updater === 'function' ? updater(item) : { ...item, ...updater };
+            return {
+                ...next,
+                subtotal: Math.max(0, toMoney(next.quantity) * toMoney(next.unit_cost) - toMoney(next.discount_amount))
+            };
+        }));
+    };
+
     // Update item quantity
-    const handleQuantityChange = (productId, quantity) => {
-        setPurchaseItems(prev => prev.map(item =>
-            item.product_id === productId
-                ? { ...item, quantity: parseFloat(quantity) || 0, subtotal: (parseFloat(quantity) || 0) * item.unit_cost }
-                : item
-        ));
+    const handleQuantityChange = (lineId, quantity) => {
+        updateLine(lineId, item => ({ ...item, quantity: toMoney(quantity) }));
     };
 
     // Update item cost
-    const handleCostChange = (productId, cost) => {
-        const item = purchaseItems.find(i => i.product_id === productId);
-        const newCost = parseFloat(cost) || 0;
-
-        setPurchaseItems(prev => prev.map(i =>
-            i.product_id === productId
-                ? { ...i, unit_cost: newCost, subtotal: i.quantity * newCost }
-                : i
-        ));
+    const handleCostChange = (lineId, cost) => {
+        updateLine(lineId, item => ({ ...item, unit_cost: toMoney(cost) }));
     };
 
     // Remove item
-    const handleRemoveItem = (productId) => {
-        setPurchaseItems(prev => prev.filter(item => item.product_id !== productId));
+    const handleRemoveItem = (lineId) => {
+        setPurchaseItems(prev => prev.filter(item => (item.line_id || item.product_id) !== lineId));
         toast.success('Producto eliminado de la lista');
     };
 
     // Calculate total
-    const total = purchaseItems.reduce((sum, item) => sum + item.subtotal, 0);
+    const total = subtotalBruto;
+    const serialCaptureItem = purchaseItems.find(item => (item.line_id || item.product_id) === serialCaptureLineId);
 
     // Submit purchase
     const handleSubmit = async () => {
@@ -230,8 +472,37 @@ const CreatePurchase = () => {
             return;
         }
 
+        if (!selectedWarehouse) {
+            toast.error('Selecciona el almacen donde entrara la mercancia');
+            return;
+        }
+
         if (purchaseItems.length === 0) {
             toast.error('Agrega al menos un producto');
+            productSearchRef.current?.focus();
+            return;
+        }
+
+        const invalidItem = purchaseItems.find(item => toMoney(item.quantity) <= 0 || toMoney(item.unit_cost) < 0);
+        if (invalidItem) {
+            toast.error('Revisa cantidades y costos: la cantidad debe ser mayor a cero y el costo no puede ser negativo.');
+            return;
+        }
+
+        const invalidSerialItem = purchaseItems.find(item => {
+            if (!item.has_imei) return false;
+            const qty = toMoney(item.quantity);
+            const serials = parseSerials(item.serial_text);
+            return !Number.isInteger(qty) || serials.length !== qty || new Set(serials).size !== serials.length;
+        });
+        if (invalidSerialItem) {
+            const qty = toMoney(invalidSerialItem.quantity);
+            const serials = parseSerials(invalidSerialItem.serial_text);
+            const duplicated = serials.length !== new Set(serials).size;
+            toast.error(duplicated
+                ? `Hay IMEIs duplicados en ${invalidSerialItem.product_name}`
+                : `${invalidSerialItem.product_name} requiere ${Number.isInteger(qty) ? qty : 'cantidad entera'} IMEI(s).`
+            );
             return;
         }
 
@@ -244,15 +515,15 @@ const CreatePurchase = () => {
                 warehouse_id: warehouseId,
                 invoice_number: invoiceData.invoice_number,
                 notes: invoiceData.notes,
-                total_amount: total,
+                total_amount: totalFinal,
                 purchase_date: invoiceData.purchase_date,
                 due_date: invoiceData.due_date,
-                discount_amount: globalDiscount.amount || 0,
+                discount_amount: descGlobal || 0,
                 discount_type:   globalDiscount.type   || 'NONE',
                 discount_notes:  globalDiscount.notes  || null,
                 items: purchaseItems.map(item => ({
                     product_id:   item.product_id || null,
-                    quick_product: item.quick_product || null,
+                    quick_product: item.quick_product ? { ...item.quick_product, cost_price: toMoney(item.unit_cost) } : null,
                     quantity:     item.quantity,
                     unit_cost:    item.unit_cost,
                     discount_pct: item.discount_pct || 0,
@@ -260,6 +531,7 @@ const CreatePurchase = () => {
                     update_cost:  item.update_cost !== undefined ? item.update_cost : (item.unit_cost !== item.original_cost),
                     update_price: item.update_price || false,
                     new_sale_price: item.new_sale_price || null,
+                    serial_numbers: item.has_imei ? parseSerials(item.serial_text) : [],
                 })),
                 payment_type: paymentType
             };
@@ -269,181 +541,143 @@ const CreatePurchase = () => {
             navigate('/purchases');
         } catch (error) {
             console.error('Error creating purchase:', error);
-
-            // Nuclear option: Ensure errorMessage is ALWAYS a string
-            let errorMessage = 'Error al registrar compra';
-
-            try {
-                if (error.response?.data?.detail) {
-                    const detail = error.response.data.detail;
-                    if (Array.isArray(detail)) {
-                        // Handle Pydantic validation errors
-                        errorMessage += ': ' + detail.map(err => {
-                            if (typeof err === 'object' && err.msg) return err.msg;
-                            if (typeof err === 'string') return err;
-                            return JSON.stringify(err);
-                        }).join(', ');
-                    } else if (typeof detail === 'object') {
-                        errorMessage += ': ' + JSON.stringify(detail);
-                    } else {
-                        errorMessage += ': ' + String(detail);
-                    }
-                } else {
-                    errorMessage += ': ' + (error.message || 'Error desconocido');
-                }
-            } catch (e) {
-                console.error("Error parsing error message:", e);
-                errorMessage = 'Error crítico al procesar solicitud';
-            }
-
-            // Final safety check
-            if (typeof errorMessage !== 'string') {
-                errorMessage = JSON.stringify(errorMessage);
-            }
-
-            toast.error(errorMessage);
+            toast.error(getApiErrorMessage(error, 'Error al registrar compra'));
         }
     };
 
     return (
         <>
-        <div className="flex flex-col min-h-[calc(100vh-64px)] bg-slate-50 gap-4 p-3 md:p-4 pb-32 md:pb-4">
+        <div id="tour-purchase-create" className="flex flex-col min-h-[calc(100vh-64px)] bg-slate-50 gap-4 p-3 md:p-4 pb-32 md:pb-4">
             {/* TOP HEADER: Invoice & Supplier Info */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 shadow-sm flex-shrink-0 z-30">
-                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-start">
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-5 w-full">
-                        {/* Supplier */}
-                        <div className="col-span-1 sm:col-span-2 md:col-span-1 relative">
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
-                                <FileText size={12} /> Proveedor
-                            </label>
-                            <div className="relative">
-                                <input
-                                    ref={searchInputRef}
-                                    type="text"
-                                    value={supplierSearch}
-                                    onChange={(e) => {
-                                        setSupplierSearch(e.target.value);
-                                        setShowSupplierDropdown(true);
-                                    }}
-                                    onFocus={() => setShowSupplierDropdown(true)}
-                                    className={clsx(
-                                        "w-full p-2.5 border rounded-xl font-medium outline-none text-sm transition-all shadow-sm",
-                                        selectedSupplier
-                                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                                            : 'border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
-                                    )}
-                                    placeholder="Buscar proveedor..."
-                                />
-                                {selectedSupplier && (
-                                    <div className="absolute right-3 top-2.5 text-emerald-600 animate-in zoom-in">
-                                        <Check size={16} strokeWidth={3} />
-                                    </div>
-                                )}
+            <div className="rounded-lg border border-slate-200 bg-white shadow-sm flex-shrink-0 z-30">
+                <div className="flex flex-col gap-4 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                                <Package size={20} />
                             </div>
-                            {showSupplierDropdown && filteredSuppliers.length > 0 && (
-                                <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto animate-in fade-in zoom-in-95">
-                                    {filteredSuppliers.map(supplier => (
-                                        <div
-                                            key={supplier.id}
-                                            onClick={() => handleSupplierSelect(supplier)}
-                                            className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-slate-50 last:border-0 text-sm transition-colors"
-                                        >
-                                            <div className="font-bold text-slate-800">{supplier.name}</div>
-                                            <div className="text-xs text-slate-500 mt-0.5">Crédito: {supplier.payment_terms} días</div>
-                                        </div>
-                                    ))}
+                            <div>
+                                <h1 className="text-xl font-black text-slate-900">Recepcion de inventario</h1>
+                                <p className="text-sm font-semibold text-slate-500">Registra factura, proveedor, costos y entrada al almacen.</p>
+                            </div>
+                            <HelpButton contextKey="purchases" onClick={help.open} />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:w-80">
+                        <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-center">
+                            <div className="text-xl font-black leading-none text-indigo-600">${Number(totalFinal).toFixed(2)}</div>
+                            <div className="mt-1 text-[10px] font-black uppercase tracking-wide text-indigo-500">Total factura</div>
+                        </div>
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center">
+                            <div className="text-xl font-black leading-none text-slate-900">{purchaseItems.length}</div>
+                            <div className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-400">Lineas</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 p-4 lg:grid-cols-[minmax(220px,1.2fr)_minmax(180px,0.8fr)_minmax(160px,0.7fr)_minmax(260px,1fr)]">
+                    <div id="tour-purchase-supplier" className="relative">
+                        <label className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                            <FileText size={12} /> Proveedor
+                        </label>
+                        <div className="relative">
+                            <input
+                                ref={searchInputRef}
+                                type="text"
+                                value={supplierSearch}
+                                onChange={(e) => {
+                                    setSupplierSearch(e.target.value);
+                                    setShowSupplierDropdown(true);
+                                }}
+                                onFocus={() => setShowSupplierDropdown(true)}
+                                className={clsx(
+                                    "w-full rounded-md border px-3 py-2.5 pr-9 text-sm font-semibold outline-none transition-all",
+                                    selectedSupplier
+                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                        : 'border-slate-200 bg-white text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100'
+                                )}
+                                placeholder="Buscar proveedor..."
+                            />
+                            {selectedSupplier && (
+                                <div className="absolute right-3 top-2.5 text-emerald-600">
+                                    <Check size={16} strokeWidth={3} />
                                 </div>
                             )}
                         </div>
+                        {showSupplierDropdown && filteredSuppliers.length > 0 && (
+                            <div className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+                                {filteredSuppliers.map(supplier => (
+                                    <div
+                                        key={supplier.id}
+                                        onClick={() => handleSupplierSelect(supplier)}
+                                        className="cursor-pointer border-b border-slate-50 p-3 text-sm transition-colors last:border-0 hover:bg-indigo-50"
+                                    >
+                                        <div className="font-black text-slate-800">{supplier.name}</div>
+                                        <div className="mt-0.5 text-xs font-semibold text-slate-500">Credito: {supplier.payment_terms} dias</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
-                        {/* Warehouse Selector */}
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
-                                <Package size={12} /> Bodega Destino
-                            </label>
-                            <div className="relative">
-                                <select
-                                    value={selectedWarehouse || ''}
-                                    onChange={(e) => setSelectedWarehouse(Number(e.target.value))}
-                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-800 outline-none text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm transition-all appearance-none"
-                                >
-                                    {warehouses.map(wh => (
-                                        <option key={wh.id} value={wh.id}>
-                                            {wh.name} {wh.is_main ? '(Principal)' : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                                <ChevronDown className="absolute right-3 top-3 text-slate-400 pointer-events-none" size={16} />
-                            </div>
-                        </div>
-
-                        {/* Invoice Data */}
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
-                                <Package size={12} /> Nro. Factura
-                            </label>
-                            <input
-                                type="text"
-                                value={invoiceData.invoice_number}
-                                onChange={(e) => setInvoiceData(prev => ({ ...prev, invoice_number: e.target.value }))}
-                                className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 outline-none text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm transition-all"
-                                placeholder="Ej: 001-230"
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 sm:gap-5 col-span-1 sm:col-span-2 md:col-span-1">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
-                                    <Calendar size={12} /> Emisión
-                                </label>
-                                <input
-                                    type="date"
-                                    value={invoiceData.purchase_date}
-                                    onChange={(e) => setInvoiceData(prev => ({ ...prev, purchase_date: e.target.value }))}
-                                    className="w-full p-2.5 border border-slate-200 rounded-xl outline-none text-sm text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm transition-all"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
-                                    <AlertCircle size={12} /> Vence
-                                </label>
-                                <input
-                                    type="date"
-                                    value={invoiceData.due_date}
-                                    onChange={(e) => setInvoiceData(prev => ({ ...prev, due_date: e.target.value }))}
-                                    className={clsx(
-                                        "w-full p-2.5 border rounded-xl outline-none text-sm shadow-sm transition-all",
-                                        new Date(invoiceData.due_date) < new Date()
-                                            ? 'border-rose-200 bg-rose-50 text-rose-800'
-                                            : 'border-slate-200 text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
-                                    )}
-                                />
-                            </div>
+                    <div>
+                        <label className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                            <Package size={12} /> Almacen destino
+                        </label>
+                        <div className="relative">
+                            <select
+                                value={selectedWarehouse || ''}
+                                onChange={(e) => setSelectedWarehouse(Number(e.target.value))}
+                                className="w-full appearance-none rounded-md border border-slate-200 bg-white px-3 py-2.5 pr-9 text-sm font-black text-slate-800 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                            >
+                                {warehouses.map(wh => (
+                                    <option key={wh.id} value={wh.id}>{wh.name} {wh.is_main ? '(Principal)' : ''}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-3 top-3 text-slate-400" size={16} />
                         </div>
                     </div>
 
-                    {/* Totals Widget */}
-                    <div className="w-full md:w-72 bg-slate-900 rounded-2xl p-4 text-white shadow-lg shadow-slate-200 flex-shrink-0 relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                            <DollarSign size={64} />
+                    <div>
+                        <label className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                            <FileText size={12} /> Factura
+                        </label>
+                        <input
+                            type="text"
+                            value={invoiceData.invoice_number}
+                            onChange={(e) => setInvoiceData(prev => ({ ...prev, invoice_number: e.target.value }))}
+                            className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm font-black text-slate-800 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                            placeholder="Ej: 001-230"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                                <Calendar size={12} /> Emision
+                            </label>
+                            <input
+                                type="date"
+                                value={invoiceData.purchase_date}
+                                onChange={(e) => setInvoiceData(prev => ({ ...prev, purchase_date: e.target.value }))}
+                                className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-600 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                            />
                         </div>
-                        <div className="relative z-10 flex flex-row md:flex-col justify-between items-center md:items-start">
-                            <div>
-                                <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Total Factura</div>
-                                <div className="text-3xl font-black tracking-tight mb-2 flex items-baseline gap-1">
-                                    <span className="text-lg text-slate-500 font-bold">$</span>
-                                    {Number(total).toFixed(2)}
-                                </div>
-                            </div>
-                            <div className="flex flex-col md:flex-row items-end md:items-center justify-between bg-slate-800/50 rounded-lg p-2 backdrop-blur-sm gap-2">
-                                <span className="text-xs text-slate-400 font-medium whitespace-nowrap">Items: {purchaseItems.length}</span>
-                                <span className={clsx(
-                                    "text-xs font-bold px-2 py-0.5 rounded-lg",
-                                    paymentType === 'CREDIT' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'
-                                )}>
-                                    {paymentType === 'CREDIT' ? 'Crédito' : 'Contado'}
-                                </span>
-                            </div>
+                        <div>
+                            <label className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                                <AlertCircle size={12} /> Vence
+                            </label>
+                            <input
+                                type="date"
+                                value={invoiceData.due_date}
+                                onChange={(e) => setInvoiceData(prev => ({ ...prev, due_date: e.target.value }))}
+                                className={clsx(
+                                    "w-full rounded-md border px-3 py-2.5 text-sm font-semibold outline-none transition-all",
+                                    new Date(invoiceData.due_date) < new Date()
+                                        ? 'border-rose-200 bg-rose-50 text-rose-800'
+                                        : 'border-slate-200 text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100'
+                                )}
+                            />
                         </div>
                     </div>
                 </div>
@@ -457,13 +691,14 @@ const CreatePurchase = () => {
                     <div className="p-4 border-b border-slate-100 bg-slate-50/50 z-20">
                         {/* Botón producto nuevo */}
                         <button
+                            id="tour-purchase-new-product"
                             type="button"
                             onClick={() => setShowQuickProduct(true)}
                             className="mb-3 flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold transition-all shadow-sm"
                         >
                             ➕ Producto nuevo
                         </button>
-                        <div className="relative">
+                        <div id="tour-purchase-product-search" className="relative">
                             <Search className="absolute left-4 top-3.5 text-slate-400" size={20} />
                             <input
                                 ref={productSearchRef}
@@ -475,6 +710,11 @@ const CreatePurchase = () => {
                                 autoFocus
                             />
                             {/* Autocomplete Dropdown */}
+                            {productSearch && filteredProducts.length === 0 && (
+                                <div className="absolute z-50 mt-2 w-full rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm font-bold text-amber-700 shadow-xl">
+                                    No encontre productos con ese nombre o SKU. Puedes crear uno con el boton Producto nuevo.
+                                </div>
+                            )}
                             {filteredProducts.length > 0 && (
                                 <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-2xl border border-slate-100 max-h-[400px] overflow-y-auto custom-scrollbar animate-in slide-in-from-top-2">
                                     {filteredProducts.map(product => (
@@ -502,7 +742,7 @@ const CreatePurchase = () => {
                     </div>
 
                     {/* Table */}
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-0 bg-slate-50 md:bg-white">
+                    <div id="tour-purchase-items" className="flex-1 overflow-y-auto custom-scrollbar p-0 bg-slate-50 md:bg-white">
                         {/* MOBILE CARD LIST */}
                         <div className="md:hidden space-y-3 p-3">
                             {purchaseItems.length === 0 ? (
@@ -514,15 +754,16 @@ const CreatePurchase = () => {
                             ) : (
                                 purchaseItems.map(item => {
                                     const projectedPrice = item.unit_cost * (1 + (item.profit_margin || 0) / 100) * (1 + (item.tax_rate || 0) / 100);
+                                    const serialMeta = item.has_imei ? getSerialMeta(item) : null;
                                     return (
-                                        <div key={item.product_id} className="bg-white rounded-xl p-3 shadow-sm border border-slate-200 relative">
+                                        <div key={item.line_id || item.product_id} className="bg-white rounded-xl p-3 shadow-sm border border-slate-200 relative">
                                             <div className="flex justify-between items-start mb-3 pr-8">
                                                 <div>
                                                     <div className="font-bold text-slate-800 text-sm line-clamp-2">{item.product_name}</div>
                                                     <div className="text-xs text-slate-400 mt-0.5">Base: ${Number(item.original_cost).toFixed(2)}</div>
                                                 </div>
                                                 <button
-                                                    onClick={() => handleRemoveItem(item.product_id)}
+                                                    onClick={() => handleRemoveItem(item.line_id || item.product_id)}
                                                     className="absolute top-2 right-2 p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                                                 >
                                                     <Trash2 size={18} />
@@ -536,7 +777,7 @@ const CreatePurchase = () => {
                                                     <input
                                                         type="number"
                                                         value={item.quantity}
-                                                        onChange={(e) => handleQuantityChange(item.product_id, e.target.value)}
+                                                        onChange={(e) => handleQuantityChange(item.line_id || item.product_id, e.target.value)}
                                                         className="w-full text-center font-bold border border-slate-200 rounded-lg py-1.5 text-sm focus:border-indigo-500 outline-none bg-slate-50"
                                                     />
                                                 </div>
@@ -549,10 +790,11 @@ const CreatePurchase = () => {
                                                         <input
                                                             type="number"
                                                             value={item.unit_cost}
-                                                            onChange={(e) => handleCostChange(item.product_id, e.target.value)}
+                                                            onChange={(e) => handleCostChange(item.line_id || item.product_id, e.target.value)}
                                                             onBlur={(e) => {
-                                                                if (item.unit_cost !== item.original_cost && item.unit_cost > 0) {
+                                                                if (item.product_id && item.unit_cost !== item.original_cost && item.unit_cost > 0) {
                                                                     setShowCostUpdateModal({
+                                                                        lineId: item.line_id || item.product_id,
                                                                         productId: item.product_id,
                                                                         newCost: item.unit_cost,
                                                                         originalCost: item.original_cost,
@@ -582,6 +824,45 @@ const CreatePurchase = () => {
                                                     </div>
                                                 </div>
                                             </div>
+
+                                            {item.has_imei && (
+                                                <div id="tour-purchase-imei-lines" className={clsx(
+                                                    "mt-3 rounded-xl border p-3",
+                                                    serialMeta.complete ? "border-emerald-200 bg-emerald-50" : serialMeta.duplicates.length ? "border-rose-200 bg-rose-50" : "border-indigo-100 bg-indigo-50"
+                                                )}>
+                                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                                        <label className="text-[10px] font-black uppercase tracking-wide text-indigo-700">IMEIs / Seriales</label>
+                                                        <span className={clsx("rounded-full px-2 py-0.5 text-[10px] font-black", serialMeta.complete ? "bg-emerald-100 text-emerald-700" : serialMeta.duplicates.length ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700")}>
+                                                            {serialMeta.captured}/{serialMeta.expected || toMoney(item.quantity) || 0}
+                                                        </span>
+                                                    </div>
+                                                    <div className="mb-2 grid grid-cols-3 gap-1.5 text-center text-[10px] font-black">
+                                                        <div className="rounded-lg bg-white px-2 py-1 text-slate-500">Esperados <span className="text-slate-900">{toMoney(item.quantity) || 0}</span></div>
+                                                        <div className="rounded-lg bg-white px-2 py-1 text-emerald-600">Capturados <span>{serialMeta.captured}</span></div>
+                                                        <div className={clsx("rounded-lg bg-white px-2 py-1", serialMeta.missing ? "text-amber-600" : "text-emerald-600")}>Faltan <span>{serialMeta.missing}</span></div>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSerialCaptureLineId(item.line_id || item.product_id)}
+                                                        className={clsx(
+                                                            "flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-black transition",
+                                                            serialMeta.complete ? "border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50" : serialMeta.duplicates.length ? "border-rose-200 bg-white text-rose-700 hover:bg-rose-50" : "border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50"
+                                                        )}
+                                                    >
+                                                        <Barcode size={16} /> Capturar IMEIs
+                                                    </button>
+                                                    {parseSerials(item.serial_text).length > 0 && (
+                                                        <div className="mt-2 line-clamp-2 rounded-lg bg-white px-3 py-2 font-mono text-[11px] font-bold text-slate-500">
+                                                            {parseSerials(item.serial_text).slice(0, 4).join(' | ')}{parseSerials(item.serial_text).length > 4 ? '...' : ''}
+                                                        </div>
+                                                    )}
+                                                    {serialMeta.duplicates.length > 0 && (
+                                                        <div className="mt-2 rounded-lg bg-white px-3 py-2 text-xs font-bold text-rose-600">
+                                                            Duplicados: {serialMeta.duplicates.slice(0, 3).join(', ')}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
 
                                             <div className="mt-3 pt-2 border-t border-slate-100 flex justify-between items-center">
                                                 <div className="flex gap-2">
@@ -628,9 +909,11 @@ const CreatePurchase = () => {
                                     purchaseItems.map(item => {
                                         // Calculate projected price for display
                                         const projectedPrice = item.unit_cost * (1 + (item.profit_margin || 0) / 100) * (1 + (item.tax_rate || 0) / 100);
+                                        const serialMeta = item.has_imei ? getSerialMeta(item) : null;
 
                                         return (
-                                            <tr key={item.product_id} className="hover:bg-slate-50/80 transition-colors group">
+                                            <React.Fragment key={item.line_id || item.product_id}>
+                                            <tr className="hover:bg-slate-50/80 transition-colors group">
                                                 <td className="px-4 py-3">
                                                     <div className="font-bold text-slate-800">{item.product_name}</div>
                                                     <div className="text-xs text-slate-400 mt-0.5 font-medium">
@@ -641,7 +924,7 @@ const CreatePurchase = () => {
                                                     <input
                                                         type="number"
                                                         value={item.quantity}
-                                                        onChange={(e) => handleQuantityChange(item.product_id, e.target.value)}
+                                                        onChange={(e) => handleQuantityChange(item.line_id || item.product_id, e.target.value)}
                                                         className="w-full text-center font-bold border border-slate-200 rounded-lg p-1.5 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all text-slate-700 hover:border-slate-300"
                                                     />
                                                 </td>
@@ -651,7 +934,7 @@ const CreatePurchase = () => {
                                                         <input
                                                             type="number"
                                                             value={item.unit_cost}
-                                                            onChange={(e) => handleCostChange(item.product_id, e.target.value)}
+                                                            onChange={(e) => handleCostChange(item.line_id || item.product_id, e.target.value)}
                                                             className={clsx(
                                                                 "w-full pl-5 pr-1 font-bold rounded-lg p-1.5 outline-none text-center text-sm transition-all border",
                                                                 item.unit_cost !== item.original_cost
@@ -660,8 +943,9 @@ const CreatePurchase = () => {
                                                             )}
                                                             onBlur={() => {
                                                                 // Trigger modal only when user finishes typing
-                                                                if (item.unit_cost !== item.original_cost && item.unit_cost > 0) {
+                                                                if (item.product_id && item.unit_cost !== item.original_cost && item.unit_cost > 0) {
                                                                     setShowCostUpdateModal({
+                                                                        lineId: item.line_id || item.product_id,
                                                                         productId: item.product_id,
                                                                         newCost: item.unit_cost,
                                                                         originalCost: item.original_cost,
@@ -699,13 +983,59 @@ const CreatePurchase = () => {
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
                                                     <button
-                                                        onClick={() => handleRemoveItem(item.product_id)}
+                                                        onClick={() => handleRemoveItem(item.line_id || item.product_id)}
                                                         className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                                                     >
                                                         <Trash2 size={18} />
                                                     </button>
                                                 </td>
                                             </tr>
+                                            {item.has_imei && (
+                                                <tr className="bg-indigo-50/50">
+                                                    <td colSpan="7" className="px-4 pb-4">
+                                                        <div className={clsx(
+                                                            "rounded-xl border bg-white p-3 shadow-sm",
+                                                            serialMeta.complete ? "border-emerald-200" : serialMeta.duplicates.length ? "border-rose-200" : "border-indigo-100"
+                                                        )}>
+                                                            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                                                                <div>
+                                                                    <label className="text-[10px] font-black uppercase tracking-wide text-indigo-600">IMEIs / Seriales recibidos</label>
+                                                                    <p className="mt-0.5 text-xs font-semibold text-slate-500">Escanea, pega o separa por coma, espacio o salto de linea.</p>
+                                                                </div>
+                                                                <div className="flex flex-wrap gap-1.5">
+                                                                    <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">Esperados: {toMoney(item.quantity) || 0}</span>
+                                                                    <span className="rounded-md bg-emerald-100 px-2 py-1 text-[10px] font-black text-emerald-700">Capturados: {serialMeta.captured}</span>
+                                                                    <span className={clsx("rounded-md px-2 py-1 text-[10px] font-black", serialMeta.missing ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700")}>Faltan: {serialMeta.missing}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+                                                                <div className="min-h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs font-bold text-slate-500">
+                                                                    {parseSerials(item.serial_text).length > 0
+                                                                        ? `${parseSerials(item.serial_text).slice(0, 6).join(' | ')}${parseSerials(item.serial_text).length > 6 ? '...' : ''}`
+                                                                        : 'Sin IMEIs capturados todavia.'}
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setSerialCaptureLineId(item.line_id || item.product_id)}
+                                                                    className={clsx(
+                                                                        "inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-black transition",
+                                                                        serialMeta.complete ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : serialMeta.duplicates.length ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100" : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                                                                    )}
+                                                                >
+                                                                    <Barcode size={16} /> Capturar IMEIs
+                                                                </button>
+                                                            </div>
+                                                            {serialMeta.duplicates.length > 0 && (
+                                                                <div className="mt-2 flex items-start gap-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
+                                                                    <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                                                                    <span>Duplicados detectados: {serialMeta.duplicates.slice(0, 5).join(', ')}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                            </React.Fragment>
                                         )
                                     })
                                 )}
@@ -726,7 +1056,7 @@ const CreatePurchase = () => {
 
                 {/* RIGHT SIDEBAR: Actions & Payment */}
                 <div className={`flex flex-col gap-4 overflow-y-auto pb-2 ${activeTab === 'SUMMARY' ? 'flex w-full md:w-80' : 'hidden md:flex md:w-80'}`}>
-                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                    <div id="tour-purchase-conditions" className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                         <h3 className="text-xs font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
                             <ArrowRight size={14} className="text-indigo-600" /> Condiciones
                         </h3>
@@ -772,16 +1102,28 @@ const CreatePurchase = () => {
                         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm mb-2">
                             <div className="flex justify-between mb-2 text-sm font-medium text-slate-500">
                                 <span>Subtotal</span>
-                                <span>${total.toFixed(2)}</span>
+                                <span>${subtotalBruto.toFixed(2)}</span>
                             </div>
+                            {totalDescItems > 0 && (
+                                <div className="flex justify-between mb-2 text-sm font-bold text-emerald-700">
+                                    <span>Desc. items</span>
+                                    <span>-${totalDescItems.toFixed(2)}</span>
+                                </div>
+                            )}
+                            {descGlobal > 0 && (
+                                <div className="flex justify-between mb-2 text-sm font-bold text-emerald-700">
+                                    <span>Desc. proveedor</span>
+                                    <span>-${descGlobal.toFixed(2)}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between text-xl font-black text-slate-800 pt-3 border-t border-slate-100">
                                 <span>TOTAL</span>
-                                <span>${total.toFixed(2)}</span>
+                                <span>${totalFinal.toFixed(2)}</span>
                             </div>
                         </div>
 
                         {/* ── Descuento global del proveedor ── */}
-                        <div className="bg-white border border-slate-200 rounded-xl p-4 mb-3">
+                        <div id="tour-purchase-discount" className="bg-white border border-slate-200 rounded-xl p-4 mb-3">
                             <p className="text-xs font-black text-slate-600 uppercase tracking-wide mb-3">
                                 🏷️ Descuento del proveedor
                             </p>
@@ -791,7 +1133,7 @@ const CreatePurchase = () => {
                                         type="number"
                                         min="0"
                                         step="0.01"
-                                        placeholder="Monto ($)"
+                                        placeholder={globalDiscount.type === 'PERCENT' ? 'Porcentaje (%)' : 'Monto ($)'}
                                         value={globalDiscount.amount || ''}
                                         onChange={e => setGlobalDiscount(p => ({ ...p, amount: parseFloat(e.target.value) || 0 }))}
                                         className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300"
@@ -816,15 +1158,16 @@ const CreatePurchase = () => {
                                 {globalDiscount.amount > 0 && globalDiscount.type !== 'NONE' && (
                                     <div className="flex justify-between text-sm font-bold text-emerald-700 bg-emerald-50 rounded-xl px-3 py-2">
                                         <span>Descuento aplicado</span>
-                                        <span>-${Number(globalDiscount.amount).toFixed(2)}</span>
+                                        <span>-${descGlobal.toFixed(2)}</span>
                                     </div>
                                 )}
                             </div>
                         </div>
 
                         <button
+                            id="tour-purchase-submit"
                             onClick={handleSubmit}
-                            disabled={!selectedSupplier || purchaseItems.length === 0}
+                            disabled={!selectedSupplier || !selectedWarehouse || purchaseItems.length === 0}
                             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-indigo-200 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-y-0 flex items-center justify-center gap-2 active:scale-95"
                         >
                             <Save size={20} /> Procesar Compra
@@ -838,6 +1181,18 @@ const CreatePurchase = () => {
                     </div>
                 </div>
             </div>
+
+            {serialCaptureItem && (
+                <SerialCaptureModal
+                    item={serialCaptureItem}
+                    onClose={() => setSerialCaptureLineId(null)}
+                    onSave={(serials) => {
+                        updateLine(serialCaptureLineId, { serial_text: serials.join('\n') });
+                        setSerialCaptureLineId(null);
+                        toast.success('IMEIs capturados');
+                    }}
+                />
+            )}
 
             {/* Price/Cost Update Modal */}
             {showCostUpdateModal && (
@@ -947,7 +1302,7 @@ const CreatePurchase = () => {
                             <button
                                 onClick={() => {
                                     setPurchaseItems(prev => prev.map(item =>
-                                        item.product_id === showCostUpdateModal.productId
+                                        (item.line_id || item.product_id) === showCostUpdateModal.lineId
                                             ? {
                                                 ...item,
                                                 update_cost: true,
@@ -1060,8 +1415,26 @@ const CreatePurchase = () => {
                                 className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-300 outline-none"
                             />
                         </div>
-                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
-                            💡 El costo se tomará del campo "Costo unitario" que ingreses en la tabla.
+                        <button
+                            type="button"
+                            onClick={() => setQuickProductHasImei(prev => !prev)}
+                            className={clsx(
+                                "flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left transition-all",
+                                quickProductHasImei ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-slate-50 text-slate-600 hover:border-indigo-200"
+                            )}
+                        >
+                            <span>
+                                <span className="block text-sm font-black">Maneja IMEI / Serial</span>
+                                <span className="block text-xs font-semibold opacity-80">Para telefonos, laptops o equipos unitarios.</span>
+                            </span>
+                            <span className={clsx("h-6 w-11 rounded-full p-0.5 transition-all", quickProductHasImei ? "bg-indigo-600" : "bg-slate-300")}>
+                                <span className={clsx("block h-5 w-5 rounded-full bg-white transition-transform", quickProductHasImei && "translate-x-5")} />
+                            </span>
+                        </button>
+                        <div className={clsx("rounded-xl border p-3 text-xs font-semibold", quickProductHasImei ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-amber-200 bg-amber-50 text-amber-700")}>
+                            {quickProductHasImei
+                                ? 'Al agregarlo, la linea pedira los IMEIs aqui mismo y la compra creara el stock serializado.'
+                                : 'El costo se tomara del campo Costo unitario que ingreses en la tabla.'}
                         </div>
                     </div>
                     <div className="flex gap-2 mt-5">

@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from decimal import Decimal
+from collections import Counter
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
@@ -14,6 +15,194 @@ router = APIRouter(
     tags=["purchases"]
 )
 
+
+
+def _str_cell(row: dict, *keys, default: str = "") -> str:
+    for key in keys:
+        value = row.get(key)
+        if value is not None and str(value).strip() != "":
+            return str(value).strip()
+    return default
+
+
+def _decimal_cell(row: dict, *keys, default="0") -> Decimal:
+    raw = _str_cell(row, *keys, default=str(default)).replace(",", ".")
+    try:
+        return Decimal(raw)
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"Valor numerico invalido: {raw}")
+
+
+def _bool_cell(row: dict, *keys) -> bool:
+    value = _str_cell(row, *keys).lower()
+    return value in {"1", "true", "si", "s?", "yes", "y", "imei", "serial", "serializado"}
+
+
+def _parse_import_date(value):
+    from datetime import datetime
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    raw = str(value).strip()
+    if not raw:
+        return None
+    raw = raw.replace("Z", "+00:00")
+    for fmt in (None, "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
+        try:
+            return datetime.fromisoformat(raw) if fmt is None else datetime.strptime(raw, fmt)
+        except Exception:
+            continue
+    raise HTTPException(status_code=400, detail=f"Fecha invalida: {value}")
+
+
+def _parse_serials_cell(value) -> list[str]:
+    import re
+    return [part.strip().upper() for part in re.split(r"[\s,;|]+", str(value or "")) if part.strip()]
+
+
+def _find_or_create_supplier(db: Session, name: str):
+    supplier = db.query(models.Supplier).filter(models.Supplier.name.ilike(name)).first()
+    if supplier:
+        return supplier
+    supplier = models.Supplier(name=name, is_active=True, payment_terms=30, current_balance=Decimal("0.00"))
+    db.add(supplier)
+    db.flush()
+    return supplier
+
+
+def _resolve_import_warehouse(db: Session, name: str | None):
+    query = db.query(models.Warehouse).filter(models.Warehouse.is_active == True)
+    if name:
+        warehouse = query.filter(models.Warehouse.name.ilike(name)).first()
+        if warehouse:
+            return warehouse
+        raise HTTPException(status_code=400, detail=f"Almacen no encontrado: {name}")
+    warehouse = query.order_by(models.Warehouse.is_main.desc(), models.Warehouse.id).first()
+    if not warehouse:
+        raise HTTPException(status_code=400, detail="No hay almacenes activos para importar la compra")
+    return warehouse
+
+
+def _find_product_for_import(db: Session, sku: str, name: str):
+    if sku:
+        product = db.query(models.Product).filter(models.Product.sku == sku).first()
+        if product:
+            return product
+    if name:
+        return db.query(models.Product).filter(models.Product.name.ilike(name)).first()
+    return None
+
+
+@router.post("/import-batch")
+async def import_purchase_batch(rows: List[dict] = Body(...), db: Session = Depends(get_db)):
+    """Importa compras desde Excel como recepcion real: stock, kardex e IMEIs."""
+    if not rows:
+        raise HTTPException(status_code=400, detail="El archivo no tiene filas para importar")
+
+    grouped = {}
+    for idx, row in enumerate(rows, start=2):
+        supplier_name = _str_cell(row, "proveedor", "supplier")
+        product_name = _str_cell(row, "producto", "product", "nombre")
+        if not supplier_name:
+            raise HTTPException(status_code=400, detail=f"Fila {idx}: falta proveedor")
+        if not product_name:
+            raise HTTPException(status_code=400, detail=f"Fila {idx}: falta producto")
+        invoice = _str_cell(row, "nro_factura", "factura", "invoice", default=f"IMPORT-{idx}")
+        date_raw = _str_cell(row, "fecha", "purchase_date")
+        warehouse_name = _str_cell(row, "almacen", "bodega", "warehouse", default="")
+        key = (supplier_name.lower(), invoice, date_raw, warehouse_name.lower())
+        grouped.setdefault(key, {"supplier": supplier_name, "invoice": invoice, "date": date_raw, "warehouse": warehouse_name, "rows": []})["rows"].append((idx, row))
+
+    imported = []
+    for group in grouped.values():
+        supplier = _find_or_create_supplier(db, group["supplier"])
+        warehouse = _resolve_import_warehouse(db, group["warehouse"] or None)
+        items = []
+        for idx, row in group["rows"]:
+            product_name = _str_cell(row, "producto", "product", "nombre")
+            sku = _str_cell(row, "sku", "codigo", "codigo_producto")
+            qty = _decimal_cell(row, "cantidad", "qty", default="0")
+            unit_cost = _decimal_cell(row, "costo_unitario", "costo", "unit_cost", default="0")
+            sale_price = _decimal_cell(row, "precio_venta", "pvp", "sale_price", default=unit_cost)
+            serials = _parse_serials_cell(_str_cell(row, "imeis", "seriales", "serial_numbers"))
+            has_imei = _bool_cell(row, "maneja_imei", "has_imei", "serializado") or bool(serials)
+            if qty <= 0:
+                raise HTTPException(status_code=400, detail=f"Fila {idx}: cantidad debe ser mayor a cero")
+            if unit_cost < 0:
+                raise HTTPException(status_code=400, detail=f"Fila {idx}: costo no puede ser negativo")
+            if has_imei and serials and qty != Decimal(len(serials)):
+                raise HTTPException(status_code=400, detail=f"Fila {idx}: cantidad {qty} no coincide con {len(serials)} IMEI(s)")
+
+            product = _find_product_for_import(db, sku, product_name)
+            item = {
+                "product_id": product.id if product else None,
+                "quick_product": None if product else {
+                    "name": product_name,
+                    "sku": sku or None,
+                    "cost_price": unit_cost,
+                    "sale_price": sale_price,
+                    "has_imei": has_imei,
+                },
+                "quantity": qty,
+                "unit_cost": unit_cost,
+                "discount_pct": _decimal_cell(row, "descuento_pct", default="0"),
+                "discount_amount": Decimal("0"),
+                "update_cost": True,
+                "update_price": False,
+                "serial_numbers": serials,
+            }
+            items.append(schemas.PurchaseItemCreate(**item))
+
+        order_data = schemas.PurchaseOrderCreate(
+            supplier_id=supplier.id,
+            warehouse_id=warehouse.id,
+            invoice_number=group["invoice"],
+            notes="Importado desde Excel",
+            total_amount=Decimal("0"),
+            purchase_date=_parse_import_date(group["date"]),
+            items=items,
+            payment_type=_str_cell(group["rows"][0][1], "tipo_pago", "payment_type", default="CREDIT").upper(),
+        )
+        purchase = await create_purchase_order(order_data, db)
+        imported.append({"id": purchase.id, "invoice_number": purchase.invoice_number, "items": len(items)})
+
+    return {"imported": len(imported), "purchases": imported}
+
+
+@router.post("/import-row")
+async def import_purchase_row(row: dict = Body(...), db: Session = Depends(get_db)):
+    return await import_purchase_batch([row], db)
+
+
+@router.post("/import-payable")
+def import_purchase_payable(row: dict = Body(...), db: Session = Depends(get_db)):
+    supplier_name = _str_cell(row, "proveedor", "supplier")
+    if not supplier_name:
+        raise HTTPException(status_code=400, detail="Falta proveedor")
+    supplier = _find_or_create_supplier(db, supplier_name)
+    total = _decimal_cell(row, "monto_total", "total", default="0")
+    paid = _decimal_cell(row, "monto_pagado", "pagado", default="0")
+    invoice = _str_cell(row, "nro_factura", "factura")
+    purchase_date = _parse_import_date(_str_cell(row, "fecha_factura", "fecha"))
+    due_date = _parse_import_date(_str_cell(row, "fecha_vencimiento", "vence"))
+    status = models.PaymentStatus.PAID if paid >= total else (models.PaymentStatus.PARTIAL if paid > 0 else models.PaymentStatus.PENDING)
+    purchase = models.PurchaseOrder(
+        supplier_id=supplier.id,
+        invoice_number=invoice,
+        notes=_str_cell(row, "notas", "notes"),
+        total_amount=total,
+        paid_amount=paid,
+        payment_status=status,
+        purchase_date=purchase_date,
+        due_date=due_date,
+    )
+    supplier.current_balance = Decimal(str(supplier.current_balance or 0)) + max(Decimal("0"), total - paid)
+    db.add(purchase)
+    db.commit()
+    db.refresh(purchase)
+    return {"id": purchase.id, "message": "Cuenta por pagar importada"}
+
 @router.post("", response_model=schemas.PurchaseOrderResponse)
 async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Session = Depends(get_db)):
     """
@@ -23,15 +212,22 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
     - Cost price updates
     """
     try:
+        if not order_data.items:
+            raise HTTPException(status_code=400, detail="Agrega al menos un producto a la compra")
+
+        valid_payment_types = {"CASH", "CREDIT"}
+        if order_data.payment_type not in valid_payment_types:
+            raise HTTPException(status_code=400, detail="Tipo de pago invalido. Usa contado o credito.")
+
         # Get supplier
         supplier = db.query(models.Supplier).filter(models.Supplier.id == order_data.supplier_id).first()
         if not supplier:
-            raise HTTPException(status_code=404, detail="Supplier not found")
+            raise HTTPException(status_code=404, detail="Proveedor no encontrado")
 
         # Validate Warehouse
         warehouse = db.query(models.Warehouse).filter(models.Warehouse.id == order_data.warehouse_id).first()
         if not warehouse:
-             raise HTTPException(status_code=404, detail="Warehouse not found")
+             raise HTTPException(status_code=404, detail="Almacen destino no encontrado")
         
         # Calculate dates — prefer frontend-provided values, fall back to server defaults
         from datetime import datetime, timedelta
@@ -47,12 +243,12 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
             warehouse_id=order_data.warehouse_id,
             invoice_number=order_data.invoice_number,
             notes=order_data.notes,
-            total_amount=order_data.total_amount,
+            total_amount=Decimal("0.00"),
             paid_amount=0.0,
             payment_status=models.PaymentStatus.PENDING,
             purchase_date=purchase_date,
             due_date=due_date,
-            discount_amount=order_data.discount_amount or 0,
+            discount_amount=Decimal("0.00"),
             discount_type=order_data.discount_type or "NONE",
             discount_notes=order_data.discount_notes,
         )
@@ -60,6 +256,7 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
         db.flush()  # Get purchase ID
         
         updated_products_info = []
+        calculated_items_total = Decimal("0.00")
 
         # Process items
         for item in order_data.items:
@@ -71,30 +268,68 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                 new_prod = models.Product(
                     name=qp.name.strip(),
                     sku=qp.sku.strip() if qp.sku else None,
-                    price=float(qp.sale_price or item.unit_cost),
-                    cost_price=float(item.unit_cost),
+                    price=Decimal(str(qp.sale_price or item.unit_cost)),
+                    cost_price=Decimal(str(item.unit_cost)),
                     stock=0,
                     is_active=True,
                     is_discount_active=False,
                     is_box=False,
                     is_combo=False,
                     is_service=False,
+                    has_imei=bool(qp.has_imei),
                     category_id=qp.category_id,
                 )
                 db.add(new_prod)
                 db.flush()
                 product_id = new_prod.id
 
+            if not product_id:
+                raise HTTPException(status_code=400, detail="Cada linea de compra debe tener un producto o un producto rapido valido")
+
             product = db.query(models.Product).filter(models.Product.id == product_id).first()
             if not product:
-                continue
+                raise HTTPException(status_code=404, detail=f"Producto #{product_id} no encontrado")
+
+            quantity = Decimal(str(item.quantity or 0))
+            unit_cost = Decimal(str(item.unit_cost or 0))
+            if quantity <= 0:
+                raise HTTPException(status_code=400, detail=f"La cantidad de {product.name} debe ser mayor a cero")
+            if unit_cost < 0:
+                raise HTTPException(status_code=400, detail=f"El costo de {product.name} no puede ser negativo")
+
+            serial_numbers = [str(sn).strip().upper() for sn in (item.serial_numbers or []) if str(sn).strip()]
+            is_serialized = bool(getattr(product, 'has_imei', False))
+            if is_serialized:
+                if Decimal(str(item.quantity)) != Decimal(int(item.quantity)):
+                    raise HTTPException(status_code=400, detail=f"El producto {product.name} maneja IMEI y requiere cantidad entera.")
+                expected_serials = int(item.quantity)
+                if not serial_numbers:
+                    raise HTTPException(status_code=400, detail=f"El producto {product.name} maneja IMEI/Serial. Ingresa {expected_serials} IMEI(s) para registrar la compra.")
+                if len(serial_numbers) != expected_serials:
+                    raise HTTPException(status_code=400, detail=f"El producto {product.name} requiere {expected_serials} IMEI(s), pero recibio {len(serial_numbers)}.")
+                repeated = sorted([serial for serial, count in Counter(serial_numbers).items() if count > 1])
+                if repeated:
+                    raise HTTPException(status_code=400, detail=f"{product.name}: hay IMEIs/seriales repetidos en esta linea: {', '.join(repeated[:5])}")
+                existing_serials = db.query(models.ProductInstance.serial_number).filter(models.ProductInstance.serial_number.in_(serial_numbers)).all()
+                if existing_serials:
+                    existing = [row[0] for row in existing_serials]
+                    raise HTTPException(status_code=400, detail=f"{product.name}: estos IMEIs/seriales ya existen en inventario: {', '.join(existing[:5])}")
+            elif serial_numbers:
+                raise HTTPException(status_code=400, detail=f"El producto {product.name} no maneja IMEI/Serial. Quita los seriales de esa linea.")
 
             # ── Herramienta 2: Descuento por ítem ────────────────
-            disc_pct    = float(item.discount_pct or 0)
-            disc_amount = float(item.discount_amount or 0)
+            disc_pct = Decimal(str(item.discount_pct or 0))
+            disc_amount = Decimal(str(item.discount_amount or 0))
+            if disc_pct < 0 or disc_pct > 100:
+                raise HTTPException(status_code=400, detail=f"El descuento porcentual de {product.name} debe estar entre 0 y 100")
+            if disc_amount < 0:
+                raise HTTPException(status_code=400, detail=f"El descuento de {product.name} no puede ser negativo")
+            gross_line_total = Decimal(str(item.unit_cost)) * Decimal(str(item.quantity))
             if disc_pct > 0:
-                disc_amount = round(float(item.unit_cost) * float(item.quantity) * disc_pct / 100, 4)
-            subtotal = round(float(item.unit_cost) * float(item.quantity) - disc_amount, 4)
+                disc_amount = (gross_line_total * disc_pct / Decimal("100")).quantize(Decimal("0.0001"))
+            disc_amount = max(Decimal("0.00"), min(disc_amount, gross_line_total))
+            subtotal = (gross_line_total - disc_amount).quantize(Decimal("0.0001"))
+            calculated_items_total += subtotal
 
             # SAVE PURCHASE ITEM (History)
             purchase_item = models.PurchaseItem(
@@ -105,6 +340,7 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                 discount_pct=disc_pct,
                 discount_amount=disc_amount,
                 subtotal=subtotal,
+                serial_numbers='\n'.join(serial_numbers) if serial_numbers else None,
             )
             db.add(purchase_item)
 
@@ -173,8 +409,14 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                          pass # Price stays same, margin will be updated below automatically
  
             # Auto-update profit margin (Markup) based on new values
-            if product.cost_price > 0 and product.price > 0:
-                product.profit_margin = ((product.price - product.cost_price) / product.cost_price) * 100
+            cost_value = Decimal(str(product.cost_price or 0))
+            price_value = Decimal(str(product.price or 0))
+            if cost_value > 0 and price_value > 0:
+                product.profit_margin = ((price_value - cost_value) / cost_value) * Decimal("100")
+
+            if serial_numbers:
+                for serial in serial_numbers:
+                    db.add(models.ProductInstance(product_id=product.id, warehouse_id=order_data.warehouse_id, serial_number=serial, status=models.ProductInstanceStatus.AVAILABLE, cost=item.unit_cost, created_at=purchase_date))
 
             # Create Kardex entry LINKED TO WAREHOUSE
             kardex = models.Kardex(
@@ -199,12 +441,19 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                 "exchange_rate_id": product.exchange_rate_id
             })
         
+        global_discount = Decimal(str(order_data.discount_amount or 0))
+        global_discount = max(Decimal("0.00"), min(global_discount, calculated_items_total))
+        purchase.discount_amount = global_discount
+        if calculated_items_total <= 0:
+            raise HTTPException(status_code=400, detail="El total de la compra debe ser mayor a cero")
+        purchase.total_amount = (calculated_items_total - global_discount).quantize(Decimal("0.01"))
+
         # Update supplier balance if credit purchase
         if order_data.payment_type == 'CREDIT':
-            supplier.current_balance += order_data.total_amount
+            supplier.current_balance += purchase.total_amount
         elif order_data.payment_type == 'CASH':
             # Mark as paid immediately
-            purchase.paid_amount = order_data.total_amount
+            purchase.paid_amount = purchase.total_amount
             purchase.payment_status = models.PaymentStatus.PAID
         
         # Flush all pending items/stock/kardex writes so the re-query below sees them
@@ -229,6 +478,9 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
             })
 
         return schemas.PurchaseOrderResponse.model_validate(purchase)
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -275,12 +527,12 @@ def get_purchase_order(order_id: int, db: Session = Depends(get_db)):
     ).filter(models.PurchaseOrder.id == order_id).first()
     
     if not order:
-        raise HTTPException(status_code=404, detail="Purchase order not found")
+        raise HTTPException(status_code=404, detail="Compra no encontrada")
     
     return order
 
 @router.delete("/{purchase_id}", status_code=200)
-def void_purchase_order(
+async def void_purchase_order(
     purchase_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
@@ -314,40 +566,83 @@ def void_purchase_order(
         )
 
     reversed_items = []
+    updated_products_info = []
     for item in purchase.items:
         product = item.product
         if not product:
             continue
 
         qty = float(item.quantity)
+        item_serials = [s.strip().upper() for s in (item.serial_numbers or '').replace(',', '\n').split() if s.strip()]
+        if item_serials:
+            instances = db.query(models.ProductInstance).filter(
+                models.ProductInstance.product_id == product.id,
+                models.ProductInstance.warehouse_id == purchase.warehouse_id,
+                models.ProductInstance.serial_number.in_(item_serials)
+            ).all()
+            found = {inst.serial_number for inst in instances}
+            missing = sorted(set(item_serials) - found)
+            if missing:
+                raise HTTPException(status_code=400, detail=f"No se puede anular: faltan IMEIs de la compra {', '.join(missing[:5])}")
+            blocked = [inst.serial_number for inst in instances if inst.status != models.ProductInstanceStatus.AVAILABLE]
+            if blocked:
+                raise HTTPException(status_code=400, detail=f"No se puede anular: IMEIs ya no disponibles {', '.join(blocked[:5])}")
+            for inst in instances:
+                db.delete(inst)
 
         # Reverse warehouse stock
+        qty_decimal = Decimal(str(item.quantity or 0))
         if purchase.warehouse_id:
             product_stock = db.query(models.ProductStock).filter(
                 models.ProductStock.product_id == product.id,
                 models.ProductStock.warehouse_id == purchase.warehouse_id
             ).first()
             if product_stock:
-                product_stock.quantity = max(0, float(product_stock.quantity) - qty)
+                product_stock.quantity = max(Decimal("0"), Decimal(str(product_stock.quantity or 0)) - qty_decimal)
 
         # Reverse global stock
-        product.stock = max(0, float(product.stock) - qty)
+        product.stock = max(Decimal("0"), Decimal(str(product.stock or 0)) - qty_decimal)
 
         # Kardex reversal entry
         kardex = models.Kardex(
             product_id=product.id,
             movement_type="ADJUSTMENT_OUT",
-            quantity=-qty,
+            quantity=-qty_decimal,
             balance_after=product.stock,
-            description=f"ANULACIÓN factura compra #{purchase.invoice_number or purchase.id}",
+            description=f"ANULACION factura compra #{purchase.invoice_number or purchase.id}",
             warehouse_id=purchase.warehouse_id
         )
         db.add(kardex)
         reversed_items.append({"product_id": product.id, "name": product.name, "quantity": qty})
+        updated_products_info.append({
+            "id": product.id,
+            "name": product.name,
+            "price": float(product.price or 0),
+            "cost_price": float(product.cost_price or 0),
+            "stock": float(product.stock or 0),
+            "profit_margin": float(product.profit_margin or 0),
+            "exchange_rate_id": product.exchange_rate_id,
+        })
 
     invoice_ref = purchase.invoice_number or f"#{purchase.id}"
+    supplier = db.query(models.Supplier).filter(models.Supplier.id == purchase.supplier_id).first()
+    if supplier:
+        outstanding = max(
+            Decimal("0.00"),
+            Decimal(str(purchase.total_amount or 0)) - Decimal(str(purchase.paid_amount or 0))
+        )
+        if outstanding > 0:
+            supplier.current_balance = max(Decimal("0.00"), Decimal(str(supplier.current_balance or 0)) - outstanding)
+
     db.delete(purchase)
     db.commit()
+
+    for p_info in updated_products_info:
+        await manager.broadcast(WebSocketEvents.PRODUCT_UPDATED, p_info)
+        await manager.broadcast(WebSocketEvents.PRODUCT_STOCK_UPDATED, {
+            "id": p_info["id"],
+            "stock": p_info["stock"],
+        })
 
     return {
         "message": f"Factura {invoice_ref} anulada correctamente",
@@ -366,35 +661,57 @@ def register_payment(
     purchase = db.query(models.PurchaseOrder).filter(models.PurchaseOrder.id == purchase_id).first()
     
     if not purchase:
-        raise HTTPException(status_code=404, detail="Purchase order not found")
+        raise HTTPException(status_code=404, detail="Compra no encontrada")
     
     if purchase.payment_status == models.PaymentStatus.PAID:
-        raise HTTPException(status_code=400, detail="Purchase is already fully paid")
+        raise HTTPException(status_code=400, detail="La compra ya esta pagada por completo")
     
     try:
+        payment_amount = Decimal(str(payment_data.amount or 0))
+        if payment_amount <= 0:
+            raise HTTPException(status_code=400, detail="El monto del pago debe ser mayor a cero")
+
+        currency = (payment_data.currency or "USD").upper()
+        exchange_rate = Decimal(str(payment_data.exchange_rate or 1))
+        if currency != "USD" and exchange_rate <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="La tasa de cambio debe ser mayor a cero para pagos en moneda distinta a USD"
+            )
+
+        amount_usd = payment_amount if currency == "USD" else payment_amount / exchange_rate
+        amount_usd = amount_usd.quantize(Decimal("0.01"))
+        outstanding = max(
+            Decimal("0.00"),
+            Decimal(str(purchase.total_amount or 0)) - Decimal(str(purchase.paid_amount or 0))
+        )
+        if amount_usd > outstanding + Decimal("0.01"):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"El pago excede el saldo pendiente de la compra. "
+                    f"Saldo disponible: ${outstanding:.2f}"
+                )
+            )
+
         # Create payment record
         payment = models.PurchasePayment(
             purchase_id=purchase_id,
-            amount=payment_data.amount,
+            amount=payment_amount,
             payment_method=payment_data.payment_method,
             reference=payment_data.reference,
             notes=payment_data.notes,
-            currency=payment_data.currency,
-            exchange_rate=payment_data.exchange_rate
+            currency=currency,
+            exchange_rate=float(exchange_rate)
         )
         db.add(payment)
-        
-        # Calculate Amount in USD (Anchor) for debt reduction
-        amount_usd = float(payment_data.amount)
-        if payment_data.currency != "USD":
-            rate = float(payment_data.exchange_rate) if payment_data.exchange_rate and payment_data.exchange_rate > 0 else 1.0
-            amount_usd = amount_usd / rate
+        db.flush()
 
         # Update purchase paid amount (in USD)
-        purchase.paid_amount += Decimal(amount_usd)
+        purchase.paid_amount = Decimal(str(purchase.paid_amount or 0)) + amount_usd
         
         # Update payment status
-        # Allow small floating point tolerance
+        # Allow small tolerance for cents and currency conversions.
         if purchase.paid_amount >= (purchase.total_amount - Decimal('0.01')):
             purchase.payment_status = models.PaymentStatus.PAID
             purchase.paid_amount = purchase.total_amount # Cap at total
@@ -404,10 +721,6 @@ def register_payment(
         # Recalculate supplier balance
         supplier = db.query(models.Supplier).filter(models.Supplier.id == purchase.supplier_id).first()
         if supplier:
-            # Recalculate total debt from all pending purchases
-            # IMPORTANT: We can't just sum(total - paid) because paid_amount is now updated.
-            # Ideally we re-query freely.
-            
             pending_purchases = db.query(models.PurchaseOrder).filter(
                 models.PurchaseOrder.supplier_id == supplier.id,
                 models.PurchaseOrder.payment_status.in_([models.PaymentStatus.PENDING, models.PaymentStatus.PARTIAL])
@@ -426,6 +739,9 @@ def register_payment(
         db.commit()
 
         return schemas.PurchasePaymentResponse.model_validate(payment)
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -436,7 +752,7 @@ def get_purchase_payments(purchase_id: int, db: Session = Depends(get_db)):
     purchase = db.query(models.PurchaseOrder).filter(models.PurchaseOrder.id == purchase_id).first()
     
     if not purchase:
-        raise HTTPException(status_code=404, detail="Purchase order not found")
+        raise HTTPException(status_code=404, detail="Compra no encontrada")
     
     payments = db.query(models.PurchasePayment).filter(
         models.PurchasePayment.purchase_id == purchase_id

@@ -1014,6 +1014,77 @@ from ..models.system_messages import SystemMessage
 from ..schemas.system_messages import SystemMessageCreate, SystemMessageUpdate, SystemMessageResponse
 from typing import List
 
+
+def _system_message_to_dict(db_message: SystemMessage) -> Dict[str, Any]:
+    return {
+        "id":           db_message.id,
+        "title":        db_message.title,
+        "content":      db_message.content,
+        "level":        db_message.level,
+        "message_type": db_message.message_type or "banner",
+        "version_tag":  db_message.version_tag,
+        "starts_at":    db_message.starts_at.isoformat() if db_message.starts_at else None,
+        "expires_at":   db_message.expires_at.isoformat() if db_message.expires_at else None,
+        "is_active":    db_message.is_active,
+    }
+
+
+def _is_system_message_visible_now(db_message: SystemMessage) -> bool:
+    now = get_venezuela_now()
+    starts_at = db_message.starts_at
+    expires_at = db_message.expires_at
+    return bool(
+        db_message.is_active
+        and (starts_at is None or starts_at <= now)
+        and (expires_at is None or expires_at > now)
+    )
+
+
+def _queue_system_message_broadcast(background_tasks: Optional[BackgroundTasks], payload: Dict[str, Any]) -> None:
+    from ..services.websocket_manager import manager
+
+    if background_tasks:
+        background_tasks.add_task(manager.broadcast_all, payload)
+        return
+
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.create_task(manager.broadcast_all(payload))
+        else:
+            loop.run_until_complete(manager.broadcast_all(payload))
+    except Exception as exc:
+        print(f"[WS] Failed to broadcast system message: {exc}")
+
+
+def _notify_system_messages_changed(background_tasks: Optional[BackgroundTasks], action: str, message_id: Optional[int] = None) -> None:
+    from ..websocket.events import WebSocketEvents
+
+    _queue_system_message_broadcast(background_tasks, {
+        "type": WebSocketEvents.SYSTEM_NOTIFICATION,
+        "data": {
+            "action": action,
+            "id": message_id,
+            "refresh": True,
+        },
+        "timestamp": datetime.now().isoformat(),
+    })
+
+
+def _notify_system_message_created(background_tasks: Optional[BackgroundTasks], db_message: SystemMessage) -> None:
+    from ..websocket.events import WebSocketEvents
+
+    if _is_system_message_visible_now(db_message):
+        _queue_system_message_broadcast(background_tasks, {
+            "type": WebSocketEvents.SYSTEM_NOTIFICATION,
+            "data": _system_message_to_dict(db_message),
+            "timestamp": datetime.now().isoformat(),
+        })
+    else:
+        # Future/inactive messages are stored, but clients should not see them until active.
+        _notify_system_messages_changed(background_tasks, "scheduled", db_message.id)
+
 @router.get("/messages", response_model=List[SystemMessageResponse])
 def get_system_messages(
     skip: int = 0,
@@ -1027,63 +1098,23 @@ def get_system_messages(
 @router.post("/messages", response_model=SystemMessageResponse)
 def create_system_message(
     message: SystemMessageCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_superuser),
-    background_tasks: BackgroundTasks = None
 ):
-    from ..services.websocket_manager import manager
-    from ..websocket.events import WebSocketEvents
-    from datetime import datetime
-
     db_message = SystemMessage(**message.model_dump())
     db.add(db_message)
     db.commit()
     db.refresh(db_message)
-    
-    # Broadcast in real-time
-    try:
-        # Convert to dict for serialization
-        msg_data = {
-            "id":           db_message.id,
-            "title":        db_message.title,
-            "content":      db_message.content,
-            "level":        db_message.level,
-            "message_type": db_message.message_type or "banner",
-            "version_tag":  db_message.version_tag,
-            "starts_at":    db_message.starts_at.isoformat() if db_message.starts_at else None,
-            "expires_at":   db_message.expires_at.isoformat() if db_message.expires_at else None,
-            "is_active":    db_message.is_active,
-        }
-        
-        payload = {
-            "type": WebSocketEvents.SYSTEM_NOTIFICATION,
-            "data": msg_data,
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        if background_tasks:
-            background_tasks.add_task(manager.broadcast_all, payload)
-        else:
-            # Fallback for scripts/tests
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    loop.create_task(manager.broadcast_all(payload))
-                else:
-                    loop.run_until_complete(manager.broadcast_all(payload))
-            except Exception:
-                pass
-            
-    except Exception as e:
-        print(f"[WS] Failed to broadcast system message: {e}")
 
+    _notify_system_message_created(background_tasks, db_message)
     return db_message
 
 @router.put("/messages/{message_id}", response_model=SystemMessageResponse)
 def update_system_message(
     message_id: int,
     message_update: SystemMessageUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_superuser)
 ):
@@ -1097,19 +1128,17 @@ def update_system_message(
     
     db.commit()
     db.refresh(db_message)
+    _notify_system_messages_changed(background_tasks, "updated", db_message.id)
     return db_message
 
 @router.delete("/messages/{message_id}")
 def delete_system_message(
     message_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_superuser)
 ):
-    # Hard delete or Soft delete? Requirement says "Soft Delete con is_active" but usually DELETE is hard or toggles active.
-    # I'll implement hard delete for cleanup, and update can handle soft delete via is_active.
-    # Or, if user asked for soft delete specifically on DELETE verb:
-    # "Soft Delete con is_active" -> OK, I'll set is_active=False.
-    
+    # Soft delete keeps history while removing the message from active clients.
     db_message = db.query(SystemMessage).filter(SystemMessage.id == message_id).first()
     if not db_message:
         raise HTTPException(status_code=404, detail="Message not found")
@@ -1117,6 +1146,7 @@ def delete_system_message(
     # Soft delete logic
     db_message.is_active = False
     db.commit()
+    _notify_system_messages_changed(background_tasks, "deleted", db_message.id)
     return {"status": "success", "message": "System message deactivated"}
 @router.post("/tenants/{tenant_id}/seed")
 def seed_tenant_endpoint(

@@ -123,18 +123,24 @@ TOTAL:       {{ sale.total }}
     const filteredPresets = presets.filter(p => p.paper_width === selectedWidth || (!p.paper_width && selectedWidth === 58));
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 md:p-6 max-w-7xl mx-auto min-h-[600px] flex flex-col">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
-                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                    <Printer className="text-indigo-600" size={24} /> Configuración de Tickets
-                </h2>
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 md:p-5 max-w-7xl mx-auto min-h-[560px] flex flex-col">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-5 pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <Printer size={20} />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-black text-slate-900">Configuracion de Tickets</h2>
+                        <p className="text-xs font-medium text-slate-500">Plantillas de venta, prueba de impresion y formato termico.</p>
+                    </div>
+                </div>
 
                 {/* TABS */}
-                <div className="flex p-1 bg-slate-100 rounded-xl w-full md:w-auto">
+                <div className="flex p-1 bg-slate-100 rounded-lg w-full md:w-auto border border-slate-200">
                     <button
                         onClick={() => setActiveTab('gallery')}
                         className={clsx(
-                            "flex-1 md:flex-none justify-center px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2",
+                            "flex-1 md:flex-none justify-center px-4 py-2 rounded-md font-bold text-sm transition-all flex items-center gap-2",
                             activeTab === 'gallery'
                                 ? 'bg-white text-indigo-600 shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700'
@@ -145,7 +151,7 @@ TOTAL:       {{ sale.total }}
                     <button
                         onClick={() => setActiveTab('editor')}
                         className={clsx(
-                            "flex-1 md:flex-none justify-center px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2",
+                            "flex-1 md:flex-none justify-center px-4 py-2 rounded-md font-bold text-sm transition-all flex items-center gap-2",
                             activeTab === 'editor'
                                 ? 'bg-white text-indigo-600 shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700'
@@ -167,11 +173,11 @@ TOTAL:       {{ sale.total }}
                     {activeTab === 'gallery' && (
                         <div className="flex flex-col h-full overflow-hidden">
                             <div className="flex justify-center mb-6">
-                                <div className="inline-flex bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                                <div className="inline-flex bg-slate-100 p-1 rounded-lg border border-slate-200">
                                     <button
                                         onClick={() => setSelectedWidth(58)}
                                         className={clsx(
-                                            "px-6 py-2.5 rounded-lg text-sm font-bold transition-all",
+                                            "px-5 py-2 rounded-md text-sm font-bold transition-all",
                                             selectedWidth === 58
                                                 ? "bg-white text-emerald-600 shadow-sm border border-emerald-100/50"
                                                 : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
@@ -182,7 +188,7 @@ TOTAL:       {{ sale.total }}
                                     <button
                                         onClick={() => setSelectedWidth(80)}
                                         className={clsx(
-                                            "px-6 py-2.5 rounded-lg text-sm font-bold transition-all",
+                                            "px-5 py-2 rounded-md text-sm font-bold transition-all",
                                             selectedWidth === 80
                                                 ? "bg-white text-indigo-600 shadow-sm border border-indigo-100/50"
                                                 : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
@@ -193,12 +199,12 @@ TOTAL:       {{ sale.total }}
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 overflow-y-auto custom-scrollbar p-1 pb-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-y-auto custom-scrollbar p-1 pb-4">
                                 {filteredPresets.map(preset => (
-                                    <div key={preset.id} className="border border-slate-200 rounded-2xl overflow-hidden hover:shadow-lg hover:border-indigo-200 transition-all bg-white flex flex-col group h-full">
-                                        <div className="p-5 flex-grow border-b border-slate-100 flex flex-col">
+                                    <div key={preset.id} className="border border-slate-200 rounded-lg overflow-hidden hover:shadow-md hover:border-indigo-200 transition-all bg-white flex flex-col group h-full">
+                                        <div className="p-4 flex-grow border-b border-slate-100 flex flex-col">
                                             <div className="flex justify-between items-start mb-1">
-                                                <h3 className="font-bold text-lg text-slate-800 leading-tight">{preset.name}</h3>
+                                                <h3 className="font-black text-base text-slate-900 leading-tight">{preset.name}</h3>
                                                 <span className={clsx(
                                                     "text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0",
                                                     preset.paper_width === 80 ? "bg-indigo-50 text-indigo-600" : "bg-emerald-50 text-emerald-600"
@@ -206,7 +212,7 @@ TOTAL:       {{ sale.total }}
                                             </div>
                                             <p className="text-xs text-slate-500 mb-4 font-medium line-clamp-2">{preset.description}</p>
 
-                                            <div className="mt-auto bg-slate-100 rounded-xl p-3 flex justify-center items-center shadow-inner h-56">
+                                            <div className="mt-auto bg-slate-50 rounded-md p-3 flex justify-center items-center border border-slate-200 h-52">
                                                 <div className={clsx(
                                                     "bg-white border border-slate-200 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.1)] p-3 text-[9px] sm:text-[10px] font-mono text-slate-700 h-full overflow-hidden relative select-none leading-tight transition-all",
                                                     preset.paper_width === 80 ? "w-full" : "w-3/4"
@@ -241,10 +247,10 @@ TOTAL:       {{ sale.total }}
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="p-4 bg-slate-50 mt-auto shrink-0">
+                                        <div className="p-3 bg-slate-50 mt-auto shrink-0">
                                             <button
                                                 onClick={() => handleApplyPreset(preset.id)}
-                                                className="w-full py-2.5 bg-white border border-indigo-200 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white font-bold transition-all shadow-sm active:scale-95"
+                                                className="w-full py-2.5 bg-white border border-indigo-200 text-indigo-700 rounded-md hover:bg-indigo-600 hover:text-white font-bold transition-all shadow-sm active:scale-95"
                                             >
                                                 Aplicar Plantilla
                                             </button>
@@ -257,13 +263,13 @@ TOTAL:       {{ sale.total }}
 
                     {/* EDITOR VIEW */}
                     {activeTab === 'editor' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full overflow-hidden">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 h-full overflow-hidden">
                             <div className="lg:col-span-2 flex flex-col h-full">
                                 <div className="mb-2 flex justify-between items-center px-1">
                                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Plantilla Jinja2</label>
-                                    <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg font-bold">Soporta variables y lógica</span>
+                                    <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-1 rounded-md font-bold">Soporta variables y lógica</span>
                                 </div>
-                                <div className="relative flex-1 rounded-xl overflow-hidden border border-slate-300 shadow-inner group focus-within:ring-2 focus-within:ring-indigo-500/50 transition-all">
+                                <div className="relative flex-1 rounded-lg overflow-hidden border border-slate-300 shadow-inner group focus-within:ring-2 focus-within:ring-indigo-500/40 transition-all">
                                     <textarea
                                         className="w-full h-full p-4 font-mono text-sm bg-slate-900 text-emerald-400 resize-none outline-none custom-scrollbar leading-relaxed"
                                         value={template}
@@ -277,34 +283,34 @@ TOTAL:       {{ sale.total }}
                                     <button
                                         onClick={handleSave}
                                         disabled={saving}
-                                        className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 font-bold shadow-lg shadow-indigo-200 active:scale-95 transition-all flex items-center gap-2"
+                                        className="px-5 py-2.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 font-bold shadow-sm active:scale-95 transition-all flex items-center gap-2"
                                     >
                                         <Save size={18} />
                                         {saving ? 'Guardando...' : 'Guardar Cambios'}
                                     </button>
                                     <button
                                         onClick={handleTestPrint}
-                                        className="px-6 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-slate-900 font-bold shadow-lg shadow-slate-200 active:scale-95 transition-all flex items-center gap-2"
+                                        className="px-5 py-2.5 bg-slate-800 text-white rounded-md hover:bg-slate-900 font-bold shadow-sm active:scale-95 transition-all flex items-center gap-2"
                                     >
                                         <Printer size={18} />
                                         Imprimir Prueba
                                     </button>
                                     <button
                                         onClick={handleReset}
-                                        className="px-4 py-2.5 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-bold ml-auto flex items-center gap-2 hover:text-slate-800 transition-colors"
+                                        className="px-4 py-2.5 border border-slate-200 text-slate-600 rounded-md hover:bg-slate-50 font-bold ml-auto flex items-center gap-2 hover:text-slate-800 transition-colors"
                                     >
                                         <RefreshCw size={18} /> Reset
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 flex flex-col h-full overflow-hidden">
+                            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 flex flex-col h-full overflow-hidden">
                                 <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 text-sm uppercase tracking-wide">
                                     <Code size={18} className="text-indigo-500" /> Variables Disponibles
                                 </h3>
 
                                 <div className="space-y-6 text-xs font-mono text-slate-600 overflow-y-auto custom-scrollbar flex-1 pr-2">
-                                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                                    <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
                                         <p className="font-bold text-indigo-600 mb-2 border-b border-slate-100 pb-1">Negocio</p>
                                         <ul className="space-y-1.5">
                                             <li className="flex items-center gap-2 cursor-pointer hover:text-indigo-500"><div className="w-1.5 h-1.5 rounded-full bg-indigo-300"></div>business.name</li>
@@ -314,7 +320,7 @@ TOTAL:       {{ sale.total }}
                                         </ul>
                                     </div>
 
-                                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                                    <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
                                         <p className="font-bold text-indigo-600 mb-2 border-b border-slate-100 pb-1">Venta</p>
                                         <ul className="space-y-1.5">
                                             <li className="flex items-center gap-2 cursor-pointer hover:text-indigo-500"><div className="w-1.5 h-1.5 rounded-full bg-indigo-300"></div>sale.id</li>
@@ -325,7 +331,7 @@ TOTAL:       {{ sale.total }}
                                         </ul>
                                     </div>
 
-                                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                                    <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
                                         <p className="font-bold text-indigo-600 mb-2 border-b border-slate-100 pb-1">Items (Bucle)</p>
                                         <div className="bg-slate-100 p-2 rounded-lg text-[10px] mb-2 text-slate-500 font-bold">
                                             {'start_loop item in sale.products end_loop'}
@@ -417,22 +423,22 @@ const ServicesTicketSection = () => {
     const filteredPresets = presets.filter(p => p.paper_width === selectedWidth);
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-indigo-100 p-4 md:p-6 max-w-7xl mx-auto min-h-[500px] flex flex-col mt-8">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 pb-4 border-b border-indigo-50">
-                <div>
-                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                        <Smartphone className="text-indigo-600" size={22} />
-                        Tickets de Venta — Equipos Tecnológicos
-                    </h2>
-                    <p className="text-xs text-slate-500 mt-1">
-                        Se usa automáticamente cuando la venta incluye equipos con IMEI/serial.
-                    </p>
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 md:p-5 max-w-7xl mx-auto min-h-[500px] flex flex-col mt-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-5 pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <Smartphone size={20} />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-black text-slate-900">Tickets de Venta - Equipos Tecnologicos</h2>
+                        <p className="text-xs font-medium text-slate-500">Se usa automaticamente cuando la venta incluye equipos con IMEI/serial.</p>
+                    </div>
                 </div>
-                <div className="flex p-1 bg-slate-100 rounded-xl w-full md:w-auto">
-                    <button onClick={() => setActiveTab('gallery')} className={clsx("flex-1 md:flex-none px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2", activeTab === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
+                <div className="flex p-1 bg-slate-100 rounded-lg w-full md:w-auto border border-slate-200">
+                    <button onClick={() => setActiveTab('gallery')} className={clsx("flex-1 md:flex-none px-4 py-2 rounded-md font-bold text-sm transition-all flex items-center gap-2", activeTab === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
                         <FileText size={16} /> Galería
                     </button>
-                    <button onClick={() => setActiveTab('editor')} className={clsx("flex-1 md:flex-none px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2", activeTab === 'editor' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
+                    <button onClick={() => setActiveTab('editor')} className={clsx("flex-1 md:flex-none px-4 py-2 rounded-md font-bold text-sm transition-all flex items-center gap-2", activeTab === 'editor' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
                         <Code size={16} /> Editor
                     </button>
                 </div>
@@ -446,32 +452,32 @@ const ServicesTicketSection = () => {
             ) : (
                 <div className="flex-1 flex flex-col overflow-hidden">
                     <div className="flex justify-center mb-6">
-                        <div className="inline-flex bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-                            <button onClick={() => setSelectedWidth(58)} className={clsx("px-6 py-2.5 rounded-lg text-sm font-bold transition-all", selectedWidth === 58 ? "bg-white text-emerald-600 shadow-sm border border-emerald-100/50" : "text-slate-500 hover:text-slate-700")}>
+                        <div className="inline-flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                            <button onClick={() => setSelectedWidth(58)} className={clsx("px-5 py-2 rounded-md text-sm font-bold transition-all", selectedWidth === 58 ? "bg-white text-emerald-600 shadow-sm border border-emerald-100/50" : "text-slate-500 hover:text-slate-700")}>
                                 Impresoras 58mm
                             </button>
-                            <button onClick={() => setSelectedWidth(80)} className={clsx("px-6 py-2.5 rounded-lg text-sm font-bold transition-all", selectedWidth === 80 ? "bg-white text-indigo-600 shadow-sm border border-indigo-100/50" : "text-slate-500 hover:text-slate-700")}>
+                            <button onClick={() => setSelectedWidth(80)} className={clsx("px-5 py-2 rounded-md text-sm font-bold transition-all", selectedWidth === 80 ? "bg-white text-indigo-600 shadow-sm border border-indigo-100/50" : "text-slate-500 hover:text-slate-700")}>
                                 Impresoras 80mm
                             </button>
                         </div>
                     </div>
 
                     {activeTab === 'gallery' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto pb-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto pb-4">
                             {filteredPresets.length === 0 && (
                                 <div className="col-span-full py-12 text-center text-slate-400">
                                     No hay plantillas disponibles para {selectedWidth}mm.
                                 </div>
                             )}
                             {filteredPresets.map(preset => (
-                                <div key={preset.id} className="border border-slate-200 rounded-2xl overflow-hidden hover:shadow-lg hover:border-indigo-200 transition-all bg-white flex flex-col group">
-                                    <div className="p-5 flex-grow border-b border-slate-100">
+                                <div key={preset.id} className="border border-slate-200 rounded-lg overflow-hidden hover:shadow-md hover:border-indigo-200 transition-all bg-white flex flex-col group">
+                                    <div className="p-4 flex-grow border-b border-slate-100">
                                         <div className="flex justify-between items-start mb-1">
-                                            <h3 className="font-bold text-lg text-slate-800">{preset.name}</h3>
+                                            <h3 className="font-black text-base text-slate-900">{preset.name}</h3>
                                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600">{preset.paper_width}mm</span>
                                         </div>
                                         <p className="text-xs text-slate-500 mb-4">{preset.description}</p>
-                                        <div className="bg-slate-100 rounded-xl p-3 flex justify-center items-center shadow-inner h-56">
+                                        <div className="bg-slate-50 rounded-md p-3 flex justify-center items-center border border-slate-200 h-52">
                                             <div className={clsx("bg-white border border-slate-200 shadow p-3 text-[9px] font-mono text-slate-700 h-full overflow-hidden relative leading-tight", preset.paper_width === 80 ? "w-full" : "w-3/4")}>
                                                 <div className="absolute inset-0 z-10 bg-gradient-to-b from-transparent to-white pointer-events-none"></div>
                                                 <div style={{ whiteSpace: 'pre-wrap' }}>
@@ -500,7 +506,7 @@ const ServicesTicketSection = () => {
                                         </div>
                                     </div>
                                     <div className="p-4 bg-slate-50">
-                                        <button onClick={() => handleApplyPreset(preset.id)} className="w-full py-2.5 bg-white border border-indigo-200 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white font-bold transition-all shadow-sm">
+                                        <button onClick={() => handleApplyPreset(preset.id)} className="w-full py-2.5 bg-white border border-indigo-200 text-indigo-700 rounded-md hover:bg-indigo-600 hover:text-white font-bold transition-all shadow-sm">
                                             Aplicar Plantilla
                                         </button>
                                     </div>
@@ -510,13 +516,13 @@ const ServicesTicketSection = () => {
                     )}
 
                     {activeTab === 'editor' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 overflow-hidden">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 flex-1 overflow-hidden">
                             <div className="lg:col-span-2 flex flex-col">
                                 <div className="mb-2 flex justify-between items-center px-1">
                                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Plantilla Scriban — {selectedWidth}mm</label>
-                                    <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg font-bold">Equipos / IMEI</span>
+                                    <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-1 rounded-md font-bold">Equipos / IMEI</span>
                                 </div>
-                                <div className="relative flex-1 rounded-xl overflow-hidden border border-slate-300 shadow-inner min-h-[350px]">
+                                <div className="relative flex-1 rounded-lg overflow-hidden border border-slate-300 shadow-inner min-h-[350px]">
                                     <textarea
                                         className="w-full h-full min-h-[350px] p-4 font-mono text-sm bg-slate-900 text-emerald-400 resize-none outline-none leading-relaxed"
                                         value={currentTemplate}
@@ -525,40 +531,40 @@ const ServicesTicketSection = () => {
                                     />
                                 </div>
                                 <div className="mt-4 flex flex-wrap gap-3">
-                                    <button onClick={handleSave} disabled={saving} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 font-bold shadow-lg shadow-indigo-200 flex items-center gap-2">
+                                    <button onClick={handleSave} disabled={saving} className="px-5 py-2.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 font-bold shadow-sm flex items-center gap-2">
                                         <Save size={18} /> {saving ? 'Guardando...' : 'Guardar Cambios'}
                                     </button>
-                                    <button onClick={fetchConfig} className="px-4 py-2.5 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-bold flex items-center gap-2">
+                                    <button onClick={fetchConfig} className="px-4 py-2.5 border border-slate-200 text-slate-600 rounded-md hover:bg-slate-50 font-bold flex items-center gap-2">
                                         <RefreshCw size={18} /> Resetear
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 flex flex-col overflow-hidden">
+                            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 flex flex-col overflow-hidden">
                                 <h3 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wide flex items-center gap-2">
                                     <Code size={16} className="text-indigo-500" /> Variables Disponibles
                                 </h3>
                                 <div className="space-y-4 text-xs font-mono text-slate-600 overflow-y-auto flex-1">
-                                    <div className="bg-white p-3 rounded-xl border border-slate-200">
+                                    <div className="bg-white p-3 rounded-lg border border-slate-200">
                                         <p className="font-bold text-indigo-600 mb-2 border-b pb-1">Negocio</p>
                                         <ul className="space-y-1">
                                             {['business.name','business.address','business.phone','business.document_id'].map(v => <li key={v} className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-indigo-300"></div>{v}</li>)}
                                         </ul>
                                     </div>
-                                    <div className="bg-white p-3 rounded-xl border border-slate-200">
+                                    <div className="bg-white p-3 rounded-lg border border-slate-200">
                                         <p className="font-bold text-indigo-600 mb-2 border-b pb-1">Venta</p>
                                         <ul className="space-y-1">
                                             {['sale.id','sale.date','sale.formatted_total','sale.formatted_total_ref','sale.exchange_rate','sale.is_usd','sale.customer.name','sale.customer.id_number'].map(v => <li key={v} className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-indigo-300"></div>{v}</li>)}
                                         </ul>
                                     </div>
-                                    <div className="bg-white p-3 rounded-xl border border-slate-200">
+                                    <div className="bg-white p-3 rounded-lg border border-slate-200">
                                         <p className="font-bold text-emerald-600 mb-2 border-b pb-1">Items — Equipos</p>
                                         <div className="bg-slate-100 p-2 rounded text-[10px] text-slate-500 mb-2">{'{{ for item in sale.products }}'}</div>
                                         <ul className="space-y-1">
                                             {['item.product.name','item.quantity','item.formatted_total','item.serial_numbers','item.warranty.name','item.warranty.duration_text'].map(v => <li key={v} className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-emerald-300"></div>{v}</li>)}
                                         </ul>
                                     </div>
-                                    <div className="bg-white p-3 rounded-xl border border-slate-200">
+                                    <div className="bg-white p-3 rounded-lg border border-slate-200">
                                         <p className="font-bold text-indigo-600 mb-2 border-b pb-1">Pagos</p>
                                         <div className="bg-slate-100 p-2 rounded text-[10px] text-slate-500 mb-2">{'{{ for p in sale.payments }}'}</div>
                                         <ul className="space-y-1">
@@ -605,9 +611,9 @@ const WarrantyFormatSection = () => {
     };
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-indigo-100 p-6 mt-8">
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-5 mt-6">
             <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center">
+                <div className="h-10 w-10 bg-amber-50 text-amber-600 rounded-md flex items-center justify-center">
                     <Shield size={20} />
                 </div>
                 <div>
@@ -617,7 +623,7 @@ const WarrantyFormatSection = () => {
             </div>
 
             {fileUrl ? (
-                <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center justify-between">
+                <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-100 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <FileText className="text-emerald-600" />
                         <div>
@@ -628,7 +634,7 @@ const WarrantyFormatSection = () => {
                     <button onClick={() => setFileUrl("")} className="text-[10px] font-bold text-slate-400 uppercase">Cambiar</button>
                 </div>
             ) : (
-                <label className="flex flex-col items-center p-8 border-2 border-dashed border-slate-200 rounded-2xl hover:border-indigo-400 cursor-pointer transition-all">
+                <label className="flex flex-col items-center p-8 border-2 border-dashed border-slate-200 rounded-lg hover:border-indigo-400 cursor-pointer transition-all">
                     <input type="file" className="hidden" onChange={handleUpload} accept="application/pdf,image/*" />
                     <Printer size={32} className="text-slate-300 mb-2" />
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{uploading ? "Subiendo..." : "Haz clic para subir tu formato (PDF o Imagen)"}</span>

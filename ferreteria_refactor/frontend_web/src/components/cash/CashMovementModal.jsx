@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { X, DollarSign, TrendingDown, TrendingUp } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
+import { useCash } from '../../context/CashContext';
 import apiClient from '../../config/axios';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 
 const CashMovementModal = ({ isOpen, onClose, onSuccess }) => {
     const { getActiveCurrencies } = useConfig();
+    const { session } = useCash();
     const [type, setType] = useState('OUT'); // OUT (expense/withdrawal) or IN (deposit)
     const [amount, setAmount] = useState('');
     const [currency, setCurrency] = useState('USD');
@@ -21,12 +24,17 @@ const CashMovementModal = ({ isOpen, onClose, onSuccess }) => {
         if (isOpen) {
             fetchAvailableBalance();
         }
-    }, [isOpen, currency]);
+    }, [isOpen, currency, session?.id]);
 
     const fetchAvailableBalance = async () => {
+        if (!session?.id) {
+            setAvailableBalance(0);
+            return;
+        }
+
         setLoadingBalance(true);
         try {
-            const response = await apiClient.get('/cash/balance', { params: { currency } });
+            const response = await apiClient.get('/cash/balance', { params: { currency, session_id: session?.id } });
             setAvailableBalance(response.data.available);
         } catch (error) {
             console.error("Error fetching balance:", error);
@@ -56,6 +64,12 @@ const CashMovementModal = ({ isOpen, onClose, onSuccess }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!session?.id) {
+            toast.error("Debes abrir una caja antes de registrar un movimiento");
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -63,7 +77,8 @@ const CashMovementModal = ({ isOpen, onClose, onSuccess }) => {
                 type: type,
                 amount: parseFloat(amount),
                 currency: currency,
-                description: description
+                description: description,
+                session_id: session?.id || null
             };
 
             await apiClient.post('/cash/movements', movementData);
@@ -73,14 +88,14 @@ const CashMovementModal = ({ isOpen, onClose, onSuccess }) => {
             onClose();
         } catch (err) {
             console.error('Error registering movement:', err);
-            toast.error('Error al registrar movimiento: ' + (err.response?.data?.detail || err.message));
+            toast.error(getApiErrorMessage(err, 'Error al registrar movimiento'));
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 backdrop-blur-sm">
+        <div id="tour-cash-movement-modal" className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200">
                 <div className="flex justify-between items-center p-5 border-b border-slate-100">
                     <h3 className="font-bold text-slate-800 text-lg">Movimiento de Caja</h3>
