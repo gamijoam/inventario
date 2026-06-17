@@ -19,6 +19,36 @@ ALLOWED_EXTENSIONS = {".pdf"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
+def _build_serial_details(detail) -> tuple[list[str], list[dict], str]:
+    serials = []
+    serial_details = []
+    colors_by_key = {}
+
+    for sdi in (getattr(detail, "instances", None) or []):
+        instance = getattr(sdi, "product_instance", None)
+        if not instance:
+            continue
+
+        serial = (getattr(instance, "serial_number", None) or "").strip()
+        color_name = (getattr(instance, "color_name", None) or "").strip()
+        color_hex = (getattr(instance, "color_hex", None) or "").strip()
+
+        if serial:
+            serials.append(serial)
+
+        if color_name or color_hex:
+            serial_details.append({
+                "serial_number": serial,
+                "color_name": color_name or None,
+                "color_hex": color_hex or None,
+            })
+            key = (color_name.lower(), color_hex.lower())
+            colors_by_key[key] = color_name or color_hex
+
+    color_text = ", ".join(colors_by_key.values())
+    return serials, serial_details, color_text
+
+
 async def upload_warranty_template(
     file: UploadFile,
     policy_id: int,
@@ -109,19 +139,13 @@ def generate_warranty_pdf(
         if not warranty_policy and not has_imei:
             continue
 
-        serials = []
-        try:
-            serials = [
-                sdi.product_instance.serial_number
-                for sdi in (detail.instances or [])
-                if sdi.product_instance and sdi.product_instance.serial_number
-            ]
-        except Exception:
-            pass
+        serials, serial_details, color_text = _build_serial_details(detail)
 
         imei_items.append({
             "product_name": detail.description or detail.product.name,
             "serials": serials,
+            "serial_details": serial_details,
+            "color_text": color_text,
             "quantity": detail.quantity,
             "warranty_policy": warranty_policy,
             "warranty_expiration": detail.warranty_expiration_date,
@@ -279,6 +303,9 @@ def _fill_template_pdf(
         serials_text = ', '.join(item['serials']) if item['serials'] else 'N/A'
         can.drawString(72, y, f"Seriales: {serials_text}")
         y -= 14
+        if item.get('color_text'):
+            can.drawString(72, y, f"Color: {item['color_text']}")
+            y -= 14
 
         wp = item.get('warranty_policy')
         if wp:

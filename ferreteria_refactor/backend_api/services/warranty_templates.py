@@ -129,6 +129,23 @@ def _wrap_text(text: str, max_chars: int):
     if line:
         lines.append(line)
     return lines
+def _hex_to_rgb(hex_value: str):
+    value = (hex_value or "").strip().lstrip("#")
+    if len(value) != 6:
+        return None
+    try:
+        return tuple(int(value[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    except ValueError:
+        return None
+
+
+def _primary_color_meta(item: dict):
+    for detail in item.get("serial_details") or []:
+        color_name = (detail.get("color_name") or "").strip()
+        color_hex = (detail.get("color_hex") or "").strip()
+        if color_name or color_hex:
+            return color_name or color_hex, color_hex
+    return (item.get("color_text") or "").strip(), ""
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1500,6 +1517,7 @@ def render_legal(
     first_item = imei_items[0] if imei_items else None
     product_full_name = first_item["product_name"] if first_item else ""
     serial_text = ", ".join(first_item.get("serials", [])) if first_item else ""
+    color_name, color_hex = _primary_color_meta(first_item or {})
     wp = first_item.get("warranty_policy") if first_item else None
     name_parts = product_full_name.split(maxsplit=1)
     marca = name_parts[0] if name_parts else ""
@@ -1530,7 +1548,11 @@ def render_legal(
     draw_field(margen, y, "Marca", marca, margen + (inner_w/2) - 3*mm)
     draw_field(margen + (inner_w/2) + 3*mm, y, "Modelo", modelo[:30], w - margen)
     y -= 5*mm
-    draw_field(margen, y, "IMEI / Serie", serial_text[:55], w - margen)
+    draw_field(margen, y, "IMEI / Serie", serial_text[:30], margen + (inner_w/2) - 3*mm)
+    draw_field(margen + (inner_w/2) + 3*mm, y, "Color", (color_name or "N/A")[:28], w - margen)
+    rgb = _hex_to_rgb(color_hex)
+    if rgb:
+        fc(*rgb); can.circle(w - margen - 4*mm, y + 1.2*mm, 1.6*mm, fill=1, stroke=0)
     y -= 5*mm
     if len(imei_items) > 1:
         fc(*GRIS_OSC); can.setFont("Helvetica-Oblique", 7.5)
