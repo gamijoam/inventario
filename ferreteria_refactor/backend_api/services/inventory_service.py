@@ -286,6 +286,8 @@ class InventoryService:
 
         instances_to_create = []
         now = datetime.now()
+        color_name = getattr(entry_data, "color_name", None)
+        color_hex = getattr(entry_data, "color_hex", None)
         
         for imei in entry_data.imeis:
             instance = ProductInstance(
@@ -294,6 +296,8 @@ class InventoryService:
                 serial_number=imei,
                 status=ProductInstanceStatus.AVAILABLE,
                 cost=entry_data.cost or product.cost_price,
+                color_name=(str(color_name).strip() if color_name else None),
+                color_hex=(str(color_hex).strip() if color_hex else None),
                 created_at=now
             )
             instances_to_create.append(instance)

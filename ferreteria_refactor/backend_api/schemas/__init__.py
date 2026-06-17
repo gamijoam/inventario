@@ -841,6 +841,8 @@ class SerializedEntry(BaseModel):
     warehouse_id: int
     imeis: List[str]
     cost: Optional[Decimal] = Decimal("0.0000")
+    color_name: Optional[str] = None
+    color_hex: Optional[str] = None
 
 # Currency Schemas
 class CurrencyBase(BaseModel):

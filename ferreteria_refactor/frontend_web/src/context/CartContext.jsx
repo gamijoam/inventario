@@ -1,6 +1,7 @@
-import { createContext, useState, useContext, useMemo, useEffect } from 'react';
+import { createContext, useState, useContext, useMemo, useEffect, useRef } from 'react';
 import apiClient from '../config/axios';
 import { useConfig } from './ConfigContext';
+import { useAuth } from './AuthContext';
 
 const CartContext = createContext();
 
@@ -9,6 +10,20 @@ export const CartProvider = ({ children }) => {
     const [cartDiscount, setCartDiscount] = useState({ type: 'percent', value: 0, active: false }); // Feature 1
     const [heldCart, setHeldCart] = useState(null); // Venta pausada: { items, cartDiscount, pausedAt }
     const { currencies: exchangeRates } = useConfig();
+    const { user } = useAuth();
+    const identityKey = user ? `${user.tenant_id || 'tenant'}:${user.id}` : 'anonymous';
+    const lastIdentityKeyRef = useRef(identityKey);
+
+    // Evita que un carrito de una sesión quede visible al cambiar de usuario/tenant
+    // en la misma pestaña o computadora de caja.
+    useEffect(() => {
+        if (lastIdentityKeyRef.current === identityKey) return;
+
+        lastIdentityKeyRef.current = identityKey;
+        setCart([]);
+        setCartDiscount({ type: 'percent', value: 0, active: false });
+        setHeldCart(null);
+    }, [identityKey]);
 
     // Auto-update cart items when exchange rates change
     useEffect(() => {
