@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, field_validator
 from datetime import datetime
-from typing import Optional
-from ..models.support import TicketPriority, TicketStatus
+from typing import Optional, List
+from ..models.support import TicketPriority, TicketStatus, SupportMessageSender
 
 class SupportTicketBase(BaseModel):
     subject: str
@@ -50,3 +50,35 @@ class SupportTicketReply(BaseModel):
 class SupportTicketUpdate(BaseModel):
     status: Optional[TicketStatus] = None
     priority: Optional[TicketPriority] = None
+
+
+class SupportAttachmentOut(BaseModel):
+    id: int
+    ticket_id: int
+    message_id: int
+    original_filename: str
+    stored_url: str
+    content_type: Optional[str] = None
+    file_size: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SupportMessageCreate(BaseModel):
+    message: str = ""
+
+
+class SupportMessageOut(BaseModel):
+    id: int
+    ticket_id: int
+    sender_type: SupportMessageSender
+    sender_email: Optional[str] = None
+    message: str
+    is_internal: bool = False
+    created_at: datetime
+    attachments: List[SupportAttachmentOut] = []
+
+    class Config:
+        from_attributes = True

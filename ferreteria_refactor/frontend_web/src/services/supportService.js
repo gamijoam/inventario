@@ -8,6 +8,21 @@ const supportService = {
         return response.data;
     },
 
+    getTicketMessages: async (ticketId) => {
+        const response = await apiClient.get(`/support/tickets/${ticketId}/messages`);
+        return response.data;
+    },
+
+    sendMessage: async (ticketId, { message = '', file = null }) => {
+        const formData = new FormData();
+        formData.append('message', message || '');
+        if (file) formData.append('file', file);
+        const response = await apiClient.post(`/support/tickets/${ticketId}/messages`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data;
+    },
+
     getMyTickets: async () => {
         const response = await apiClient.get('/support/tickets/');
         return response.data;

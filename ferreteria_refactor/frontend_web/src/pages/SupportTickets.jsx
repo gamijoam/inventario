@@ -13,6 +13,7 @@ import {
     MessageSquare,
     Monitor,
     Package,
+    Paperclip,
     Phone,
     RefreshCw,
     Search,
@@ -22,8 +23,10 @@ import {
     ShoppingCart,
     User,
     Wrench,
+    X,
 } from 'lucide-react';
 import supportService from '../services/supportService';
+import { useWebSocket } from '../context/WebSocketContext';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
 
@@ -101,6 +104,12 @@ const SupportTickets = () => {
     const [expandedTicket, setExpandedTicket] = useState(null);
     const [ticketFilter, setTicketFilter] = useState('');
     const [formData, setFormData] = useState(INITIAL_FORM);
+    const [reportFile, setReportFile] = useState(null);
+    const [ticketMessages, setTicketMessages] = useState({});
+    const [messageDrafts, setMessageDrafts] = useState({});
+    const [messageFiles, setMessageFiles] = useState({});
+    const [sendingMessage, setSendingMessage] = useState(null);
+    const { subscribe } = useWebSocket();
 
     const hasHelpContext = searchParams.get('source') === 'help';
     const helpContext = searchParams.get('context') || '';
@@ -135,6 +144,19 @@ const SupportTickets = () => {
         supportService.markAsRead();
     }, []);
 
+    useEffect(() => {
+        const unsubscribe = subscribe('support:message_created', (message) => {
+            if (!message?.ticket_id) return;
+            setTicketMessages(prev => {
+                const current = prev[message.ticket_id] || [];
+                if (current.some(item => item.id === message.id)) return prev;
+                return { ...prev, [message.ticket_id]: [...current, message] };
+            });
+            setTickets(prev => prev.map(ticket => ticket.id === message.ticket_id ? { ...ticket, updated_at: message.created_at, admin_response: message.sender_type === 'admin' ? message.message : ticket.admin_response } : ticket));
+        });
+        return () => unsubscribe();
+    }, [subscribe]);
+
     const fetchTickets = async () => {
         setLoading(true);
         try {
@@ -145,6 +167,51 @@ const SupportTickets = () => {
             toast.error('Error al cargar tus reportes');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadTicketMessages = async (ticketId) => {
+        if (ticketMessages[ticketId]) return;
+        try {
+            const data = await supportService.getTicketMessages(ticketId);
+            setTicketMessages(prev => ({ ...prev, [ticketId]: Array.isArray(data) ? data : [] }));
+        } catch (error) {
+            console.error('Error loading support messages:', error);
+            toast.error('No se pudo cargar la conversacion');
+        }
+    };
+
+    const toggleTicket = (ticketId) => {
+        setExpandedTicket(prev => {
+            const next = prev === ticketId ? null : ticketId;
+            if (next) loadTicketMessages(next);
+            return next;
+        });
+    };
+
+    const handleSendMessage = async (ticketId) => {
+        const message = messageDrafts[ticketId] || '';
+        const file = messageFiles[ticketId] || null;
+        if (!message.trim() && !file) {
+            toast.error('Escribe un mensaje o adjunta un archivo');
+            return;
+        }
+        setSendingMessage(ticketId);
+        try {
+            const created = await supportService.sendMessage(ticketId, { message, file });
+            setTicketMessages(prev => {
+                const current = prev[ticketId] || [];
+                if (current.some(item => item.id === created.id)) return prev;
+                return { ...prev, [ticketId]: [...current, created] };
+            });
+            setMessageDrafts(prev => ({ ...prev, [ticketId]: '' }));
+            setMessageFiles(prev => ({ ...prev, [ticketId]: null }));
+            toast.success(file ? 'Mensaje y archivo enviados' : 'Mensaje enviado');
+        } catch (error) {
+            console.error('Error sending support message:', error);
+            toast.error(error.response?.data?.detail || 'No se pudo enviar el mensaje');
+        } finally {
+            setSendingMessage(null);
         }
     };
 
@@ -191,9 +258,13 @@ const SupportTickets = () => {
 
         setSubmitting(true);
         try {
-            await supportService.createTicket(buildPayload());
-            toast.success('Reporte enviado correctamente. Te responderemos pronto.');
+            const createdTicket = await supportService.createTicket(buildPayload());
+            if (reportFile && createdTicket?.id) {
+                await supportService.sendMessage(createdTicket.id, { message: 'Archivo adjunto para soporte', file: reportFile });
+            }
+            toast.success(reportFile ? 'Reporte enviado con archivo adjunto.' : 'Reporte enviado correctamente. Te responderemos pronto.');
             setFormData(INITIAL_FORM);
+            setReportFile(null);
             await fetchTickets();
         } catch (error) {
             console.error('Error creating ticket:', error);
@@ -396,6 +467,33 @@ const SupportTickets = () => {
                                 />
                             </div>
 
+                            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex items-start gap-3">
+                                        <Paperclip className="mt-0.5 shrink-0 text-indigo-600" size={18} />
+                                        <div>
+                                            <p className="text-sm font-black text-slate-900">Adjuntar evidencia</p>
+                                            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Acepta capturas, PDF, Excel, CSV, TXT y JSON de traslados.</p>
+                                        </div>
+                                    </div>
+                                    <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                                        <Paperclip size={15} /> Seleccionar
+                                        <input
+                                            type="file"
+                                            className="hidden"
+                                            accept=".json,.xlsx,.xls,.csv,.txt,.pdf,.png,.jpg,.jpeg,.webp"
+                                            onChange={(event) => setReportFile(event.target.files?.[0] || null)}
+                                        />
+                                    </label>
+                                </div>
+                                {reportFile && (
+                                    <div className="mt-3 flex items-center justify-between rounded-md border border-indigo-100 bg-white px-3 py-2 text-xs font-bold text-slate-600">
+                                        <span className="truncate"><Paperclip size={13} className="mr-1 inline text-indigo-500" /> {reportFile.name}</span>
+                                        <button type="button" onClick={() => setReportFile(null)} className="text-slate-400 hover:text-rose-600"><X size={15} /></button>
+                                    </div>
+                                )}
+                            </div>
+
                             {hasHelpContext && (
                                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
                                     <div className="flex items-start gap-3">
@@ -500,7 +598,7 @@ const SupportTickets = () => {
                                         <article key={ticket.id} className={clsx('transition-colors', isExpanded && 'bg-indigo-50/30')}>
                                             <button
                                                 type="button"
-                                                onClick={() => setExpandedTicket(isExpanded ? null : ticket.id)}
+                                                onClick={() => toggleTicket(ticket.id)}
                                                 className="flex w-full flex-col gap-3 p-4 text-left transition-colors hover:bg-slate-50 md:flex-row md:items-center md:justify-between"
                                             >
                                                 <div className="min-w-0 flex-1">
@@ -531,32 +629,76 @@ const SupportTickets = () => {
                                             {isExpanded && (
                                                 <div className="space-y-4 px-4 pb-4">
                                                     <div className="rounded-lg border border-slate-200 bg-white p-4">
-                                                        <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Descripcion enviada</p>
-                                                        <p className="whitespace-pre-wrap text-sm font-medium leading-6 text-slate-700">{ticket.message}</p>
-                                                        {(ticket.contact_email || ticket.phone || ticket.full_name) && (
-                                                            <div className="mt-4 grid gap-2 border-t border-slate-100 pt-3 text-xs font-bold text-slate-500 sm:grid-cols-3">
-                                                                {ticket.full_name && <span>Contacto: {ticket.full_name}</span>}
-                                                                {ticket.contact_email && <span>Email: {ticket.contact_email}</span>}
-                                                                {ticket.phone && <span>Telefono: {ticket.phone}</span>}
-                                                            </div>
-                                                        )}
+                                                        <div className="mb-3 flex items-center justify-between gap-3">
+                                                            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Conversacion</p>
+                                                            <span className="text-[11px] font-black uppercase tracking-wide text-slate-400">Ticket #{ticket.id}</span>
+                                                        </div>
+                                                        <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                                                            {(ticketMessages[ticket.id] || []).map(message => {
+                                                                const isAdmin = message.sender_type === 'admin';
+                                                                return (
+                                                                    <div key={message.id} className={clsx('flex', isAdmin ? 'justify-start' : 'justify-end')}>
+                                                                        <div className={clsx('max-w-[86%] rounded-lg border px-3 py-2 shadow-sm', isAdmin ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : 'border-indigo-100 bg-indigo-50 text-slate-900')}>
+                                                                            <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-wide opacity-70">
+                                                                                <MessageSquare size={12} /> {isAdmin ? 'Soporte' : 'Tu mensaje'} · {formatDateTime(message.created_at)}
+                                                                            </div>
+                                                                            {message.message && <p className="whitespace-pre-wrap text-sm font-semibold leading-6">{message.message}</p>}
+                                                                            {Array.isArray(message.attachments) && message.attachments.length > 0 && (
+                                                                                <div className="mt-2 space-y-1">
+                                                                                    {message.attachments.map(file => (
+                                                                                        <a key={file.id} href={file.stored_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-md border border-white/70 bg-white/80 px-2 py-1.5 text-xs font-black text-indigo-700 hover:text-indigo-900">
+                                                                                            <Paperclip size={13} />
+                                                                                            <span className="truncate">{file.original_filename}</span>
+                                                                                        </a>
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                            {(!ticketMessages[ticket.id] || ticketMessages[ticket.id].length === 0) && (
+                                                                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center">
+                                                                    <Clock className="mx-auto mb-2 text-slate-300" size={28} />
+                                                                    <p className="text-sm font-black text-slate-500">Cargando conversacion...</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
 
-                                                    {ticket.admin_response ? (
-                                                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                                                            <div className="mb-2 flex items-center gap-2 text-emerald-800">
-                                                                <MessageSquare size={17} />
-                                                                <p className="text-xs font-black uppercase tracking-widest">Respuesta de soporte</p>
+                                                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                                        <textarea
+                                                            rows={3}
+                                                            value={messageDrafts[ticket.id] || ''}
+                                                            onChange={(event) => setMessageDrafts(prev => ({ ...prev, [ticket.id]: event.target.value }))}
+                                                            placeholder="Responder o agregar mas contexto..."
+                                                            className="w-full resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-6 text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                                        />
+                                                        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                                            <div className="min-w-0">
+                                                                {messageFiles[ticket.id] ? (
+                                                                    <div className="flex items-center gap-2 rounded-md border border-indigo-100 bg-white px-2 py-1.5 text-xs font-bold text-slate-600">
+                                                                        <Paperclip size={13} className="text-indigo-500" />
+                                                                        <span className="truncate">{messageFiles[ticket.id].name}</span>
+                                                                        <button type="button" onClick={() => setMessageFiles(prev => ({ ...prev, [ticket.id]: null }))} className="text-slate-400 hover:text-rose-600"><X size={14} /></button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                                                                        <Paperclip size={14} /> Adjuntar archivo
+                                                                        <input type="file" className="hidden" accept=".json,.xlsx,.xls,.csv,.txt,.pdf,.png,.jpg,.jpeg,.webp" onChange={(event) => setMessageFiles(prev => ({ ...prev, [ticket.id]: event.target.files?.[0] || null }))} />
+                                                                    </label>
+                                                                )}
                                                             </div>
-                                                            <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-emerald-950">{ticket.admin_response}</p>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleSendMessage(ticket.id)}
+                                                                disabled={sendingMessage === ticket.id}
+                                                                className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 text-xs font-black text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:bg-slate-300"
+                                                            >
+                                                                <Send size={15} /> {sendingMessage === ticket.id ? 'Enviando...' : 'Enviar'}
+                                                            </button>
                                                         </div>
-                                                    ) : (
-                                                        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center">
-                                                            <Clock className="mx-auto mb-2 text-slate-300" size={28} />
-                                                            <p className="text-sm font-black text-slate-500">Pendiente por revisar</p>
-                                                            <p className="mt-1 text-xs font-semibold text-slate-400">Soporte vera el contexto del reporte y podra responder desde el panel administrativo.</p>
-                                                        </div>
-                                                    )}
+                                                    </div>
                                                 </div>
                                             )}
                                         </article>

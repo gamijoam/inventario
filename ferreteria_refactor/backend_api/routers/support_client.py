@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, UploadFile, File, Form
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, func
 from typing import List, Optional
 from datetime import datetime
@@ -7,15 +7,95 @@ from pydantic import BaseModel, EmailStr
 from ..database.db import get_db
 from ..dependencies import get_current_active_user
 from ..models.models import User
-from ..models.support import SupportTicket, TicketStatus, TicketPriority
+from ..models.support import SupportTicket, TicketStatus, TicketPriority, SupportMessage, SupportAttachment, SupportMessageSender
 from ..models.tenant import Tenant
 from ..tenant_context import get_tenant_schema
-from ..schemas.support import SupportTicketCreate, SupportTicketOut
+from ..schemas.support import SupportTicketCreate, SupportTicketOut, SupportMessageOut
 
 router = APIRouter(
     prefix="/support/tickets",
     tags=["support"]
 )
+
+
+ALLOWED_SUPPORT_UPLOAD_EXTENSIONS = {"json", "xlsx", "xls", "csv", "txt", "pdf", "png", "jpg", "jpeg", "webp"}
+MAX_SUPPORT_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
+def _tenant_schema_from_id(db: Session, tenant_id: Optional[int]) -> str:
+    if not tenant_id:
+        return "public"
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    return tenant.schema_name if tenant else "public"
+
+
+def _ticket_for_user(ticket_id: int, db: Session, current_user: User) -> SupportTicket:
+    effective_tenant_id = _resolve_tenant_id(current_user, db)
+    ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+    if not ticket or ticket.tenant_id != effective_tenant_id:
+        raise HTTPException(status_code=404, detail="Ticket no encontrado")
+    return ticket
+
+
+def _attachment_payload(attachment: SupportAttachment) -> dict:
+    return {
+        "id": attachment.id,
+        "ticket_id": attachment.ticket_id,
+        "message_id": attachment.message_id,
+        "original_filename": attachment.original_filename,
+        "stored_url": attachment.stored_url,
+        "content_type": attachment.content_type,
+        "file_size": attachment.file_size,
+        "created_at": attachment.created_at.isoformat() if attachment.created_at else None,
+    }
+
+
+def _message_payload(message: SupportMessage) -> dict:
+    return {
+        "id": message.id,
+        "ticket_id": message.ticket_id,
+        "sender_type": message.sender_type.value if hasattr(message.sender_type, "value") else message.sender_type,
+        "sender_email": message.sender_email,
+        "message": message.message,
+        "is_internal": message.is_internal,
+        "created_at": message.created_at.isoformat() if message.created_at else None,
+        "attachments": [_attachment_payload(a) for a in getattr(message, "attachments", [])],
+    }
+
+
+def _save_support_upload(file: UploadFile, tenant_schema: str, ticket_id: int) -> tuple[str, int]:
+    import os
+    import uuid
+    import shutil
+    from ..utils.media_utils import BASE_MEDIA_DIR
+
+    original = file.filename or "archivo"
+    extension = original.rsplit('.', 1)[-1].lower() if '.' in original else ''
+    if extension not in ALLOWED_SUPPORT_UPLOAD_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Tipo de archivo no permitido para soporte")
+
+    target_dir = os.path.join(BASE_MEDIA_DIR, tenant_schema, "support", str(ticket_id))
+    os.makedirs(target_dir, exist_ok=True)
+    stored_name = f"{uuid.uuid4().hex}.{extension}"
+    target_path = os.path.join(target_dir, stored_name)
+
+    size = 0
+    with open(target_path, "wb") as out:
+        while True:
+            chunk = file.file.read(1024 * 1024)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > MAX_SUPPORT_UPLOAD_BYTES:
+                out.close()
+                try:
+                    os.remove(target_path)
+                except OSError:
+                    pass
+                raise HTTPException(status_code=400, detail="El archivo supera el limite de 10 MB")
+            out.write(chunk)
+
+    return f"/media/{tenant_schema}/support/{ticket_id}/{stored_name}", size
 
 
 def _resolve_tenant_id(current_user: User, db: Session) -> Optional[int]:
@@ -65,7 +145,7 @@ def get_unread_count(
 
 
 @router.post("/", response_model=SupportTicketOut, status_code=status.HTTP_201_CREATED)
-def create_ticket(
+async def create_ticket(
     ticket_in: SupportTicketCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
@@ -92,7 +172,35 @@ def create_ticket(
     )
     db.add(db_ticket)
     db.flush()
+
+    initial_message = SupportMessage(
+        ticket_id=db_ticket.id,
+        sender_type=SupportMessageSender.user,
+        sender_email=current_user.email,
+        message=ticket_in.message,
+    )
+    db.add(initial_message)
+    db.flush()
     db.commit()
+
+    try:
+        from ..websocket.manager import manager
+        from ..websocket.events import WebSocketEvents
+        tenant_schema = _tenant_schema_from_id(db, effective_tenant_id)
+        await manager.broadcast(WebSocketEvents.SUPPORT_TICKET_CREATED, {
+            "ticket_id": db_ticket.id,
+            "subject": db_ticket.subject,
+            "status": db_ticket.status.value if hasattr(db_ticket.status, "value") else db_ticket.status,
+        }, tenant_id=tenant_schema)
+        await manager.broadcast(WebSocketEvents.SUPPORT_TICKET_CREATED, {
+            "ticket_id": db_ticket.id,
+            "subject": db_ticket.subject,
+            "status": db_ticket.status.value if hasattr(db_ticket.status, "value") else db_ticket.status,
+            "tenant": tenant_schema,
+        }, tenant_id="public")
+    except Exception:
+        pass
+
     return db_ticket
 
 @router.get("/", response_model=List[SupportTicketOut])
@@ -162,3 +270,76 @@ def public_contact(
     db.commit()
 
     return {"message": "Tu mensaje fue enviado. Te contactaremos pronto."}
+
+
+@router.get("/{ticket_id}/messages", response_model=List[SupportMessageOut])
+def list_ticket_messages(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    ticket = _ticket_for_user(ticket_id, db, current_user)
+    messages = (
+        db.query(SupportMessage)
+        .options(joinedload(SupportMessage.attachments))
+        .filter(SupportMessage.ticket_id == ticket.id, SupportMessage.is_internal == False)
+        .order_by(SupportMessage.created_at.asc(), SupportMessage.id.asc())
+        .all()
+    )
+    return messages
+
+
+@router.post("/{ticket_id}/messages", response_model=SupportMessageOut, status_code=status.HTTP_201_CREATED)
+async def send_ticket_message(
+    ticket_id: int,
+    message: str = Form(""),
+    file: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    ticket = _ticket_for_user(ticket_id, db, current_user)
+    clean_message = (message or "").strip()
+    if not clean_message and not file:
+        raise HTTPException(status_code=400, detail="Escribe un mensaje o adjunta un archivo")
+
+    chat_message = SupportMessage(
+        ticket_id=ticket.id,
+        sender_type=SupportMessageSender.user,
+        sender_email=current_user.email,
+        message=clean_message,
+    )
+    db.add(chat_message)
+    db.flush()
+
+    if file:
+        tenant_schema = _tenant_schema_from_id(db, ticket.tenant_id)
+        stored_url, size = _save_support_upload(file, tenant_schema, ticket.id)
+        attachment = SupportAttachment(
+            ticket_id=ticket.id,
+            message_id=chat_message.id,
+            original_filename=file.filename or "archivo",
+            stored_url=stored_url,
+            content_type=file.content_type,
+            file_size=size,
+        )
+        db.add(attachment)
+        db.flush()
+
+    if ticket.status in [TicketStatus.resolved, TicketStatus.closed]:
+        ticket.status = TicketStatus.in_progress
+    ticket.updated_at = datetime.now()
+
+    db.commit()
+    db.refresh(chat_message)
+
+    payload = _message_payload(chat_message)
+    try:
+        from ..websocket.manager import manager
+        from ..websocket.events import WebSocketEvents
+        tenant_schema = _tenant_schema_from_id(db, ticket.tenant_id)
+        await manager.broadcast(WebSocketEvents.SUPPORT_MESSAGE_CREATED, payload, tenant_id=tenant_schema)
+        await manager.broadcast(WebSocketEvents.SUPPORT_MESSAGE_CREATED, {**payload, "tenant": tenant_schema}, tenant_id="public")
+    except Exception:
+        pass
+
+    return chat_message

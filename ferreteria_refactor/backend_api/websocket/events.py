@@ -48,6 +48,11 @@ class WebSocketEvents:
     USER_UPDATED = "user:updated"
     USER_ROLE_CHANGED = "user:role_changed"
     
+    # Support chat
+    SUPPORT_TICKET_CREATED = "support:ticket_created"
+    SUPPORT_MESSAGE_CREATED = "support:message_created"
+    SUPPORT_TICKET_UPDATED = "support:ticket_updated"
+
     # System
     SYSTEM_NOTIFICATION = "system:notification"
     SYSTEM_ERROR = "system:error"
