@@ -12,7 +12,8 @@ import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
-import { playOrgChatSound } from '../../utils/chatSound';
+import { initOrgChatSound, playOrgChatSound } from '../../utils/chatSound';
+import { getTokenSubject } from '../../utils/authToken';
 
 const NAV_GROUPS = [
   {
@@ -101,6 +102,7 @@ function CompanyList({ companies, loading, switching, onEnter, compact = false }
 export default function OrgPanel() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const userEmail = user?.email || getTokenSubject();
   const location = useLocation();
   const [org, setOrg] = useState(null);
   const [companies, setCompanies] = useState([]);
@@ -111,6 +113,10 @@ export default function OrgPanel() {
   const [pendingCount, setPendingCount] = useState(0);
   const [chatUnread, setChatUnread] = useState(0);
   const orgSocketRef = useRef(null);
+
+  useEffect(() => {
+    initOrgChatSound();
+  }, []);
   const basePath = location.pathname.startsWith('/owner') ? '/owner' : '/org';
   const navGroups = useMemo(() => NAV_GROUPS.map(group => ({
     ...group,
@@ -161,7 +167,7 @@ export default function OrgPanel() {
         const packet = JSON.parse(event.data);
         if (packet.type !== 'org_chat:message_created') return;
         const message = packet.data;
-        const shouldPlaySound = Boolean(message?.sender_email && user?.email && message.sender_email !== user.email);
+        const shouldPlaySound = Boolean(message?.sender_email && userEmail && message.sender_email !== userEmail);
         if (shouldPlaySound && !location.pathname.endsWith('/chat')) playOrgChatSound();
         if (location.pathname.endsWith('/chat')) {
           setChatUnread(0);
@@ -179,7 +185,7 @@ export default function OrgPanel() {
       if (socket._pingTimer) window.clearInterval(socket._pingTimer);
       try { socket.close(); } catch {}
     };
-  }, [org?.id, location.pathname, fetchChatUnread, user?.email]);
+  }, [org?.id, location.pathname, fetchChatUnread, userEmail]);
 
   useEffect(() => {
     let alive = true;

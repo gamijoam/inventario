@@ -146,6 +146,7 @@ def get_current_user_profile(
     return {
         "id": current_user.id,
         "username": current_user.username,
+        "email": current_user.email,
         "role": current_user.role,
         "full_name": current_user.full_name,
         "commission_percentage": current_user.commission_percentage,

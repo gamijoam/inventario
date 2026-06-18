@@ -16,7 +16,8 @@ import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { playOrgChatSound } from '../../utils/chatSound';
+import { initOrgChatSound, playOrgChatSound } from '../../utils/chatSound';
+import { getTokenSubject } from '../../utils/authToken';
 
 const formatDateTime = (value) => {
   if (!value) return '';
@@ -86,6 +87,11 @@ export default function OrgChat() {
   const socketRef = useRef(null);
 
   const orgId = org?.id;
+  const userEmail = user?.email || getTokenSubject();
+
+  useEffect(() => {
+    initOrgChatSound();
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     window.setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 80);
@@ -112,7 +118,7 @@ export default function OrgChat() {
     setMessages(Array.isArray(r.data) ? r.data : []);
     window.dispatchEvent(new CustomEvent('org-chat-read', { detail: { orgId: targetOrgId } }));
     scrollToBottom();
-  }, [orgId, scrollToBottom, user?.email, markRead]);
+  }, [orgId, scrollToBottom, userEmail, markRead]);
 
   useEffect(() => {
     let alive = true;
@@ -161,7 +167,7 @@ export default function OrgChat() {
           if (prev.some(item => item.id === message.id)) return prev;
           return [...prev, message];
         });
-        if (message.sender_email && user?.email && message.sender_email !== user.email) {
+        if (message.sender_email && userEmail && message.sender_email !== userEmail) {
           playOrgChatSound();
           markRead(orgId);
           window.dispatchEvent(new CustomEvent('org-chat-read', { detail: { orgId } }));
@@ -187,7 +193,7 @@ export default function OrgChat() {
       if (socket._pingTimer) window.clearInterval(socket._pingTimer);
       try { socket.close(); } catch {}
     };
-  }, [orgId, scrollToBottom, user?.email, markRead]);
+  }, [orgId, scrollToBottom, userEmail, markRead]);
 
   const openTransferImport = () => {
     navigate('/inventory-center?tab=traslados&mode=import');

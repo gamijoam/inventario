@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect, useContext } from 'react';
 import apiClient from '../config/axios';
 import authService from '../services/authService';
+import { getTokenSubject } from '../utils/authToken';
 
 const AuthContext = createContext(null);
 
@@ -27,6 +28,7 @@ export const AuthProvider = ({ children }) => {
             const userData = {
                 id: currentUser.id,
                 username: currentUser.username,
+                email: currentUser.email || getTokenSubject(),
                 role: currentUser.role,
                 full_name: currentUser.full_name,
                 is_active: currentUser.is_active,
