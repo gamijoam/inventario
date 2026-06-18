@@ -31,6 +31,23 @@ def extract_token_hybrid(
     
     This allows gradual migration from localStorage to cookies.
     """
+    # Admin panel keeps its superadmin token in Authorization. The browser may also
+    # carry a tenant HttpOnly cookie after impersonation, so admin-origin requests
+    # must prefer the explicit bearer token to avoid leaking tenant auth into /admin.
+    host = (request.headers.get("host") or "").split(":")[0]
+    origin = request.headers.get("origin") or ""
+    path = request.url.path or ""
+    is_admin_context = (
+        host.startswith("admin")
+        or "admin-" in origin
+        or ".admin." in origin
+        or path.startswith("/api/v1/admin")
+    )
+
+    if is_admin_context and token_from_header:
+        print("🔐 Token source: Authorization Header (ADMIN explicit)")
+        return token_from_header
+
     # PRIORITY 1: Try to get token from HttpOnly cookie (SECURE)
     token_from_cookie = request.cookies.get("access_token")
     

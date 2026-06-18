@@ -23,8 +23,8 @@ const OwnerProtectedRoute = ({ children }) => {
         return <Navigate to="/owner/login" replace />;
     }
 
-    const isOwner = Boolean(user.is_superuser || user.is_org_owner || user.org_role === 'owner');
-    if (!isOwner) {
+    const hasOrgAccess = Boolean(user.is_superuser || user.is_org_owner || ['owner', 'manager'].includes(user.org_role));
+    if (!hasOrgAccess) {
         return <Navigate to="/unauthorized" replace />;
     }
 

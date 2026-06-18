@@ -61,6 +61,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     const isAdmin = role === 'ADMIN';
     const isAdminOrWarehouse = ['ADMIN', 'WAREHOUSE'].includes(role);
     const isAdminOrCashier = ['ADMIN', 'CASHIER'].includes(role);
+    const canOpenOrgPanel = Boolean(isAdmin && (user?.is_superuser || user?.is_org_owner || user?.org_role));
 
     // Finanzas: items filtrados por rol (si quedan 0 items, el grupo no aparece)
     const finanzasItems = [
@@ -163,7 +164,10 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             type: 'single',
             item: { icon: Settings, label: 'Configuración', path: '/config-center' }
         }] : []),
-        // Panel empresarial movido al portal owner (/owner/login).
+        ...(canOpenOrgPanel ? [{
+            type: 'single',
+            item: { icon: Briefcase, label: 'Panel Empresarial', path: '/owner' }
+        }] : []),
     ];
 
     const [expandedGroup, setExpandedGroup] = useState(null);
@@ -176,7 +180,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         }
         if (normalizedLabel === 'Centro de Inventario') return 'Inventario';
         if (normalizedLabel === 'Finanzas') return 'Finanzas';
-        if (normalizedLabel === 'Configuracion') return 'Administraci\u00f3n';
+        if (normalizedLabel === 'Configuracion' || normalizedLabel === 'Panel Empresarial') return 'Administraci\u00f3n';
         return 'M\u00f3dulos';
     };
 
