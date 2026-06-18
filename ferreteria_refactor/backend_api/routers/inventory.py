@@ -460,8 +460,11 @@ def lookup_imei(imei: str, db: Session = Depends(get_db)):
     product = instance.product
     return {
         "imei": instance.serial_number,
+        "instance_id": instance.id,
         "status": instance.status,
         "warehouse": instance.warehouse.name if instance.warehouse else None,
+        "color_name": getattr(instance, "color_name", None),
+        "color_hex": getattr(instance, "color_hex", None),
         "product": {
             "id": product.id,
             "name": product.name,

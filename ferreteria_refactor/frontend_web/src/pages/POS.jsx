@@ -424,7 +424,7 @@ const POS = () => {
                 if (product) {
                     // Try to match unit or use base
                     const unitName = item.is_box ? 'Caja' : 'Unidad';
-                    let unit = product.units?.find(u => u.unit_name === unitName);
+                    let unit = product.units?.filter(u => u.is_active !== false).find(u => u.unit_name === unitName);
 
                     if (!unit) {
                         unit = {
@@ -520,8 +520,9 @@ const POS = () => {
             return;
         }
 
-        if (productForSale.units?.length > 0) {
-            setSelectedProductForUnits(productForSale);
+        const activeUnits = (productForSale.units || []).filter(unit => unit.is_active !== false);
+        if (activeUnits.length > 0) {
+            setSelectedProductForUnits({ ...productForSale, units: activeUnits });
         } else {
             addBaseProductToCart(productForSale);
         }

@@ -23,18 +23,29 @@ const InventoryTransfers = () => {
     const [items, setItems] = useState([]);
     const [productSearch, setProductSearch] = useState('');
     const [searchResults, setSearchResults] = useState([]);
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [hasSearchedProducts, setHasSearchedProducts] = useState(false);
 
     // IMEI picker state (per item, by index)
     const [imeiPicker, setImeiPicker] = useState({ openFor: null, instances: [], loading: false, query: '' });
     const imeiPickerDebounce = useRef(null);
+    const previousSourceWarehouseId = useRef('');
 
     useEffect(() => {
         fetchInitialData();
     }, []);
 
-    // Si cambia la bodega origen, limpiar los IMEIs seleccionados (podrian no estar en la nueva)
+    // Si cambia la bodega origen, limpiar la seleccion: el stock depende del almacen origen.
     useEffect(() => {
-        setItems(prev => prev.map(it => ({ ...it, selected_imeis: [] })));
+        const previousSource = previousSourceWarehouseId.current;
+        if (previousSource && previousSource !== formData.source_warehouse_id && items.length > 0) {
+            toast('Cambiamos el almacen origen; vuelve a agregar los productos para validar stock.', { icon: 'info' });
+        }
+        previousSourceWarehouseId.current = formData.source_warehouse_id;
+        setItems([]);
+        setProductSearch('');
+        setSearchResults([]);
+        setHasSearchedProducts(false);
         setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
     }, [formData.source_warehouse_id]);
 
@@ -55,25 +66,49 @@ const InventoryTransfers = () => {
     };
 
     const searchProducts = async (query) => {
-        if (!query || query.length < 2) {
+        const term = (query || '').trim();
+        if (!formData.source_warehouse_id) {
             setSearchResults([]);
+            setHasSearchedProducts(false);
+            return;
+        }
+        if (term.length < 2) {
+            setSearchResults([]);
+            setHasSearchedProducts(false);
             return;
         }
         try {
-            const { data } = await apiClient.get(`/products?search=${query}`);
-            setSearchResults(data);
+            setSearchLoading(true);
+            setHasSearchedProducts(true);
+            const { data } = await apiClient.get('/products', {
+                params: {
+                    search: term,
+                    limit: 30,
+                    warehouse_id: formData.source_warehouse_id
+                }
+            });
+            const results = Array.isArray(data) ? data : (data?.items || []);
+            setSearchResults(results);
         } catch (error) {
             console.error(error);
+            setSearchResults([]);
+            toast.error('No se pudo buscar productos');
+        } finally {
+            setSearchLoading(false);
         }
     };
 
     const addItem = (product) => {
+        const stockAvailable = Number(product.stock || 0);
+        if (stockAvailable <= 0) {
+            return toast.error(`"${product.name}" no tiene stock disponible en el almacen origen.`);
+        }
         if (items.find(i => i.product_id === product.id)) return;
         setItems([...items, {
             product_id: product.id,
             name: product.name,
             quantity: 1,
-            stock_available: product.stock,
+            stock_available: stockAvailable,
             sku: product.sku,
             has_imei: !!product.has_imei,
             selected_imeis: []  // array of {id, serial_number}
@@ -84,7 +119,8 @@ const InventoryTransfers = () => {
 
     const updateItemQty = (index, qty) => {
         const newItems = [...items];
-        newItems[index].quantity = Number(qty);
+        const quantity = Number(qty);
+        newItems[index].quantity = quantity;
         // If quantity went below the number of selected IMEIs, trim
         if (newItems[index].selected_imeis && newItems[index].selected_imeis.length > newItems[index].quantity) {
             newItems[index].selected_imeis = newItems[index].selected_imeis.slice(0, newItems[index].quantity);
@@ -95,6 +131,16 @@ const InventoryTransfers = () => {
     const removeItem = (index) => {
         setItems(items.filter((_, i) => i !== index));
     };
+
+    const itemStockError = (item) => {
+        const quantity = Number(item.quantity || 0);
+        const stock = Number(item.stock_available || 0);
+        if (quantity <= 0) return 'La cantidad debe ser mayor a cero.';
+        if (quantity > stock) return `Solo hay ${stock} disponible(s) en el almacen origen.`;
+        return '';
+    };
+
+    const hasStockErrors = items.some(item => !!itemStockError(item));
 
     // ---- IMEI picker (modal-like inline) ----
     const openImeiPicker = async (itemIdx) => {
@@ -249,6 +295,10 @@ const InventoryTransfers = () => {
         }
         if (formData.source_warehouse_id === formData.target_warehouse_id) {
             return toast.error("El origen y destino deben ser diferentes");
+        }
+        const stockErrorItem = items.find(item => !!itemStockError(item));
+        if (stockErrorItem) {
+            return toast.error(`${stockErrorItem.name}: ${itemStockError(stockErrorItem)}`);
         }
 
         // Validar IMEIs si el flag esta ON y el item tiene has_imei
@@ -477,19 +527,35 @@ const InventoryTransfers = () => {
 
                         {/* Product Search */}
                         <div className="relative mb-6 group z-20">
-                            <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all bg-slate-50 hover:bg-white group-focus-within:bg-white shadow-sm">
-                                <Search className="ml-4 text-slate-400" size={20} />
+                            <div className={clsx(
+                                "flex items-center border rounded-xl overflow-hidden transition-all shadow-sm",
+                                formData.source_warehouse_id
+                                    ? "border-slate-200 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 bg-slate-50 hover:bg-white group-focus-within:bg-white"
+                                    : "border-slate-200 bg-slate-100 opacity-80"
+                            )}>
+                                <Search className={clsx("ml-4", formData.source_warehouse_id ? "text-slate-400" : "text-slate-300")} size={20} />
                                 <input
                                     type="text"
-                                    className="w-full p-3.5 bg-transparent outline-none font-medium text-slate-700 placeholder:text-slate-400"
-                                    placeholder="Buscar producto por nombre o codigo..."
+                                    className="w-full p-3.5 bg-transparent outline-none font-medium text-slate-700 placeholder:text-slate-400 disabled:cursor-not-allowed"
+                                    placeholder={formData.source_warehouse_id ? "Buscar producto por nombre o codigo..." : "Selecciona primero el almacen origen"}
                                     value={productSearch}
+                                    disabled={!formData.source_warehouse_id}
                                     onChange={e => {
                                         setProductSearch(e.target.value);
                                         searchProducts(e.target.value);
                                     }}
                                 />
                             </div>
+                            {!formData.source_warehouse_id && (
+                                <div className="mt-2 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                                    El buscador usa el stock del almacen origen. Selecciona de donde sale la mercancia para ver solo productos disponibles ahi.
+                                </div>
+                            )}
+                            {formData.source_warehouse_id && searchLoading && (
+                                <div className="absolute top-full left-0 right-0 bg-white shadow-xl rounded-xl mt-2 border border-slate-100 p-4 text-sm font-semibold text-slate-500">
+                                    Buscando productos con stock en {warehouses.find(w => w.id == formData.source_warehouse_id)?.name || 'almacen origen'}...
+                                </div>
+                            )}
                             {searchResults.length > 0 && (
                                 <div className="absolute top-full left-0 right-0 bg-white shadow-xl rounded-xl mt-2 border border-slate-100 max-h-64 overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
                                     {searchResults.map(p => (
@@ -502,11 +568,25 @@ const InventoryTransfers = () => {
                                                 <div className="font-bold text-slate-800 group-hover:text-indigo-600">{p.name}</div>
                                                 <div className="text-xs font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded w-fit mt-1">SKU: {p.sku || 'N/A'}</div>
                                             </div>
-                                            <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                                                <Plus size={16} />
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-right">
+                                                    <div className="text-xs uppercase font-black text-slate-400">Disponible</div>
+                                                    <div className="text-sm font-black text-emerald-600">{Number(p.stock || 0)} un.</div>
+                                                </div>
+                                                <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
+                                                    <Plus size={16} />
+                                                </div>
                                             </div>
                                         </button>
                                     ))}
+                                </div>
+                            )}
+                            {formData.source_warehouse_id && hasSearchedProducts && !searchLoading && productSearch.trim().length >= 2 && searchResults.length === 0 && (
+                                <div className="absolute top-full left-0 right-0 bg-white shadow-xl rounded-xl mt-2 border border-amber-100 p-4 text-sm text-amber-800">
+                                    <div className="font-black">Sin stock disponible en este almacen</div>
+                                    <div className="text-xs mt-1">
+                                        No hay productos que coincidan con "{productSearch.trim()}" en {warehouses.find(w => w.id == formData.source_warehouse_id)?.name || 'el almacen origen'}.
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -517,8 +597,12 @@ const InventoryTransfers = () => {
                                 const showImeiPicker = trasladosConImei && item.has_imei;
                                 const selectedCount = item.selected_imeis?.length || 0;
                                 const pickerOpen = imeiPicker.openFor === idx;
+                                const stockError = itemStockError(item);
                                 return (
-                                <div key={idx} className="p-4 border border-slate-100 rounded-xl bg-white hover:bg-slate-50/50 hover:border-slate-200 transition-all shadow-sm group">
+                                <div key={idx} className={clsx(
+                                    "p-4 border rounded-xl bg-white hover:bg-slate-50/50 transition-all shadow-sm group",
+                                    stockError ? "border-rose-200 bg-rose-50/30" : "border-slate-100 hover:border-slate-200"
+                                )}>
                                     <div className="flex items-center gap-4">
                                         <div className="flex-1">
                                             <div className="font-bold text-slate-700 flex items-center gap-2">
@@ -527,17 +611,30 @@ const InventoryTransfers = () => {
                                                     <span className="text-[10px] uppercase font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">IMEI</span>
                                                 )}
                                             </div>
-                                            <div className="text-xs text-slate-400 mt-0.5">Stock disponible: {item.stock_available}</div>
+                                            <div className={clsx("text-xs mt-0.5 font-semibold", stockError ? "text-rose-600" : "text-slate-400")}>
+                                                Stock en almacen origen: {item.stock_available}
+                                            </div>
+                                            {stockError && (
+                                                <div className="text-xs text-rose-600 font-bold mt-1 flex items-center gap-1">
+                                                    <AlertTriangle size={13} /> {stockError}
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="w-32">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block text-center">Cantidad</label>
                                             <input
                                                 type="number"
-                                                className="w-full p-2 border border-slate-200 rounded-lg text-center font-bold text-indigo-600 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                                                className={clsx(
+                                                    "w-full p-2 border rounded-lg text-center font-bold focus:ring-2 outline-none",
+                                                    stockError
+                                                        ? "border-rose-300 text-rose-600 focus:ring-rose-500/20 focus:border-rose-500"
+                                                        : "border-slate-200 text-indigo-600 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                                )}
                                                 value={item.quantity}
                                                 onChange={e => updateItemQty(idx, e.target.value)}
                                                 min="0.1"
                                                 step="0.1"
+                                                max={item.stock_available}
                                             />
                                         </div>
                                         {showImeiPicker && (
@@ -693,14 +790,14 @@ const InventoryTransfers = () => {
                             <div className="flex gap-3">
                                 <button
                                     onClick={(e) => handleSubmit(e, true)}
-                                    disabled={items.length === 0 || !formData.source_warehouse_id || !formData.target_warehouse_id}
+                                    disabled={items.length === 0 || !formData.source_warehouse_id || !formData.target_warehouse_id || hasStockErrors}
                                     className="flex-1 bg-white border-2 border-indigo-600 text-indigo-700 py-4 rounded-xl font-bold shadow-sm hover:bg-indigo-50 transition-all active:scale-95 disabled:opacity-50 flex justify-center items-center gap-2"
                                 >
                                     <Printer size={20} /> Guardar e Imprimir
                                 </button>
                                 <button
                                     onClick={(e) => handleSubmit(e, false)}
-                                    disabled={items.length === 0 || !formData.source_warehouse_id || !formData.target_warehouse_id}
+                                    disabled={items.length === 0 || !formData.source_warehouse_id || !formData.target_warehouse_id || hasStockErrors}
                                     className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-sm shadow-indigo-100 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95 disabled:opacity-50 disabled:shadow-none flex justify-center items-center gap-2"
                                 >
                                     <CheckCircle size={20} /> Solo Guardar

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import SerializedReportPDF from '../../../components/inventory/SerializedReportPDF';
 import { useFeatureFlag } from '../../../hooks/useFeatureFlag';
 import InversionReportPDF from '../../../components/inventory/InversionReportPDF';
@@ -8,7 +9,7 @@ import {
     Search, Loader2, Smartphone, Save, X, Trash2, Edit2, Check, Layers,
     ChevronDown, ChevronRight, Package, CheckCircle2, Clock,
     AlertTriangle, Warehouse, Hash, Plus, RefreshCw, Filter,
-    ScanLine, ArrowLeft, Zap, Info, Copy, TimerReset
+    ScanLine, ArrowLeft, Zap, Info, Copy, TimerReset, Barcode
 } from 'lucide-react';
 import ProductThumbnail from '../../../components/products/ProductThumbnail';
 import clsx from 'clsx';
@@ -141,6 +142,34 @@ const CatalogView = ({ catalog, onSelectProduct, isLoading }) => {
 
 
 const normalizeSerial = (value = '') => String(value).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+const getSafeColorHex = (hex) => /^#([0-9a-fA-F]{6})$/.test(hex || '') ? hex : '#cbd5e1';
+const getInstanceColorLabel = (instance = {}) => (instance.color_name || '').trim() || (instance.color_hex ? 'Color registrado' : '');
+const COLOR_PRESETS = [
+    { name: 'Negro', hex: '#111827' },
+    { name: 'Blanco', hex: '#F8FAFC' },
+    { name: 'Azul', hex: '#2563EB' },
+    { name: 'Verde', hex: '#16A34A' },
+    { name: 'Rojo', hex: '#DC2626' },
+    { name: 'Rosado', hex: '#EC4899' },
+    { name: 'Morado', hex: '#7C3AED' },
+    { name: 'Dorado', hex: '#D97706' },
+];
+const summarizeAvailableColors = (instances = []) => {
+    const summary = new Map();
+    instances.filter(item => item.status === 'AVAILABLE').forEach(item => {
+        const label = getInstanceColorLabel(item);
+        if (!label) return;
+        const hex = getSafeColorHex(item.color_hex);
+        const key = `${label}::${hex}`;
+        const existing = summary.get(key);
+        if (existing) {
+            existing.count += 1;
+            return;
+        }
+        summary.set(key, { key, label, hex, count: 1 });
+    });
+    return Array.from(summary.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+};
 
 const SerialAuditPanel = ({ product, instances }) => {
     const [physicalText, setPhysicalText] = useState('');
@@ -260,6 +289,9 @@ const ProductCard = ({ product, onSelect }) => {
     const available = instances?.filter(i => i.status === 'AVAILABLE') || [];
     const sold      = instances?.filter(i => i.status === 'SOLD') || [];
     const transit   = instances?.filter(i => i.status === 'TRANSIT') || [];
+    const colorSummary = summarizeAvailableColors(instances || []);
+    const visibleColors = colorSummary.slice(0, 4);
+    const extraColors = Math.max(0, colorSummary.length - visibleColors.length);
     const [deletingId, setDeletingId]   = useState(null);
     const [editingId, setEditingId]     = useState(null);
     const [editSerial, setEditSerial]   = useState('');
@@ -335,30 +367,48 @@ const ProductCard = ({ product, onSelect }) => {
             </button>
 
             {/* Footer: ver seriales */}
-            <div className="border-t border-slate-100 px-3 py-2 flex items-center justify-between bg-slate-50/50">
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">IMEIs</span>
-                    {instances !== null && (
-                        <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">{available.length} disp.</span>
-                            {sold.length > 0 && <span className="text-[10px] font-bold text-rose-500 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-md">{sold.length} vend.</span>}
-                            {transit.length > 0 && <span className="text-[10px] font-bold text-violet-600 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded-md">{transit.length} trans.</span>}
+            <div className="border-t border-slate-100 bg-slate-50/50 px-3 py-2">
+                <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase text-slate-400">IMEIs</span>
+                            {instances !== null && (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600">{available.length} disp.</span>
+                                    {sold.length > 0 && <span className="rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-500">{sold.length} vend.</span>}
+                                    {transit.length > 0 && <span className="rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold text-violet-600">{transit.length} trans.</span>}
+                                </div>
+                            )}
                         </div>
-                    )}
+                        {instances !== null && visibleColors.length > 0 && (
+                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                {visibleColors.map(color => (
+                                    <span key={color.key} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-black text-slate-600 shadow-sm">
+                                        <span className="h-2.5 w-2.5 rounded-full border border-slate-200" style={{ backgroundColor: color.hex }} />
+                                        {color.label}
+                                        <span className="text-slate-400">{color.count}</span>
+                                    </span>
+                                ))}
+                                {extraColors > 0 && (
+                                    <span className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-black text-slate-400 shadow-sm">+{extraColors}</span>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    <button
+                        onClick={loadInstances}
+                        className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-indigo-500 transition-colors hover:text-indigo-700"
+                    >
+                        {loadingInst ? (
+                            <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                            <>
+                                {expanded ? 'Ocultar' : 'Ver seriales'}
+                                <ChevronDown size={12} className={clsx('transition-transform', expanded && 'rotate-180')} />
+                            </>
+                        )}
+                    </button>
                 </div>
-                <button
-                    onClick={loadInstances}
-                    className="flex items-center gap-1 text-[11px] font-bold text-indigo-500 hover:text-indigo-700 transition-colors"
-                >
-                    {loadingInst ? (
-                        <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                        <>
-                            {expanded ? 'Ocultar' : 'Ver seriales'}
-                            <ChevronDown size={12} className={clsx('transition-transform', expanded && 'rotate-180')} />
-                        </>
-                    )}
-                </button>
             </div>
 
             {expanded && instances !== null && (
@@ -391,7 +441,14 @@ const ProductCard = ({ product, onSelect }) => {
                                                 className="font-mono text-xs flex-1 border border-indigo-300 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
                                             />
                                         ) : (
-                                            <span className="font-mono text-xs text-slate-700 flex-1 truncate">{inst.serial_number}</span>
+                                            <span className="flex-1 truncate font-mono text-xs text-slate-700">{inst.serial_number}</span>
+                                        )}
+
+                                        {(inst.color_name || inst.color_hex) && (
+                                            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[9px] font-black text-slate-600 shadow-sm">
+                                                <span className="h-2 w-2 rounded-full border border-slate-200" style={{ backgroundColor: getSafeColorHex(inst.color_hex) }} />
+                                                {getInstanceColorLabel(inst)}
+                                            </span>
                                         )}
 
                                         <span className={clsx('text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0', st.bg, st.color, st.border)}>
@@ -642,14 +699,29 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
     const [scannedList, setScannedList] = useState([]);
     const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id || '');
     const [unitCost, setUnitCost]       = useState(product.cost_price || '');
+    const [expectedQty, setExpectedQty] = useState('');
+    const [colorName, setColorName]     = useState('');
+    const [colorHex, setColorHex]       = useState('');
     const [submitting, setSubmitting]   = useState(false);
     const inputRef = useRef(null);
+    const safeColorHex = getSafeColorHex(colorHex);
+    const expectedCount = Math.max(0, parseInt(expectedQty || '0', 10) || 0);
+    const scannedCount = scannedList.length;
+    const remainingCount = expectedCount > 0 ? Math.max(expectedCount - scannedCount, 0) : 0;
+    const quantityReady = expectedCount === 0 || scannedCount === expectedCount;
+    const lotColorLabel = colorName.trim() || (colorHex ? 'Color personalizado' : 'Sin color definido');
 
     useEffect(() => { inputRef.current?.focus(); }, []);
 
     const addImei = async () => {
         const code = imeiInput.trim().toUpperCase();
         if (!code) return;
+
+        if (expectedCount > 0 && scannedCount >= expectedCount) {
+            toast.error(`Ya capturaste los ${expectedCount} IMEI(s) esperados`);
+            setImeiInput('');
+            return;
+        }
 
         if (scannedList.some(i => i.code === code)) {
             toast.error('IMEI duplicado en la lista actual');
@@ -679,9 +751,19 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
 
     const removeImei = (code) => setScannedList(prev => prev.filter(i => i.code !== code));
 
+    const applyPreset = (preset) => {
+        setColorName(preset.name);
+        setColorHex(preset.hex);
+        inputRef.current?.focus();
+    };
+
     const handleSubmit = async () => {
         if (!warehouseId || scannedList.length === 0) {
             toast.error('Selecciona almacen y agrega al menos un IMEI');
+            return;
+        }
+        if (expectedCount > 0 && scannedCount !== expectedCount) {
+            toast.error(`La cantidad esperada es ${expectedCount} y solo capturaste ${scannedCount}`);
             return;
         }
         setSubmitting(true);
@@ -691,6 +773,8 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                 warehouse_id: parseInt(warehouseId),
                 imeis: scannedList.map(i => i.code),
                 cost: unitCost ? parseFloat(unitCost) : 0,
+                color_name: colorName.trim() || null,
+                color_hex: colorHex ? safeColorHex : null,
             });
             toast.success(`${scannedList.length} equipos ingresados. Stock: ${res.data.new_stock_level}`);
             onSuccess();
@@ -722,19 +806,23 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                             </div>
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 sm:w-72">
+                    <div className="grid grid-cols-3 gap-2 sm:w-[360px]">
                         <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-center">
                             <div className="text-xl font-black leading-none text-emerald-600">{Number(product.stock || 0)}</div>
                             <div className="mt-1 text-[10px] font-black uppercase tracking-wide text-emerald-500">Stock actual</div>
                         </div>
                         <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-center">
-                            <div className="text-xl font-black leading-none text-indigo-600">{scannedList.length}</div>
-                            <div className="mt-1 text-[10px] font-black uppercase tracking-wide text-indigo-500">Por ingresar</div>
+                            <div className="text-xl font-black leading-none text-indigo-600">{scannedCount}</div>
+                            <div className="mt-1 text-[10px] font-black uppercase tracking-wide text-indigo-500">Capturados</div>
+                        </div>
+                        <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-center">
+                            <div className="text-xl font-black leading-none text-amber-600">{expectedCount > 0 ? remainingCount : '-'}</div>
+                            <div className="mt-1 text-[10px] font-black uppercase tracking-wide text-amber-500">Pendientes</div>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_180px]">
+                <div className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_170px_180px]">
                     <div>
                         <label className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
                             <Warehouse size={11} /> Almacen destino
@@ -748,6 +836,19 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                         </select>
                     </div>
                     <div>
+                        <label className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                            <Hash size={11} /> Cantidad esperada
+                        </label>
+                        <input
+                            type="number"
+                            min="0"
+                            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                            value={expectedQty}
+                            onChange={e => setExpectedQty(e.target.value)}
+                            placeholder="Opcional"
+                        />
+                    </div>
+                    <div>
                         <label className="mb-1.5 block text-[10px] font-black uppercase tracking-wide text-slate-400">Costo unitario</label>
                         <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">$</span>
@@ -758,6 +859,97 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                                 onChange={e => setUnitCost(e.target.value)}
                                 placeholder="0.00"
                             />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="border-t border-slate-100 px-4 pb-4">
+                    <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 xl:grid-cols-[minmax(0,1.2fr)_280px]">
+                        <div className="space-y-3">
+                            <div>
+                                <div className="text-[11px] font-black uppercase tracking-wide text-slate-500">Lote actual</div>
+                                <p className="mt-1 text-xs font-semibold text-slate-400">Define el color del grupo que vas a escanear ahora mismo. El dato viajara junto a cada IMEI ingresado.</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {COLOR_PRESETS.map(preset => {
+                                    const isActive = colorName === preset.name && safeColorHex.toLowerCase() === preset.hex.toLowerCase();
+                                    return (
+                                        <button
+                                            key={preset.hex}
+                                            type="button"
+                                            onClick={() => applyPreset(preset)}
+                                            className={clsx(
+                                                'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-black transition-all',
+                                                isActive
+                                                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm'
+                                                    : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:text-indigo-600'
+                                            )}
+                                        >
+                                            <span className="h-3 w-3 rounded-full border border-slate-200" style={{ backgroundColor: preset.hex }} />
+                                            {preset.name}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_150px]">
+                                <div>
+                                    <label className="mb-1.5 block text-[10px] font-black uppercase tracking-wide text-slate-400">Nombre del color</label>
+                                    <input
+                                        type="text"
+                                        value={colorName}
+                                        onChange={e => setColorName(e.target.value)}
+                                        placeholder="Ej: Negro titanio"
+                                        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="mb-1.5 block text-[10px] font-black uppercase tracking-wide text-slate-400">Muestra</label>
+                                    <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2">
+                                        <input
+                                            type="color"
+                                            value={safeColorHex}
+                                            onChange={e => setColorHex(e.target.value.toUpperCase())}
+                                            className="h-9 w-10 cursor-pointer rounded border-0 bg-transparent p-0"
+                                            aria-label="Seleccionar color del lote"
+                                        />
+                                        <span className="rounded bg-slate-100 px-2 py-1 font-mono text-[10px] font-black text-slate-500">{safeColorHex}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
+                            <div className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Resumen del lote</div>
+                            <div className="mt-3 flex items-center gap-3">
+                                <span className="h-11 w-11 rounded-full border-4 border-white shadow-sm" style={{ backgroundColor: colorHex ? safeColorHex : '#e2e8f0' }} />
+                                <div className="min-w-0">
+                                    <div className="truncate text-sm font-black text-slate-900">{lotColorLabel}</div>
+                                    <div className="mt-1 text-xs font-semibold text-slate-500">{colorHex ? safeColorHex : 'Aun sin color definido'}</div>
+                                </div>
+                            </div>
+                            <div className="mt-4 grid grid-cols-3 gap-2">
+                                <div className="rounded-lg border border-white/80 bg-white/80 px-2 py-2 text-center">
+                                    <div className="text-lg font-black text-slate-900">{expectedCount || '-'}</div>
+                                    <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Esperados</div>
+                                </div>
+                                <div className="rounded-lg border border-white/80 bg-white/80 px-2 py-2 text-center">
+                                    <div className="text-lg font-black text-indigo-600">{scannedCount}</div>
+                                    <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Capturados</div>
+                                </div>
+                                <div className="rounded-lg border border-white/80 bg-white/80 px-2 py-2 text-center">
+                                    <div className="text-lg font-black text-amber-600">{expectedCount > 0 ? remainingCount : '-'}</div>
+                                    <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Pendientes</div>
+                                </div>
+                            </div>
+                            <div className={clsx(
+                                'mt-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black',
+                                quantityReady ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                            )}>
+                                {quantityReady ? <CheckCircle2 size={14} /> : <Clock size={14} />}
+                                {expectedCount > 0
+                                    ? (quantityReady ? 'Lote completo para guardar' : `Faltan ${remainingCount} equipo(s)`)
+                                    : 'Captura libre sin tope definido'}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -837,7 +1029,15 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             <div className="truncate font-mono text-xs font-black tracking-wide text-slate-800">{item.code}</div>
-                                            <div className="mt-0.5 text-[10px] font-semibold text-slate-400">Validado para ingreso</div>
+                                            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold text-slate-400">
+                                                <span>Validado para ingreso</span>
+                                                {(colorName.trim() || colorHex) && (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 font-black text-slate-500">
+                                                        <span className="h-2.5 w-2.5 rounded-full border border-slate-200" style={{ backgroundColor: safeColorHex }} />
+                                                        {lotColorLabel}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <button
                                             onClick={() => removeImei(item.code)}
@@ -853,9 +1053,19 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                     </div>
 
                     <div className="space-y-2 border-t border-slate-100 bg-slate-50 p-3">
+                        {expectedCount > 0 && (
+                            <div className={clsx(
+                                'rounded-lg border px-3 py-2 text-xs font-black',
+                                quantityReady ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'
+                            )}>
+                                {quantityReady
+                                    ? `Cantidad completa: ${scannedCount} de ${expectedCount}`
+                                    : `Llevas ${scannedCount} de ${expectedCount}. Faltan ${remainingCount}.`}
+                            </div>
+                        )}
                         {scannedList.length > 0 && (
                             <button
-                                onClick={() => { if (confirm(`?Borrar los ${scannedList.length} IMEIs capturados?`)) setScannedList([]); }}
+                                onClick={() => { if (confirm(`Borrar los ${scannedList.length} IMEIs capturados?`)) setScannedList([]); }}
                                 className="w-full rounded-md border border-slate-200 bg-white py-2 text-xs font-black text-slate-500 transition-colors hover:border-rose-300 hover:text-rose-500"
                             >
                                 Limpiar cola
@@ -863,11 +1073,11 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                         )}
                         <button
                             onClick={handleSubmit}
-                            disabled={scannedList.length === 0 || submitting}
+                            disabled={scannedList.length === 0 || submitting || !quantityReady}
                             className="flex w-full items-center justify-center gap-2 rounded-md bg-indigo-600 py-3 text-sm font-black text-white shadow-sm shadow-indigo-100 transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {submitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                            {submitting ? 'Procesando...' : `Guardar ingreso${scannedList.length > 0 ? ` (${scannedList.length})` : ''}`}
+                            {submitting ? 'Procesando...' : `Guardar lote${scannedList.length > 0 ? ` (${scannedList.length})` : ''}`}
                         </button>
                     </div>
                 </div>
@@ -881,6 +1091,7 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
 const SerialsTab = () => {
     const showPdfCatalogo  = useFeatureFlag('pdf_catalogo_seriales');
     const showPdfInversion = useFeatureFlag('pdf_inversion_seriales');
+    const navigate = useNavigate();
     const [catalog, setCatalog]               = useState([]);
     const [warehouses, setWarehouses]         = useState([]);
     const [allInstances, setAllInstances]     = useState([]);
@@ -986,11 +1197,29 @@ const SerialsTab = () => {
                         onRefresh={loadData}
                     />
                 ) : (
-                    <CatalogView
-                        catalog={catalog}
-                        onSelectProduct={setSelectedProduct}
-                        isLoading={isLoading}
-                    />
+                    <div className="space-y-4">
+                        <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-4 shadow-sm">
+                            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                <div className="min-w-0">
+                                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-indigo-500">Recepcion operativa</p>
+                                    <h3 className="mt-1 text-base font-black text-slate-900">Recibe equipos por IMEI desde su flujo dedicado</h3>
+                                    <p className="mt-1 text-sm font-semibold text-slate-600">Usa Recepcion IMEI para cargar lotes, varios colores del mismo modelo y grupos separados. Deja esta pesta?a para auditar, buscar y corregir seriales ya registrados.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/inventory/serialized-reception')}
+                                    className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 text-sm font-black text-white shadow-sm transition-colors hover:bg-indigo-700"
+                                >
+                                    <Barcode size={16} /> Recepcion IMEI
+                                </button>
+                            </div>
+                        </div>
+                        <CatalogView
+                            catalog={catalog}
+                            onSelectProduct={setSelectedProduct}
+                            isLoading={isLoading}
+                        />
+                    </div>
                 )}
             </div>
         </div>

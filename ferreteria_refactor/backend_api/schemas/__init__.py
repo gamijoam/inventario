@@ -109,6 +109,7 @@ class ProductUnitBase(BaseModel):
     is_discount_active: bool = False
     
     is_default: bool = False
+    is_active: bool = True
     exchange_rate_id: Optional[int] = None  # NEW: Specific rate for this unit
 
 class ProductUnitCreate(ProductUnitBase):
@@ -217,6 +218,24 @@ def normalize_product_prices(value):
     return value
 
 
+
+class ProductImageBase(BaseModel):
+    image_url: str
+    color_name: Optional[str] = None
+    color_hex: Optional[str] = None
+    sort_order: Optional[int] = 0
+    is_primary: bool = False
+
+class ProductImageCreate(ProductImageBase):
+    pass
+
+class ProductImageRead(ProductImageBase):
+    id: int
+    product_id: int
+    created_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 class ProductPriceBase(BaseModel):
     price_list_id: int
     price: Decimal = Field(..., description="Precio en la lista", ge=0, json_schema_extra={'example': "10.5000"})
@@ -248,6 +267,7 @@ class ProductCreate(ProductBase):
     combo_items: List[ComboItemCreate] = Field([], description="Lista de componentes si es un combo")
     warehouse_stocks: List[ProductStockCreate] = Field([], description="Distribución de stock por almacén")
     prices: List[ProductPriceInput] = Field([], description="Precios por lista (Mayorista, VIP, etc)") # NEW
+    gallery_images: List[ProductImageCreate] = Field([], description="Galeria de imagenes del producto")
 
     @field_validator('prices', mode='before')
     @classmethod
@@ -291,6 +311,7 @@ class ProductUpdate(BaseModel):
     combo_items: Optional[List[ComboItemCreate]] = None  # NEW: Allow updating combo items
     warehouse_stocks: Optional[List[ProductStockCreate]] = None  # NEW: Allow updating stocks per warehouse
     prices: Optional[List[ProductPriceInput]] = None # NEW
+    gallery_images: Optional[List[ProductImageCreate]] = None
 
     @field_validator('prices', mode='before')
     @classmethod
@@ -317,6 +338,7 @@ class ProductRead(ProductBase):
     has_imei: Optional[bool] = False # NEW: Include serialized status exposed to frontend
     is_commissionable: Optional[bool] = False # NEW: Commission flag
     prices: List[ProductPriceRead] = [] # NEW: Multi-Price List
+    gallery_images: List[ProductImageRead] = []
     discount_rules: List[DiscountRuleRead] = []  # Feature 2: Quantity-based rules
     
     model_config = ConfigDict(from_attributes=True)
@@ -1037,6 +1059,8 @@ class PurchaseItemCreate(BaseModel):
     update_price: bool = False
     new_sale_price: Optional[Decimal] = None
     serial_numbers: List[str] = Field(default_factory=list)  # IMEIs/seriales recibidos para productos serializados
+    color_name: Optional[str] = None
+    color_hex: Optional[str] = None
     is_combo: bool = False
     is_service: bool = False
     is_barbershop_service: bool = False

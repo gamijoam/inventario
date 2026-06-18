@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFi
 from ..cache import get_cached, set_cached, invalidate, invalidate_resource
 from ..tenant_context import get_tenant_schema
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session, joinedload, subqueryload, selectinload
+from sqlalchemy.orm import Session, joinedload, subqueryload, selectinload, with_loader_criteria
 from decimal import Decimal
 from typing import List, Optional
 import json
@@ -47,8 +47,106 @@ def _ensure_product_sku_available(db: Session, sku, product_id: Optional[int] = 
             detail=f'Ya existe un producto con el SKU "{normalized}". Usa otro codigo o deja el SKU vacio si no aplica.'
         )
 
+
 def _as_unit_dict(unit):
     return unit if isinstance(unit, dict) else unit.dict()
+
+
+def _active_product_units(units):
+    return [unit for unit in (units or []) if getattr(unit, "is_active", True) is not False]
+
+
+def _unit_identity_key(unit):
+    unit_data = _as_unit_dict(unit)
+    unit_name = str(unit_data.get("unit_name") or "").strip().lower()
+    try:
+        factor = Decimal(str(unit_data.get("conversion_factor") or 0)).quantize(Decimal("0.000001"))
+    except Exception:
+        factor = Decimal("0")
+    return (unit_name, factor)
+
+
+def _as_gallery_dict(item):
+    return item if isinstance(item, dict) else item.dict()
+
+
+def _sanitize_color_hex(value):
+    color = str(value or '').strip()
+    if len(color) == 7 and color.startswith('#'):
+        try:
+            int(color[1:], 16)
+            return color.upper()
+        except ValueError:
+            return None
+    return None
+
+
+def _normalize_gallery_items_for_write(gallery_items, fallback_image_url=None):
+    normalized = []
+    for index, raw_item in enumerate(gallery_items or []):
+        item = _as_gallery_dict(raw_item)
+        image_url = str(item.get('image_url') or '').strip()
+        if not image_url:
+            continue
+        normalized.append({
+            'image_url': image_url,
+            'color_name': str(item.get('color_name') or '').strip() or None,
+            'color_hex': _sanitize_color_hex(item.get('color_hex')),
+            'sort_order': index,
+            'is_primary': bool(item.get('is_primary')),
+        })
+
+    fallback = str(fallback_image_url or '').strip()
+    if not normalized and fallback:
+        normalized.append({
+            'image_url': fallback,
+            'color_name': None,
+            'color_hex': None,
+            'sort_order': 0,
+            'is_primary': True,
+        })
+
+    if normalized:
+        primary_index = next((idx for idx, item in enumerate(normalized) if item.get('is_primary')), 0)
+        for idx, item in enumerate(normalized):
+            item['sort_order'] = idx
+            item['is_primary'] = idx == primary_index
+
+    return normalized
+
+
+def _sync_product_gallery(db: Session, product_id: int, gallery_items, fallback_image_url=None):
+    normalized = _normalize_gallery_items_for_write(gallery_items, fallback_image_url=fallback_image_url)
+    db.query(models.ProductImage).filter(models.ProductImage.product_id == product_id).delete()
+    new_gallery = []
+    for item in normalized:
+        db_image = models.ProductImage(product_id=product_id, **item)
+        db.add(db_image)
+        new_gallery.append(db_image)
+    return new_gallery
+
+
+def _serialize_gallery_image(image):
+    return {
+        'id': image.id,
+        'product_id': image.product_id,
+        'image_url': image.image_url,
+        'color_name': image.color_name,
+        'color_hex': image.color_hex,
+        'sort_order': image.sort_order,
+        'is_primary': bool(image.is_primary),
+        'created_at': image.created_at,
+    }
+
+
+def _sync_primary_image_fields(db_product, gallery_images):
+    primary = None
+    if gallery_images:
+        primary = next((img for img in gallery_images if getattr(img, 'is_primary', False)), gallery_images[0])
+
+    db_product.image_url = primary.image_url if primary else None
+    if primary and not getattr(db_product, 'image_url_original', None):
+        db_product.image_url_original = primary.image_url
 
 
 def _ensure_product_units_not_duplicated(units):
@@ -247,6 +345,7 @@ def read_catalog_products(
 
     products = base_query.options(
         selectinload(models.Product.units),
+        with_loader_criteria(models.ProductUnit, models.ProductUnit.is_active == True, include_aliases=True),
         selectinload(models.Product.stocks),
         selectinload(models.Product.prices).joinedload(models.ProductPrice.price_list),
     ).order_by(models.Product.name).offset(skip).limit(limit).all()
@@ -307,9 +406,10 @@ def read_catalog_products(
                     "discount_percentage": u.discount_percentage,
                     "is_discount_active": bool(u.is_discount_active),
                     "is_default": bool(u.is_default),
+                    "is_active": bool(getattr(u, "is_active", True)),
                     "exchange_rate_id": u.exchange_rate_id,
                 }
-                for u in product.units
+                for u in _active_product_units(product.units)
             ],
             "prices": [
                 {
@@ -362,8 +462,10 @@ def lookup_product(
     query = db.query(models.Product).options(
         joinedload(models.Product.category),
         joinedload(models.Product.units),
+        with_loader_criteria(models.ProductUnit, models.ProductUnit.is_active == True, include_aliases=True),
         joinedload(models.Product.stocks),
         joinedload(models.Product.prices).joinedload(models.ProductPrice.price_list),
+        selectinload(models.Product.gallery_images),
     ).filter(models.Product.is_active == True)
 
     if sku:
@@ -374,6 +476,7 @@ def lookup_product(
             unit = (
                 db.query(models.ProductUnit)
                 .filter(func.lower(models.ProductUnit.barcode) == sku.lower())
+                .filter(models.ProductUnit.is_active == True)
                 .first()
             )
             if unit:
@@ -524,8 +627,10 @@ def read_products(
         query = base_query.options(
             joinedload(models.Product.category),
             joinedload(models.Product.units),
+            with_loader_criteria(models.ProductUnit, models.ProductUnit.is_active == True, include_aliases=True),
             joinedload(models.Product.stocks),
             joinedload(models.Product.prices).joinedload(models.ProductPrice.price_list),
+            selectinload(models.Product.gallery_images),
             joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product),
             joinedload(models.Product.price_rules),
             joinedload(models.Product.recipes).subqueryload(rest_models.RestaurantRecipe.ingredient).subqueryload(models.Product.stocks)
@@ -590,7 +695,7 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
     # 1. Operaciones DB (Transaction Wrapper)
     try:
         # A. Create Base Product
-        product_data = product.dict(exclude={"units", "combo_items", "warehouse_stocks", "prices"})
+        product_data = product.dict(exclude={"units", "combo_items", "warehouse_stocks", "prices", "gallery_images"})
         db_product = models.Product(**product_data)
         db.add(db_product)
         db.flush() # Generate ID
@@ -600,6 +705,7 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
         new_combo_items = []
         new_stocks = []
         new_prices = []
+        new_gallery = []
 
         # B. Process Units
         if product.units:
@@ -665,6 +771,15 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
                  db.add(db_price)
                  new_prices.append(db_price)
 
+        # F. Process Product Gallery
+        new_gallery = _sync_product_gallery(
+            db,
+            db_product.id,
+            product.gallery_images,
+            fallback_image_url=db_product.image_url,
+        )
+        _sync_primary_image_fields(db_product, new_gallery)
+
         # FLUSH to generate IDs for all children
         db.flush()
 
@@ -680,12 +795,30 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
             "price": float(db_product.price),
             "cost_price": float(getattr(db_product, "cost_price", None) or getattr(db_product, "cost", None) or 0),
             "stock": float(db_product.stock),
+            "min_stock": float(db_product.min_stock) if db_product.min_stock is not None else 0.0,
+            "unit_type": db_product.unit_type,
+            "location": db_product.location,
             "is_active": db_product.is_active,
             "image_url": db_product.image_url,
+            "image_url_original": db_product.image_url_original,
             "is_combo": db_product.is_combo,
+            "has_imei": db_product.has_imei,
+            "is_service": db_product.is_service,
+            "is_commissionable": db_product.is_commissionable,
+            "is_barbershop_service": db_product.is_barbershop_service,
+            "is_menu_item": db_product.is_menu_item,
+            "needs_kitchen": db_product.needs_kitchen,
             "barcode": db_product.sku,
             "exchange_rate_id": db_product.exchange_rate_id,
             "tax_rate": float(db_product.tax_rate) if db_product.tax_rate else 0.0,
+            "discount_percentage": float(db_product.discount_percentage) if db_product.discount_percentage else 0.0,
+            "is_discount_active": bool(db_product.is_discount_active),
+            "profit_margin": float(db_product.profit_margin) if db_product.profit_margin is not None else None,
+            "updated_at": db_product.updated_at,
+            "warranty_duration": db_product.warranty_duration,
+            "warranty_unit": db_product.warranty_unit,
+            "warranty_notes": db_product.warranty_notes,
+            "warranty_policy_id": int(db_product.warranty_policy_id) if db_product.warranty_policy_id else None,
             
             # Lists from captured objects (now with IDs thanks to flush)
             "units": [
@@ -694,9 +827,15 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
                     "unit_name": u.unit_name,
                     "conversion_factor": float(u.conversion_factor),
                     "barcode": u.barcode,
+                    "cost_price": float(u.cost_price) if u.cost_price is not None else None,
                     "price_usd": float(u.price_usd) if u.price_usd else None,
+                    "profit_margin": float(u.profit_margin) if u.profit_margin is not None else None,
+                    "discount_percentage": float(u.discount_percentage) if u.discount_percentage is not None else 0,
+                    "is_discount_active": bool(u.is_discount_active),
                     "product_id": u.product_id,
-                    "is_default": u.is_default
+                    "is_default": u.is_default,
+                    "is_active": bool(getattr(u, "is_active", True)),
+                    "exchange_rate_id": u.exchange_rate_id
                 } for u in new_units
             ],
             "combo_items": [
@@ -725,6 +864,7 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
                     "product_id": p.product_id
                 } for p in new_prices
             ],
+            "gallery_images": [_serialize_gallery_image(image) for image in new_gallery],
             "price_rules": []
         }
 
@@ -778,8 +918,9 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
                 "unit_name": u.unit_name,
                 "conversion_factor": float(u.conversion_factor),
                 "price_usd": float(u.price_usd) if u.price_usd else None,
-                "barcode": u.barcode
-            } for u in db_product.units
+                "barcode": u.barcode,
+                "is_active": bool(getattr(u, "is_active", True))
+            } for u in _active_product_units(db_product.units)
         ] if db_product.units else [],
         "combo_items": [
             {
@@ -800,6 +941,7 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
         joinedload(models.Product.units), 
         joinedload(models.Product.stocks), 
         joinedload(models.Product.prices).joinedload(models.ProductPrice.price_list),
+        selectinload(models.Product.gallery_images),
         joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product), 
         joinedload(models.Product.price_rules)
     ).filter(models.Product.id == product_id).first()
@@ -829,6 +971,10 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
     if "prices" in update_data:
         prices_data = update_data.pop("prices")
 
+    gallery_images_data = None
+    if "gallery_images" in update_data:
+        gallery_images_data = update_data.pop("gallery_images")
+
     # Capture Current State (Old) for Audit
     old_state = {c.name: getattr(db_product, c.name) for c in db_product.__table__.columns}
 
@@ -856,53 +1002,67 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
     # because if we flush/commit later, lazy loading might fail or be weird depending on session state.
     # Since we eager loaded, these are in memory.
     
-    final_units = db_product.units
+    final_units = _active_product_units(db_product.units)
     final_combo = db_product.combo_items
     final_stocks = db_product.stocks
     final_prices = db_product.prices
+    final_gallery = db_product.gallery_images
     
-    # Handle Units Update (SAFE: upsert to avoid FK violation with sale_details)
+    # Handle Units Update (soft delete to avoid breaking historical sale_details)
     if units_data is not None:
-        incoming_ids = {u["id"] for u in units_data if "id" in u and u["id"]}
-        # Delete only units that are NOT referenced by any sale_detail and NOT in the incoming list
-        existing_units = db.query(models.ProductUnit).filter(models.ProductUnit.product_id == product_id).all()
-        referenced_ids = {
-            row[0] for row in db.execute(
-                __import__("sqlalchemy").text(
-                    "SELECT DISTINCT unit_id FROM sale_details WHERE unit_id IS NOT NULL"
-                )
-            ).fetchall()
+        incoming_ids = {
+            u.get("id")
+            for u in units_data
+            if u.get("id") and isinstance(u.get("id"), int) and u.get("id") <= 10_000_000
         }
-        for eu in existing_units:
-            if eu.id not in incoming_ids and eu.id not in referenced_ids:
-                db.delete(eu)
-        db.flush()
-        # Upsert: update existing, insert new
-        # IDs reales del backend son pequeños (<= 10_000_000)
-        # IDs temporales del frontend son timestamps (> 10_000_000) o strings "_tempId"
+        existing_units = db.query(models.ProductUnit).filter(models.ProductUnit.product_id == product_id).all()
+        existing_by_id = {existing_unit.id: existing_unit for existing_unit in existing_units}
+        existing_by_key = {}
+        for existing_unit in existing_units:
+            key = _unit_identity_key({
+                "unit_name": existing_unit.unit_name,
+                "conversion_factor": existing_unit.conversion_factor,
+            })
+            existing_by_key.setdefault(key, []).append(existing_unit)
+            if existing_unit.id not in incoming_ids:
+                existing_unit.is_active = False
+        # Upsert: update existing, reactivate archived, insert new
         new_units = []
         for unit in units_data:
             uid = unit.get("id")
-            # Ignorar _tempId del frontend — siempre crear nuevo
-            temp_id = unit.get("_tempId")
             is_real_id = uid and isinstance(uid, int) and uid <= 10_000_000
-            if is_real_id:
-                db_unit = db.query(models.ProductUnit).filter(
-                    models.ProductUnit.id == uid,
-                    models.ProductUnit.product_id == product_id
-                ).first()
-                if db_unit:
-                    for k, v in unit.items():
-                        if k not in ("id", "_tempId"):
-                            setattr(db_unit, k, v)
-                    new_units.append(db_unit)
-                    continue
-            # ID temporal o sin ID — crear nuevo
+            db_unit = existing_by_id.get(uid) if is_real_id else None
+            if db_unit:
+                for k, v in unit.items():
+                    if k not in ("id", "_tempId"):
+                        setattr(db_unit, k, v)
+                db_unit.is_active = True
+                new_units.append(db_unit)
+                continue
+
+            used_ids = {active_unit.id for active_unit in new_units if getattr(active_unit, "id", None)}
+            db_unit = next(
+                (
+                    candidate
+                    for candidate in existing_by_key.get(_unit_identity_key(unit), [])
+                    if candidate.id not in used_ids
+                ),
+                None,
+            )
+            if db_unit:
+                clean = {k: v for k, v in unit.items() if k not in ("id", "_tempId")}
+                for k, v in clean.items():
+                    setattr(db_unit, k, v)
+                db_unit.is_active = True
+                new_units.append(db_unit)
+                continue
+
             clean = {k: v for k, v in unit.items() if k not in ("id", "_tempId")}
+            clean["is_active"] = True
             db_unit = models.ProductUnit(**clean, product_id=product_id)
             db.add(db_unit)
             new_units.append(db_unit)
-        final_units = new_units # Use the new list for response
+        final_units = new_units # Use the active list for response
     
     # Handle Combo Items Update
     if combo_items_data is not None:
@@ -964,6 +1124,23 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
             print(f"[ERROR] Failed to update prices: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to update prices: {str(e)}")
 
+    # Handle Gallery Images Update
+    if gallery_images_data is not None:
+        final_gallery = _sync_product_gallery(
+            db,
+            product_id,
+            gallery_images_data,
+            fallback_image_url=update_data.get('image_url') or db_product.image_url,
+        )
+    elif 'image_url' in update_data:
+        if final_gallery:
+            primary = next((img for img in final_gallery if getattr(img, 'is_primary', False)), final_gallery[0])
+            primary.image_url = db_product.image_url or primary.image_url
+        elif db_product.image_url:
+            final_gallery = _sync_product_gallery(db, product_id, [], fallback_image_url=db_product.image_url)
+
+    _sync_primary_image_fields(db_product, final_gallery)
+
     # FLUSH to ensure new items have IDs and updates are applied in transaction
     db.flush()
 
@@ -981,12 +1158,29 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
         "price": float(db_product.price),
         "cost_price": float(getattr(db_product, "cost_price", None) or getattr(db_product, "cost", None) or 0),
         "stock": float(db_product.stock),
+        "min_stock": float(db_product.min_stock) if db_product.min_stock is not None else 0.0,
+        "unit_type": db_product.unit_type,
+        "location": db_product.location,
         "is_active": db_product.is_active,
         "image_url": db_product.image_url,
+        "image_url_original": db_product.image_url_original,
         "is_combo": db_product.is_combo,
+        "has_imei": db_product.has_imei,
+        "is_service": db_product.is_service,
+        "is_commissionable": db_product.is_commissionable,
+        "is_barbershop_service": db_product.is_barbershop_service,
+        "is_menu_item": db_product.is_menu_item,
+        "needs_kitchen": db_product.needs_kitchen,
         "barcode": db_product.sku,
         "exchange_rate_id": db_product.exchange_rate_id,
         "tax_rate": float(db_product.tax_rate) if db_product.tax_rate else 0.0,
+        "discount_percentage": float(db_product.discount_percentage) if db_product.discount_percentage else 0.0,
+        "is_discount_active": bool(db_product.is_discount_active),
+        "profit_margin": float(db_product.profit_margin) if db_product.profit_margin is not None else None,
+        "updated_at": db_product.updated_at,
+        "warranty_duration": db_product.warranty_duration,
+        "warranty_unit": db_product.warranty_unit,
+        "warranty_notes": db_product.warranty_notes,
         "warranty_policy_id": int(db_product.warranty_policy_id) if db_product.warranty_policy_id else None,
         
         # Manually serialize lists
@@ -996,9 +1190,15 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
                 "unit_name": u.unit_name,
                 "conversion_factor": float(u.conversion_factor),
                 "barcode": u.barcode,
+                "cost_price": float(u.cost_price) if u.cost_price is not None else None,
                 "price_usd": float(u.price_usd) if u.price_usd else None,
                 "product_id": u.product_id,
+                "profit_margin": float(u.profit_margin) if u.profit_margin is not None else None,
+                "discount_percentage": float(u.discount_percentage) if u.discount_percentage is not None else 0,
+                "is_discount_active": bool(u.is_discount_active),
                 "is_default": bool(u.is_default),
+                "is_active": bool(getattr(u, "is_active", True)),
+                "exchange_rate_id": u.exchange_rate_id,
                 # Include exchange_rate if needed/present, but ProductUnitRead usually doesn't strictly require full object
                 # Update: ProductUnitRead has exchange_rate: Optional[ExchangeRateRead] = None
                 # If u is new, u.exchange_rate might be None unless we fetched it. Defaults to None is safe.
@@ -1030,6 +1230,7 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
                 "product_id": p.product_id
             } for p in final_prices
         ],
+        "gallery_images": [_serialize_gallery_image(image) for image in final_gallery],
         "price_rules": [] # Not handling updates to rules here? Assuming standard
     }
 
@@ -1392,10 +1593,12 @@ def get_all_sales(
 @router.get("/{product_id}", response_model=schemas.ProductRead)
 def read_product(product_id: int, db: Session = Depends(get_db)):
     product = db.query(models.Product).options(
-        joinedload(models.Product.units), 
+        joinedload(models.Product.units),
+        with_loader_criteria(models.ProductUnit, models.ProductUnit.is_active == True, include_aliases=True),
         joinedload(models.Product.stocks),
         joinedload(models.Product.instances),
         joinedload(models.Product.prices).joinedload(models.ProductPrice.price_list),
+        selectinload(models.Product.gallery_images),
         joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product),
         joinedload(models.Product.price_rules)
     ).filter(models.Product.id == product_id).first()

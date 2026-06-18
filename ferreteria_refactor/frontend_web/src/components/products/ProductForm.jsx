@@ -182,7 +182,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
             loadMissingData();
 
             if (initialData) {
-                const mappedUnits = (initialData.units || []).map(u => {
+                const mappedUnits = (initialData.units || []).filter(u => u.is_active !== false).map(u => {
                     const isPacking = u.conversion_factor >= 1;
                     return {
                         id: u.id || Date.now() + Math.random(),

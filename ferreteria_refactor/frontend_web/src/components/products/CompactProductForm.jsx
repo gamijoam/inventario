@@ -21,6 +21,7 @@ import { getApiErrorMessage } from '../../utils/apiErrors';
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
 import ProductImageUploader from './ProductImageUploader';
+import ProductGalleryManager from './ProductGalleryManager';
 import ProductUnitManager from './ProductUnitManager';
 import { useAppTour } from '../../hooks/useAppTour';
 import toast from 'react-hot-toast';
@@ -51,6 +52,43 @@ const defaultForm = {
     image_url_original: '',
     commission_amount: '',
     commission_percentage: '',
+    gallery_images: [],
+};
+
+
+const normalizeGalleryImages = (images = [], primaryImageUrl = '') => {
+    const clean = (images || [])
+        .filter(image => image?.image_url)
+        .map((image, index) => ({
+            ...image,
+            color_name: image.color_name || '',
+            color_hex: image.color_hex || '',
+            sort_order: index,
+            is_primary: !!image.is_primary,
+        }));
+
+    let primaryIndex = primaryImageUrl
+        ? clean.findIndex(image => image.image_url === primaryImageUrl)
+        : clean.findIndex(image => image.is_primary);
+
+    if (primaryImageUrl && primaryIndex === -1) {
+        clean.unshift({
+            image_url: primaryImageUrl,
+            color_name: '',
+            color_hex: '',
+            is_primary: true,
+            sort_order: 0,
+        });
+        primaryIndex = 0;
+    }
+
+    if (primaryIndex === -1 && clean.length > 0) primaryIndex = 0;
+
+    return clean.map((image, index) => ({
+        ...image,
+        sort_order: index,
+        is_primary: index === primaryIndex,
+    }));
 };
 
 
@@ -103,7 +141,6 @@ const getColorVariants = (instances = []) => {
 
     return Array.from(variantsMap.values()).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 };
-
 
 const buildUnitPayload = (unit) => {
     const rawInput = Number(unit.user_input || unit.conversion_factor || 0);
@@ -218,6 +255,9 @@ const mapInitialProduct = (product) => {
         });
     }
 
+    const incomingGallery = Array.isArray(product.gallery_images) ? product.gallery_images : [];
+    const fallbackPrimary = product.image_url || '';
+
     return {
         ...defaultForm,
         name: product.name || '',
@@ -239,7 +279,7 @@ const mapInitialProduct = (product) => {
         warehouse_stocks: Array.isArray(product.stocks) ? product.stocks : (Array.isArray(product.warehouse_stocks) ? product.warehouse_stocks : []),
         prices,
         units: Array.isArray(product.units)
-            ? product.units.map(unit => {
+            ? product.units.filter(unit => unit.is_active !== false).map(unit => {
                 const factor = Number(unit.conversion_factor) || 1;
                 const isPacking = factor >= 1;
                 return {
@@ -265,6 +305,7 @@ const mapInitialProduct = (product) => {
         image_url_original: product.image_url_original || '',
         commission_amount: product.commission_amount ?? '',
         commission_percentage: product.commission_percentage ?? '',
+        gallery_images: normalizeGalleryImages(incomingGallery, fallbackPrimary),
     };
 };
 
@@ -367,6 +408,30 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
         });
     };
 
+    const handlePrimaryImageChange = (url) => {
+        setFormData(prev => {
+            const normalizedGallery = normalizeGalleryImages(prev.gallery_images || [], url || '');
+            const primary = normalizedGallery.find(image => image.is_primary);
+            return {
+                ...prev,
+                image_url: primary?.image_url || url || '',
+                gallery_images: normalizedGallery,
+            };
+        });
+    };
+
+    const handleGalleryChange = (galleryImages) => {
+        setFormData(prev => {
+            const normalizedGallery = normalizeGalleryImages(galleryImages, prev.image_url);
+            const primary = normalizedGallery.find(image => image.is_primary);
+            return {
+                ...prev,
+                image_url: primary?.image_url || prev.image_url || '',
+                gallery_images: normalizedGallery,
+            };
+        });
+    };
+
     const handleSubmit = async () => {
         const name = formData.name.trim();
         const sku = formData.sku.trim();
@@ -386,6 +451,8 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                 price: parseFloat(rawPrice) || 0,
             }))
             .filter(item => Number.isFinite(item.price_list_id) && item.price > 0);
+
+        const normalizedGallery = normalizeGalleryImages(formData.gallery_images || [], formData.image_url);
 
         const unitsValidation = canUsePresentations ? validateUnitsForSubmit(formData.units) : { ok: true, units: [] };
         if (!unitsValidation.ok) {
@@ -413,7 +480,8 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
             units: unitsValidation.units,
             combo_items: formData.is_combo ? (formData.combo_items || []) : [],
             prices: pricesArray,
-            image_url: formData.image_url || '',
+            image_url: normalizedGallery.find(image => image.is_primary)?.image_url || formData.image_url || '',
+            gallery_images: normalizedGallery,
         };
         delete payload.cost;
 
@@ -499,6 +567,32 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                                 </div>
                             </Panel>
 
+
+
+                            {productType === 'serial' && colorVariants.length > 0 && (
+                                <Panel title="Variaciones detectadas" eyebrow="Colores activos" className="shadow-none">
+                                    <div className="space-y-2">
+                                        {colorVariants.map((variant) => (
+                                            <div key={variant.key} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    <span
+                                                        className="h-3.5 w-3.5 shrink-0 rounded-full border border-slate-200 shadow-sm"
+                                                        style={{ backgroundColor: variant.hex }}
+                                                        title={variant.hex}
+                                                    />
+                                                    <div className="min-w-0">
+                                                        <p className="truncate text-sm font-black text-slate-800">{variant.name}</p>
+                                                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{variant.hex}</p>
+                                                    </div>
+                                                </div>
+                                                <span className="rounded-md border border-indigo-100 bg-indigo-50 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-indigo-700">
+                                                    {variant.count} IMEI
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </Panel>
+                            )}
                             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Vista rapida</p>
                                 <div className="mt-2 space-y-2 text-xs font-bold text-slate-600">
@@ -704,16 +798,27 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                             )}
 
                             {activeTab === 'media' && (
-                                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[280px_1fr]">
-                                    <Panel id="tour-product-form-media" title="Imagen del producto" eyebrow="Foto">
-                                        <p className="text-sm font-medium text-slate-500">Carga una imagen, toma foto con camara o ajusta el recorte sin ensuciar la ficha principal.</p>
-                                    </Panel>
-                                    <Panel>
-                                        <ProductImageUploader
-                                            currentImageUrl={formData.image_url}
-                                            currentImageOriginalUrl={formData.image_url_original}
-                                            onImageUpdate={(url) => setFormData(prev => ({ ...prev, image_url: url || '' }))}
-                                            onOriginalUpdate={(url) => setFormData(prev => ({ ...prev, image_url_original: url || '' }))}
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[280px_1fr]">
+                                        <Panel id="tour-product-form-media" title="Imagen principal" eyebrow="Foto">
+                                            <p className="text-sm font-medium text-slate-500">Esta foto se usa como portada del producto. Debajo puedes sumar imagenes adicionales por color o acabado.</p>
+                                        </Panel>
+                                        <Panel>
+                                            <ProductImageUploader
+                                                currentImageUrl={formData.image_url}
+                                                currentImageOriginalUrl={formData.image_url_original}
+                                                onImageUpdate={(url) => handlePrimaryImageChange(url || '')}
+                                                onOriginalUpdate={(url) => setFormData(prev => ({ ...prev, image_url_original: url || '' }))}
+                                            />
+                                        </Panel>
+                                    </div>
+
+                                    <Panel title="Galeria y variantes visuales" eyebrow={(formData.gallery_images || []).length > 0 ? `${(formData.gallery_images || []).length} imagenes` : 'Opcional'}>
+                                        <ProductGalleryManager
+                                            galleryImages={formData.gallery_images || []}
+                                            primaryImageUrl={formData.image_url}
+                                            onChange={handleGalleryChange}
+                                            onPrimaryChange={handlePrimaryImageChange}
                                         />
                                     </Panel>
                                 </div>

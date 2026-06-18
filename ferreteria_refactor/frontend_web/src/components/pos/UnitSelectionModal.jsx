@@ -27,7 +27,7 @@ const UnitSelectionModal = ({ isOpen, onClose, product, onSelect }) => {
     };
 
     // Derived Options from Units
-    const unitOptions = (product.units || []).map(u => {
+    const unitOptions = (product.units || []).filter(u => u.is_active !== false).map(u => {
         // Calculate price if not explicit
         const calculatedPrice = u.price_usd !== null && u.price_usd !== undefined && u.price_usd > 0
             ? u.price_usd

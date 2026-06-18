@@ -24,6 +24,19 @@ const parseSerials = (value = '') => String(value)
     .map(v => v.trim().toUpperCase())
     .filter(Boolean);
 
+const COLOR_PRESETS = [
+    { name: 'Negro', hex: '#111827' },
+    { name: 'Blanco', hex: '#F8FAFC' },
+    { name: 'Azul', hex: '#2563EB' },
+    { name: 'Verde', hex: '#16A34A' },
+    { name: 'Rojo', hex: '#DC2626' },
+    { name: 'Rosado', hex: '#EC4899' },
+    { name: 'Morado', hex: '#7C3AED' },
+    { name: 'Dorado', hex: '#D97706' },
+];
+
+const getSafeColorHex = (hex) => /^#([0-9a-fA-F]{6})$/.test(hex || '') ? hex : '#cbd5e1';
+
 const getSerialMeta = (item) => {
     const expected = Number.isInteger(toMoney(item.quantity)) ? toMoney(item.quantity) : 0;
     const serials = parseSerials(item.serial_text);
@@ -45,12 +58,16 @@ const SerialCaptureModal = ({ item, onClose, onSave }) => {
     const [serials, setSerials] = useState(() => parseSerials(item?.serial_text || ''));
     const [inputValue, setInputValue] = useState('');
     const [message, setMessage] = useState('');
+    const [colorName, setColorName] = useState(() => (item?.color_name || '').trim());
+    const [colorHex, setColorHex] = useState(() => item?.color_hex || '');
 
     const expected = Number.isInteger(toMoney(item?.quantity)) ? toMoney(item.quantity) : 0;
     const duplicates = serials.filter((serial, index) => serials.indexOf(serial) !== index);
     const uniqueDuplicates = [...new Set(duplicates)];
     const missing = Math.max(expected - serials.length, 0);
     const complete = expected > 0 && serials.length === expected && uniqueDuplicates.length === 0;
+    const safeColorHex = getSafeColorHex(colorHex);
+    const effectiveColorName = colorName.trim() || (colorHex ? 'Color personalizado' : '');
 
     useEffect(() => {
         inputRef.current?.focus();
@@ -110,6 +127,11 @@ const SerialCaptureModal = ({ item, onClose, onSave }) => {
         requestAnimationFrame(() => inputRef.current?.focus());
     };
 
+    const handlePresetClick = (preset) => {
+        setColorName(preset.name);
+        setColorHex(preset.hex);
+    };
+
     const handleSave = () => {
         if (!complete) {
             setMessage(uniqueDuplicates.length > 0
@@ -119,7 +141,11 @@ const SerialCaptureModal = ({ item, onClose, onSave }) => {
             inputRef.current?.focus();
             return;
         }
-        onSave(serials);
+        onSave({
+            serials,
+            color_name: colorName.trim() || null,
+            color_hex: /^#([0-9a-fA-F]{6})$/.test(colorHex || '') ? colorHex : null,
+        });
     };
 
     return (
@@ -181,6 +207,63 @@ const SerialCaptureModal = ({ item, onClose, onSave }) => {
                         </div>
                     </div>
 
+                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <p className="text-sm font-black text-slate-900">Color del lote</p>
+                                <p className="text-xs font-semibold text-slate-500">Opcional, pero nos sirve para identificar los equipos en seriales y POS.</p>
+                            </div>
+                            {(effectiveColorName || colorHex) && (
+                                <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-black text-slate-700">
+                                    <span className="h-3 w-3 rounded-full border border-slate-200" style={{ backgroundColor: safeColorHex }} />
+                                    <span>{effectiveColorName || safeColorHex}</span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_120px]">
+                            <div>
+                                <label className="mb-1 block text-[10px] font-black uppercase tracking-wide text-slate-400">Nombre visible</label>
+                                <input
+                                    value={colorName}
+                                    onChange={(event) => setColorName(event.target.value)}
+                                    placeholder="Ej: Negro mate, Azul titanio"
+                                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                />
+                            </div>
+                            <div>
+                                <label className="mb-1 block text-[10px] font-black uppercase tracking-wide text-slate-400">Color</label>
+                                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                                    <input
+                                        type="color"
+                                        value={safeColorHex}
+                                        onChange={(event) => setColorHex(event.target.value)}
+                                        className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent p-0"
+                                    />
+                                    <span className="text-xs font-black text-slate-500">{safeColorHex}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            {COLOR_PRESETS.map((preset) => {
+                                const selected = colorName.trim().toLowerCase() === preset.name.toLowerCase() && getSafeColorHex(colorHex) === preset.hex;
+                                return (
+                                    <button
+                                        key={preset.name}
+                                        type="button"
+                                        onClick={() => handlePresetClick(preset)}
+                                        className={clsx(
+                                            'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-black transition',
+                                            selected ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-700'
+                                        )}
+                                    >
+                                        <span className="h-3 w-3 rounded-full border border-slate-200" style={{ backgroundColor: preset.hex }} />
+                                        <span>{preset.name}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
                     {message && (
                         <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-700">
                             <AlertCircle size={16} className="mt-0.5 shrink-0" />
@@ -229,7 +312,7 @@ const SerialCaptureModal = ({ item, onClose, onSave }) => {
                     <div className="flex gap-2">
                         <button onClick={onClose} className="rounded-xl border border-slate-200 bg-white px-4 py-2 font-black text-slate-600 hover:bg-slate-50">Cancelar</button>
                         <button onClick={handleSave} disabled={!complete} className="rounded-xl bg-indigo-600 px-5 py-2 font-black text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none">
-                            Guardar IMEIs
+                            Guardar lote
                         </button>
                     </div>
                 </div>
@@ -272,6 +355,7 @@ const CreatePurchase = () => {
     const [showQuickProduct,    setShowQuickProduct]    = useState(false);
     const [quickProductName,    setQuickProductName]    = useState('');
     const [quickProductSku,     setQuickProductSku]     = useState('');
+    const [quickProductCostPrice, setQuickProductCostPrice] = useState('');
     const [quickProductSalePrice, setQuickProductSalePrice] = useState('');
     const [quickProductHasImei, setQuickProductHasImei] = useState(false);
     // ── Herramienta 2: Descuento global del proveedor ───────────
@@ -367,30 +451,42 @@ const CreatePurchase = () => {
 
     // Herramienta 1: Agregar producto rápido (sin existir en inventario)
     const handleAddQuickProduct = () => {
-        if (!quickProductName.trim()) return;
+        const normalizedName = quickProductName.trim();
+        const initialCost = toMoney(quickProductCostPrice);
+        const suggestedSalePrice = toMoney(quickProductSalePrice);
+
+        if (!normalizedName) return;
+        if (initialCost <= 0) {
+            toast.error('Ingresa el costo de compra inicial para crear el producto');
+            return;
+        }
+
         const tempId = createLineId('quick');
         setPurchaseItems(prev => [...prev, {
             line_id: tempId,
             product_id: null,
             quick_product: {
-                name: quickProductName.trim(),
+                name: normalizedName,
                 sku: quickProductSku.trim() || null,
-                sale_price: parseFloat(quickProductSalePrice) || null,
+                sale_price: suggestedSalePrice || null,
                 has_imei: quickProductHasImei,
             },
-            product_name: quickProductName.trim() + (quickProductHasImei ? ' - Serial - Nuevo' : ' - Nuevo'),
+            product_name: normalizedName + (quickProductHasImei ? ' - Serial - Nuevo' : ' - Nuevo'),
             quantity: 1,
-            unit_cost: 0,
-            original_cost: 0,
-            current_price: parseFloat(quickProductSalePrice) || 0,
-            subtotal: 0,
+            unit_cost: initialCost,
+            original_cost: initialCost,
+            current_price: suggestedSalePrice || 0,
+            subtotal: initialCost,
             has_imei: quickProductHasImei,
             serial_text: '',
+            color_name: '',
+            color_hex: '',
             isNew: true,
             tempId,
         }]);
         setQuickProductName('');
         setQuickProductSku('');
+        setQuickProductCostPrice('');
         setQuickProductSalePrice('');
         setQuickProductHasImei(false);
         setShowQuickProduct(false);
@@ -424,6 +520,8 @@ const CreatePurchase = () => {
                 tax_rate: Number(product.tax_rate) || 0,
                 has_imei: Boolean(product.has_imei),
                 serial_text: '',
+                color_name: '',
+                color_hex: '',
                 subtotal: Number(product.cost_price) || 0
             }]);
         }
@@ -532,6 +630,8 @@ const CreatePurchase = () => {
                     update_price: item.update_price || false,
                     new_sale_price: item.new_sale_price || null,
                     serial_numbers: item.has_imei ? parseSerials(item.serial_text) : [],
+                    color_name: item.has_imei ? ((item.color_name || '').trim() || null) : null,
+                    color_hex: item.has_imei ? (/^#([0-9a-fA-F]{6})$/.test(item.color_hex || '') ? item.color_hex : null) : null,
                 })),
                 payment_type: paymentType
             };
@@ -754,6 +854,9 @@ const CreatePurchase = () => {
                             ) : (
                                 purchaseItems.map(item => {
                                     const projectedPrice = item.unit_cost * (1 + (item.profit_margin || 0) / 100) * (1 + (item.tax_rate || 0) / 100);
+                                    const enteredSalePrice = toMoney(item.current_price);
+                                    const hasManualSalePrice = Boolean(item.isNew && enteredSalePrice > 0);
+                                    const visibleSalePrice = hasManualSalePrice ? enteredSalePrice : projectedPrice;
                                     const serialMeta = item.has_imei ? getSerialMeta(item) : null;
                                     return (
                                         <div key={item.line_id || item.product_id} className="bg-white rounded-xl p-3 shadow-sm border border-slate-200 relative">
@@ -851,6 +954,12 @@ const CreatePurchase = () => {
                                                     >
                                                         <Barcode size={16} /> Capturar IMEIs
                                                     </button>
+                                                    {(item.color_name || item.color_hex) && (
+                                                        <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-black text-slate-600">
+                                                            <span className="h-2.5 w-2.5 rounded-full border border-slate-200" style={{ backgroundColor: getSafeColorHex(item.color_hex) }} />
+                                                            <span>{item.color_name || 'Color personalizado'}</span>
+                                                        </div>
+                                                    )}
                                                     {parseSerials(item.serial_text).length > 0 && (
                                                         <div className="mt-2 line-clamp-2 rounded-lg bg-white px-3 py-2 font-mono text-[11px] font-bold text-slate-500">
                                                             {parseSerials(item.serial_text).slice(0, 4).join(' | ')}{parseSerials(item.serial_text).length > 4 ? '...' : ''}
@@ -870,7 +979,11 @@ const CreatePurchase = () => {
                                                     <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">IVA: {item.tax_rate}%</span>
                                                 </div>
                                                 <div className="text-xs font-medium text-slate-500">
-                                                    Sugerido: <span className="text-slate-700 font-bold">${projectedPrice.toFixed(2)}</span>
+                                                    {hasManualSalePrice ? (
+                                                        <>PVP ingresado: <span className="text-slate-700 font-bold">${visibleSalePrice.toFixed(2)}</span></>
+                                                    ) : (
+                                                        <>Sugerido: <span className="text-slate-700 font-bold">${projectedPrice.toFixed(2)}</span></>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -971,11 +1084,13 @@ const CreatePurchase = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
-                                                    <div className="text-sm font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100" title="Precio calculado con nuevo costo">
-                                                        ${projectedPrice.toFixed(2)}
+                                                    <div className="text-sm font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100" title={hasManualSalePrice ? 'Precio de venta ingresado manualmente' : 'Precio calculado con nuevo costo'}>
+                                                        ${visibleSalePrice.toFixed(2)}
                                                     </div>
                                                     <div className="text-[10px] text-slate-400 mt-1 font-medium">
-                                                        Actual: ${item.current_price.toFixed(2)}
+                                                        {hasManualSalePrice
+                                                            ? `Sugerido por costo: $${projectedPrice.toFixed(2)}`
+                                                            : `Actual: $${item.current_price.toFixed(2)}`}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3 text-right font-mono font-bold text-slate-700 text-sm">
@@ -1008,6 +1123,12 @@ const CreatePurchase = () => {
                                                                     <span className={clsx("rounded-md px-2 py-1 text-[10px] font-black", serialMeta.missing ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700")}>Faltan: {serialMeta.missing}</span>
                                                                 </div>
                                                             </div>
+                                                            {(item.color_name || item.color_hex) && (
+                                                                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+                                                                    <span className="h-3 w-3 rounded-full border border-slate-200" style={{ backgroundColor: getSafeColorHex(item.color_hex) }} />
+                                                                    <span>{item.color_name || 'Color personalizado'}</span>
+                                                                </div>
+                                                            )}
                                                             <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
                                                                 <div className="min-h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs font-bold text-slate-500">
                                                                     {parseSerials(item.serial_text).length > 0
@@ -1186,10 +1307,14 @@ const CreatePurchase = () => {
                 <SerialCaptureModal
                     item={serialCaptureItem}
                     onClose={() => setSerialCaptureLineId(null)}
-                    onSave={(serials) => {
-                        updateLine(serialCaptureLineId, { serial_text: serials.join('\n') });
+                    onSave={({ serials, color_name, color_hex }) => {
+                        updateLine(serialCaptureLineId, {
+                            serial_text: serials.join('\n'),
+                            color_name: color_name || '',
+                            color_hex: color_hex || '',
+                        });
                         setSerialCaptureLineId(null);
-                        toast.success('IMEIs capturados');
+                        toast.success(color_name ? `Lote ${color_name} capturado` : 'IMEIs capturados');
                     }}
                 />
             )}
@@ -1401,19 +1526,35 @@ const CreatePurchase = () => {
                                 className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-300 outline-none font-mono"
                             />
                         </div>
-                        <div>
-                            <label className="text-xs font-bold text-slate-600 block mb-1">
-                                Precio de venta sugerido <span className="font-normal text-slate-400">(opcional)</span>
-                            </label>
-                            <input
-                                type="number"
-                                value={quickProductSalePrice}
-                                onChange={e => setQuickProductSalePrice(e.target.value)}
-                                placeholder="0.00"
-                                min="0"
-                                step="0.01"
-                                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-300 outline-none"
-                            />
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div>
+                                <label className="text-xs font-bold text-slate-600 block mb-1">Costo de compra inicial *</label>
+                                <input
+                                    type="number"
+                                    value={quickProductCostPrice}
+                                    onChange={e => setQuickProductCostPrice(e.target.value)}
+                                    placeholder="0.00"
+                                    min="0"
+                                    step="0.01"
+                                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-300 outline-none"
+                                />
+                                <p className="mt-1 text-[11px] font-semibold text-slate-400">Se usara para la compra, el costo del producto y el valor del inventario.</p>
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-600 block mb-1">
+                                    Precio de venta sugerido <span className="font-normal text-slate-400">(opcional)</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    value={quickProductSalePrice}
+                                    onChange={e => setQuickProductSalePrice(e.target.value)}
+                                    placeholder="0.00"
+                                    min="0"
+                                    step="0.01"
+                                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-300 outline-none"
+                                />
+                                <p className="mt-1 text-[11px] font-semibold text-slate-400">Opcional. Si lo dejas vacio, luego puedes ajustarlo con calma.</p>
+                            </div>
                         </div>
                         <button
                             type="button"
@@ -1433,8 +1574,8 @@ const CreatePurchase = () => {
                         </button>
                         <div className={clsx("rounded-xl border p-3 text-xs font-semibold", quickProductHasImei ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-amber-200 bg-amber-50 text-amber-700")}>
                             {quickProductHasImei
-                                ? 'Al agregarlo, la linea pedira los IMEIs aqui mismo y la compra creara el stock serializado.'
-                                : 'El costo se tomara del campo Costo unitario que ingreses en la tabla.'}
+                                ? 'Al agregarlo, la linea pedira los IMEIs aqui mismo y la compra creara el stock serializado con ese costo inicial.'
+                                : 'El costo quedara sembrado desde este modal y aun podras ajustarlo luego en la linea si hace falta.'}
                         </div>
                     </div>
                     <div className="flex gap-2 mt-5">
@@ -1446,7 +1587,7 @@ const CreatePurchase = () => {
                         </button>
                         <button
                             onClick={handleAddQuickProduct}
-                            disabled={!quickProductName.trim()}
+                            disabled={!quickProductName.trim() || toMoney(quickProductCostPrice) <= 0}
                             className="flex-1 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold transition-all disabled:opacity-50"
                         >
                             Agregar a la compra

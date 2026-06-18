@@ -36,6 +36,20 @@ const fuzzyMatch = (text, query) => {
     return false;
 };
 
+const COLOR_PRESETS = [
+    { name: 'Negro', hex: '#111827' },
+    { name: 'Blanco', hex: '#F8FAFC' },
+    { name: 'Azul', hex: '#2563EB' },
+    { name: 'Verde', hex: '#16A34A' },
+    { name: 'Rojo', hex: '#DC2626' },
+    { name: 'Rosado', hex: '#EC4899' },
+    { name: 'Morado', hex: '#7C3AED' },
+    { name: 'Dorado', hex: '#D97706' },
+];
+
+const createBatchId = () => `batch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const getSafeColorHex = (hex) => /^#([0-9a-fA-F]{6})$/.test(hex || '') ? hex : '#cbd5e1';
+
 // ─── Modal de selección de producto ──────────────────────────────────────────
 const ProductPickerModal = ({ detected, catalog, imei, onSelect, onClose }) => {
     const [search, setSearch] = useState('');
@@ -197,67 +211,197 @@ const ProductPickerModal = ({ detected, catalog, imei, onSelect, onClose }) => {
 };
 
 // ─── Item del carrito ─────────────────────────────────────────────────────────
-const CartGroup = ({ group, onRemoveImei, onClickGroup }) => {
+const CartGroup = ({
+    group,
+    isActive,
+    onActivate,
+    onRemoveImei,
+    onResolve,
+    onUpdateMeta,
+    onStartNextBatch,
+}) => {
     const isUnmatched = !group.productId;
+    const safeColor = getSafeColorHex(group.color_hex);
+    const colorLabel = (group.color_name || '').trim() || (group.color_hex ? 'Color personalizado' : 'Sin color');
 
     return (
-        <div className={`bg-white rounded-2xl border-2 overflow-hidden transition-all ${isUnmatched ? 'border-amber-300' : 'border-slate-200'}`}>
-            {/* Header */}
-            <button
-                onClick={() => isUnmatched && onClickGroup(group)}
-                className={`w-full flex items-center gap-3 px-4 py-3 border-b border-slate-100 ${isUnmatched ? 'bg-amber-50/50 cursor-pointer hover:bg-amber-50' : 'bg-slate-50/50 cursor-default'} transition-colors`}
-            >
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isUnmatched ? 'bg-amber-100' : 'bg-indigo-100'}`}>
-                    {isUnmatched
-                        ? <AlertCircle size={18} className="text-amber-600" />
-                        : <Smartphone size={18} className="text-indigo-600" />
-                    }
-                </div>
-                <div className="flex-1 min-w-0 text-left">
-                    <p className={`text-sm font-black truncate ${isUnmatched ? 'text-amber-700' : 'text-slate-800'}`}>
-                        {isUnmatched
-                            ? (group.detectedName ? `📱 ${group.detectedName}` : 'Sin identificar')
-                            : group.productName
-                        }
-                    </p>
-                    <p className="text-[10px] mt-0.5 font-mono">
-                        {isUnmatched
-                            ? <span className="text-amber-500 font-bold">⚠️ Toca para asignar producto</span>
-                            : <span className="text-slate-400">Stock actualizado al guardar</span>
-                        }
-                    </p>
-                </div>
-                <span className="shrink-0 text-[11px] font-black text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
-                    {group.imeis.length} IMEI{group.imeis.length !== 1 ? 's' : ''}
-                </span>
-            </button>
-
-            {/* IMEIs */}
-            <div className="px-4 py-2 space-y-1">
-                {group.imeis.map(item => (
-                    <div key={item.imei} className="flex items-center gap-2 py-1">
-                        <div className={`w-2 h-2 rounded-full shrink-0 ${isUnmatched ? 'bg-amber-400' : 'bg-emerald-400'}`} />
-                        <span className="flex-1 font-mono text-xs text-slate-700">{item.imei}</span>
-                        <button onClick={() => onRemoveImei(group.groupId, item.imei)}
-                            className="text-slate-300 hover:text-rose-500 transition-colors shrink-0">
-                            <X size={14} />
-                        </button>
+        <div className={`overflow-hidden rounded-3xl border-2 bg-white shadow-sm transition-all ${
+            isActive ? 'border-indigo-500 shadow-lg shadow-indigo-100/60' : isUnmatched ? 'border-amber-300' : 'border-slate-200 hover:border-indigo-300'
+        }`}>
+            <div className={`border-b px-4 py-4 ${isUnmatched ? 'border-amber-100 bg-amber-50/70' : 'border-slate-100 bg-slate-50/70'}`}>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
+                        <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${isUnmatched ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'}`}>
+                            {isUnmatched ? <AlertCircle size={18} /> : <Smartphone size={18} />}
+                        </div>
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <h3 className={`truncate text-sm font-black ${isUnmatched ? 'text-amber-700' : 'text-slate-900'}`}>
+                                    {isUnmatched ? (group.detectedName || 'Producto por confirmar') : group.productName}
+                                </h3>
+                                <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-500 shadow-sm">
+                                    {group.imeis.length} IMEI{group.imeis.length !== 1 ? 's' : ''}
+                                </span>
+                                {!isUnmatched && (
+                                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${
+                                        isActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
+                                    }`}>
+                                        {isActive ? 'Lote activo' : 'Lote listo'}
+                                    </span>
+                                )}
+                            </div>
+                            <p className="mt-1 text-xs font-semibold text-slate-500">
+                                {isUnmatched
+                                    ? 'Asigna el producto correcto antes de guardar este grupo.'
+                                    : group.detectedName || 'Puedes mantener varios lotes del mismo modelo con colores distintos.'}
+                            </p>
+                        </div>
                     </div>
-                ))}
+
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                        {isUnmatched ? (
+                            <button
+                                onClick={() => onResolve(group)}
+                                className="inline-flex items-center gap-2 rounded-2xl bg-amber-500 px-3 py-2 text-xs font-black text-white transition-colors hover:bg-amber-600"
+                            >
+                                <Search size={13} /> Asignar producto
+                            </button>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={() => onActivate(group)}
+                                    className={`inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-black transition-colors ${
+                                        isActive
+                                            ? 'border-indigo-600 bg-indigo-600 text-white'
+                                            : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
+                                    }`}
+                                >
+                                    <CheckCircle2 size={13} /> {isActive ? 'Recibiendo aqu?' : 'Activar lote'}
+                                </button>
+                                <button
+                                    onClick={() => onStartNextBatch(group)}
+                                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 transition-colors hover:border-indigo-300 hover:text-indigo-600"
+                                >
+                                    <Zap size={13} /> Nuevo lote
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {!isUnmatched && (
+                    <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_240px]">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                            <div className="flex items-center justify-between gap-2">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Color del lote</p>
+                                    <p className="mt-1 text-xs font-semibold text-slate-500">Se aplicar? a todos los seriales que entren en este lote.</p>
+                                </div>
+                                <span className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-[11px] font-black text-slate-600">
+                                    <span className="h-2.5 w-2.5 rounded-full border border-slate-200" style={{ backgroundColor: safeColor }} />
+                                    {colorLabel}
+                                </span>
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                {COLOR_PRESETS.map((preset) => {
+                                    const selected = group.color_name === preset.name && getSafeColorHex(group.color_hex) === preset.hex;
+                                    return (
+                                        <button
+                                            key={preset.name}
+                                            onClick={() => onUpdateMeta(group.groupId, { color_name: preset.name, color_hex: preset.hex })}
+                                            className={`inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-black transition-all ${
+                                                selected
+                                                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm'
+                                                    : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
+                                            }`}
+                                        >
+                                            <span className="h-3 w-3 rounded-full border border-slate-200" style={{ backgroundColor: preset.hex }} />
+                                            {preset.name}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_140px]">
+                                <input
+                                    value={group.color_name || ''}
+                                    onChange={(e) => onUpdateMeta(group.groupId, { color_name: e.target.value })}
+                                    placeholder="Ej: Azul medianoche"
+                                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                                />
+                                <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-600">
+                                    <span className="text-xs uppercase tracking-wide text-slate-400">Tono</span>
+                                    <input
+                                        type="color"
+                                        value={safeColor}
+                                        onChange={(e) => onUpdateMeta(group.groupId, { color_hex: e.target.value })}
+                                        className="h-8 w-full cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                                    />
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">Resumen del lote</p>
+                            <div className="mt-2 space-y-2 text-sm font-semibold text-slate-700">
+                                <div className="flex items-center justify-between gap-2">
+                                    <span>Producto</span>
+                                    <span className="truncate text-right font-black text-slate-900">{group.productName}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-2">
+                                    <span>Color</span>
+                                    <span className="inline-flex items-center gap-2 font-black text-slate-900">
+                                        <span className="h-2.5 w-2.5 rounded-full border border-slate-200" style={{ backgroundColor: safeColor }} />
+                                        {colorLabel}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-2">
+                                    <span>Seriales en lote</span>
+                                    <span className="font-black text-emerald-700">{group.imeis.length}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <div className="p-4">
+                <div className="flex flex-wrap gap-2">
+                    {group.imeis.map((item) => (
+                        <div key={item.imei} className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 shadow-sm">
+                            <span className={`h-2 w-2 rounded-full ${isUnmatched ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                            <span className="font-mono text-xs font-semibold text-slate-700">{item.imei}</span>
+                            <button
+                                onClick={() => onRemoveImei(group.groupId, item.imei)}
+                                className="text-slate-300 transition-colors hover:text-rose-500"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );
 };
 
-// ─── Componente principal ─────────────────────────────────────────────────────
-const SerializedReception = () => {
+const SerializedReception = ({ embedded = false, onBack = null, onSaved = null }) => {
     const navigate = useNavigate();
+    const handleBack = () => {
+        if (embedded) {
+            onBack?.();
+            return;
+        }
+        navigate(-1);
+    };
     const [catalog, setCatalog] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
     const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [groups, setGroups] = useState([]);
+    const [activeGroupId, setActiveGroupId] = useState(null);
     const [imeiInput, setImeiInput] = useState('');
     const [scanning, setScanning] = useState(false);
 
@@ -285,6 +429,9 @@ const SerializedReception = () => {
     }, []);
 
     const allImeis = groups.flatMap(g => g.imeis.map(i => i.imei));
+    const activeGroup = groups.find(g => g.groupId === activeGroupId) || null;
+    const assignedGroups = groups.filter(g => g.productId);
+    const modelCount = new Set(assignedGroups.map(g => g.productId)).size;
 
     // Buscar coincidencias en catálogo — filtra por marca Y modelo
     const findMatches = useCallback((brand = '', model = '') => {
@@ -322,12 +469,11 @@ const SerializedReception = () => {
         const imei = imeiInput.trim().toUpperCase();
         if (!imei) return;
         if (allImeis.includes(imei)) {
-            toast.error('Este IMEI ya está en la lista', { id: 'imei-dup' });
+            toast.error('Este IMEI ya est? en la lista', { id: 'imei-dup' });
             setImeiInput('');
             return;
         }
 
-        // Validar en BD
         try {
             const res = await apiClient.get(`/inventory/validate-entry?imei=${imei}`);
             if (res.data?.exists) {
@@ -335,7 +481,9 @@ const SerializedReception = () => {
                 setImeiInput('');
                 return;
             }
-        } catch { /* fail open */ }
+        } catch {
+            // fail open
+        }
 
         setImeiInput('');
         setScanning(true);
@@ -352,7 +500,9 @@ const SerializedReception = () => {
                 model = data.result.model || '';
                 detected = { brand, model };
             }
-        } catch { /* sin API, continúa */ }
+        } catch {
+            // sin API, contin?a
+        }
 
         toast.dismiss('imei-api');
         setScanning(false);
@@ -361,34 +511,58 @@ const SerializedReception = () => {
         const matches = findMatches(brand, model);
 
         if (matches.length === 1) {
-            // Match único → agregar directo
             const product = matches[0];
-            const groupKey = `product-${product.id}`;
+            let targetGroupId = null;
+            let createdNewBatch = false;
+
             setGroups(prev => {
-                const exists = prev.find(g => g.groupId === groupKey);
-                if (exists) return prev.map(g => g.groupId === groupKey ? { ...g, imeis: [...g.imeis, imeiItem] } : g);
-                return [...prev, { groupId: groupKey, productId: product.id, productName: product.name, detectedName: `${brand} ${model}`.trim(), imeis: [imeiItem] }];
+                const activeBatch = prev.find(g => g.groupId === activeGroupId);
+                if (activeBatch && activeBatch.productId === product.id) {
+                    targetGroupId = activeBatch.groupId;
+                    return prev.map(g => g.groupId === activeBatch.groupId ? { ...g, imeis: [...g.imeis, imeiItem] } : g);
+                }
+
+                targetGroupId = createBatchId();
+                createdNewBatch = true;
+                return [
+                    ...prev,
+                    {
+                        groupId: targetGroupId,
+                        productId: product.id,
+                        productName: product.name,
+                        detectedName: `${brand} ${model}`.trim(),
+                        imeis: [imeiItem],
+                        color_name: '',
+                        color_hex: '',
+                    },
+                ];
             });
-            toast.success(`✅ ${product.name}`, { id: 'imei-scan', duration: 1500 });
+
+            setActiveGroupId(targetGroupId);
+            toast.success(createdNewBatch ? `Nuevo lote: ${product.name}` : `Sumado al lote activo: ${product.name}`, { id: 'imei-scan', duration: 1600 });
         } else {
-            // 0 o múltiples matches → abrir modal
-            const groupId = `unmatched-${imei}`;
-            setGroups(prev => [...prev, {
-                groupId,
-                productId: null,
-                productName: null,
-                detectedName: model ? `${brand} ${model}`.trim() : null,
-                imeis: [imeiItem],
-            }]);
-            // Abrir modal de selección
+            const groupId = createBatchId();
+            setGroups(prev => [
+                ...prev,
+                {
+                    groupId,
+                    productId: null,
+                    productName: null,
+                    detectedName: model ? `${brand} ${model}`.trim() : null,
+                    imeis: [imeiItem],
+                    color_name: '',
+                    color_hex: '',
+                },
+            ]);
+            setActiveGroupId(groupId);
             setPickerData({ imei, detected, groupId });
             if (matches.length > 1) {
-                toast(`Múltiples versiones detectadas — elige cuál`, { icon: '📱', duration: 2000 });
+                toast('Hay varias coincidencias para este modelo. Elige el producto correcto.', { icon: '??', duration: 2200 });
             }
         }
 
         setTimeout(() => inputRef.current?.focus(), 50);
-    }, [imeiInput, allImeis, findMatches]);
+    }, [imeiInput, allImeis, findMatches, activeGroupId]);
 
     const handleKeyDown = (e) => {
         if (e.key === 'Enter') { e.preventDefault(); addImei(); }
@@ -397,52 +571,60 @@ const SerializedReception = () => {
     // Al seleccionar producto en el modal
     const handlePickerSelect = (product) => {
         const { groupId } = pickerData;
-        const newKey = `product-${product.id}`;
 
-        setGroups(prev => {
-            // Buscar si ya existe un grupo para ese producto
-            const existingGroup = prev.find(g => g.groupId === newKey);
-            if (existingGroup) {
-                // Fusionar: agregar IMEIs del grupo sin asignar al grupo existente
-                const sourceGroup = prev.find(g => g.groupId === groupId);
-                return prev
-                    .filter(g => g.groupId !== groupId)
-                    .map(g => g.groupId === newKey
-                        ? { ...g, imeis: [...g.imeis, ...(sourceGroup?.imeis || [])] }
-                        : g
-                    );
-            }
-            // Convertir el grupo unmatched en uno con producto asignado
-            return prev.map(g => g.groupId === groupId
-                ? { ...g, groupId: newKey, productId: product.id, productName: product.name }
-                : g
-            );
-        });
+        setGroups(prev => prev.map(g => g.groupId === groupId
+            ? { ...g, productId: product.id, productName: product.name }
+            : g
+        ));
 
+        setActiveGroupId(groupId);
         setPickerData(null);
-        toast.success(`✅ Asignado a: ${product.name}`, { duration: 1500 });
+        toast.success(`Asignado a: ${product.name}`, { duration: 1500 });
         setTimeout(() => inputRef.current?.focus(), 100);
     };
 
     const handleClickGroup = (group) => {
-        setPickerData({
-            imei: group.imeis[0]?.imei || '',
-            detected: group.detectedName ? { brand: '', model: group.detectedName } : null,
-            groupId: group.groupId,
-        });
+        if (!group.productId) {
+            setPickerData({
+                imei: group.imeis[0]?.imei || '',
+                detected: group.detectedName ? { brand: '', model: group.detectedName } : null,
+                groupId: group.groupId,
+            });
+            return;
+        }
+
+        setActiveGroupId(group.groupId);
+        setTimeout(() => inputRef.current?.focus(), 50);
+    };
+
+    const updateGroupMeta = (groupId, patch) => {
+        setGroups(prev => prev.map(g => g.groupId === groupId ? { ...g, ...patch } : g));
+    };
+
+    const startNextBatch = (group) => {
+        setActiveGroupId(null);
+        toast(`El siguiente IMEI de ${group.productName} abrir? un lote nuevo.`, { icon: '??', duration: 2200 });
+        setTimeout(() => inputRef.current?.focus(), 50);
     };
 
     const removeImei = (groupId, imei) => {
+        let removedActive = false;
         setGroups(prev => prev.map(g => {
             if (g.groupId !== groupId) return g;
             const newImeis = g.imeis.filter(i => i.imei !== imei);
-            return newImeis.length > 0 ? { ...g, imeis: newImeis } : null;
+            if (newImeis.length === 0) {
+                removedActive = g.groupId === activeGroupId;
+                return null;
+            }
+            return { ...g, imeis: newImeis };
         }).filter(Boolean));
+        if (removedActive) setActiveGroupId(null);
     };
 
     const clearAll = () => {
-        if (!confirm('¿Limpiar todo el carrito?')) return;
+        if (!confirm('?Limpiar toda la recepci?n serializada?')) return;
         setGroups([]);
+        setActiveGroupId(null);
     };
 
     const totalImeis = groups.reduce((s, g) => s + g.imeis.length, 0);
@@ -454,17 +636,23 @@ const SerializedReception = () => {
         setIsSaving(true);
         const toastId = toast.loading('Procesando ingreso...');
         try {
-            await Promise.all(groups.map(g =>
-                apiClient.post('/inventory/bulk-entry', {
+            await Promise.all(groups.map(g => {
+                const normalizedName = (g.color_name || '').trim() || null;
+                const normalizedHex = (g.color_hex && g.color_hex !== '#cbd5e1') ? getSafeColorHex(g.color_hex) : null;
+                return apiClient.post('/inventory/bulk-entry', {
                     product_id: g.productId,
                     warehouse_id: parseInt(selectedWarehouseId),
                     imeis: g.imeis.map(i => i.imei),
                     cost: 0,
-                })
-            ));
+                    color_name: normalizedName,
+                    color_hex: normalizedHex,
+                });
+            }));
             toast.dismiss(toastId);
-            toast.success(`✅ ${totalImeis} IMEI(s) ingresados`);
+            toast.success(`Ingresados ${totalImeis} IMEI(s) en ${groups.length} lote(s)`);
             setGroups([]);
+            setActiveGroupId(null);
+            onSaved?.();
         } catch (err) {
             toast.dismiss(toastId);
             toast.error(err.response?.data?.detail || 'Error al procesar');
@@ -503,7 +691,7 @@ const SerializedReception = () => {
 
             {/* Header */}
             <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4 shrink-0">
-                <button onClick={() => navigate(-1)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors">
+                <button onClick={handleBack} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors">
                     <ArrowLeft size={18} />
                 </button>
                 <div className="flex-1">
@@ -552,7 +740,7 @@ const SerializedReception = () => {
                 {totalImeis > 0 && (
                     <div className="flex items-center gap-4 mt-2 px-1">
                         <span className="text-[11px] font-bold text-slate-500">{totalImeis} IMEI{totalImeis !== 1 ? 's' : ''}</span>
-                        <span className="text-[11px] font-bold text-slate-500">{groups.length} producto{groups.length !== 1 ? 's' : ''}</span>
+                        <span className="text-[11px] font-bold text-slate-500">{groups.length} lote{groups.length !== 1 ? 's' : ''}</span>
                         {unmatchedGroups.length > 0 && (
                             <span className="text-[11px] font-bold text-amber-600 flex items-center gap-1">
                                 <AlertCircle size={11} /> {unmatchedGroups.length} sin asignar — toca la tarjeta
@@ -577,8 +765,12 @@ const SerializedReception = () => {
                     <CartGroup
                         key={group.groupId}
                         group={group}
+                        isActive={group.groupId === activeGroupId}
+                        onActivate={handleClickGroup}
                         onRemoveImei={removeImei}
-                        onClickGroup={handleClickGroup}
+                        onResolve={handleClickGroup}
+                        onUpdateMeta={updateGroupMeta}
+                        onStartNextBatch={startNextBatch}
                     />
                 ))}
             </div>

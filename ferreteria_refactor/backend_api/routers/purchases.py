@@ -151,6 +151,8 @@ async def import_purchase_batch(rows: List[dict] = Body(...), db: Session = Depe
                 "update_cost": True,
                 "update_price": False,
                 "serial_numbers": serials,
+                "color_name": _str_cell(row, "color", "colour", "variant_color"),
+                "color_hex": _str_cell(row, "color_hex", "colour_hex"),
             }
             items.append(schemas.PurchaseItemCreate(**item))
 
@@ -415,8 +417,19 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                 product.profit_margin = ((price_value - cost_value) / cost_value) * Decimal("100")
 
             if serial_numbers:
+                color_name = str(item.color_name or '').strip() or None
+                color_hex = str(item.color_hex or '').strip() or None
                 for serial in serial_numbers:
-                    db.add(models.ProductInstance(product_id=product.id, warehouse_id=order_data.warehouse_id, serial_number=serial, status=models.ProductInstanceStatus.AVAILABLE, cost=item.unit_cost, created_at=purchase_date))
+                    db.add(models.ProductInstance(
+                        product_id=product.id,
+                        warehouse_id=order_data.warehouse_id,
+                        serial_number=serial,
+                        color_name=color_name,
+                        color_hex=color_hex,
+                        status=models.ProductInstanceStatus.AVAILABLE,
+                        cost=item.unit_cost,
+                        created_at=purchase_date,
+                    ))
 
             # Create Kardex entry LINKED TO WAREHOUSE
             kardex = models.Kardex(

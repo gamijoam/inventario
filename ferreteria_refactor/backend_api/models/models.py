@@ -233,6 +233,9 @@ class Product(Base):
     # NEW: Multiple Price Lists Support
     prices = relationship("ProductPrice", back_populates="product", cascade="all, delete-orphan")
 
+    # NEW: Product image gallery / color variants
+    gallery_images = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan", order_by="ProductImage.sort_order")
+
     # NEW: Quantity-Based Discount Rules
     discount_rules = relationship("DiscountRule", back_populates="product", cascade="all, delete-orphan")
 
@@ -255,6 +258,24 @@ class Product(Base):
         return f"<Product(name='{self.name}', is_box={self.is_box}, is_combo={self.is_combo}, factor={self.conversion_factor})>"
 
 # NEW: Quantity-Based Discount Rules (Feature 2)
+
+class ProductImage(Base):
+    __tablename__ = "product_images"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    image_url = Column(String(500), nullable=False)
+    color_name = Column(String(60), nullable=True)
+    color_hex = Column(String(16), nullable=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_primary = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    product = relationship("Product", back_populates="gallery_images")
+
+    def __repr__(self):
+        return f"<ProductImage(product_id={self.product_id}, primary={self.is_primary}, sort={self.sort_order})>"
+
 class DiscountRule(Base):
     __tablename__ = "discount_rules"
 
@@ -284,6 +305,7 @@ class ProductUnit(Base):
     is_discount_active = Column(Boolean, default=False)  # Enable/disable unit discount
     
     is_default = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True, nullable=False)
     exchange_rate_id = Column(Integer, ForeignKey("exchange_rates.id"), nullable=True)  # Unit-specific rate
 
     product = relationship("Product", back_populates="units")

@@ -42,7 +42,7 @@ const ComboManager = ({ productId, initialComboItems = [], onChange }) => {
         if (selectedProductId) {
             const product = availableProducts.find(p => p.id === parseInt(selectedProductId));
             if (product && product.units) {
-                setAvailableUnits(product.units);
+                setAvailableUnits(product.units.filter(unit => unit.is_active !== false));
             } else {
                 setAvailableUnits([]);
             }

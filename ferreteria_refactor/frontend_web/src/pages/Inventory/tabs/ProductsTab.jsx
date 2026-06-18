@@ -448,6 +448,7 @@ const ProductsTab = () => {
         finally { setIsLoading(false); }
     };
 
+
     const openCompactEditor = async (product) => {
         if (!product?.id) {
             setSelectedProduct(null);

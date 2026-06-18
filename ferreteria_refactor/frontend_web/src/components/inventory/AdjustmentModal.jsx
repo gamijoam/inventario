@@ -288,7 +288,7 @@ const AdjustmentModal = ({ isOpen, onClose, onSuccess }) => {
                                         value={adjustmentData.unit ? `${adjustmentData.unit.name}|${adjustmentData.unit.factor}` : ''}
                                     >
                                         <option value={`${selectedProduct.unit_type}|1`}>{selectedProduct.unit_type} (Base)</option>
-                                        {selectedProduct.units?.map((pres, idx) => (
+                                        {selectedProduct.units?.filter(pres => pres.is_active !== false).map((pres, idx) => (
                                             <option key={idx} value={`${pres.unit_name}|${pres.conversion_factor}`}>
                                                 {pres.unit_name} (x{pres.conversion_factor})
                                             </option>
