@@ -1,5 +1,27 @@
 import axios from './axios';
 
+export interface SupportAttachment {
+    id: number;
+    ticket_id: number;
+    message_id: number;
+    original_filename: string;
+    stored_url: string;
+    content_type?: string | null;
+    file_size?: number | null;
+    created_at: string;
+}
+
+export interface SupportMessage {
+    id: number;
+    ticket_id: number;
+    sender_type: 'user' | 'admin' | 'system';
+    sender_email?: string | null;
+    message: string;
+    is_internal: boolean;
+    created_at: string;
+    attachments: SupportAttachment[];
+}
+
 export interface SupportTicket {
     id: number;
     tenant_id: number | null;
@@ -23,6 +45,20 @@ export const getAllTickets = async (params?: { status?: string, priority?: strin
 
 export const replyToTicket = async (id: number, admin_response: string, status: string = 'resolved'): Promise<SupportTicket> => {
     const response = await axios.patch(`/admin/support/tickets/${id}/reply`, { admin_response, status });
+    return response.data;
+};
+
+export const getTicketMessages = async (id: number): Promise<SupportMessage[]> => {
+    const response = await axios.get(`/admin/support/tickets/${id}/messages`);
+    return response.data;
+};
+
+export const sendTicketMessage = async (id: number, message: string): Promise<SupportMessage> => {
+    const formData = new FormData();
+    formData.append('message', message);
+    const response = await axios.post(`/admin/support/tickets/${id}/messages`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
     return response.data;
 };
 
