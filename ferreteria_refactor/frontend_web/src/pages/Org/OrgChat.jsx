@@ -16,6 +16,7 @@ import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { playOrgChatSound } from '../../utils/chatSound';
 
 const formatDateTime = (value) => {
   if (!value) return '';
@@ -160,7 +161,8 @@ export default function OrgChat() {
           if (prev.some(item => item.id === message.id)) return prev;
           return [...prev, message];
         });
-        if (message.sender_email !== user?.email) {
+        if (message.sender_email && user?.email && message.sender_email !== user.email) {
+          playOrgChatSound();
           markRead(orgId);
           window.dispatchEvent(new CustomEvent('org-chat-read', { detail: { orgId } }));
         }

@@ -11,6 +11,8 @@ import {
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../utils/cn';
+import { useAuth } from '../../context/AuthContext';
+import { playOrgChatSound } from '../../utils/chatSound';
 
 const NAV_GROUPS = [
   {
@@ -98,6 +100,7 @@ function CompanyList({ companies, loading, switching, onEnter, compact = false }
 
 export default function OrgPanel() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const location = useLocation();
   const [org, setOrg] = useState(null);
   const [companies, setCompanies] = useState([]);
@@ -157,6 +160,9 @@ export default function OrgPanel() {
       try {
         const packet = JSON.parse(event.data);
         if (packet.type !== 'org_chat:message_created') return;
+        const message = packet.data;
+        const shouldPlaySound = Boolean(message?.sender_email && user?.email && message.sender_email !== user.email);
+        if (shouldPlaySound && !location.pathname.endsWith('/chat')) playOrgChatSound();
         if (location.pathname.endsWith('/chat')) {
           setChatUnread(0);
         } else {
@@ -173,7 +179,7 @@ export default function OrgPanel() {
       if (socket._pingTimer) window.clearInterval(socket._pingTimer);
       try { socket.close(); } catch {}
     };
-  }, [org?.id, location.pathname, fetchChatUnread]);
+  }, [org?.id, location.pathname, fetchChatUnread, user?.email]);
 
   useEffect(() => {
     let alive = true;
