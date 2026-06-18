@@ -358,8 +358,6 @@ class InventoryService:
                 product_id=product.id,
                 warehouse_id=entry_data.warehouse_id,
                 serial_number=imei,
-                color_name=(str(entry_data.color_name).strip() if entry_data.color_name else None),
-                color_hex=(str(entry_data.color_hex).strip() if entry_data.color_hex else None),
                 status=ProductInstanceStatus.AVAILABLE,
                 cost=entry_data.cost or product.cost_price,
                 color_name=(str(color_name).strip() if color_name else None),
