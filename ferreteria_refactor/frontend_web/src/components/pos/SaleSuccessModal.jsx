@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 import { useConfig } from "../../context/ConfigContext";
 import { printFacturaA4 } from "./FacturaA4";
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
-import { getApiErrorMessage } from '../../utils/apiErrors';
+import { getApiErrorMessage, getApiErrorMessageAsync } from '../../utils/apiErrors';
 
 const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
     const [printing, setPrinting] = useState(false);
@@ -77,11 +77,14 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
             const printWindow = window.open(url, '_blank');
             if (printWindow) {
                 printWindow.addEventListener('load', () => { printWindow.focus(); printWindow.print(); });
+            } else {
+                toast.error('Permite ventanas emergentes para abrir la garantia');
+                return;
             }
-            window.URL.revokeObjectURL(url);
+            setTimeout(() => window.URL.revokeObjectURL(url), 60000);
             toast.success('Abriendo garantía para imprimir...');
         } catch (error) {
-            toast.error(getApiErrorMessage(error, 'No se pudo generar la garantia'));
+            toast.error(await getApiErrorMessageAsync(error, 'No se pudo generar la garantia'));
         } finally {
             setPrintingWarranty(false);
         }

@@ -7,7 +7,7 @@ import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import apiClient from '../../config/axios';
 import printerService from '../../services/printerService';
-import { getApiErrorMessage } from '../../utils/apiErrors';
+import { getApiErrorMessage, getApiErrorMessageAsync } from '../../utils/apiErrors';
 import { useWebSocket } from '../../context/WebSocketContext';
 
 const money = (value, currency = 'USD') => {
@@ -110,9 +110,10 @@ const ReprintSalesSheet = ({ open, onOpenChange, currentRegister, onRemoteSale }
             printWindow.addEventListener('load', () => {
                 try { printWindow.print(); } catch {}
             });
+            setTimeout(() => window.URL.revokeObjectURL(url), 60000);
             toast.success(`Garantia #${sale.id} generada`);
         } catch (error) {
-            toast.error(getApiErrorMessage(error, 'Esta venta no tiene garantia disponible'));
+            toast.error(await getApiErrorMessageAsync(error, 'Esta venta no tiene garantia disponible'));
         } finally {
             setBusySaleId(null);
         }

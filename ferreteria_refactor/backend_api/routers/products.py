@@ -1856,6 +1856,7 @@ def get_recent_reprintable_sales(
     query = db.query(models.Sale).options(
         joinedload(models.Sale.customer),
         selectinload(models.Sale.details).joinedload(models.SaleDetail.product),
+        selectinload(models.Sale.details).selectinload(models.SaleDetail.instances),
         joinedload(models.Sale.cash_session).joinedload(models.CashSession.register),
     )
 
@@ -1889,9 +1890,16 @@ def get_recent_reprintable_sales(
     for sale in sales:
         details = list(sale.details or [])
         has_warranty = any(
-            bool(getattr(detail.product, "warranty_policy_id", None)) or bool(getattr(detail.product, "has_imei", False))
+            bool(getattr(detail, "warranty_expiration_date", None))
+            or any(getattr(sdi, "status", "SOLD") != "RETURNED" for sdi in (getattr(detail, "instances", None) or []))
+            or (
+                bool(detail.product)
+                and (
+                    bool(getattr(detail.product, "warranty_policy_id", None))
+                    or bool(getattr(detail.product, "has_imei", False))
+                )
+            )
             for detail in details
-            if detail.product
         )
         item_names = [
             detail.description or (detail.product.name if detail.product else "Producto")

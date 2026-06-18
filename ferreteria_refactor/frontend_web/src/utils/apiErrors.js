@@ -96,6 +96,31 @@ export const getApiErrorMessage = (error, fallback = 'No se pudo completar la ac
     return translateKnownMessage(error?.message) || fallback;
 };
 
+export const getApiErrorMessageAsync = async (error, fallback = 'No se pudo completar la accion') => {
+    const data = error?.response?.data;
+    const looksLikeBlob = data && typeof data.text === 'function' && typeof data.type === 'string';
+
+    if (looksLikeBlob) {
+        try {
+            const text = await data.text();
+            if (text) {
+                try {
+                    const parsed = JSON.parse(text);
+                    const detail = parsed?.detail ?? parsed?.message ?? parsed?.error;
+                    if (typeof detail === 'string') return translateKnownMessage(detail) || fallback;
+                    if (Array.isArray(detail)) return formatValidationDetail(detail) || fallback;
+                } catch {
+                    return translateKnownMessage(text) || fallback;
+                }
+            }
+        } catch {
+            // Fall through to the regular axios parser.
+        }
+    }
+
+    return getApiErrorMessage(error, fallback);
+};
+
 export const showApiError = (toast, error, fallback) => {
     toast.error(getApiErrorMessage(error, fallback));
 };

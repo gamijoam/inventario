@@ -49,6 +49,28 @@ def _build_serial_details(detail) -> tuple[list[str], list[dict], str]:
     return serials, serial_details, color_text
 
 
+def _detail_supports_warranty(detail) -> tuple[bool, object | None, bool]:
+    """Use sale-time evidence first so old warranty PDFs keep reprinting."""
+    product = getattr(detail, "product", None)
+    instances = list(getattr(detail, "instances", None) or [])
+    active_instances = [sdi for sdi in instances if getattr(sdi, "status", "SOLD") != "RETURNED"]
+    warranty_policy = getattr(product, "warranty_policy", None) if product else None
+    warranty_policy_id = getattr(product, "warranty_policy_id", None) if product else None
+
+    has_serial_snapshot = bool(active_instances)
+    has_product_imei = bool(getattr(product, "has_imei", False)) if product else False
+    has_warranty_snapshot = bool(getattr(detail, "warranty_expiration_date", None)) or any(
+        bool(getattr(sdi, "warranty_expiration_date", None) or getattr(sdi, "warranty_end_date", None))
+        for sdi in active_instances
+    )
+
+    return (
+        bool(warranty_policy or warranty_policy_id or has_product_imei or has_serial_snapshot or has_warranty_snapshot),
+        warranty_policy,
+        bool(has_product_imei or has_serial_snapshot),
+    )
+
+
 async def upload_warranty_template(
     file: UploadFile,
     policy_id: int,
@@ -127,16 +149,15 @@ def generate_warranty_pdf(
     if not sale:
         raise HTTPException(status_code=404, detail="Venta no encontrada")
 
-    # Buscar productos con política de garantía asignada (no solo IMEI)
+    # Buscar productos con garantía usando evidencia guardada en la venta.
+    # Esto permite reimprimir teléfonos aunque luego se haya editado el producto.
     imei_items = []
     for detail in sale.details:
         if not detail.product:
             continue
 
-        warranty_policy = getattr(detail.product, 'warranty_policy', None)
-        # Incluir si tiene política de garantía O si tiene IMEI
-        has_imei = getattr(detail.product, 'has_imei', False)
-        if not warranty_policy and not has_imei:
+        supports_warranty, warranty_policy, _has_imei = _detail_supports_warranty(detail)
+        if not supports_warranty:
             continue
 
         serials, serial_details, color_text = _build_serial_details(detail)
@@ -154,7 +175,7 @@ def generate_warranty_pdf(
     if not imei_items:
         raise HTTPException(
             status_code=400,
-            detail="La venta no contiene productos con garantía asignada. Asigna una política de garantía al producto."
+            detail="La venta no tiene equipos serializados ni productos con garantia registrados. Verifica que el producto conserve IMEI, seriales o politica de garantia."
         )
 
     # Business info
