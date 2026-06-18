@@ -1022,6 +1022,9 @@ const CreatePurchase = () => {
                                     purchaseItems.map(item => {
                                         // Calculate projected price for display
                                         const projectedPrice = item.unit_cost * (1 + (item.profit_margin || 0) / 100) * (1 + (item.tax_rate || 0) / 100);
+                                        const enteredSalePrice = toMoney(item.current_price);
+                                        const hasManualSalePrice = Boolean(item.isNew && enteredSalePrice > 0);
+                                        const visibleSalePrice = hasManualSalePrice ? enteredSalePrice : projectedPrice;
                                         const serialMeta = item.has_imei ? getSerialMeta(item) : null;
 
                                         return (
