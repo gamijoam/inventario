@@ -109,6 +109,7 @@ const InterCompanyTransfers = React.lazy(() => import('./pages/Org/InterCompanyT
 const StockSearch = React.lazy(() => import('./pages/Org/StockSearch'));
 // Multi-empresa — Sprint 6
 const OrgConfig = React.lazy(() => import('./pages/Org/OrgConfig'));
+const OrgChat = React.lazy(() => import('./pages/Org/OrgChat'));
 
 // Suspense fallback spinner
 const SuspenseFallback = (
@@ -337,6 +338,7 @@ function App() {
                             <Route path="transfers" element={<InterCompanyTransfers />} />
                             <Route path="stock-search" element={<StockSearch />} />
                             <Route path="catalog" element={<SharedCatalog />} />
+                            <Route path="chat" element={<OrgChat />} />
                             <Route path="admin" element={<OrgConfig />} />
                             <Route path="members" element={<Navigate to="/owner/admin" replace />} />
                             <Route path="config" element={<Navigate to="/owner/admin" replace />} />
@@ -357,6 +359,7 @@ function App() {
                                 <Route path="transfers" element={<InterCompanyTransfers />} />
                                 <Route path="stock-search" element={<StockSearch />} />
                                 <Route path="catalog" element={<SharedCatalog />} />
+                                <Route path="chat" element={<OrgChat />} />
                                 <Route path="admin" element={<OrgConfig />} />
                                 <Route path="members" element={<Navigate to="/org/admin" replace />} />
                                 <Route path="config" element={<Navigate to="/org/admin" replace />} />

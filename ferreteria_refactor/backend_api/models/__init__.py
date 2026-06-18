@@ -8,4 +8,4 @@ from .support import SupportTicket
 from .desktop_license import DesktopLicense
 # from .warehouse_models import *  # Commented out to avoid duplicate Table definition (Warehouse defined in models.py)
 
-from .organization import Organization, OrganizationUser, SharedProduct, InterCompanyTransfer, InterCompanyTransferItem
+from .organization import Organization, OrganizationUser, SharedProduct, InterCompanyTransfer, InterCompanyTransferItem, OrganizationChatMessage, OrganizationChatAttachment

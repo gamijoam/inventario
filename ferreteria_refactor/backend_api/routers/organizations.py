@@ -2,7 +2,7 @@
 Router — Sistema Multi-Empresa
 Endpoints para gestión de organizaciones (grupos empresariales)
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, status
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text
 from typing import List, Optional
@@ -11,7 +11,8 @@ import re
 from ..database.db import get_db
 from ..models.organization import (
     Organization, OrganizationUser, SharedProduct,
-    InterCompanyTransfer, InterCompanyTransferItem
+    InterCompanyTransfer, InterCompanyTransferItem,
+    OrganizationChatMessage, OrganizationChatAttachment
 )
 from ..models.models import User, UserRole
 from ..models.tenant import Tenant
@@ -22,12 +23,106 @@ from ..schemas.organization import (
     InterCompanyTransferCreate, InterCompanyTransferOut,
     ConsolidatedSummary, TenantDailySummary, OrgCompanyOut,
     OrgPlanConfig, OrgWhatsAppConfig,
-    StockSearchMatch, StockSearchResponse
+    StockSearchMatch, StockSearchResponse,
+    OrganizationChatMessageOut
 )
 from ..dependencies import get_current_active_user, get_current_superuser
 from ..utils.time_utils import get_venezuela_now
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
+
+
+ALLOWED_ORG_CHAT_UPLOAD_EXTENSIONS = {"json", "xlsx", "xls", "csv", "txt", "pdf", "png", "jpg", "jpeg", "webp"}
+MAX_ORG_CHAT_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
+def _current_tenant_for_user(db: Session, user: User) -> Optional[Tenant]:
+    from ..tenant_context import get_tenant_schema
+    schema = get_tenant_schema()
+    if schema and schema != "public":
+        tenant = db.query(Tenant).filter(Tenant.schema_name == schema).first()
+        if tenant:
+            return tenant
+    if user.tenant_id:
+        return db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
+    return None
+
+
+def _save_org_chat_upload(file: UploadFile, org_id: int) -> tuple[str, int]:
+    import os
+    import uuid
+    from ..utils.media_utils import BASE_MEDIA_DIR
+
+    original = file.filename or "archivo"
+    extension = original.rsplit('.', 1)[-1].lower() if '.' in original else ''
+    if extension not in ALLOWED_ORG_CHAT_UPLOAD_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Tipo de archivo no permitido para el chat")
+
+    target_dir = os.path.join(BASE_MEDIA_DIR, "organizations", str(org_id), "chat")
+    os.makedirs(target_dir, exist_ok=True)
+    stored_name = f"{uuid.uuid4().hex}.{extension}"
+    target_path = os.path.join(target_dir, stored_name)
+
+    size = 0
+    with open(target_path, "wb") as out:
+        while True:
+            chunk = file.file.read(1024 * 1024)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > MAX_ORG_CHAT_UPLOAD_BYTES:
+                out.close()
+                try:
+                    os.remove(target_path)
+                except OSError:
+                    pass
+                raise HTTPException(status_code=400, detail="El archivo supera el limite de 10 MB")
+            out.write(chunk)
+
+    return f"/media/organizations/{org_id}/chat/{stored_name}", size
+
+
+def _org_chat_message_payload(message: OrganizationChatMessage) -> dict:
+    tenant = getattr(message, "tenant", None)
+    return {
+        "id": message.id,
+        "organization_id": message.organization_id,
+        "sender_email": message.sender_email,
+        "sender_name": message.sender_name,
+        "tenant_id": message.tenant_id,
+        "tenant_name": tenant.name if tenant else None,
+        "tenant_schema": tenant.schema_name if tenant else None,
+        "message": message.message,
+        "created_at": message.created_at.isoformat() if message.created_at else None,
+        "attachments": [
+            {
+                "id": a.id,
+                "organization_id": a.organization_id,
+                "message_id": a.message_id,
+                "original_filename": a.original_filename,
+                "stored_url": a.stored_url,
+                "content_type": a.content_type,
+                "file_size": a.file_size,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+            } for a in getattr(message, "attachments", [])
+        ],
+    }
+
+
+def _decorate_org_chat_message(message: OrganizationChatMessage) -> OrganizationChatMessageOut:
+    tenant = getattr(message, "tenant", None)
+    return OrganizationChatMessageOut(
+        id=message.id,
+        organization_id=message.organization_id,
+        sender_email=message.sender_email,
+        sender_name=message.sender_name,
+        tenant_id=message.tenant_id,
+        tenant_name=tenant.name if tenant else None,
+        tenant_schema=tenant.schema_name if tenant else None,
+        message=message.message,
+        created_at=message.created_at,
+        attachments=getattr(message, "attachments", []) or [],
+    )
 
 
 def _slug_from_name(name: str) -> str:
@@ -912,6 +1007,100 @@ def import_catalog_to_tenant(
         "skipped" : skipped,
         "message" : f"{imported} productos importados, {skipped} ya existían"
     }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CHAT ORGANIZACIONAL
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/{org_id}/chat/messages", response_model=List[OrganizationChatMessageOut])
+def list_org_chat_messages(
+    org_id: int,
+    limit: int = Query(80, ge=1, le=200),
+    before_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    org = db.query(Organization).options(joinedload(Organization.members)).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organizacion no encontrada")
+    _assert_org_access(org, current_user)
+
+    q = db.query(OrganizationChatMessage).options(
+        joinedload(OrganizationChatMessage.attachments),
+        joinedload(OrganizationChatMessage.tenant),
+    ).filter(OrganizationChatMessage.organization_id == org_id)
+    if before_id:
+        q = q.filter(OrganizationChatMessage.id < before_id)
+    rows = q.order_by(OrganizationChatMessage.id.desc()).limit(limit).all()
+    rows.reverse()
+    return [_decorate_org_chat_message(row) for row in rows]
+
+
+@router.post("/{org_id}/chat/messages", response_model=OrganizationChatMessageOut, status_code=status.HTTP_201_CREATED)
+async def send_org_chat_message(
+    org_id: int,
+    message: str = Form(""),
+    file: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    org = db.query(Organization).options(joinedload(Organization.members)).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organizacion no encontrada")
+    _assert_org_access(org, current_user)
+
+    clean_message = (message or "").strip()
+    if not clean_message and not file:
+        raise HTTPException(status_code=400, detail="Escribe un mensaje o adjunta un archivo")
+
+    current_tenant = _current_tenant_for_user(db, current_user)
+    if current_tenant and current_tenant.organization_id != org_id:
+        current_tenant = None
+
+    chat_message = OrganizationChatMessage(
+        organization_id=org_id,
+        sender_email=(current_user.email or "").lower().strip(),
+        sender_name=current_user.username,
+        tenant_id=current_tenant.id if current_tenant else None,
+        message=clean_message,
+    )
+    db.add(chat_message)
+    db.flush()
+
+    if file:
+        stored_url, size = _save_org_chat_upload(file, org_id)
+        attachment = OrganizationChatAttachment(
+            organization_id=org_id,
+            message_id=chat_message.id,
+            original_filename=file.filename or "archivo",
+            stored_url=stored_url,
+            content_type=file.content_type,
+            file_size=size,
+        )
+        db.add(attachment)
+        db.flush()
+
+    db.commit()
+    db.refresh(chat_message)
+    chat_message = db.query(OrganizationChatMessage).options(
+        joinedload(OrganizationChatMessage.attachments),
+        joinedload(OrganizationChatMessage.tenant),
+    ).filter(OrganizationChatMessage.id == chat_message.id).first()
+
+    payload = _org_chat_message_payload(chat_message)
+    try:
+        from ..websocket.manager import manager
+        from ..websocket.events import WebSocketEvents
+        await manager.broadcast(WebSocketEvents.ORG_CHAT_MESSAGE_CREATED, payload, tenant_id=f"org:{org_id}")
+        # Fallback: tambien enviamos a cada empresa del grupo por si hay usuarios dentro del sistema operativo.
+        tenants = db.query(Tenant).filter(Tenant.organization_id == org_id, Tenant.is_active == True).all()
+        for tenant in tenants:
+            await manager.broadcast(WebSocketEvents.ORG_CHAT_MESSAGE_CREATED, payload, tenant_id=tenant.schema_name)
+    except Exception:
+        pass
+
+    return _decorate_org_chat_message(chat_message)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

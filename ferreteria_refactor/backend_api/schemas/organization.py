@@ -165,6 +165,34 @@ class InterCompanyTransferOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Organization Chat ─────────────────────────────────────────────────────────
+
+class OrganizationChatAttachmentOut(BaseModel):
+    id: int
+    organization_id: int
+    message_id: int
+    original_filename: str
+    stored_url: str
+    content_type: Optional[str] = None
+    file_size: Optional[int] = None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+class OrganizationChatMessageOut(BaseModel):
+    id: int
+    organization_id: int
+    sender_email: str
+    sender_name: Optional[str] = None
+    tenant_id: Optional[int] = None
+    tenant_name: Optional[str] = None
+    tenant_schema: Optional[str] = None
+    message: str
+    created_at: datetime
+    attachments: List[OrganizationChatAttachmentOut] = []
+    model_config = {"from_attributes": True}
+
+
 # ── Consolidated Dashboard ────────────────────────────────────────────────────
 
 class TenantDailySummary(BaseModel):

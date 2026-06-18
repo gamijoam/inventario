@@ -6,7 +6,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Building2, BarChart3, ArrowLeftRight, Package,
   ChevronRight, LogOut, ExternalLink, Store, Wifi,
-  PackageSearch, ShieldCheck, Menu, X
+  PackageSearch, ShieldCheck, Menu, X, MessageCircle
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -20,6 +20,7 @@ const NAV_GROUPS = [
       { to: '/org/transfers',    icon: ArrowLeftRight, label: 'Traslados',    desc: 'Entre empresas' },
       { to: '/org/stock-search', icon: PackageSearch,  label: 'Buscar stock', desc: 'En todo el grupo' },
       { to: '/org/catalog',      icon: Package,        label: 'Catalogo',     desc: 'Productos compartidos' },
+      { to: '/org/chat',         icon: MessageCircle,  label: 'Chat',         desc: 'Consultas y archivos' },
     ],
   },
   {

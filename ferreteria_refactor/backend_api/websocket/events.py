@@ -53,6 +53,9 @@ class WebSocketEvents:
     SUPPORT_MESSAGE_CREATED = "support:message_created"
     SUPPORT_TICKET_UPDATED = "support:ticket_updated"
 
+    # Organization chat
+    ORG_CHAT_MESSAGE_CREATED = "org_chat:message_created"
+
     # System
     SYSTEM_NOTIFICATION = "system:notification"
     SYSTEM_ERROR = "system:error"

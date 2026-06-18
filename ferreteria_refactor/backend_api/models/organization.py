@@ -43,6 +43,7 @@ class Organization(Base):
     members  = relationship("OrganizationUser",    back_populates="organization", cascade="all, delete-orphan")
     products = relationship("SharedProduct",        back_populates="organization", cascade="all, delete-orphan")
     transfers= relationship("InterCompanyTransfer", back_populates="organization")
+    chat_messages = relationship("OrganizationChatMessage", back_populates="organization", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Organization(slug='{self.slug}', plan='{self.plan}')>"
@@ -140,3 +141,38 @@ class InterCompanyTransferItem(Base):
 
     def __repr__(self):
         return f"<TransferItem(sku='{self.product_sku}', qty={self.quantity})>"
+
+
+class OrganizationChatMessage(Base):
+    """Mensajes internos del portal empresarial entre empresas de una organizacion."""
+    __tablename__ = "organization_chat_messages"
+    __table_args__ = {"schema": "public"}
+
+    id              = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("public.organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    sender_email    = Column(String(255), nullable=False, index=True)
+    sender_name     = Column(String(200), nullable=True)
+    tenant_id       = Column(Integer, ForeignKey("public.tenants.id"), nullable=True, index=True)
+    message         = Column(Text, nullable=False, default="")
+    created_at      = Column(DateTime, default=get_venezuela_now, index=True)
+
+    organization = relationship("Organization", back_populates="chat_messages")
+    tenant       = relationship("Tenant", foreign_keys=[tenant_id])
+    attachments  = relationship("OrganizationChatAttachment", back_populates="message", cascade="all, delete-orphan")
+
+
+class OrganizationChatAttachment(Base):
+    """Adjuntos enviados en el chat interno de organizaciones."""
+    __tablename__ = "organization_chat_attachments"
+    __table_args__ = {"schema": "public"}
+
+    id              = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("public.organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    message_id      = Column(Integer, ForeignKey("public.organization_chat_messages.id", ondelete="CASCADE"), nullable=False, index=True)
+    original_filename = Column(String(255), nullable=False)
+    stored_url      = Column(Text, nullable=False)
+    content_type    = Column(String(120), nullable=True)
+    file_size       = Column(Integer, nullable=True)
+    created_at      = Column(DateTime, default=get_venezuela_now)
+
+    message = relationship("OrganizationChatMessage", back_populates="attachments")

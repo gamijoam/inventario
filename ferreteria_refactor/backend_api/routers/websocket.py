@@ -62,6 +62,26 @@ def _validate_frontend_ws_access(websocket: WebSocket, tenant_id: str):
                 print(f"[WS] Frontend rejected: user '{email}' tried public WS")
             return None
 
+        if tenant_id.startswith("org:"):
+            try:
+                org_id = int(tenant_id.split(":", 1)[1])
+            except Exception:
+                if _should_log_ws_fail(client_ip):
+                    print(f"[WS] Frontend rejected: invalid org channel '{tenant_id}'")
+                return None
+            if user.is_superuser:
+                return user
+            membership = db.query(OrganizationUser).filter(
+                OrganizationUser.organization_id == org_id,
+                OrganizationUser.user_email == email,
+                OrganizationUser.can_switch == True
+            ).first()
+            if membership:
+                return user
+            if _should_log_ws_fail(client_ip):
+                print(f"[WS] Frontend rejected: user '{email}' has no access to org channel '{tenant_id}'")
+            return None
+
         target_tenant = db.query(Tenant).filter(Tenant.schema_name == tenant_id).first()
         if not target_tenant or not target_tenant.is_active:
             if _should_log_ws_fail(client_ip):
