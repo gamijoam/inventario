@@ -224,13 +224,15 @@ const POSCatalog = forwardRef(({
                 </div>
 
                 {/* Row 2: Categories */}
-                <div className="flex items-center gap-1 overflow-x-auto pb-0.5 pr-1 scrollbar-hide mask-gradient-right [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="relative -mx-1 overflow-hidden">
+                    <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-background to-transparent" />
+                    <div className="flex max-w-full items-center gap-1 overflow-x-auto overflow-y-hidden px-1 pb-2 pr-8 scroll-smooth [scrollbar-width:thin] [scrollbar-color:#94a3b8_transparent] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-slate-100/70 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-400 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-slate-500">
                     <Button
                         variant={selectedCategoryId === null ? "default" : "outline"}
                         size="md"
                         onClick={() => handleCategoryClick(null)}
                         className={cn(
-                            "rounded-md px-2.5 h-6 font-black transition-all uppercase text-[8.5px] tracking-widest",
+                            "rounded-md px-2.5 h-6 shrink-0 font-black transition-all uppercase text-[8.5px] tracking-widest",
                             selectedCategoryId === null
                                 ? "bg-slate-900 hover:bg-black text-white shadow-sm"
                                 : "border-slate-200 text-slate-500 bg-white hover:text-slate-900 hover:border-slate-400"
@@ -245,7 +247,7 @@ const POSCatalog = forwardRef(({
                             size="md"
                             onClick={() => handleCategoryClick(cat.id)}
                             className={cn(
-                                "rounded-md px-2.5 h-6 font-black transition-all uppercase text-[8.5px] tracking-widest whitespace-nowrap",
+                                "rounded-md px-2.5 h-6 shrink-0 font-black transition-all uppercase text-[8.5px] tracking-widest whitespace-nowrap",
                                 selectedCategoryId === cat.id
                                     ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
                                     : "border-slate-200 text-slate-500 bg-white hover:text-blue-600 hover:border-blue-300"
@@ -254,6 +256,7 @@ const POSCatalog = forwardRef(({
                             {cat.name}
                         </Button>
                     ))}
+                    </div>
                 </div>
             </div>
 

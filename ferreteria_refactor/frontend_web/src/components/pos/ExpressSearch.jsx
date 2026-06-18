@@ -64,8 +64,13 @@ const ExpressSearch = ({ onAddToCart, lookupProduct }) => {
         }
     };
 
-    const selectProduct = (product) => {
-        onAddToCart(product);
+    const selectProduct = async (product) => {
+        const accepted = await Promise.resolve(onAddToCart(product));
+        if (accepted === false) {
+            inputRef.current?.focus();
+            return;
+        }
+
         setLastAdded(product.name);
         clearTimeout(lastAddedTimerRef.current);
         lastAddedTimerRef.current = setTimeout(() => {
@@ -105,14 +110,14 @@ const ExpressSearch = ({ onAddToCart, lookupProduct }) => {
             e.preventDefault();
             clearTimeout(debounceRef.current); // cancelar debounce pendiente
             if (results.length === 1) {
-                selectProduct(results[0]);
+                await selectProduct(results[0]);
             } else if (results.length > 1) {
-                selectProduct(results[highlightIndex >= 0 ? highlightIndex : 0]);
+                await selectProduct(results[highlightIndex >= 0 ? highlightIndex : 0]);
             } else if (query.trim().length > 0) {
                 // Búsqueda directa (caso escáner de barras: Enter llega antes del debounce)
                 const list = await search(query.trim());
                 if (list.length === 1) {
-                    selectProduct(list[0]);
+                    await selectProduct(list[0]);
                 }
                 // Si hay > 1 resultado el dropdown quedará abierto para que elija
             }

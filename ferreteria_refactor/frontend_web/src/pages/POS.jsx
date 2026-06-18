@@ -54,7 +54,7 @@ const formatStock = (stock) => {
 
 const POS = () => {
     const { user, updateUserPreferences } = useAuth();
-    const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart, overwriteCart } = useCart();
+    const { cart, addToCart, canAddToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart, overwriteCart } = useCart();
     const { isSessionOpen, openSession, loading: isCashLoading, session, activeRegister, registers, selectStationRegister } = useCash();
     const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency, posSettings, priceLists, posCategories, posWarehouses } = useConfig();
     const { subscribe } = useWebSocket();
@@ -467,6 +467,26 @@ const POS = () => {
 
     const focusSearch = focusAndSelectSearch;
 
+    const baseSaleUnit = (product, extra = {}) => ({
+        name: 'Unidad',
+        price_usd: parseFloat(product?.price || 0),
+        factor: 1,
+        is_base: true,
+        ...extra,
+    });
+
+    const showStockBlockedToast = (product, unit = null) => {
+        const suffix = unit?.name && unit.name !== 'Unidad' ? ` (${unit.name})` : '';
+        toast.error(`${product?.name || 'Producto'}${suffix} no tiene stock disponible`, { duration: 2600 });
+    };
+
+    const ensureCanAddProduct = (product, unit = null) => {
+        const unitForCheck = unit || baseSaleUnit(product);
+        if (canAddToCart(product, unitForCheck)) return true;
+        showStockBlockedToast(product, unit);
+        return false;
+    };
+
     const loadEmployees = useCallback(async () => {
         if (employeesLoadedRef.current || isLoadingEmployees) return;
         setIsLoadingEmployees(true);
@@ -492,17 +512,21 @@ const POS = () => {
             ? (await refreshProduct(product.id)) || product
             : product;
 
+        if (!ensureCanAddProduct(productForSale)) {
+            return false;
+        }
+
         // NEW: Barbershop Service check
         if (productForSale.is_barbershop_service) {
             setSelectedProductForEmployee(productForSale);
             setIsEmployeeModalOpen(true);
             loadEmployees();
-            return;
+            return true;
         }
 
         if (productForSale.has_imei) {
             setSelectedProductForSerialized(productForSale);
-            return;
+            return true;
         }
 
         // Combo con componentes serializados
@@ -517,14 +541,15 @@ const POS = () => {
             setPendingComboProduct(productForSale);
             setComboImeiCollected({});
             setComboImeiQueue(serializedComponents);
-            return;
+            return true;
         }
 
         const activeUnits = (productForSale.units || []).filter(unit => unit.is_active !== false);
         if (activeUnits.length > 0) {
             setSelectedProductForUnits({ ...productForSale, units: activeUnits });
+            return true;
         } else {
-            addBaseProductToCart(productForSale);
+            return addBaseProductToCart(productForSale);
         }
     };
 
@@ -550,17 +575,15 @@ const POS = () => {
     };
 
     const addBaseProductToCart = (product) => {
-        addToCart(product, {
-            name: 'Unidad',
-            price_usd: parseFloat(product.price),
-            factor: 1,
-            is_base: true,
-            salesperson_id: selectedSalespersonId || null // Apply Global Salesperson
-        });
+        const unit = baseSaleUnit(product, { salesperson_id: selectedSalespersonId || null });
+        if (!ensureCanAddProduct(product, unit)) return false;
+        return addToCart(product, unit);
     };
 
     const handleUnitSelect = (unit) => {
-        addToCart(selectedProductForUnits, { ...unit, salesperson_id: selectedSalespersonId || null });
+        const selectedUnit = { ...unit, salesperson_id: selectedSalespersonId || null };
+        if (!ensureCanAddProduct(selectedProductForUnits, selectedUnit)) return;
+        addToCart(selectedProductForUnits, selectedUnit);
         setSelectedProductForUnits(null);
         focusSearch();
     }

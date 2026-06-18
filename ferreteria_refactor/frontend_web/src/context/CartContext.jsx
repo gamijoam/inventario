@@ -138,9 +138,36 @@ export const CartProvider = ({ children }) => {
         };
     };
 
+    const bypassesStockControl = (product, unit = {}) => (
+        product?.is_service ||
+        product?.is_service_mock ||
+        product?.is_barbershop_service ||
+        Number(unit?.price_usd ?? product?.price ?? 0) < 0
+    );
+
+    const getReservedProductStock = (productId, cartList = cart) => {
+        return cartList
+            .filter(item => String(item.product_id) === String(productId) && !item.is_service_mock && Number(item.unit_price_usd) >= 0)
+            .reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.conversion_factor) || 1), 0);
+    };
+
+    const canAddToCart = (product, unit = {}, quantity = 1, cartList = cart) => {
+        if (!product || bypassesStockControl(product, unit)) return true;
+
+        const availableStock = Number(product.stock ?? 0);
+        if (!Number.isFinite(availableStock) || availableStock <= 0) return false;
+
+        const requestedUnits = Math.max(1, Number(quantity) || 1) * Math.max(1, Number(unit.factor) || 1);
+        const reservedUnits = getReservedProductStock(product.id, cartList);
+        return reservedUnits + requestedUnits <= availableStock;
+    };
+
     // Add Item Logic with multi-unit support and exchange rate hierarchy
     const addToCart = (product, unit) => {
         // unit: { name, price_usd, factor, is_base, exchange_rate_id?, exchange_rate_name?, is_special_rate?, unit_id? }
+        if (!canAddToCart(product, unit)) {
+            return false;
+        }
 
         // ── Lista de precio predeterminada del POS (por tenant) ──
         // Si hay una lista configurada y el producto tiene precio en ella, se aplica
@@ -164,6 +191,11 @@ export const CartProvider = ({ children }) => {
 
         setCart(prevCart => {
             const existingItem = prevCart.find(item => item.id === itemId);
+            const currentQuantity = existingItem ? Number(existingItem.quantity) || 0 : 0;
+
+            if (!canAddToCart(product, unit, currentQuantity + 1, prevCart.filter(item => item.id !== itemId))) {
+                return prevCart;
+            }
 
             if (existingItem) {
                 // Update quantity if exists
@@ -248,6 +280,7 @@ export const CartProvider = ({ children }) => {
                 return [...prevCart, newItem];
             }
         });
+        return true;
     };
 
     const removeFromCart = (itemId) => {
@@ -257,9 +290,31 @@ export const CartProvider = ({ children }) => {
     const updateQuantity = (itemId, newQuantity) => {
         if (newQuantity <= 0) {
             removeFromCart(itemId);
-            return;
+            return false;
         }
-        setCart(prev => updateItemQuantityInList(prev, itemId, newQuantity));
+
+        let accepted = false;
+        setCart(prev => {
+            const target = prev.find(item => item.id === itemId);
+            if (!target) return prev;
+
+            const currentUnits = (Number(target.quantity) || 0) * (Number(target.conversion_factor) || 1);
+            const nextUnits = (Number(newQuantity) || 0) * (Number(target.conversion_factor) || 1);
+            if (nextUnits > currentUnits && !target.is_service_mock && Number(target.unit_price_usd) >= 0) {
+                const availableStock = Number(target.stock ?? 0);
+                const reservedByOthers = prev
+                    .filter(item => item.id !== itemId && String(item.product_id) === String(target.product_id) && !item.is_service_mock && Number(item.unit_price_usd) >= 0)
+                    .reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.conversion_factor) || 1), 0);
+
+                if (Number.isFinite(availableStock) && reservedByOthers + nextUnits > availableStock) {
+                    return prev;
+                }
+            }
+
+            accepted = true;
+            return updateItemQuantityInList(prev, itemId, newQuantity);
+        });
+        return accepted;
     };
 
     // NEW: Update arbitrary item fields (e.g. salesperson_id, price)
@@ -470,6 +525,7 @@ export const CartProvider = ({ children }) => {
     const value = useMemo(() => ({
         cart,
         addToCart,
+        canAddToCart,
         removeFromCart,
         updateQuantity,
         updateCartItem,
