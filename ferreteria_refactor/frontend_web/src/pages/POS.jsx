@@ -3,7 +3,7 @@ import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
 import { useHelp } from '../help/useHelp';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2, LayoutGrid, Image, Search, ChevronDown, CheckCircle2, Printer, ReceiptText } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2, LayoutGrid, Image, Search, ChevronDown, CheckCircle2, Printer, ReceiptText, AlertTriangle } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -45,6 +45,7 @@ import { DEFAULT_THEME, POS_THEMES } from '../constants/posThemes';
 import apiClient from '../config/axios';
 import { toast } from 'react-hot-toast';
 import { getApiErrorMessage } from '../utils/apiErrors';
+import printerService from '../services/printerService';
 
 // Helper to format stock: show as integer if whole number, otherwise show decimals
 const formatStock = (stock) => {
@@ -55,7 +56,7 @@ const formatStock = (stock) => {
 const POS = () => {
     const { user, updateUserPreferences } = useAuth();
     const { cart, addToCart, canAddToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart, overwriteCart } = useCart();
-    const { isSessionOpen, openSession, loading: isCashLoading, session, activeRegister, registers, selectStationRegister } = useCash();
+    const { isSessionOpen, openSession, loading: isCashLoading, session, activeRegister, registers, selectStationRegister, fetchRegisters } = useCash();
     const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency, posSettings, priceLists, posCategories, posWarehouses } = useConfig();
     const { subscribe } = useWebSocket();
     const {
@@ -65,7 +66,13 @@ const POS = () => {
         mergeProductUpdate, applyStockUpdate, removeProductFromCatalog
     } = usePOSCatalog();
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
-    const currentRegister = session?.register || activeRegister || null;
+    const baseRegister = session?.register || activeRegister || null;
+    const registerStatus = baseRegister
+        ? registers.find(reg => Number(reg.id) === Number(baseRegister.id))
+        : null;
+    const currentRegister = registerStatus
+        ? { ...baseRegister, ...registerStatus }
+        : baseRegister;
 
     // Toggle por moneda: { VES: true, COP: false } — default ON para todas
     const help = useHelp();
@@ -737,6 +744,55 @@ const POS = () => {
         return response;
     };
 
+    const handleTestPrinter = async () => {
+        if (!currentRegister?.hardware_client_id) {
+            toast.error('Esta caja no tiene un ID de impresora configurado.');
+            return;
+        }
+
+        const now = new Date().toLocaleString('es-VE', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+
+        const payload = {
+            template: [
+                '================================',
+                '      PRUEBA DE IMPRESORA',
+                '================================',
+                'Empresa: {{ business.name }}',
+                'Caja: {{ register.code }} - {{ register.name }}',
+                'Bridge: {{ register.hardware_client_id }}',
+                'Usuario: {{ user.name }}',
+                'Fecha: {{ test.date }}',
+                '--------------------------------',
+                'Si puedes leer esto, la impresora',
+                'esta conectada correctamente.',
+                '================================'
+            ].join('\n'),
+            context: {
+                business: { name: user?.tenant_name || 'Mi Inventario' },
+                register: {
+                    code: currentRegister.code || 'Caja',
+                    name: currentRegister.name || '',
+                    hardware_client_id: currentRegister.hardware_client_id
+                },
+                user: { name: user?.full_name || user?.username || user?.email || 'Usuario' },
+                test: { date: now }
+            }
+        };
+
+        const loadingToast = toast.loading(`Probando ${currentRegister.hardware_client_id}...`);
+        try {
+            await printerService.printRaw(payload);
+            toast.success('Prueba enviada a la impresora.', { id: loadingToast });
+            fetchRegisters?.();
+        } catch (error) {
+            toast.error(error.message || 'No se pudo probar la impresora.', { id: loadingToast, duration: 7000 });
+            fetchRegisters?.();
+        }
+    };
+
     
     const handleCheckoutClick = () => {
         const imeiItems = cart.filter(item => item.has_imei === true || item.product?.requires_imei === true || item.requires_imei === true);
@@ -956,6 +1012,18 @@ const POS = () => {
                                     <DropdownMenuSeparator />
                                 </>
                             )}
+                            {currentRegister?.hardware_client_id && (
+                                <>
+                                    <DropdownMenuItem
+                                        onClick={handleTestPrinter}
+                                        className="cursor-pointer rounded-lg py-2 font-bold text-slate-700 focus:bg-indigo-50 focus:text-indigo-700"
+                                    >
+                                        <Printer size={15} className="mr-2 text-indigo-500" />
+                                        Probar impresora
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                </>
+                            )}
                             {!(isCashier && showCajeroRestringido) && (
                                 <>
                                     <DropdownMenuItem
@@ -1101,6 +1169,18 @@ const POS = () => {
                 currentRegister={currentRegister}
                 onRemoteSale={() => setNewReprintCount((count) => Math.min(count + 1, 99))}
             />
+
+            {isSessionOpen && currentRegister?.hardware_client_id && currentRegister?.print_connected === false && (
+                <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-2 shrink-0 z-10 text-sm font-bold text-amber-800">
+                    <AlertTriangle size={16} className="shrink-0" />
+                    <span className="truncate">
+                        La caja {currentRegister.code || currentRegister.name} usa {currentRegister.hardware_client_id}, pero el bridge aparece desconectado. Puedes vender, pero la impresion podria fallar.
+                    </span>
+                    <button onClick={handleTestPrinter} className="ml-auto rounded-lg bg-white px-3 py-1 text-xs font-black text-amber-700 shadow-sm hover:bg-amber-100">
+                        Probar
+                    </button>
+                </div>
+            )}
 
             {/* BANNER VENTA PAUSADA */}
             {heldCart && (
