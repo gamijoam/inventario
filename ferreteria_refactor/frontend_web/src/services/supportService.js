@@ -39,8 +39,19 @@ const supportService = {
         return response.data.count;
     },
 
+    getUnreadTickets: async () => {
+        const response = await apiClient.get('/support/tickets/unread', { _silentNetworkError: true });
+        return Array.isArray(response.data) ? response.data : [];
+    },
+
+    markTicketRead: async (ticketId) => {
+        if (!ticketId) return null;
+        const response = await apiClient.post(`/support/tickets/${ticketId}/read`, {}, { _silentNetworkError: true });
+        return response.data;
+    },
+
     /**
-     * Mark support page as visited (resets unread badge).
+     * Legacy local marker kept for old flows; backend read state is authoritative now.
      */
     markAsRead: () => {
         localStorage.setItem(LAST_VISIT_KEY, new Date().toISOString());

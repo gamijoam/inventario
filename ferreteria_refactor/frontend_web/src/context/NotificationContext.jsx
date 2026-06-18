@@ -2,11 +2,12 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo } 
 import apiClient from '../config/axios';
 import { useWebSocket } from './WebSocketContext';
 import { useAuth } from './AuthContext';
+import supportService from '../services/supportService';
 
 const NotificationContext = createContext(null);
 const LEGACY_READ_KEY = 'read_notifications';
 const LOCAL_NOTIFICATION_PREFIX = 'local:';
-
+const SUPPORT_NOTIFICATION_PREFIX = 'support:';
 
 const resolveTenantScope = () => {
     const hostname = window.location.hostname || 'local';
@@ -33,10 +34,25 @@ const parseStoredList = (key) => {
     }
 };
 
+const supportNotificationId = (ticketId) => `${SUPPORT_NOTIFICATION_PREFIX}${ticketId}`;
+
+const buildSupportNotification = (ticket) => ({
+    id: supportNotificationId(ticket.id),
+    title: `Soporte respondio el ticket #${ticket.id}`,
+    content: ticket.admin_response || ticket.subject || 'Tienes una nueva respuesta de soporte.',
+    level: ticket.priority === 'critical' ? 'critical' : 'info',
+    message_type: 'banner',
+    starts_at: ticket.last_message_at || new Date().toISOString(),
+    action_url: `/support?ticket=${ticket.id}`,
+    source: 'support',
+    ticket_id: ticket.id,
+    isRead: false,
+});
+
 export const NotificationProvider = ({ children }) => {
-    const [notifications,  setNotifications]  = useState([]);  // type: banner
-    const [announcements,  setAnnouncements]  = useState([]);  // type: announcement
-    const [unreadCount,    setUnreadCount]    = useState(0);
+    const [notifications, setNotifications] = useState([]);
+    const [announcements, setAnnouncements] = useState([]);
+    const [unreadCount, setUnreadCount] = useState(0);
     const { subscribe } = useWebSocket();
     const { user } = useAuth();
 
@@ -79,35 +95,50 @@ export const NotificationProvider = ({ children }) => {
         || localStorage.getItem(`announced_${id}`) === 'true'
     ), [announcementKey]);
 
+    const recomputeUnread = useCallback((items) => {
+        setUnreadCount(items.filter(n => !n.isRead).length);
+    }, []);
+
     const fetchNotifications = useCallback(async () => {
         try {
-            const response = await apiClient.get('/system/messages/active', { _silentNetworkError: true });
-            if (!response.data) return;
+            const [systemResponse, supportTickets] = await Promise.all([
+                apiClient.get('/system/messages/active', { _silentNetworkError: true }),
+                supportService.getUnreadTickets().catch(() => []),
+            ]);
+            if (!systemResponse.data) return;
 
-            const all = response.data;
-
-            // Banners: campanita y popup superior.
-            const banners = all.filter(n => (n.message_type ?? 'banner') === 'banner');
+            const all = systemResponse.data;
             const readIds = getReadIds();
+
+            const banners = all.filter(n => (n.message_type ?? 'banner') === 'banner');
             const processedBanners = banners.map(n => ({
                 ...n,
                 isRead: readIds.includes(n.id),
             }));
-            const localNotifications = getLocalNotifications().map(n => ({
-                ...n,
-                isRead: readIds.includes(n.id),
-            }));
-            const combined = [...localNotifications, ...processedBanners.filter(n => !localNotifications.some(local => local.id === n.id))];
-            setNotifications(combined);
-            setUnreadCount(combined.filter(n => !n.isRead).length);
 
-            // Announcements: modal destacado, filtrado por empresa/usuario.
+            const supportNotifications = supportTickets.map(buildSupportNotification);
+            const supportIds = new Set(supportNotifications.map(n => n.id));
+            const localNotifications = getLocalNotifications()
+                .filter(n => n.source !== 'support' || supportIds.has(n.id))
+                .map(n => ({
+                    ...n,
+                    isRead: readIds.includes(n.id),
+                }));
+
+            const combined = [
+                ...supportNotifications,
+                ...localNotifications.filter(local => !supportIds.has(local.id)),
+                ...processedBanners.filter(n => !localNotifications.some(local => local.id === n.id) && !supportIds.has(n.id)),
+            ];
+            setNotifications(combined);
+            recomputeUnread(combined);
+
             const msgs = all.filter(n => n.message_type === 'announcement' && !isAnnouncementDismissed(n.id));
             setAnnouncements(msgs);
         } catch (error) {
             console.error('Error fetching notifications:', error);
         }
-    }, [getReadIds, getLocalNotifications, isAnnouncementDismissed]);
+    }, [getReadIds, getLocalNotifications, isAnnouncementDismissed, recomputeUnread]);
 
     const addLocalNotification = useCallback((notification) => {
         const item = {
@@ -122,13 +153,16 @@ export const NotificationProvider = ({ children }) => {
 
         setNotifications(prev => {
             if (prev.some(n => n.id === item.id)) return prev;
-            const updated = [item, ...prev].slice(0, 80);
-            setUnreadCount(updated.filter(n => !n.isRead).length);
+            const withoutSameTicket = item.source === 'support'
+                ? prev.filter(n => !(n.source === 'support' && n.ticket_id === item.ticket_id))
+                : prev;
+            const updated = [item, ...withoutSameTicket].slice(0, 80);
+            recomputeUnread(updated);
             const currentLocal = getLocalNotifications().filter(n => n.id !== item.id);
             saveLocalNotifications([item, ...currentLocal]);
             return updated;
         });
-    }, [getLocalNotifications, saveLocalNotifications]);
+    }, [getLocalNotifications, saveLocalNotifications, recomputeUnread]);
 
     useEffect(() => {
         fetchNotifications();
@@ -159,7 +193,7 @@ export const NotificationProvider = ({ children }) => {
                 setNotifications(prev => {
                     if (prev.find(n => n.id === data.id)) return prev;
                     const updated = [{ ...data, isRead: false, isLive: true }, ...prev];
-                    setUnreadCount(updated.filter(n => !n.isRead).length);
+                    recomputeUnread(updated);
                     return updated;
                 });
             }
@@ -168,8 +202,8 @@ export const NotificationProvider = ({ children }) => {
         const unsubscribeSupport = subscribe('support:message_created', (message) => {
             if (message?.sender_type !== 'admin' || !message?.ticket_id) return;
             addLocalNotification({
-                id: `${LOCAL_NOTIFICATION_PREFIX}support:${message.id || `${message.ticket_id}:${message.created_at || Date.now()}`}`,
-                title: `Soporte respondió el ticket #${message.ticket_id}`,
+                id: supportNotificationId(message.ticket_id),
+                title: `Soporte respondio el ticket #${message.ticket_id}`,
                 content: message.message || 'Tienes una nueva respuesta de soporte.',
                 level: 'info',
                 starts_at: message.created_at || new Date().toISOString(),
@@ -177,34 +211,49 @@ export const NotificationProvider = ({ children }) => {
                 source: 'support',
                 ticket_id: message.ticket_id,
             });
+            window.setTimeout(fetchNotifications, 600);
         });
 
         return () => {
             unsubscribeSystem && unsubscribeSystem();
             unsubscribeSupport && unsubscribeSupport();
         };
-    }, [fetchNotifications, subscribe, isAnnouncementDismissed, addLocalNotification]);
+    }, [fetchNotifications, subscribe, isAnnouncementDismissed, addLocalNotification, recomputeUnread]);
 
     const markAsRead = useCallback((id) => {
         setNotifications(prev => {
+            const target = prev.find(n => n.id === id);
+            if (target?.source === 'support' && target.ticket_id) {
+                supportService.markTicketRead(target.ticket_id)
+                    .then(() => fetchNotifications())
+                    .catch(() => {});
+            }
+
             const updated = prev.map(n => n.id === id ? { ...n, isRead: true } : n);
-            const readIds = updated.filter(n => n.isRead).map(n => n.id);
+            const readIds = Array.from(new Set([...getReadIds(), id]));
             localStorage.setItem(readKey, JSON.stringify(readIds));
-            saveLocalNotifications(updated.filter(n => String(n.id).startsWith(LOCAL_NOTIFICATION_PREFIX)));
-            setUnreadCount(updated.filter(n => !n.isRead).length);
+            saveLocalNotifications(updated.filter(n => String(n.id).startsWith(LOCAL_NOTIFICATION_PREFIX) || n.source === 'support'));
+            recomputeUnread(updated);
             return updated;
         });
-    }, [readKey, saveLocalNotifications]);
+    }, [readKey, saveLocalNotifications, getReadIds, recomputeUnread, fetchNotifications]);
 
     const markAllAsRead = useCallback(() => {
         setNotifications(prev => {
+            const supportTicketIds = prev.filter(n => n.source === 'support' && n.ticket_id).map(n => n.ticket_id);
+            supportTicketIds.forEach(ticketId => {
+                supportService.markTicketRead(ticketId).catch(() => {});
+            });
+
             const updated = prev.map(n => ({ ...n, isRead: true }));
-            localStorage.setItem(readKey, JSON.stringify(updated.map(n => n.id)));
-            saveLocalNotifications(updated.filter(n => String(n.id).startsWith(LOCAL_NOTIFICATION_PREFIX)));
+            const readIds = Array.from(new Set([...getReadIds(), ...updated.map(n => n.id)]));
+            localStorage.setItem(readKey, JSON.stringify(readIds));
+            saveLocalNotifications(updated.filter(n => String(n.id).startsWith(LOCAL_NOTIFICATION_PREFIX) || n.source === 'support'));
             setUnreadCount(0);
+            if (supportTicketIds.length) window.setTimeout(fetchNotifications, 600);
             return updated;
         });
-    }, [readKey, saveLocalNotifications]);
+    }, [readKey, saveLocalNotifications, getReadIds, fetchNotifications]);
 
     const dismissAnnouncement = useCallback((id) => {
         localStorage.setItem(announcementKey(id), 'true');

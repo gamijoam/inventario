@@ -162,6 +162,54 @@ def get_unread_count(
     return {"count": count}
 
 
+@router.get("/unread")
+def get_unread_tickets(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Return support tickets with unread admin responses for the tenant."""
+    effective_tenant_id = _resolve_tenant_id(current_user, db)
+    if not effective_tenant_id:
+        return []
+
+    tickets = db.query(SupportTicket).filter(
+        SupportTicket.tenant_id == effective_tenant_id,
+        SupportTicket.status.notin_([TicketStatus.closed]),
+        SupportTicket.last_message_sender == "admin",
+        SupportTicket.last_message_at.isnot(None),
+    ).filter(
+        (SupportTicket.user_last_read_at.is_(None)) |
+        (SupportTicket.user_last_read_at < SupportTicket.last_message_at)
+    ).order_by(SupportTicket.last_message_at.desc()).limit(20).all()
+
+    return [
+        {
+            "id": ticket.id,
+            "subject": ticket.subject,
+            "status": ticket.status.value if hasattr(ticket.status, "value") else ticket.status,
+            "priority": ticket.priority.value if hasattr(ticket.priority, "value") else ticket.priority,
+            "last_message_at": ticket.last_message_at.isoformat() if ticket.last_message_at else None,
+            "last_message_sender": ticket.last_message_sender,
+            "admin_response": ticket.admin_response,
+            "unread_for_user": True,
+        }
+        for ticket in tickets
+    ]
+
+
+@router.post("/{ticket_id}/read")
+def mark_ticket_read(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Mark a support ticket as read for the tenant/user side."""
+    ticket = _ticket_for_user(ticket_id, db, current_user)
+    ticket.user_last_read_at = datetime.now()
+    db.commit()
+    return {"ok": True, "ticket_id": ticket.id}
+
+
 @router.post("/", response_model=SupportTicketOut, status_code=status.HTTP_201_CREATED)
 async def create_ticket(
     ticket_in: SupportTicketCreate,

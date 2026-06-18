@@ -1,16 +1,13 @@
-import { Bell, ShoppingCart, LogOut, Settings, AlertTriangle, AlertCircle, BarChart2, TrendingUp, X, ChevronDown, HelpCircle, LifeBuoy, BookOpen, Building2, Sparkles } from 'lucide-react';
+import { Bell, ShoppingCart, LogOut, Settings, AlertTriangle, AlertCircle, BarChart2, TrendingUp, X, ChevronDown, HelpCircle, LifeBuoy, BookOpen, Building2 } from 'lucide-react';
 // import GlobalSearch from './GlobalSearch';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useCash } from '../../context/CashContext';
-import { useState, useCallback, useEffect } from 'react';
+import { useState } from 'react';
 import { cn } from '../../utils/cn';
 import TourSelectionModal from '../common/TourSelectionModal';
-import supportService from '../../services/supportService';
-import { initOrgChatSound, playOrgChatSound } from '../../utils/chatSound';
-import { useWebSocket } from '../../context/WebSocketContext';
 
 // ─── Rate freshness helper ───────────────────────────────────────────────────
 function getRateFreshness(updatedAt) {
@@ -168,57 +165,19 @@ export default function Header() {
     const { user, logout } = useAuth();
     const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
     const { isSessionOpen, session } = useCash();
-    const { subscribe } = useWebSocket();
-    const location = useLocation();
     const navigate = useNavigate();
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
     const [isRateSheetOpen, setIsRateSheetOpen] = useState(false);
     const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false);
     const [isTourModalOpen, setIsTourModalOpen] = useState(false);
-    const [supportUnread, setSupportUnread] = useState(0);
     const canAccessOwnerPortal = Boolean(user?.is_superuser || user?.is_org_owner || user?.org_role === 'owner');
-
-    useEffect(() => {
-        initOrgChatSound();
-    }, []);
 
     const secondaryCurrencies = currencies.filter(c => !c.is_anchor && c.is_active);
     const primaryRate = secondaryCurrencies.find(c => c.is_default) || secondaryCurrencies[0];
     const rate = primaryRate ? parseFloat(primaryRate.rate) : 0;
     const freshness = primaryRate ? getRateFreshness(primaryRate.updated_at) : 'unknown';
 
-
-    const fetchUnreadCount = useCallback(async () => {
-        try {
-            const count = await supportService.getUnreadCount();
-            setSupportUnread(count);
-        } catch {
-            // User may not be authenticated yet.
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchUnreadCount();
-        const interval = setInterval(fetchUnreadCount, 180000);
-        return () => clearInterval(interval);
-    }, [fetchUnreadCount]);
-
-    useEffect(() => {
-        const unsubscribe = subscribe('support:message_created', (message) => {
-            fetchUnreadCount();
-            if (message?.sender_type === 'admin' && location.pathname !== '/support') {
-                playOrgChatSound();
-            }
-        });
-        return () => unsubscribe && unsubscribe();
-    }, [subscribe, fetchUnreadCount, location.pathname]);
-
-    useEffect(() => {
-        if (location.pathname === '/support') {
-            setSupportUnread(0);
-        }
-    }, [location.pathname]);
 
     const openTours = () => {
         setIsHelpMenuOpen(false);
@@ -316,11 +275,6 @@ export default function Header() {
                             <HelpCircle size={17} />
                             <span className="hidden lg:inline">Ayuda</span>
                             <ChevronDown size={13} className={cn("text-slate-400 transition-transform", isHelpMenuOpen && "rotate-180 text-indigo-500")} />
-                            {supportUnread > 0 && (
-                                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white ring-2 ring-white">
-                                    {supportUnread > 9 ? '9+' : supportUnread}
-                                </span>
-                            )}
                         </button>
 
                         {isHelpMenuOpen && (
@@ -339,7 +293,6 @@ export default function Header() {
                                         className="flex items-center justify-between gap-2 rounded-md px-3 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
                                     >
                                         <span className="flex items-center gap-2"><LifeBuoy size={16} /> Soporte</span>
-                                        {supportUnread > 0 && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black text-rose-600">{supportUnread > 9 ? '9+' : supportUnread}</span>}
                                     </Link>
                                     <button
                                         type="button"
@@ -425,9 +378,10 @@ export default function Header() {
                                                             n.level === 'warning' ? 'bg-amber-100 text-amber-600' :
                                                                 'bg-indigo-100 text-indigo-600'
                                                     )}>
-                                                        {n.level === 'critical' ? <AlertCircle size={20} /> :
-                                                            n.level === 'warning' ? <AlertTriangle size={20} /> :
-                                                                <Bell size={20} />}
+                                                        {n.source === 'support' ? <LifeBuoy size={20} /> :
+                                                            n.level === 'critical' ? <AlertCircle size={20} /> :
+                                                                n.level === 'warning' ? <AlertTriangle size={20} /> :
+                                                                    <Bell size={20} />}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center justify-between gap-2 mb-1">

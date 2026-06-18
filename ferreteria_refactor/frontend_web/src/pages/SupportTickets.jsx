@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import supportService from '../services/supportService';
 import { useWebSocket } from '../context/WebSocketContext';
+import { useNotifications } from '../context/NotificationContext';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
 import { initOrgChatSound, playOrgChatSound } from '../utils/chatSound';
@@ -111,6 +112,7 @@ const SupportTickets = () => {
     const [messageFiles, setMessageFiles] = useState({});
     const [sendingMessage, setSendingMessage] = useState(null);
     const { subscribe } = useWebSocket();
+    const { refresh: refreshNotifications } = useNotifications();
 
     useEffect(() => {
         initOrgChatSound();
@@ -170,14 +172,15 @@ const SupportTickets = () => {
             } : ticket));
             if (message.sender_type === 'admin' && isOpenTicket) {
                 try {
-                    await supportService.getTicketMessages(message.ticket_id);
+                    await supportService.markTicketRead(message.ticket_id);
+                    refreshNotifications();
                 } catch (err) {
                     console.warn('No se pudo marcar el mensaje de soporte como leido', err);
                 }
             }
         });
         return () => unsubscribe();
-    }, [subscribe, expandedTicket]);
+    }, [subscribe, expandedTicket, refreshNotifications]);
 
     const fetchTickets = async () => {
         setLoading(true);
@@ -197,6 +200,8 @@ const SupportTickets = () => {
         try {
             const data = await supportService.getTicketMessages(ticketId);
             setTicketMessages(prev => ({ ...prev, [ticketId]: Array.isArray(data) ? data : [] }));
+            setTickets(prev => prev.map(ticket => Number(ticket.id) === Number(ticketId) ? { ...ticket, unread_for_user: false, user_last_read_at: new Date().toISOString() } : ticket));
+            refreshNotifications();
         } catch (error) {
             console.error('Error loading support messages:', error);
             toast.error('No se pudo cargar la conversacion');
