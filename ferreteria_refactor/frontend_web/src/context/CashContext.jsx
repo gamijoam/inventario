@@ -188,6 +188,12 @@ export const CashProvider = ({ children }) => {
                 await checkStatus(0, list);
             })();
         } else {
+            setIsSessionOpen(false);
+            setSession(null);
+            setActiveRegisterState(null);
+            setRegisters([]);
+            localStorage.removeItem(ACTIVE_REGISTER_STORAGE_KEY);
+            clearPrinterRoute();
             setLoading(false); // Stop loading if not auth
         }
 
@@ -220,7 +226,7 @@ export const CashProvider = ({ children }) => {
             unsubOpen();
             unsubClose();
         };
-    }, [subscribe, isAuthenticated]);
+    }, [subscribe, isAuthenticated, user?.id]);
 
     const openSession = async (sessionData) => {
         try {

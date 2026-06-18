@@ -30,7 +30,7 @@ window.resetPrinterConfig = function () {
 // CashContext updates localStorage after session open, so we must read it fresh on every call.
 // Use getHardwareClientId() directly inside each function.
 
-const PRINT_REQUEST_TIMEOUT_MS = 3000;
+const PRINT_REQUEST_TIMEOUT_MS = 8000;
 
 const printerService = {
     /**
@@ -70,9 +70,9 @@ const printerService = {
             } else if (error.response?.status === 500) {
                 throw new Error(error.response?.data?.detail || "Error al enviar comando de impresión");
             } else if (error.code === "ECONNABORTED") {
-                throw new Error("La impresora no respondio a tiempo. Verifique el puente e intente de nuevo.");
+                throw new Error(`La impresora '${clientId}' no respondió a tiempo. Verifique que Invensoft Bridge esté abierto y conectado.`);
             } else if (error.message.includes("Network Error")) {
-                throw new Error("No se puede conectar con el servidor. Verifique su conexión a internet.");
+                throw new Error("No se pudo contactar el servidor para enviar la impresión. Si el sistema carga normalmente, revise el puente/impresora antes que la conexión a internet.");
             }
 
             throw error;
@@ -96,8 +96,14 @@ const printerService = {
             // Re-throw or handle silently?
             // If offline, maybe can't print.
             if (error.response?.status === 503) {
-                console.warn("Bridge Disconnected - Cannot print Z Report automatically.");
+                const detail = error.response?.data?.detail || `Impresora '${clientId}' no conectada.`;
+                throw new Error(detail);
+            } else if (error.code === "ECONNABORTED") {
+                throw new Error(`La impresora '${clientId}' no respondió a tiempo.`);
+            } else if (error.message?.includes("Network Error")) {
+                throw new Error("No se pudo contactar el servidor para enviar la impresión.");
             }
+            throw error;
         }
     },
 

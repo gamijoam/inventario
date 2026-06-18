@@ -907,6 +907,9 @@ const POS = () => {
                             >
                                 <Banknote size={16} />
                                 {currentRegister?.code || 'Caja'}
+                                {currentRegister?.hardware_client_id && (
+                                    <span className={`h-2 w-2 rounded-full ${currentRegister?.print_connected ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                                )}
                                 <ChevronDown size={14} className="text-slate-400" />
                             </Button>
                         </DropdownMenuTrigger>
@@ -922,6 +925,7 @@ const POS = () => {
                                     {registers.map((reg) => {
                                         const selected = Number(currentRegister?.id || activeRegister?.id) === Number(reg.id);
                                         const hasPrinter = Boolean(reg.hardware_client_id);
+                                        const isPrinterConnected = Boolean(reg.print_connected);
                                         return (
                                             <DropdownMenuItem
                                                 key={reg.id}
@@ -937,7 +941,13 @@ const POS = () => {
                                                     <Printer size={15} className={hasPrinter ? 'mr-2 text-indigo-500' : 'mr-2 text-slate-300'} />
                                                 )}
                                                 <span className="min-w-0 flex-1 truncate">{reg.code || reg.name}</span>
-                                                <span className={`ml-2 rounded-md px-1.5 py-0.5 text-[10px] font-black ${hasPrinter ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'}`}>
+                                                <span className={`ml-2 rounded-md px-1.5 py-0.5 text-[10px] font-black ${
+                                                    !hasPrinter
+                                                        ? 'bg-amber-50 text-amber-600'
+                                                        : isPrinterConnected
+                                                            ? 'bg-emerald-50 text-emerald-700'
+                                                            : 'bg-rose-50 text-rose-600'
+                                                }`}>
                                                     {reg.hardware_client_id || 'sin impresora'}
                                                 </span>
                                             </DropdownMenuItem>

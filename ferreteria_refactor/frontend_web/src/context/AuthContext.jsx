@@ -155,8 +155,6 @@ export const AuthProvider = ({ children }) => {
             // 🧹 PURGE STORAGE (preserve API URL, tenant, and notification seen-flags)
             const apiUrl        = localStorage.getItem('api_url');
             const selectedTenant = localStorage.getItem('selected_tenant');
-            const activeRegisterId = localStorage.getItem('cash_active_register_id');
-            const hardwareClientId = localStorage.getItem('hardware_client_id');
 
             // Preserve "seen" flags so announcements and banners don't repeat after re-login
             const preserved = {};
@@ -182,13 +180,11 @@ export const AuthProvider = ({ children }) => {
             // Restore critical config
             if (apiUrl) localStorage.setItem('api_url', apiUrl);
             if (selectedTenant && !selectedTenant.includes('public')) localStorage.setItem('selected_tenant', selectedTenant);
-            if (activeRegisterId) localStorage.setItem('cash_active_register_id', activeRegisterId);
-            if (hardwareClientId) localStorage.setItem('hardware_client_id', hardwareClientId);
 
             // Restore notification seen-flags
             Object.entries(preserved).forEach(([k, v]) => localStorage.setItem(k, v));
 
-            console.log('🧹 Purged session, preserved API URL and notification flags');
+            console.log('🧹 Purged session, preserved API URL, tenant and notification flags');
         }
     };
 

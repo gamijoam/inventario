@@ -58,6 +58,20 @@ const RegisterCard = ({ register, onEdit, onToggle, onForceClose }) => {
                         {register.description && (
                             <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{register.description}</p>
                         )}
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-500 dark:bg-gray-700 dark:text-gray-300">
+                                {register.hardware_client_id || 'sin impresora'}
+                            </span>
+                            {register.hardware_client_id && (
+                                <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                                    register.print_connected
+                                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                                        : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                                }`}>
+                                    {register.print_connected ? 'Bridge conectado' : 'Bridge desconectado'}
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
                 <StatusBadge status={register.session_status} />
@@ -138,19 +152,33 @@ const RegisterCard = ({ register, onEdit, onToggle, onForceClose }) => {
 };
 
 // ─── Form Modal ───────────────────────────────────────────────────────────────
-const RegisterModal = ({ isOpen, onClose, onSave, editing }) => {
+const RegisterModal = ({ isOpen, onClose, onSave, editing, registers = [] }) => {
     const [form, setForm] = useState({ name: '', code: '', description: '', hardware_client_id: '' });
     const [saving, setSaving] = useState(false);
     const [errors, setErrors] = useState({});
+
+    const getNextRegisterDefaults = () => {
+        const usedNumbers = registers
+            .map(r => String(r.hardware_client_id || '').trim().toLowerCase().match(/^caja-(\d+)$/)?.[1])
+            .filter(Boolean)
+            .map(Number);
+        const nextNumber = Math.max(0, ...usedNumbers) + 1;
+        return {
+            name: nextNumber === 1 ? 'Caja Principal' : `Caja ${nextNumber}`,
+            code: `C${String(nextNumber).padStart(2, '0')}`,
+            hardware_client_id: `caja-${nextNumber}`,
+        };
+    };
 
     useEffect(() => {
         if (editing) {
             setForm({ name: editing.name, code: editing.code, description: editing.description || '', hardware_client_id: editing.hardware_client_id || '' });
         } else {
-            setForm({ name: '', code: '', description: '', hardware_client_id: '' });
+            const defaults = getNextRegisterDefaults();
+            setForm({ name: defaults.name, code: defaults.code, description: '', hardware_client_id: defaults.hardware_client_id });
         }
         setErrors({});
-    }, [editing, isOpen]);
+    }, [editing, isOpen, registers]);
 
     const validate = () => {
         const e = {};
@@ -167,7 +195,11 @@ const RegisterModal = ({ isOpen, onClose, onSave, editing }) => {
 
         setSaving(true);
         try {
-            await onSave({ ...form, code: form.code.toUpperCase() });
+            await onSave({
+                ...form,
+                code: form.code.trim().toUpperCase(),
+                hardware_client_id: form.hardware_client_id.trim().toLowerCase(),
+            });
             onClose();
         } catch (err) {
             const msg = err.response?.data?.detail || 'Error al guardar';
@@ -492,6 +524,7 @@ const CashRegistersPage = () => {
                 onClose={() => { setModalOpen(false); setEditing(null); }}
                 onSave={editing ? handleEdit : handleCreate}
                 editing={editing}
+                registers={registers}
             />
         </div>
     );

@@ -33,6 +33,50 @@ router = APIRouter()
 #  CASH REGISTERS (Cajas físicas / terminales)
 # ============================================================
 
+def _normalize_register_code(value: str) -> str:
+    return (value or "").strip().upper()
+
+
+def _normalize_hardware_client_id(value: Optional[str]) -> Optional[str]:
+    normalized = (value or "").strip().lower()
+    return normalized or None
+
+
+def _connected_bridge_ids(tenant_schema: str) -> List[str]:
+    tenant_key = (tenant_schema or "").strip().lower()
+    tenant_connections = manager.active_connections.get(tenant_key, {})
+    return sorted(
+        client_id for client_id in tenant_connections.keys()
+        if client_id and not client_id.lower().startswith("web_")
+    )
+
+
+def _assert_hardware_client_id_available(
+    db: Session,
+    hardware_client_id: Optional[str],
+    exclude_register_id: Optional[int] = None,
+):
+    if not hardware_client_id:
+        return
+
+    query = db.query(models.CashRegister).filter(
+        models.CashRegister.is_active == True,
+        text("lower(trim(coalesce(hardware_client_id, ''))) = :hardware_client_id")
+    ).params(hardware_client_id=hardware_client_id)
+
+    if exclude_register_id:
+        query = query.filter(models.CashRegister.id != exclude_register_id)
+
+    duplicate = query.first()
+    if duplicate:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"El ID de impresora '{hardware_client_id}' ya está usado por "
+                f"'{duplicate.code} / {duplicate.name}'. Cada caja activa debe tener un ID único."
+            )
+        )
+
 @router.get("/registers", response_model=List[schemas.CashRegisterRead])
 def list_cash_registers(
     db: Session = Depends(get_db),
@@ -51,18 +95,23 @@ def create_cash_register(
     current_user: models.User = Depends(get_current_active_user)
 ):
     """Crea una nueva caja registradora."""
+    code = _normalize_register_code(data.code)
+    hardware_client_id = _normalize_hardware_client_id(data.hardware_client_id)
+
     existing = db.query(models.CashRegister).filter(
-        models.CashRegister.code == data.code
+        models.CashRegister.code == code
     ).first()
     if existing:
-        raise HTTPException(status_code=400, detail=f"Ya existe una caja con el código '{data.code}'")
+        raise HTTPException(status_code=400, detail=f"Ya existe una caja con el código '{code}'")
+
+    _assert_hardware_client_id_available(db, hardware_client_id)
 
     register = models.CashRegister(
-        name=data.name,
-        code=data.code.upper(),
-        description=data.description,
+        name=data.name.strip(),
+        code=code,
+        description=(data.description or "").strip() or None,
         is_active=True,
-        hardware_client_id=data.hardware_client_id or None
+        hardware_client_id=hardware_client_id
     )
     db.add(register)
     db.commit()
@@ -86,11 +135,13 @@ def update_cash_register(
         raise HTTPException(status_code=404, detail="Caja no encontrada")
 
     if data.name is not None:
-        register.name = data.name
+        register.name = data.name.strip()
     if data.description is not None:
-        register.description = data.description
+        register.description = data.description.strip() or None
     if data.hardware_client_id is not None:
-        register.hardware_client_id = data.hardware_client_id or None
+        hardware_client_id = _normalize_hardware_client_id(data.hardware_client_id)
+        _assert_hardware_client_id_available(db, hardware_client_id, exclude_register_id=register_id)
+        register.hardware_client_id = hardware_client_id
     if data.is_active is not None:
         if data.is_active is False:
             open_session = db.query(models.CashSession).filter(
@@ -160,10 +211,18 @@ def get_registers_status(
         .joinedload(models.CashSession.user)
     ).order_by(models.CashRegister.id).all()
 
+    tenant_schema = get_tenant_schema()
+    connected_bridges = _connected_bridge_ids(tenant_schema)
+    connected_lookup = {client_id.strip().lower() for client_id in connected_bridges}
+
     result = []
     for reg in registers:
         # Filter in Python — sessions already loaded, no extra queries
         open_session = next((s for s in reg.sessions if s.status == "OPEN"), None)
+        print_connected = bool(
+            reg.hardware_client_id
+            and reg.hardware_client_id.strip().lower() in connected_lookup
+        )
 
         result.append({
             "id": reg.id,
@@ -176,8 +235,49 @@ def get_registers_status(
             "opened_by": open_session.user.username if open_session and open_session.user else None,
             "opened_at": open_session.start_time.isoformat() if open_session else None,
             "hardware_client_id": reg.hardware_client_id,
+            "print_connected": print_connected,
+            "connected_bridges": connected_bridges,
         })
     return result
+
+
+@router.get("/registers/print-status", response_model=dict)
+def get_registers_print_status(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Diagnóstico de impresoras por caja sin tocar el bridge de Windows."""
+    tenant_schema = get_tenant_schema()
+    connected_bridges = _connected_bridge_ids(tenant_schema)
+    connected_lookup = {client_id.strip().lower() for client_id in connected_bridges}
+    registers = db.query(models.CashRegister).filter(
+        models.CashRegister.is_active == True
+    ).order_by(models.CashRegister.id).all()
+
+    return {
+        "tenant": tenant_schema,
+        "connected_bridges": connected_bridges,
+        "registers": [
+            {
+                "id": reg.id,
+                "code": reg.code,
+                "name": reg.name,
+                "hardware_client_id": reg.hardware_client_id,
+                "print_connected": bool(
+                    reg.hardware_client_id
+                    and reg.hardware_client_id.strip().lower() in connected_lookup
+                ),
+                "status": (
+                    "sin_impresora"
+                    if not reg.hardware_client_id
+                    else "conectada"
+                    if reg.hardware_client_id.strip().lower() in connected_lookup
+                    else "desconectada"
+                ),
+            }
+            for reg in registers
+        ],
+    }
 
 
 # ============================================================

@@ -405,7 +405,8 @@ class TenantService:
                 name="Caja Principal",
                 code="C01",
                 description="Caja predeterminada del sistema",
-                is_active=True
+                is_active=True,
+                hardware_client_id="caja-1"
             )
             db.add(default_register)
             db.commit()
