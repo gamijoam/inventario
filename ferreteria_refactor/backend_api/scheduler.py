@@ -236,14 +236,17 @@ def _sync_bloqueos_pendientes(db_session_factory):
 
 def _auto_update_bcv_rate(db_session_factory):
     """
-    Consulta el BCV y actualiza automáticamente la tasa USD/VES
-    en TODOS los tenants activos. Corre cada 2 horas.
-    Solo actualiza tasas que tengan currency_code='VES' o 'Bs' y is_active=True.
+    Consulta el BCV y actualiza solo las tasas marcadas como automaticas.
+    Corre cada hora entre 06:00 y 22:00 (America/Caracas).
     """
-    import re, urllib3, requests as _req
+    import re
+    import urllib3
+    import requests as _req
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-    # 1. Scrape BCV
+    logger.info("[BCV_AUTO] Iniciando consulta automatica de tasas BCV...")
+
+    # 1. Scrape BCV (USD/VES y EUR/VES)
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36",
@@ -257,81 +260,119 @@ def _auto_update_bcv_rate(db_session_factory):
         logger.error(f"[BCV_AUTO] No se pudo conectar al BCV: {e}")
         return
 
-    # Extraer tasa USD/VES
-    m = re.search(
-        r'id=["\']dolar["\'][^>]*>.*?<strong[^>]*>\s*([\d,\.]+)\s*</strong>',
-        html, re.DOTALL | re.IGNORECASE
+    def extract_rate(currency_id: str):
+        pattern = (
+            r'id=["\']' + re.escape(currency_id) + r'["\'][^>]*>'
+            r'.*?<strong[^>]*>\s*([\d,\.]+)\s*</strong>'
+        )
+        m = re.search(pattern, html, re.DOTALL | re.IGNORECASE)
+        if not m:
+            return None
+        try:
+            return round(float(m.group(1).strip().replace(",", ".")), 8)
+        except ValueError:
+            return None
+
+    bcv_rates = {
+        "bcv_usd": extract_rate("dolar"),
+        "bcv_eur": extract_rate("euro"),
+    }
+
+    if bcv_rates["bcv_usd"] is None and bcv_rates["bcv_eur"] is None:
+        logger.error("[BCV_AUTO] No se pudieron extraer tasas del HTML del BCV.")
+        return
+
+    logger.info(
+        "[BCV_AUTO] Tasas obtenidas: USD=%s VES, EUR=%s VES",
+        bcv_rates["bcv_usd"],
+        bcv_rates["bcv_eur"],
     )
-    if not m:
-        logger.error("[BCV_AUTO] No se pudo extraer la tasa USD del HTML del BCV.")
-        return
 
-    try:
-        usd_ves = round(float(m.group(1).strip().replace(",", ".")), 8)
-    except ValueError as e:
-        logger.error(f"[BCV_AUTO] Error convirtiendo tasa: {e}")
-        return
-
-    logger.info(f"[BCV_AUTO] Tasa BCV obtenida: 1 USD = {usd_ves} VES")
-
-    # 2. Actualizar en todos los tenants activos
+    # 2. Actualizar solo tasas activas con auto_update_enabled=true
     db: Session = db_session_factory()
     try:
         from .models.tenant import Tenant
-        from .models.models import ExchangeRate
         from sqlalchemy import text as _t
         from datetime import datetime as _dt
 
+        def quote_schema(schema_name: str) -> str:
+            return '"' + schema_name.replace('"', '""') + '"'
+
         tenants = db.query(Tenant).filter(Tenant.is_active == True).all()
         updated_count = 0
+        eligible_count = 0
 
         for tenant in tenants:
             try:
-                # Buscar tasas VES activas en este tenant
-                rates = db.execute(_t(f"""
-                    SELECT id, name, rate, currency_code, is_default
-                    FROM {tenant.schema_name}.exchange_rates
-                    WHERE is_active = true
-                      AND (currency_code IN ('VES', 'Bs', 'BS', 'ves')
-                           OR name ILIKE '%BCV%'
-                           OR name ILIKE '%boliv%'
-                           OR name ILIKE '%VES%')
-                """)).all()
-
-                if not rates:
+                schema = tenant.schema_name
+                ready = db.execute(_t("""
+                    SELECT COUNT(*)
+                    FROM information_schema.columns
+                    WHERE table_schema = :schema
+                      AND table_name = 'exchange_rates'
+                      AND column_name IN ('auto_update_enabled', 'auto_update_source')
+                """), {"schema": schema}).scalar() or 0
+                if ready < 2:
+                    logger.warning("[BCV_AUTO] %s: columnas de auto-update no disponibles, omitido.", schema)
                     continue
 
-                for rate in rates:
-                    old_rate = float(rate.rate)
-                    if abs(old_rate - usd_ves) < 0.01:
-                        continue  # Sin cambio significativo
+                qschema = quote_schema(schema)
+                rates = db.execute(_t(f"""
+                    SELECT id, name, rate, currency_code, auto_update_source
+                    FROM {qschema}.exchange_rates
+                    WHERE is_active = true
+                      AND auto_update_enabled = true
+                      AND auto_update_source IN ('bcv_usd', 'bcv_eur')
+                """)).all()
+
+                eligible_count += len(rates)
+                tenant_updates = 0
+
+                for row in rates:
+                    data = row._mapping
+                    source = data["auto_update_source"] or "bcv_usd"
+                    new_rate = bcv_rates.get(source)
+                    if new_rate is None:
+                        logger.warning("[BCV_AUTO] %s: fuente %s sin valor BCV disponible.", schema, source)
+                        continue
+
+                    old_rate = float(data["rate"])
+                    if abs(old_rate - new_rate) < 0.0001:
+                        continue
 
                     db.execute(_t(f"""
-                        UPDATE {tenant.schema_name}.exchange_rates
+                        UPDATE {qschema}.exchange_rates
                         SET rate = :new_rate, updated_at = :now
                         WHERE id = :rate_id
-                    """), {"new_rate": usd_ves, "now": _dt.utcnow(), "rate_id": rate.id})
+                    """), {"new_rate": new_rate, "now": _dt.utcnow(), "rate_id": data["id"]})
 
+                    tenant_updates += 1
                     updated_count += 1
                     logger.info(
-                        f"[BCV_AUTO] {tenant.schema_name}: {rate.name} "
-                        f"{old_rate} → {usd_ves} VES/USD"
+                        "[BCV_AUTO] %s: %s %.8f -> %.8f (%s)",
+                        schema, data["name"], old_rate, new_rate, source,
                     )
 
-                    # Invalidar caché Redis de exchange_rates para este tenant
+                if tenant_updates:
+                    db.commit()
                     try:
                         from .cache import invalidate
-                        invalidate(tenant.schema_name, "exchange_rates")
-                        invalidate(tenant.schema_name, "pos_init")
+                        invalidate(schema, "exchange_rates")
+                        invalidate(schema, "pos_init")
+                        invalidate(schema, "pos-init")
                     except Exception:
                         pass
 
             except Exception as e:
+                db.rollback()
                 logger.error(f"[BCV_AUTO] Error en tenant {tenant.schema_name}: {e}")
                 continue
 
-        db.commit()
-        logger.info(f"[BCV_AUTO] ✅ Actualización completada. {updated_count} tasas actualizadas.")
+        logger.info(
+            "[BCV_AUTO] Actualizacion completada. Elegibles=%s, actualizadas=%s.",
+            eligible_count,
+            updated_count,
+        )
 
     except Exception as e:
         logger.exception(f"[BCV_AUTO] Error general: {e}")
@@ -383,15 +424,19 @@ def start_scheduler(db_session_factory):
         replace_existing=True,
     )
 
-    # Actualización automática de tasa BCV cada 2 horas
+    # Tasa BCV automatica: cada hora de 06:00 a 22:00 Venezuela
     scheduler.add_job(
         _auto_update_bcv_rate,
-        trigger="interval",
-        hours=2,
+        trigger="cron",
+        hour="6-22",
+        minute=0,
+        timezone="America/Caracas",
         args=[db_session_factory],
         id="auto_update_bcv_rate",
         replace_existing=True,
-        misfire_grace_time=600,  # 10 min de gracia si el servidor estaba inactivo
+        misfire_grace_time=1800,
+        coalesce=True,
+        max_instances=1,
     )
 
     # WhatsApp — recordatorio de deuda diario a las 09:00 Venezuela
@@ -435,8 +480,10 @@ def start_scheduler(db_session_factory):
         "[SCHEDULER] Started. Jobs: auto_expire_tenants @ 00:05 UTC daily, "
         "send_expiry_warnings @ 09:00 UTC daily, "
         "auto_backup @ 05:00 UTC (01:00 Venezuela) daily (keeps last 7), "
-        "auto_update_bcv_rate @ cada 2 horas"
+        "auto_update_bcv_rate @ hourly 06:00-22:00 America/Caracas"
     )
+    for job in scheduler.get_jobs():
+        logger.info("[SCHEDULER] Job %s next run: %s", job.id, job.next_run_time)
 
 
 def stop_scheduler():

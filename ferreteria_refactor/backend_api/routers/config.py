@@ -130,6 +130,22 @@ def get_public_config(db: Session = Depends(get_db)):
 # EXCHANGE RATE MANAGEMENT (NEW SYSTEM)
 # ========================================
 
+def _exchange_rate_payload(rate):
+    return {
+        "id": rate.id,
+        "name": rate.name,
+        "currency_code": rate.currency_code,
+        "currency_symbol": rate.currency_symbol,
+        "rate": float(rate.rate),
+        "is_default": rate.is_default,
+        "is_active": rate.is_active,
+        "auto_update_enabled": getattr(rate, "auto_update_enabled", False),
+        "auto_update_source": getattr(rate, "auto_update_source", "manual") or "manual",
+        "created_at": rate.created_at,
+        "updated_at": rate.updated_at,
+    }
+
+
 @router.get("/exchange-rates", response_model=List[schemas.ExchangeRateRead])
 def get_exchange_rates(
     currency_code: str = None,
@@ -184,11 +200,9 @@ def get_exchange_rates(
 
     rates = query.order_by(models.ExchangeRate.currency_code, models.ExchangeRate.is_default.desc()).all()
     set_cached(current_schema, "exchange_rates",
-               [{"id": r.id, "name": r.name, "currency_code": r.currency_code,
-                 "currency_symbol": r.currency_symbol, "rate": float(r.rate),
-                 "is_default": r.is_default, "is_active": r.is_active,
-                 "created_at": str(r.created_at), "updated_at": str(r.updated_at)}
-                for r in rates],
+               [{**_exchange_rate_payload(r),
+                 "created_at": str(r.created_at),
+                 "updated_at": str(r.updated_at)} for r in rates],
                extra=cache_extra, ttl=TTL["exchange_rates"])
     return rates
 
@@ -212,17 +226,7 @@ async def create_exchange_rate(
     db.flush()
     
     # Capture data
-    response_data = {
-        "id": new_rate.id,
-        "name": new_rate.name,
-        "rate": new_rate.rate,
-        "currency_code": new_rate.currency_code,
-        "currency_symbol": new_rate.currency_symbol,
-        "is_default": new_rate.is_default,
-        "is_active": new_rate.is_active,
-        "created_at": new_rate.created_at,
-        "updated_at": new_rate.updated_at
-    }
+    response_data = _exchange_rate_payload(new_rate)
     
     db.commit()
 
@@ -240,7 +244,9 @@ async def create_exchange_rate(
         "rate": response_data["rate"],
         "currency_code": response_data["currency_code"],
         "is_default": response_data["is_default"],
-        "is_active": response_data["is_active"]
+        "is_active": response_data["is_active"],
+        "auto_update_enabled": response_data["auto_update_enabled"],
+        "auto_update_source": response_data["auto_update_source"]
     })
     
     return response_data
@@ -355,22 +361,21 @@ async def update_exchange_rate(
             models.ExchangeRate.id != id
         ).update({"is_default": False})
     
+    update_data = rate_data.dict(exclude_unset=True)
+    if "rate" in update_data and "auto_update_enabled" not in update_data:
+        update_data["auto_update_enabled"] = False
+        update_data["auto_update_source"] = "manual"
+    if update_data.get("auto_update_enabled") is False:
+        update_data["auto_update_source"] = "manual"
+    if update_data.get("auto_update_enabled") is True and update_data.get("auto_update_source") not in ("bcv_usd", "bcv_eur"):
+        update_data["auto_update_source"] = "bcv_usd"
+
     # Update fields
-    for key, value in rate_data.dict(exclude_unset=True).items():
+    for key, value in update_data.items():
         setattr(rate, key, value)
     
     # Capture data
-    response_data = {
-        "id": rate.id,
-        "name": rate.name,
-        "rate": rate.rate,
-        "currency_code": rate.currency_code,
-        "currency_symbol": rate.currency_symbol,
-        "is_default": rate.is_default,
-        "is_active": rate.is_active,
-        "created_at": rate.created_at,
-        "updated_at": rate.updated_at
-    }
+    response_data = _exchange_rate_payload(rate)
 
     db.commit()
 
@@ -390,10 +395,12 @@ async def update_exchange_rate(
     await manager.broadcast(WebSocketEvents.EXCHANGE_RATE_UPDATED, {
         "id": response_data["id"],
         "name": response_data["name"],
-        "rate": response_data["rate"], # Float
+        "rate": response_data["rate"],
         "currency_code": response_data["currency_code"],
         "is_default": response_data["is_default"],
-        "is_active": response_data["is_active"]
+        "is_active": response_data["is_active"],
+        "auto_update_enabled": response_data["auto_update_enabled"],
+        "auto_update_source": response_data["auto_update_source"]
     })
     
     return response_data
@@ -485,7 +492,9 @@ def get_pos_init(db: Session = Depends(get_db)):
         "exchange_rates": [
             {"id": r.id, "name": r.name, "currency_code": r.currency_code,
              "currency_symbol": r.currency_symbol, "rate": float(r.rate),
-             "is_default": r.is_default, "is_active": r.is_active}
+             "is_default": r.is_default, "is_active": r.is_active,
+             "auto_update_enabled": getattr(r, "auto_update_enabled", False),
+             "auto_update_source": getattr(r, "auto_update_source", "manual") or "manual"}
             for r in exchange_rates
         ],
         "payment_methods": [

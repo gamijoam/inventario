@@ -79,6 +79,8 @@ class ExchangeRateBase(BaseModel):
     rate: Decimal
     is_default: bool = False
     is_active: bool = True
+    auto_update_enabled: bool = False
+    auto_update_source: str = 'manual'
 
 class ExchangeRateCreate(ExchangeRateBase):
     pass
@@ -88,6 +90,8 @@ class ExchangeRateUpdate(BaseModel):
     rate: Optional[Decimal] = None
     is_default: Optional[bool] = None
     is_active: Optional[bool] = None
+    auto_update_enabled: Optional[bool] = None
+    auto_update_source: Optional[str] = None
 
 class ExchangeRateRead(ExchangeRateBase):
     id: int
@@ -1028,6 +1032,8 @@ class ExchangeRateSync(BaseModel):
     rate: Decimal
     is_default: bool
     is_active: bool
+    auto_update_enabled: bool = False
+    auto_update_source: str = 'manual'
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

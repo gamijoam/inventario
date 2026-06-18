@@ -88,6 +88,8 @@ class ExchangeRate(Base):
     rate = Column(Numeric(20, 8), nullable=False)  # Exchange rate to USD (8 decimals for micro-currencies like COP)
     is_default = Column(Boolean, default=False)  # Default rate for this currency
     is_active = Column(Boolean, default=True)
+    auto_update_enabled = Column(Boolean, default=False)  # If True, scheduler can update this rate
+    auto_update_source = Column(String, default="manual")  # manual, bcv_usd, bcv_eur
     created_at = Column(DateTime, default=get_venezuela_now)
     updated_at = Column(DateTime, default=get_venezuela_now, onupdate=datetime.datetime.now)
     

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Coins, Star, RefreshCw, AlertCircle, Clock, Globe, ArrowRight, Landmark } from 'lucide-react';
+import { Plus, Trash2, Coins, Star, RefreshCw, AlertCircle, Clock, Globe, ArrowRight, Landmark, Zap, Hand } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { useConfig } from '../../../context/ConfigContext';
 import { toast } from 'react-hot-toast';
@@ -82,7 +82,9 @@ const MonedasTab = () => {
                 currency_symbol: predefined?.symbol || 'Bs',
                 rate: parseFloat(newRate.rate),
                 is_default: false,
-                is_active: true
+                is_active: true,
+                auto_update_enabled: false,
+                auto_update_source: 'manual'
             });
             setShowAddRateModal(false);
             setNewRate({ name: '', rate: '', source: 'Manual' });
@@ -120,7 +122,7 @@ const MonedasTab = () => {
         }
         setBcvApplying(true);
         try {
-            await apiClient.put(`/config/exchange-rates/${targetRate.id}`, { rate: bcvValue });
+            await apiClient.put(`/config/exchange-rates/${targetRate.id}`, { rate: bcvValue, auto_update_enabled: false, auto_update_source: 'manual' });
             await fetchExchangeRates();
             refreshConfig();
             toast.success(`"${targetRate.name}" actualizada a ${bcvValue.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${selectedCurrency}`);
@@ -128,6 +130,25 @@ const MonedasTab = () => {
             toast.error(getApiErrorMessage(error, 'No se pudo aplicar la tasa'));
         } finally {
             setBcvApplying(false);
+        }
+    };
+
+    const handleToggleBcvAuto = async (rate, source = 'bcv_usd') => {
+        if (selectedCurrency !== 'VES') {
+            toast.error('La automatizacion BCV aplica a tasas en bolivares.');
+            return;
+        }
+        const enabled = !rate.auto_update_enabled;
+        try {
+            await apiClient.put(`/config/exchange-rates/${rate.id}`, {
+                auto_update_enabled: enabled,
+                auto_update_source: enabled ? source : 'manual'
+            });
+            await fetchExchangeRates();
+            refreshConfig();
+            toast.success(enabled ? 'Tasa marcada como automatica BCV' : 'Tasa cambiada a modo manual');
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, 'No se pudo cambiar el modo de la tasa'));
         }
     };
 
@@ -356,6 +377,17 @@ const MonedasTab = () => {
                                                         )}
                                                     >
                                                         {rate.is_active ? 'On' : 'Off'}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleToggleBcvAuto(rate, 'bcv_usd')}
+                                                        disabled={selectedCurrency !== 'VES' || !rate.is_active}
+                                                        title={rate.auto_update_enabled ? 'Cambiar a modo manual' : 'Actualizar automaticamente con BCV cada hora'}
+                                                        className={cn(
+                                                            "rounded-md border px-3 py-2 text-xs font-black uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                                                            rate.auto_update_enabled ? "border-emerald-200 bg-emerald-600 text-white" : "border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                                                        )}
+                                                    >
+                                                        {rate.auto_update_enabled ? 'Auto' : 'Manual'}
                                                     </button>
 
                                                     {!rate.is_default ? (
