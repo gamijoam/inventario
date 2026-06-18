@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
-import { Search, Package, ArrowRight, Download, Trash2, AlertTriangle, CheckCircle, Camera, X, Image as ImageIcon, Zap } from 'lucide-react';
+import { Search, Package, ArrowRight, Download, Trash2, AlertTriangle, CheckCircle, Camera, X, Image as ImageIcon, Zap, MessageSquareShare, Loader2 } from 'lucide-react';
 
 const ExternalTransferOut = () => {
     const [products, setProducts] = useState([]);
@@ -13,6 +13,8 @@ const ExternalTransferOut = () => {
     const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [exportSummary, setExportSummary] = useState(null);
+    const [lastPackage, setLastPackage] = useState(null);
+    const [sendingChat, setSendingChat] = useState(false);
     const [photos, setPhotos] = useState([]); // { file, preview, uploading, url }
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
     const [imeiPicker, setImeiPicker] = useState({ openFor: null, instances: [], loading: false, query: '' });
@@ -220,6 +222,41 @@ const ExternalTransferOut = () => {
         return updatedPhotos.map(p => p.url);
     };
 
+
+    const sendLastPackageToOrgChat = async () => {
+        if (!lastPackage?.json) {
+            toast.error('No hay paquete generado para enviar');
+            return;
+        }
+
+        try {
+            setSendingChat(true);
+            const orgRes = await apiClient.get('/organizations/my-org');
+            const organizations = Array.isArray(orgRes.data) ? orgRes.data : [];
+            const org = organizations[0];
+            if (!org?.id) {
+                toast.error('Esta empresa no tiene organización vinculada para enviar el chat');
+                return;
+            }
+
+            const file = new File([lastPackage.json], lastPackage.filename, { type: 'application/json' });
+            const formData = new FormData();
+            formData.append('message', `Paquete de traslado ${lastPackage.packageId || ''}: ${lastPackage.models} modelo${lastPackage.models !== 1 ? 's' : ''}, ${lastPackage.units} unidad${lastPackage.units !== 1 ? 'es' : ''}.`);
+            formData.append('file', file);
+
+            await apiClient.post(`/organizations/${org.id}/chat/messages`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            toast.success('Paquete enviado al chat empresarial');
+        } catch (error) {
+            console.error('Error enviando paquete al chat:', error);
+            const msg = error.response?.data?.detail || 'No se pudo enviar el paquete al chat';
+            toast.error(msg);
+        } finally {
+            setSendingChat(false);
+        }
+    };
+
     const handleExport = async () => {
         if (selectedItems.length === 0) return;
         if (!selectedWarehouseId) {
@@ -270,14 +307,17 @@ const ExternalTransferOut = () => {
             const response = await apiClient.post('/inventory/transfer/export', payload);
 
             // Create download
-            const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json;charset=utf-8' });
+            const packageFilename = `TRANSFER_${new Date().toISOString().slice(0, 10)}.json`;
+            const packageJson = JSON.stringify(response.data, null, 2);
+            const blob = new Blob([packageJson], { type: 'application/json;charset=utf-8' });
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `TRANSFER_${new Date().toISOString().slice(0, 10)}.json`);
+            link.setAttribute('download', packageFilename);
             document.body.appendChild(link);
             link.click();
             link.remove();
+            window.URL.revokeObjectURL(url);
 
             const summary = response.data || {};
             const modelsCount = summary.models_count ?? summary.items_count ?? selectedItems.length;
@@ -295,6 +335,14 @@ const ExternalTransferOut = () => {
                 photos: photosCount,
                 warehouse: summary.source_warehouse_name || selectedWarehouse?.name || 'almacén origen',
                 items: selectedItems.map(i => ({ sku: i.sku, name: i.name, quantity: i.quantity, serials: i.selected_imeis?.length || 0 }))
+            });
+            setLastPackage({
+                filename: packageFilename,
+                json: packageJson,
+                models: modelsCount,
+                units: unitsCount,
+                serials: serialsCount,
+                packageId: summary.package_id,
             });
             setSelectedItems([]);
             setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
@@ -629,9 +677,20 @@ const ExternalTransferOut = () => {
                                         <span className="truncate rounded-md bg-white/70 px-2 py-1 font-mono text-[11px] text-emerald-700">{exportSummary.packageId || 'JSON listo'}</span>
                                     </div>
                                 </div>
-                                <button onClick={() => setExportSummary(null)} className="text-xs font-bold text-emerald-700 hover:text-emerald-900">
-                                    Cerrar
-                                </button>
+                                <div className="flex shrink-0 flex-col gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={sendLastPackageToOrgChat}
+                                        disabled={sendingChat || !lastPackage}
+                                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-60"
+                                    >
+                                        {sendingChat ? <Loader2 size={14} className="animate-spin" /> : <MessageSquareShare size={14} />}
+                                        Enviar al chat
+                                    </button>
+                                    <button onClick={() => setExportSummary(null)} className="text-xs font-bold text-emerald-700 hover:text-emerald-900">
+                                        Cerrar
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -708,7 +767,7 @@ const ExternalTransferOut = () => {
                     )}
 
                     <button
-                        onClick={() => { setShowConfirmation(true); setExportSummary(null); }}
+                        onClick={() => { setShowConfirmation(true); setExportSummary(null); setLastPackage(null); }}
                         disabled={selectedItems.length === 0 || generating || !selectedWarehouseId || hasStockError || hasImeiError || showConfirmation}
                         className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                     >

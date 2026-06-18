@@ -4,7 +4,7 @@ Endpoints para gestión de organizaciones (grupos empresariales)
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, status
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import text
+from sqlalchemy import text, func
 from typing import List, Optional
 import re
 
@@ -131,9 +131,9 @@ def _org_chat_read_state(db: Session, org_id: int, user: User) -> OrganizationCh
 def _mark_org_chat_read(db: Session, org_id: int, user: User, message_id: Optional[int] = None) -> OrganizationChatRead:
     read = _org_chat_read_state(db, org_id, user)
     if message_id is None:
-        message_id = db.query(OrganizationChatMessage.id).filter(
+        message_id = db.query(func.max(OrganizationChatMessage.id)).filter(
             OrganizationChatMessage.organization_id == org_id
-        ).order_by(OrganizationChatMessage.id.desc()).scalar() or 0
+        ).scalar() or 0
     read.last_read_message_id = max(int(read.last_read_message_id or 0), int(message_id or 0))
     read.last_read_at = get_venezuela_now()
     db.flush()
