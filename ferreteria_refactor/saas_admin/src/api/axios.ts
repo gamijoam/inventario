@@ -4,13 +4,17 @@ const getApiUrl = () => {
     const envUrl = import.meta.env.VITE_API_URL;
     if (envUrl) return envUrl;
 
+    const host = window.location.hostname;
+    if (host.startsWith('admin-qa')) return 'https://api-qa.miinventariofacil.com/api/v1';
+    if (host.startsWith('admin.')) return 'https://api.miinventariofacil.com/api/v1';
+
     // Dynamic Localhost Subdomain Handling
-    if (import.meta.env.DEV && window.location.hostname.includes('.localhost')) {
+    if (import.meta.env.DEV && host.includes('.localhost')) {
         // e.g. admin.localhost:5174 -> http://admin.localhost:8000/api/v1
-        return `http://${window.location.hostname.split(':')[0]}:8000/api/v1`;
+        return `http://${host.split(':')[0]}:8000/api/v1`;
     }
 
-    return 'http://localhost:8000/api/v1'; // Default Fallback
+    return 'http://localhost:8000/api/v1'; // Default local fallback
 };
 
 const api = axios.create({
