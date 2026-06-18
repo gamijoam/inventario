@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard,
     Building2,
@@ -16,10 +16,15 @@ import {
     Menu,
     X,
     Zap,
+    Bell,
+    MessageSquare,
     ChevronRight as BreadcrumbSeparator,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getPendingCount } from '../api/support';
+import { buildAdminWsUrl } from '../utils/ws';
+import { initSupportSound, playSupportSound } from '../utils/supportSound';
+import toast from 'react-hot-toast';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -30,6 +35,15 @@ interface NavItem {
     icon: React.ElementType;
     badge?: number;
     group?: string;
+}
+
+interface SupportNotificationItem {
+    id: string;
+    ticketId?: number;
+    title: string;
+    body: string;
+    createdAt: string;
+    unread: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -131,18 +145,26 @@ function useBreadcrumb(pathname: string): string[] {
 const DashboardLayout: React.FC = () => {
     const { logout, user } = useAuth();
     const location = useLocation();
+    const navigate = useNavigate();
 
     // Sidebar state
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [pendingTickets, setPendingTickets] = useState(0);
+    const [supportNotifications, setSupportNotifications] = useState<SupportNotificationItem[]>([]);
+    const [supportMenuOpen, setSupportMenuOpen] = useState(false);
 
     const overlayRef = useRef<HTMLDivElement>(null);
 
     // Close mobile sidebar on route change
     useEffect(() => {
         setMobileOpen(false);
+        setSupportMenuOpen(false);
     }, [location.pathname]);
+
+    useEffect(() => {
+        initSupportSound();
+    }, []);
 
     // Pending tickets polling
     const fetchPendingCount = useCallback(async () => {
@@ -163,8 +185,79 @@ const DashboardLayout: React.FC = () => {
     useEffect(() => {
         if (!location.pathname.includes('/support')) {
             fetchPendingCount();
+            return;
         }
+        setSupportNotifications(prev => prev.map(item => ({ ...item, unread: false })));
     }, [location.pathname, fetchPendingCount]);
+
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const socket = new WebSocket(buildAdminWsUrl(token));
+        let pingTimer: number | undefined;
+
+        socket.onopen = () => {
+            pingTimer = window.setInterval(() => {
+                if (socket.readyState === WebSocket.OPEN) socket.send('ping');
+            }, 30000);
+        };
+
+        socket.onmessage = (event) => {
+            if (event.data === 'pong') return;
+            try {
+                const payload = JSON.parse(event.data);
+                if (!['support:ticket_created', 'support:message_created'].includes(payload.type)) return;
+
+                const data = payload.data || {};
+                const isClientMessage = payload.type === 'support:ticket_created' || data.sender_type === 'user';
+                if (!isClientMessage) {
+                    fetchPendingCount();
+                    return;
+                }
+
+                const ticketId = Number(data.ticket_id || data.id || 0) || undefined;
+                const createdAt = data.created_at || new Date().toISOString();
+                const item: SupportNotificationItem = {
+                    id: `${payload.type}:${ticketId || createdAt}:${createdAt}`,
+                    ticketId,
+                    title: payload.type === 'support:ticket_created'
+                        ? `Nuevo ticket${ticketId ? ` #${ticketId}` : ''}`
+                        : `Nuevo mensaje${ticketId ? ` en ticket #${ticketId}` : ''}`,
+                    body: data.message || data.subject || data.tenant || 'Hay actividad nueva en soporte.',
+                    createdAt,
+                    unread: !location.pathname.includes('/support'),
+                };
+
+                setSupportNotifications(prev => [item, ...prev.filter(n => n.id !== item.id)].slice(0, 12));
+                fetchPendingCount();
+
+                if (!location.pathname.includes('/support')) {
+                    playSupportSound();
+                    toast.success(item.title);
+                }
+            } catch (err) {
+                console.warn('Mensaje WS no reconocido', err);
+            }
+        };
+
+        return () => {
+            if (pingTimer) window.clearInterval(pingTimer);
+            socket.close();
+        };
+    }, [fetchPendingCount, location.pathname]);
+
+    const notificationUnread = supportNotifications.filter(item => item.unread).length;
+
+    const openSupportNotification = (item?: SupportNotificationItem) => {
+        if (item?.ticketId) {
+            navigate(`/dashboard/support?ticket=${item.ticketId}`);
+        } else {
+            navigate('/dashboard/support');
+        }
+        setSupportNotifications(prev => prev.map(n => item && n.id !== item.id ? n : { ...n, unread: false }));
+        setSupportMenuOpen(false);
+    };
 
     const isActive = (href: string): boolean => {
         if (href === '/dashboard' && location.pathname === '/dashboard') return true;
@@ -562,8 +655,78 @@ const DashboardLayout: React.FC = () => {
                         </nav>
                     </div>
 
-                    {/* Right: user avatar */}
+                    {/* Right: support notifications + user avatar */}
                     <div className="flex items-center gap-3">
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setSupportMenuOpen(prev => !prev)}
+                                className={`relative flex h-9 w-9 items-center justify-center rounded-lg border transition-colors
+                                            ${notificationUnread > 0 || pendingTickets > 0
+                                            ? 'border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/15'
+                                            : 'border-slate-800 bg-slate-900/70 text-slate-500 hover:text-slate-200 hover:bg-slate-800'}`}
+                                aria-label="Notificaciones de soporte"
+                            >
+                                <Bell className="h-4 w-4" strokeWidth={2} />
+                                {(notificationUnread > 0 || pendingTickets > 0) && (
+                                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white ring-2 ring-slate-950">
+                                        {(notificationUnread || pendingTickets) > 99 ? '99+' : (notificationUnread || pendingTickets)}
+                                    </span>
+                                )}
+                            </button>
+
+                            {supportMenuOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-30" onClick={() => setSupportMenuOpen(false)} />
+                                    <div className="absolute right-0 z-40 mt-2 w-80 overflow-hidden rounded-xl border border-slate-800 bg-slate-950 shadow-2xl shadow-slate-950/50">
+                                        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+                                            <div>
+                                                <p className="text-sm font-black text-slate-100">Soporte en vivo</p>
+                                                <p className="text-[11px] font-semibold text-slate-500">{pendingTickets} pendientes de atender</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => openSupportNotification()}
+                                                className="rounded-lg bg-emerald-500/10 px-3 py-1.5 text-[11px] font-black text-emerald-300 hover:bg-emerald-500/15"
+                                            >
+                                                Abrir mesa
+                                            </button>
+                                        </div>
+
+                                        <div className="max-h-80 overflow-y-auto">
+                                            {supportNotifications.length === 0 ? (
+                                                <div className="px-5 py-10 text-center">
+                                                    <LifeBuoy className="mx-auto mb-2 h-8 w-8 text-slate-700" strokeWidth={1.5} />
+                                                    <p className="text-sm font-bold text-slate-400">Sin actividad nueva</p>
+                                                    <p className="mt-1 text-xs text-slate-600">Los tickets nuevos apareceran aqui.</p>
+                                                </div>
+                                            ) : (
+                                                supportNotifications.map(item => (
+                                                    <button
+                                                        key={item.id}
+                                                        type="button"
+                                                        onClick={() => openSupportNotification(item)}
+                                                        className={`flex w-full gap-3 border-b border-slate-900 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-slate-900 ${item.unread ? 'bg-rose-500/5' : ''}`}
+                                                    >
+                                                        <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${item.unread ? 'bg-rose-500/10 text-rose-300' : 'bg-slate-900 text-slate-500'}`}>
+                                                            <MessageSquare className="h-4 w-4" />
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-center gap-2">
+                                                                {item.unread && <span className="h-2 w-2 rounded-full bg-rose-500" />}
+                                                                <p className="truncate text-sm font-black text-slate-100">{item.title}</p>
+                                                            </div>
+                                                            <p className="mt-1 line-clamp-2 text-xs font-medium leading-5 text-slate-500">{item.body}</p>
+                                                        </div>
+                                                    </button>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
                         <div className="hidden sm:flex flex-col items-end">
                             <p className="text-xs font-semibold text-slate-300 leading-tight">
                                 {user?.username}

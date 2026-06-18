@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
     getAllTickets,
     getTicketMessages,
@@ -77,6 +78,7 @@ const formatBytes = (bytes?: number | null) => {
 };
 
 const HelpDesk: React.FC = () => {
+    const [searchParams] = useSearchParams();
     const [tickets, setTickets] = useState<SupportTicket[]>([]);
     const [tenants, setTenants] = useState<Record<number, string>>({});
     const [isLoading, setIsLoading] = useState(true);
@@ -88,6 +90,7 @@ const HelpDesk: React.FC = () => {
     const [replyMessage, setReplyMessage] = useState('');
     const [replyFile, setReplyFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const ticketParam = Number(searchParams.get('ticket') || 0);
 
     useEffect(() => {
         initSupportSound();
@@ -183,6 +186,12 @@ const HelpDesk: React.FC = () => {
         unread: tickets.filter(ticket => ticket.unread_for_admin).length,
     }), [tickets]);
 
+    useEffect(() => {
+        if (!ticketParam || isLoading || selectedTicket?.id === ticketParam) return;
+        const ticket = tickets.find(item => Number(item.id) === ticketParam);
+        if (ticket) openTicket(ticket);
+    }, [ticketParam, isLoading, tickets, selectedTicket?.id]);
+
     const openTicket = async (ticket: SupportTicket) => {
         setSelectedTicket(ticket);
         setReplyMessage('');
@@ -191,6 +200,7 @@ const HelpDesk: React.FC = () => {
         try {
             const data = await getTicketMessages(ticket.id);
             setMessages(Array.isArray(data) ? data : []);
+            setTickets(prev => prev.map(item => item.id === ticket.id ? { ...item, unread_for_admin: false, admin_last_read_at: new Date().toISOString() } : item));
         } catch (err) {
             console.error(err);
             toast.error('No se pudo cargar la conversacion');
