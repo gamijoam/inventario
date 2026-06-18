@@ -12,7 +12,7 @@ from ..database.db import get_db
 from ..models.organization import (
     Organization, OrganizationUser, SharedProduct,
     InterCompanyTransfer, InterCompanyTransferItem,
-    OrganizationChatMessage, OrganizationChatAttachment
+    OrganizationChatMessage, OrganizationChatAttachment, OrganizationChatRead
 )
 from ..models.models import User, UserRole
 from ..models.tenant import Tenant
@@ -108,6 +108,36 @@ def _org_chat_message_payload(message: OrganizationChatMessage) -> dict:
         ],
     }
 
+
+
+def _org_chat_read_state(db: Session, org_id: int, user: User) -> OrganizationChatRead:
+    email = (user.email or "").lower().strip()
+    read = db.query(OrganizationChatRead).filter(
+        OrganizationChatRead.organization_id == org_id,
+        OrganizationChatRead.user_email == email,
+    ).first()
+    if not read:
+        read = OrganizationChatRead(
+            organization_id=org_id,
+            user_email=email,
+            last_read_message_id=0,
+            last_read_at=get_venezuela_now(),
+        )
+        db.add(read)
+        db.flush()
+    return read
+
+
+def _mark_org_chat_read(db: Session, org_id: int, user: User, message_id: Optional[int] = None) -> OrganizationChatRead:
+    read = _org_chat_read_state(db, org_id, user)
+    if message_id is None:
+        message_id = db.query(OrganizationChatMessage.id).filter(
+            OrganizationChatMessage.organization_id == org_id
+        ).order_by(OrganizationChatMessage.id.desc()).scalar() or 0
+    read.last_read_message_id = max(int(read.last_read_message_id or 0), int(message_id or 0))
+    read.last_read_at = get_venezuela_now()
+    db.flush()
+    return read
 
 def _decorate_org_chat_message(message: OrganizationChatMessage) -> OrganizationChatMessageOut:
     tenant = getattr(message, "tenant", None)
@@ -1013,6 +1043,43 @@ def import_catalog_to_tenant(
 # CHAT ORGANIZACIONAL
 # ══════════════════════════════════════════════════════════════════════════════
 
+@router.get("/{org_id}/chat/unread-count")
+def get_org_chat_unread_count(
+    org_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    org = db.query(Organization).options(joinedload(Organization.members)).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organizacion no encontrada")
+    _assert_org_access(org, current_user)
+
+    read = _org_chat_read_state(db, org_id, current_user)
+    email = (current_user.email or "").lower().strip()
+    count = db.query(OrganizationChatMessage).filter(
+        OrganizationChatMessage.organization_id == org_id,
+        OrganizationChatMessage.id > int(read.last_read_message_id or 0),
+        OrganizationChatMessage.sender_email != email,
+    ).count()
+    return {"count": count, "last_read_message_id": int(read.last_read_message_id or 0)}
+
+
+@router.post("/{org_id}/chat/mark-read")
+def mark_org_chat_read(
+    org_id: int,
+    message_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    org = db.query(Organization).options(joinedload(Organization.members)).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organizacion no encontrada")
+    _assert_org_access(org, current_user)
+    read = _mark_org_chat_read(db, org_id, current_user, message_id)
+    db.commit()
+    return {"ok": True, "last_read_message_id": int(read.last_read_message_id or 0)}
+
+
 @router.get("/{org_id}/chat/messages", response_model=List[OrganizationChatMessageOut])
 def list_org_chat_messages(
     org_id: int,
@@ -1034,6 +1101,9 @@ def list_org_chat_messages(
         q = q.filter(OrganizationChatMessage.id < before_id)
     rows = q.order_by(OrganizationChatMessage.id.desc()).limit(limit).all()
     rows.reverse()
+    if rows:
+        _mark_org_chat_read(db, org_id, current_user, rows[-1].id)
+        db.commit()
     return [_decorate_org_chat_message(row) for row in rows]
 
 
@@ -1081,6 +1151,7 @@ async def send_org_chat_message(
         db.add(attachment)
         db.flush()
 
+    _mark_org_chat_read(db, org_id, current_user, chat_message.id)
     db.commit()
     db.refresh(chat_message)
     chat_message = db.query(OrganizationChatMessage).options(

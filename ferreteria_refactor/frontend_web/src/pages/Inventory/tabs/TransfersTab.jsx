@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ArrowRightLeft, Upload, Download } from 'lucide-react';
 import InventoryTransfers from '../../Warehouses/InventoryTransfers';
 import ExternalTransferOut from '../Transfers/ExternalTransferOut';
@@ -10,8 +11,16 @@ const SUB_TABS = [
   { key: 'import', label: 'Importar', icon: Upload, hint: 'Recibe paquete de otra empresa' },
 ];
 
+const resolveInitialTab = (mode) => SUB_TABS.some(tab => tab.key === mode) ? mode : 'internal';
+
 const TransfersTab = () => {
-  const [activeTab, setActiveTab] = useState('internal');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => resolveInitialTab(searchParams.get('mode')));
+
+  useEffect(() => {
+    const mode = searchParams.get('mode');
+    if (mode) setActiveTab(resolveInitialTab(mode));
+  }, [searchParams]);
 
   return (
     <div id="tour-transfers-panel" className="space-y-4">

@@ -1,7 +1,7 @@
 /**
  * OrgPanel.jsx - Portal empresarial / owner console
  */
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Building2, BarChart3, ArrowLeftRight, Package,
@@ -31,6 +31,19 @@ const NAV_GROUPS = [
   },
 ];
 
+
+const buildOrgWsUrl = (orgId) => {
+  const token = localStorage.getItem('token');
+  if (!token || !orgId) return null;
+  const apiBase = apiClient.defaults.baseURL || `${window.location.origin}/api/v1`;
+  const wsProtocol = apiBase.startsWith('https') ? 'wss:' : 'ws:';
+  const cleanBase = apiBase.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  const wsUrl = cleanBase.includes('/api/v1')
+    ? `${wsProtocol}//${cleanBase}/ws`
+    : `${wsProtocol}//${cleanBase}/api/v1/ws`;
+  const sep = wsUrl.includes('?') ? '&' : '?';
+  return `${wsUrl}${sep}tenant_id=${encodeURIComponent(`org:${orgId}`)}&token=${encodeURIComponent(token)}`;
+};
 
 function CompanyList({ companies, loading, switching, onEnter, compact = false }) {
   if (loading) {
@@ -93,6 +106,8 @@ export default function OrgPanel() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [switching, setSwitching] = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
+  const [chatUnread, setChatUnread] = useState(0);
+  const orgSocketRef = useRef(null);
   const basePath = location.pathname.startsWith('/owner') ? '/owner' : '/org';
   const navGroups = useMemo(() => NAV_GROUPS.map(group => ({
     ...group,
@@ -103,6 +118,62 @@ export default function OrgPanel() {
   })), [basePath]);
   const nav = useMemo(() => navGroups.flatMap(group => group.items), [navGroups]);
   const activeItem = nav.find(n => location.pathname.startsWith(n.to)) || nav[0];
+
+  const fetchChatUnread = useCallback(async (targetOrgId = org?.id) => {
+    if (!targetOrgId) return;
+    try {
+      const r = await apiClient.get(`/organizations/${targetOrgId}/chat/unread-count`, { _silentNetworkError: true, _silent403: true });
+      setChatUnread(Number(r.data?.count || 0));
+    } catch {
+      setChatUnread(0);
+    }
+  }, [org?.id]);
+
+  useEffect(() => {
+    if (org?.id) fetchChatUnread(org.id);
+  }, [org?.id, fetchChatUnread]);
+
+  useEffect(() => {
+    if (location.pathname.endsWith('/chat')) setChatUnread(0);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const handleRead = (event) => {
+      if (!org?.id || Number(event.detail?.orgId) !== Number(org.id)) return;
+      setChatUnread(0);
+    };
+    window.addEventListener('org-chat-read', handleRead);
+    return () => window.removeEventListener('org-chat-read', handleRead);
+  }, [org?.id]);
+
+  useEffect(() => {
+    if (!org?.id) return undefined;
+    const url = buildOrgWsUrl(org.id);
+    if (!url) return undefined;
+    const socket = new WebSocket(url);
+    orgSocketRef.current = socket;
+    socket.onmessage = (event) => {
+      if (event.data === 'pong') return;
+      try {
+        const packet = JSON.parse(event.data);
+        if (packet.type !== 'org_chat:message_created') return;
+        if (location.pathname.endsWith('/chat')) {
+          setChatUnread(0);
+        } else {
+          fetchChatUnread(org.id);
+        }
+      } catch {}
+    };
+    socket.onopen = () => {
+      socket._pingTimer = window.setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) socket.send('ping');
+      }, 30000);
+    };
+    return () => {
+      if (socket._pingTimer) window.clearInterval(socket._pingTimer);
+      try { socket.close(); } catch {}
+    };
+  }, [org?.id, location.pathname, fetchChatUnread]);
 
   useEffect(() => {
     let alive = true;
@@ -189,6 +260,7 @@ export default function OrgPanel() {
   const NavItem = ({ item }) => {
     const Icon = item.icon;
     const isTransfers = item.to.endsWith('/transfers');
+    const isChat = item.to.endsWith('/chat');
     return (
       <NavLink
         to={item.to}
@@ -205,6 +277,11 @@ export default function OrgPanel() {
         {isTransfers && pendingCount > 0 && (
           <span className="ml-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white">
             {pendingCount > 99 ? '99+' : pendingCount}
+          </span>
+        )}
+        {isChat && chatUnread > 0 && (
+          <span className="ml-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-black text-white">
+            {chatUnread > 99 ? '99+' : chatUnread}
           </span>
         )}
       </NavLink>

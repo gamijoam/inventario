@@ -176,3 +176,18 @@ class OrganizationChatAttachment(Base):
     created_at      = Column(DateTime, default=get_venezuela_now)
 
     message = relationship("OrganizationChatMessage", back_populates="attachments")
+
+
+class OrganizationChatRead(Base):
+    """Estado de lectura del chat organizacional por usuario."""
+    __tablename__ = "organization_chat_reads"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "user_email"),
+        {"schema": "public"}
+    )
+
+    id              = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("public.organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_email      = Column(String(255), nullable=False, index=True)
+    last_read_message_id = Column(Integer, nullable=False, default=0)
+    last_read_at    = Column(DateTime, default=get_venezuela_now)

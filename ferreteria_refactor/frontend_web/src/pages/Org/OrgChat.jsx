@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
+  ArrowRightLeft,
   Building2,
   Download,
   Loader2,
@@ -14,6 +15,7 @@ import {
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const formatDateTime = (value) => {
   if (!value) return '';
@@ -41,6 +43,13 @@ const initials = (value) => {
   return source.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
 };
 
+
+const isTransferJson = (attachment) => {
+  const name = (attachment?.original_filename || '').toLowerCase();
+  const type = (attachment?.content_type || '').toLowerCase();
+  return name.endsWith('.json') || type.includes('json');
+};
+
 const buildOrgWsUrl = (orgId) => {
   const token = localStorage.getItem('token');
   if (!token || !orgId) return null;
@@ -64,6 +73,7 @@ const buildOrgWsUrl = (orgId) => {
 
 export default function OrgChat() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [org, setOrg] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
@@ -88,12 +98,20 @@ export default function OrgChat() {
     return currentOrg;
   }, []);
 
+  const markRead = useCallback(async (targetOrgId = orgId) => {
+    if (!targetOrgId) return;
+    try {
+      await apiClient.post(`/organizations/${targetOrgId}/chat/mark-read`, null, { _silentNetworkError: true, _silent403: true });
+    } catch {}
+  }, [orgId]);
+
   const loadMessages = useCallback(async (targetOrgId = orgId) => {
     if (!targetOrgId) return;
     const r = await apiClient.get(`/organizations/${targetOrgId}/chat/messages`, { params: { limit: 120 } });
     setMessages(Array.isArray(r.data) ? r.data : []);
+    window.dispatchEvent(new CustomEvent('org-chat-read', { detail: { orgId: targetOrgId } }));
     scrollToBottom();
-  }, [orgId, scrollToBottom]);
+  }, [orgId, scrollToBottom, user?.email, markRead]);
 
   useEffect(() => {
     let alive = true;
@@ -142,6 +160,10 @@ export default function OrgChat() {
           if (prev.some(item => item.id === message.id)) return prev;
           return [...prev, message];
         });
+        if (message.sender_email !== user?.email) {
+          markRead(orgId);
+          window.dispatchEvent(new CustomEvent('org-chat-read', { detail: { orgId } }));
+        }
         scrollToBottom();
       } catch (err) {
         console.warn('Mensaje WS no reconocido', err);
@@ -163,7 +185,11 @@ export default function OrgChat() {
       if (socket._pingTimer) window.clearInterval(socket._pingTimer);
       try { socket.close(); } catch {}
     };
-  }, [orgId, scrollToBottom]);
+  }, [orgId, scrollToBottom, user?.email, markRead]);
+
+  const openTransferImport = () => {
+    navigate('/inventory-center?tab=traslados&mode=import');
+  };
 
   const sendMessage = async () => {
     if (!orgId || (!text.trim() && !file)) return;
@@ -255,20 +281,36 @@ export default function OrgChat() {
                     {item.message && <p className="whitespace-pre-wrap text-sm font-semibold leading-6">{item.message}</p>}
                     {item.attachments?.length > 0 && (
                       <div className="mt-3 space-y-2">
-                        {item.attachments.map(attachment => (
-                          <a
-                            key={attachment.id}
-                            href={attachment.stored_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-black transition-colors ${isMine ? 'border-white/20 bg-white/10 text-white hover:bg-white/20' : 'border-indigo-100 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}`}
-                          >
-                            <Paperclip size={14} />
-                            <span className="min-w-0 flex-1 truncate">{attachment.original_filename}</span>
-                            <span className="shrink-0 opacity-70">{formatBytes(attachment.file_size)}</span>
-                            <Download size={13} />
-                          </a>
-                        ))}
+                        {item.attachments.map(attachment => {
+                          const transferJson = isTransferJson(attachment);
+                          return (
+                            <div key={attachment.id} className={`rounded-lg border ${transferJson ? (isMine ? 'border-amber-200/40 bg-amber-50/10' : 'border-amber-200 bg-amber-50') : (isMine ? 'border-white/20 bg-white/10' : 'border-indigo-100 bg-indigo-50')}`}>
+                              <a
+                                href={attachment.stored_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className={`flex items-center gap-2 px-3 py-2 text-xs font-black transition-colors ${isMine ? 'text-white hover:bg-white/10' : transferJson ? 'text-amber-800 hover:bg-amber-100' : 'text-indigo-700 hover:bg-indigo-100'}`}
+                              >
+                                {transferJson ? <ArrowRightLeft size={14} /> : <Paperclip size={14} />}
+                                <span className="min-w-0 flex-1 truncate">{transferJson ? 'Archivo de traslado' : attachment.original_filename}</span>
+                                <span className="shrink-0 opacity-70">{formatBytes(attachment.file_size)}</span>
+                                <Download size={13} />
+                              </a>
+                              {transferJson && (
+                                <div className={`flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2 ${isMine ? 'border-white/15 text-indigo-50' : 'border-amber-100 text-amber-800'}`}>
+                                  <span className="text-[11px] font-bold truncate">{attachment.original_filename}</span>
+                                  <button
+                                    type="button"
+                                    onClick={openTransferImport}
+                                    className={`rounded-md px-2.5 py-1.5 text-[11px] font-black transition-colors ${isMine ? 'bg-white text-indigo-700 hover:bg-indigo-50' : 'bg-amber-600 text-white hover:bg-amber-700'}`}
+                                  >
+                                    Ir a importar
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
