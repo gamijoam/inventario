@@ -1,6 +1,6 @@
 import { Bell, ShoppingCart, LogOut, Settings, AlertTriangle, AlertCircle, BarChart2, TrendingUp, X, ChevronDown, HelpCircle, LifeBuoy, BookOpen, Building2, Sparkles } from 'lucide-react';
 // import GlobalSearch from './GlobalSearch';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -9,6 +9,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { cn } from '../../utils/cn';
 import TourSelectionModal from '../common/TourSelectionModal';
 import supportService from '../../services/supportService';
+import { useWebSocket } from '../../context/WebSocketContext';
 
 // ─── Rate freshness helper ───────────────────────────────────────────────────
 function getRateFreshness(updatedAt) {
@@ -166,6 +167,8 @@ export default function Header() {
     const { user, logout } = useAuth();
     const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
     const { isSessionOpen, session } = useCash();
+    const { subscribe } = useWebSocket();
+    const location = useLocation();
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
     const [isRateSheetOpen, setIsRateSheetOpen] = useState(false);
@@ -195,14 +198,25 @@ export default function Header() {
         return () => clearInterval(interval);
     }, [fetchUnreadCount]);
 
+    useEffect(() => {
+        const unsubscribe = subscribe('support:message_created', () => {
+            fetchUnreadCount();
+        });
+        return () => unsubscribe && unsubscribe();
+    }, [subscribe, fetchUnreadCount]);
+
+    useEffect(() => {
+        if (location.pathname === '/support') {
+            setSupportUnread(0);
+        }
+    }, [location.pathname]);
+
     const openTours = () => {
         setIsHelpMenuOpen(false);
         setIsTourModalOpen(true);
     };
 
     const openSupport = () => {
-        supportService.markAsRead();
-        setSupportUnread(0);
         setIsHelpMenuOpen(false);
     };
 

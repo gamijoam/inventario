@@ -145,8 +145,9 @@ const SupportTickets = () => {
     }, []);
 
     useEffect(() => {
-        const unsubscribe = subscribe('support:message_created', (message) => {
+        const unsubscribe = subscribe('support:message_created', async (message) => {
             if (!message?.ticket_id) return;
+            const isOpenTicket = expandedTicket === message.ticket_id;
             setTicketMessages(prev => {
                 const current = prev[message.ticket_id] || [];
                 if (current.some(item => item.id === message.id)) return prev;
@@ -157,12 +158,19 @@ const SupportTickets = () => {
                 updated_at: message.created_at,
                 last_message_at: message.created_at,
                 last_message_sender: message.sender_type,
-                unread_for_user: message.sender_type === 'admin' && expandedTicket !== message.ticket_id,
+                unread_for_user: message.sender_type === 'admin' && !isOpenTicket,
                 admin_response: message.sender_type === 'admin' ? message.message : ticket.admin_response
             } : ticket));
+            if (message.sender_type === 'admin' && isOpenTicket) {
+                try {
+                    await supportService.getTicketMessages(message.ticket_id);
+                } catch (err) {
+                    console.warn('No se pudo marcar el mensaje de soporte como leido', err);
+                }
+            }
         });
         return () => unsubscribe();
-    }, [subscribe]);
+    }, [subscribe, expandedTicket]);
 
     const fetchTickets = async () => {
         setLoading(true);
