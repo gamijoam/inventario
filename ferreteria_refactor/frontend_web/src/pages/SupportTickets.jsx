@@ -118,6 +118,7 @@ const SupportTickets = () => {
 
     const hasHelpContext = searchParams.get('source') === 'help';
     const helpContext = searchParams.get('context') || '';
+    const ticketParam = Number(searchParams.get('ticket') || 0);
     const selectedModule = MODULE_OPTIONS.find(module => module.id === formData.module) || MODULE_OPTIONS[0];
     const selectedIssue = ISSUE_TYPES.find(issue => issue.id === formData.issueType) || ISSUE_TYPES[0];
     const SelectedModuleIcon = selectedModule.icon;
@@ -209,6 +210,14 @@ const SupportTickets = () => {
             return next;
         });
     };
+
+    useEffect(() => {
+        if (!ticketParam || loading) return;
+        const exists = tickets.some(ticket => Number(ticket.id) === ticketParam);
+        if (!exists || expandedTicket === ticketParam) return;
+        setExpandedTicket(ticketParam);
+        loadTicketMessages(ticketParam);
+    }, [ticketParam, tickets, loading, expandedTicket]);
 
     const handleSendMessage = async (ticketId) => {
         const message = messageDrafts[ticketId] || '';

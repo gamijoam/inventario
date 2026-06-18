@@ -1,6 +1,6 @@
 import { Bell, ShoppingCart, LogOut, Settings, AlertTriangle, AlertCircle, BarChart2, TrendingUp, X, ChevronDown, HelpCircle, LifeBuoy, BookOpen, Building2, Sparkles } from 'lucide-react';
 // import GlobalSearch from './GlobalSearch';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -170,6 +170,7 @@ export default function Header() {
     const { isSessionOpen, session } = useCash();
     const { subscribe } = useWebSocket();
     const location = useLocation();
+    const navigate = useNavigate();
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
     const [isRateSheetOpen, setIsRateSheetOpen] = useState(false);
@@ -403,7 +404,13 @@ export default function Header() {
                                             {notifications.map((n) => (
                                                 <div
                                                     key={n.id}
-                                                    onClick={() => { markAsRead(n.id); }}
+                                                    onClick={() => {
+                                                        markAsRead(n.id);
+                                                        if (n.action_url) {
+                                                            setIsNotificationMenuOpen(false);
+                                                            navigate(n.action_url);
+                                                        }
+                                                    }}
                                                     className={cn(
                                                         "px-5 py-4 flex gap-4 hover:bg-slate-50 transition-colors cursor-pointer group relative",
                                                         !n.isRead && "bg-indigo-50/30"

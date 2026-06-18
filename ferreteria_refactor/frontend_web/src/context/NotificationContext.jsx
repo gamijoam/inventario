@@ -5,6 +5,8 @@ import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext(null);
 const LEGACY_READ_KEY = 'read_notifications';
+const LOCAL_NOTIFICATION_PREFIX = 'local:';
+
 
 const resolveTenantScope = () => {
     const hostname = window.location.hostname || 'local';
@@ -45,6 +47,7 @@ export const NotificationProvider = ({ children }) => {
     }, [user?.id, user?.username]);
 
     const readKey = useMemo(() => `read_notifications:${storageScope}`, [storageScope]);
+    const localKey = useMemo(() => `local_notifications:${storageScope}`, [storageScope]);
     const popupKey = useCallback((id) => `dismissed_popup:${storageScope}:${id}`, [storageScope]);
     const announcementKey = useCallback((id) => `announced:${storageScope}:${id}`, [storageScope]);
 
@@ -53,6 +56,14 @@ export const NotificationProvider = ({ children }) => {
         const legacy = parseStoredList(LEGACY_READ_KEY);
         return Array.from(new Set([...scoped, ...legacy]));
     }, [readKey]);
+
+    const getLocalNotifications = useCallback(() => (
+        parseStoredList(localKey).filter(item => item?.id && item?.title)
+    ), [localKey]);
+
+    const saveLocalNotifications = useCallback((items) => {
+        localStorage.setItem(localKey, JSON.stringify(items.slice(0, 40)));
+    }, [localKey]);
 
     const isPopupDismissed = useCallback((id) => (
         localStorage.getItem(popupKey(id)) === 'true'
@@ -82,8 +93,13 @@ export const NotificationProvider = ({ children }) => {
                 ...n,
                 isRead: readIds.includes(n.id),
             }));
-            setNotifications(processedBanners);
-            setUnreadCount(processedBanners.filter(n => !n.isRead).length);
+            const localNotifications = getLocalNotifications().map(n => ({
+                ...n,
+                isRead: readIds.includes(n.id),
+            }));
+            const combined = [...localNotifications, ...processedBanners.filter(n => !localNotifications.some(local => local.id === n.id))];
+            setNotifications(combined);
+            setUnreadCount(combined.filter(n => !n.isRead).length);
 
             // Announcements: modal destacado, filtrado por empresa/usuario.
             const msgs = all.filter(n => n.message_type === 'announcement' && !isAnnouncementDismissed(n.id));
@@ -91,12 +107,33 @@ export const NotificationProvider = ({ children }) => {
         } catch (error) {
             console.error('Error fetching notifications:', error);
         }
-    }, [getReadIds, isAnnouncementDismissed]);
+    }, [getReadIds, getLocalNotifications, isAnnouncementDismissed]);
+
+    const addLocalNotification = useCallback((notification) => {
+        const item = {
+            level: 'info',
+            message_type: 'banner',
+            starts_at: new Date().toISOString(),
+            ...notification,
+            id: String(notification.id),
+            isRead: false,
+            isLive: true,
+        };
+
+        setNotifications(prev => {
+            if (prev.some(n => n.id === item.id)) return prev;
+            const updated = [item, ...prev].slice(0, 80);
+            setUnreadCount(updated.filter(n => !n.isRead).length);
+            const currentLocal = getLocalNotifications().filter(n => n.id !== item.id);
+            saveLocalNotifications([item, ...currentLocal]);
+            return updated;
+        });
+    }, [getLocalNotifications, saveLocalNotifications]);
 
     useEffect(() => {
         fetchNotifications();
 
-        const unsubscribe = subscribe('system:notification', (data) => {
+        const unsubscribeSystem = subscribe('system:notification', (data) => {
             if (data?.refresh || data?.action) {
                 fetchNotifications();
                 return;
@@ -128,27 +165,46 @@ export const NotificationProvider = ({ children }) => {
             }
         });
 
-        return () => unsubscribe();
-    }, [fetchNotifications, subscribe, isAnnouncementDismissed]);
+        const unsubscribeSupport = subscribe('support:message_created', (message) => {
+            if (message?.sender_type !== 'admin' || !message?.ticket_id) return;
+            addLocalNotification({
+                id: `${LOCAL_NOTIFICATION_PREFIX}support:${message.id || `${message.ticket_id}:${message.created_at || Date.now()}`}`,
+                title: `Soporte respondió el ticket #${message.ticket_id}`,
+                content: message.message || 'Tienes una nueva respuesta de soporte.',
+                level: 'info',
+                starts_at: message.created_at || new Date().toISOString(),
+                action_url: `/support?ticket=${message.ticket_id}`,
+                source: 'support',
+                ticket_id: message.ticket_id,
+            });
+        });
+
+        return () => {
+            unsubscribeSystem && unsubscribeSystem();
+            unsubscribeSupport && unsubscribeSupport();
+        };
+    }, [fetchNotifications, subscribe, isAnnouncementDismissed, addLocalNotification]);
 
     const markAsRead = useCallback((id) => {
         setNotifications(prev => {
             const updated = prev.map(n => n.id === id ? { ...n, isRead: true } : n);
             const readIds = updated.filter(n => n.isRead).map(n => n.id);
             localStorage.setItem(readKey, JSON.stringify(readIds));
+            saveLocalNotifications(updated.filter(n => String(n.id).startsWith(LOCAL_NOTIFICATION_PREFIX)));
             setUnreadCount(updated.filter(n => !n.isRead).length);
             return updated;
         });
-    }, [readKey]);
+    }, [readKey, saveLocalNotifications]);
 
     const markAllAsRead = useCallback(() => {
         setNotifications(prev => {
             const updated = prev.map(n => ({ ...n, isRead: true }));
             localStorage.setItem(readKey, JSON.stringify(updated.map(n => n.id)));
+            saveLocalNotifications(updated.filter(n => String(n.id).startsWith(LOCAL_NOTIFICATION_PREFIX)));
             setUnreadCount(0);
             return updated;
         });
-    }, [readKey]);
+    }, [readKey, saveLocalNotifications]);
 
     const dismissAnnouncement = useCallback((id) => {
         localStorage.setItem(announcementKey(id), 'true');
@@ -167,6 +223,7 @@ export const NotificationProvider = ({ children }) => {
             isPopupDismissed,
             dismissPopup,
             refresh: fetchNotifications,
+            addLocalNotification,
         }}>
             {children}
         </NotificationContext.Provider>
