@@ -37,6 +37,12 @@ class SupportTicketOut(SupportTicketBase):
     full_name: Optional[str] = None
     status: TicketStatus
     admin_response: Optional[str] = None
+    last_message_at: Optional[datetime] = None
+    last_message_sender: Optional[str] = None
+    user_last_read_at: Optional[datetime] = None
+    admin_last_read_at: Optional[datetime] = None
+    unread_for_user: bool = False
+    unread_for_admin: bool = False
     created_at: datetime
     updated_at: datetime
 

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Form, UploadFile,
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from typing import List, Optional
+from datetime import datetime
 from ..database.db import get_db
 from ..dependencies import get_current_superuser
 from ..models.support import SupportTicket, TicketStatus, TicketPriority, SupportMessage, SupportAttachment, SupportMessageSender
@@ -19,6 +20,23 @@ def _tenant_schema_from_ticket(db: Session, ticket: SupportTicket) -> str:
     from ..models.tenant import Tenant
     tenant = db.query(Tenant).filter(Tenant.id == ticket.tenant_id).first()
     return tenant.schema_name if tenant else "public"
+
+
+def _decorate_ticket(ticket: SupportTicket) -> SupportTicket:
+    last_at = ticket.last_message_at or ticket.updated_at or ticket.created_at
+    ticket.unread_for_admin = bool(ticket.last_message_sender == "user" and (not ticket.admin_last_read_at or (last_at and ticket.admin_last_read_at < last_at)))
+    ticket.unread_for_user = False
+    return ticket
+
+
+def _touch_ticket_for_message(ticket: SupportTicket, sender: SupportMessageSender, when: datetime):
+    ticket.last_message_at = when
+    ticket.last_message_sender = sender.value if hasattr(sender, "value") else sender
+    ticket.updated_at = when
+    if sender == SupportMessageSender.user:
+        ticket.user_last_read_at = when
+    elif sender == SupportMessageSender.admin:
+        ticket.admin_last_read_at = when
 
 
 def _message_payload(message: SupportMessage) -> dict:
@@ -56,7 +74,12 @@ def get_pending_count(
     Used by the SaaS admin panel to show a notification badge.
     """
     count = db.query(func.count(SupportTicket.id)).filter(
-        SupportTicket.status.in_([TicketStatus.open, TicketStatus.in_progress])
+        SupportTicket.status.notin_([TicketStatus.closed]),
+        SupportTicket.last_message_sender == "user",
+        SupportTicket.last_message_at.isnot(None),
+    ).filter(
+        (SupportTicket.admin_last_read_at.is_(None)) |
+        (SupportTicket.admin_last_read_at < SupportTicket.last_message_at)
     ).scalar() or 0
     return {"count": count}
 
@@ -78,8 +101,8 @@ def list_all_tickets(
     if priority:
         query = query.filter(SupportTicket.priority == priority)
         
-    tickets = query.order_by(SupportTicket.created_at.desc()).all()
-    return tickets
+    tickets = query.order_by(SupportTicket.last_message_at.desc().nullslast(), SupportTicket.created_at.desc()).all()
+    return [_decorate_ticket(ticket) for ticket in tickets]
 
 @router.patch("/{ticket_id}/reply", response_model=SupportTicketOut)
 def reply_to_ticket(
@@ -107,6 +130,7 @@ def reply_to_ticket(
     )
     db.add(chat_message)
     db.flush()
+    _touch_ticket_for_message(db_ticket, SupportMessageSender.admin, chat_message.created_at or datetime.now())
     
     db.commit()
     try:
@@ -145,7 +169,7 @@ def update_ticket_status(
         db_ticket.priority = update_in.priority
         
     db.commit()
-    return db_ticket
+    return _decorate_ticket(db_ticket)
 
 
 @router.get("/{ticket_id}/messages", response_model=List[SupportMessageOut])
@@ -157,6 +181,8 @@ def list_ticket_messages_admin(
     ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
+    ticket.admin_last_read_at = datetime.now()
+    db.commit()
     return (
         db.query(SupportMessage)
         .options(joinedload(SupportMessage.attachments))
@@ -190,6 +216,7 @@ async def send_ticket_message_admin(
     ticket.admin_response = clean_message
     ticket.status = TicketStatus.in_progress if ticket.status == TicketStatus.open else ticket.status
     db.flush()
+    _touch_ticket_for_message(ticket, SupportMessageSender.admin, chat_message.created_at or datetime.now())
     db.commit()
     db.refresh(chat_message)
 

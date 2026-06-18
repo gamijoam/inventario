@@ -34,6 +34,10 @@ class SupportTicket(Base):
     status = Column(Enum(TicketStatus), default=TicketStatus.open)
     
     admin_response = Column(Text, nullable=True)
+    last_message_at = Column(DateTime, nullable=True)
+    last_message_sender = Column(String, default="user")
+    user_last_read_at = Column(DateTime, nullable=True)
+    admin_last_read_at = Column(DateTime, nullable=True)
     
     created_at = Column(DateTime, default=get_venezuela_now)
     updated_at = Column(DateTime, default=get_venezuela_now, onupdate=datetime.datetime.now)

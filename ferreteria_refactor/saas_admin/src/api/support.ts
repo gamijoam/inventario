@@ -34,6 +34,12 @@ export interface SupportTicket {
     priority: 'low' | 'medium' | 'high' | 'critical';
     status: 'open' | 'in_progress' | 'resolved' | 'closed';
     admin_response: string | null;
+    last_message_at?: string | null;
+    last_message_sender?: string | null;
+    user_last_read_at?: string | null;
+    admin_last_read_at?: string | null;
+    unread_for_user?: boolean;
+    unread_for_admin?: boolean;
     created_at: string;
     updated_at: string;
 }

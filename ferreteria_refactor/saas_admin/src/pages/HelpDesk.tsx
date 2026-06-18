@@ -114,7 +114,14 @@ const HelpDesk: React.FC = () => {
                     if (!message?.ticket_id) return;
                     setTickets(prev => prev.map(ticket => (
                         ticket.id === message.ticket_id
-                            ? { ...ticket, updated_at: message.created_at, admin_response: message.sender_type === 'admin' ? message.message : ticket.admin_response }
+                            ? {
+                                ...ticket,
+                                updated_at: message.created_at,
+                                last_message_at: message.created_at,
+                                last_message_sender: message.sender_type,
+                                unread_for_admin: message.sender_type === 'user' && selectedTicket?.id !== message.ticket_id,
+                                admin_response: message.sender_type === 'admin' ? message.message : ticket.admin_response,
+                            }
                             : ticket
                     )));
                     setMessages(prev => {
@@ -167,6 +174,7 @@ const HelpDesk: React.FC = () => {
         total: tickets.length,
         active: tickets.filter(ticket => ['open', 'in_progress'].includes(ticket.status)).length,
         critical: tickets.filter(ticket => ticket.priority === 'critical').length,
+        unread: tickets.filter(ticket => ticket.unread_for_admin).length,
     }), [tickets]);
 
     const openTicket = async (ticket: SupportTicket) => {
@@ -200,10 +208,10 @@ const HelpDesk: React.FC = () => {
             setReplyMessage('');
             setTickets(prev => prev.map(ticket => (
                 ticket.id === selectedTicket.id
-                    ? { ...ticket, admin_response: created.message, status: ticket.status === 'open' ? 'in_progress' : ticket.status, updated_at: created.created_at }
+                    ? { ...ticket, admin_response: created.message, status: ticket.status === 'open' ? 'in_progress' : ticket.status, updated_at: created.created_at, last_message_at: created.created_at, last_message_sender: 'admin', unread_for_admin: false }
                     : ticket
             )));
-            setSelectedTicket(prev => prev ? { ...prev, admin_response: created.message, status: prev.status === 'open' ? 'in_progress' : prev.status, updated_at: created.created_at } : prev);
+            setSelectedTicket(prev => prev ? { ...prev, admin_response: created.message, status: prev.status === 'open' ? 'in_progress' : prev.status, updated_at: created.created_at, last_message_at: created.created_at, last_message_sender: 'admin', unread_for_admin: false } : prev);
             toast.success('Mensaje enviado');
         } catch (err) {
             console.error(err);
@@ -249,6 +257,10 @@ const HelpDesk: React.FC = () => {
                     <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-center shadow-sm">
                         <p className="text-2xl font-black text-rose-700">{stats.critical}</p>
                         <p className="text-[10px] font-black uppercase tracking-wide text-rose-500">Criticos</p>
+                    </div>
+                    <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-center shadow-sm">
+                        <p className="text-2xl font-black text-amber-700">{stats.unread}</p>
+                        <p className="text-[10px] font-black uppercase tracking-wide text-amber-500">Sin leer</p>
                     </div>
                 </div>
             </div>
@@ -316,8 +328,11 @@ const HelpDesk: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="max-w-[340px] px-5 py-4">
-                                            <p className="truncate text-sm font-black text-slate-900">{ticket.subject}</p>
-                                            <p className="truncate text-xs font-semibold text-slate-400">{ticket.message}</p>
+                                            <div className="flex items-center gap-2">
+                                                {ticket.unread_for_admin && <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shadow-sm shadow-amber-200" title="Mensaje sin leer" />}
+                                                <p className="truncate text-sm font-black text-slate-900">{ticket.subject}</p>
+                                            </div>
+                                            <p className="truncate text-xs font-semibold text-slate-400">Ultimo: {ticket.last_message_sender === 'admin' ? 'Soporte' : 'Cliente'} · {ticket.message}</p>
                                         </td>
                                         <td className="px-5 py-4">
                                             <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black ring-1 ${priorityColors[ticket.priority] || priorityColors.medium}`}>
@@ -329,7 +344,7 @@ const HelpDesk: React.FC = () => {
                                                 {STATUS_LABELS[ticket.status] || ticket.status}
                                             </span>
                                         </td>
-                                        <td className="px-5 py-4 text-xs font-semibold text-slate-500">{formatDateTime(ticket.updated_at || ticket.created_at)}</td>
+                                        <td className="px-5 py-4 text-xs font-semibold text-slate-500">{formatDateTime(ticket.last_message_at || ticket.updated_at || ticket.created_at)}</td>
                                         <td className="px-5 py-4 text-right">
                                             <button type="button" onClick={() => openTicket(ticket)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 text-xs font-black text-blue-700 transition-colors hover:bg-blue-100">
                                                 <Eye size={15} /> Abrir chat

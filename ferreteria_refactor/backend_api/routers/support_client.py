@@ -50,6 +50,27 @@ def _attachment_payload(attachment: SupportAttachment) -> dict:
     }
 
 
+def _decorate_ticket(ticket: SupportTicket, viewer: str = "user") -> SupportTicket:
+    last_at = ticket.last_message_at or ticket.updated_at or ticket.created_at
+    if viewer == "admin":
+        ticket.unread_for_admin = bool(ticket.last_message_sender == "user" and (not ticket.admin_last_read_at or (last_at and ticket.admin_last_read_at < last_at)))
+        ticket.unread_for_user = False
+    else:
+        ticket.unread_for_user = bool(ticket.last_message_sender == "admin" and (not ticket.user_last_read_at or (last_at and ticket.user_last_read_at < last_at)))
+        ticket.unread_for_admin = False
+    return ticket
+
+
+def _touch_ticket_for_message(ticket: SupportTicket, sender: SupportMessageSender, when: datetime):
+    ticket.last_message_at = when
+    ticket.last_message_sender = sender.value if hasattr(sender, "value") else sender
+    ticket.updated_at = when
+    if sender == SupportMessageSender.user:
+        ticket.user_last_read_at = when
+    elif sender == SupportMessageSender.admin:
+        ticket.admin_last_read_at = when
+
+
 def _message_payload(message: SupportMessage) -> dict:
     return {
         "id": message.id,
@@ -128,17 +149,14 @@ def get_unread_count(
         and_(
             SupportTicket.tenant_id == effective_tenant_id,
             SupportTicket.user_email == current_user.email,
-            SupportTicket.admin_response.isnot(None),
-            SupportTicket.status.notin_([TicketStatus.closed])
+            SupportTicket.status.notin_([TicketStatus.closed]),
+            SupportTicket.last_message_sender == "admin",
+            SupportTicket.last_message_at.isnot(None),
         )
+    ).filter(
+        (SupportTicket.user_last_read_at.is_(None)) |
+        (SupportTicket.user_last_read_at < SupportTicket.last_message_at)
     )
-
-    if since:
-        try:
-            since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
-            query = query.filter(SupportTicket.updated_at > since_dt)
-        except (ValueError, TypeError):
-            pass
 
     count = query.scalar() or 0
     return {"count": count}
@@ -181,6 +199,7 @@ async def create_ticket(
     )
     db.add(initial_message)
     db.flush()
+    _touch_ticket_for_message(db_ticket, SupportMessageSender.user, initial_message.created_at or datetime.now())
     db.commit()
 
     try:
@@ -201,7 +220,7 @@ async def create_ticket(
     except Exception:
         pass
 
-    return db_ticket
+    return _decorate_ticket(db_ticket, "user")
 
 @router.get("/", response_model=List[SupportTicketOut])
 def list_my_tickets(
@@ -218,9 +237,9 @@ def list_my_tickets(
 
     tickets = db.query(SupportTicket).filter(
         SupportTicket.tenant_id == effective_tenant_id
-    ).order_by(SupportTicket.created_at.desc()).all()
+    ).order_by(SupportTicket.last_message_at.desc().nullslast(), SupportTicket.created_at.desc()).all()
 
-    return tickets
+    return [_decorate_ticket(ticket, "user") for ticket in tickets]
 
 
 # ─── CONTACTO PÚBLICO (sin autenticación) ────────────────────────────────────
@@ -279,6 +298,9 @@ def list_ticket_messages(
     current_user: User = Depends(get_current_active_user)
 ):
     ticket = _ticket_for_user(ticket_id, db, current_user)
+    ticket.user_last_read_at = datetime.now()
+    db.commit()
+
     messages = (
         db.query(SupportMessage)
         .options(joinedload(SupportMessage.attachments))
@@ -325,9 +347,10 @@ async def send_ticket_message(
         db.add(attachment)
         db.flush()
 
+    now = chat_message.created_at or datetime.now()
     if ticket.status in [TicketStatus.resolved, TicketStatus.closed]:
         ticket.status = TicketStatus.in_progress
-    ticket.updated_at = datetime.now()
+    _touch_ticket_for_message(ticket, SupportMessageSender.user, now)
 
     db.commit()
     db.refresh(chat_message)

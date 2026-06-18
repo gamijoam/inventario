@@ -152,7 +152,14 @@ const SupportTickets = () => {
                 if (current.some(item => item.id === message.id)) return prev;
                 return { ...prev, [message.ticket_id]: [...current, message] };
             });
-            setTickets(prev => prev.map(ticket => ticket.id === message.ticket_id ? { ...ticket, updated_at: message.created_at, admin_response: message.sender_type === 'admin' ? message.message : ticket.admin_response } : ticket));
+            setTickets(prev => prev.map(ticket => ticket.id === message.ticket_id ? {
+                ...ticket,
+                updated_at: message.created_at,
+                last_message_at: message.created_at,
+                last_message_sender: message.sender_type,
+                unread_for_user: message.sender_type === 'admin' && expandedTicket !== message.ticket_id,
+                admin_response: message.sender_type === 'admin' ? message.message : ticket.admin_response
+            } : ticket));
         });
         return () => unsubscribe();
     }, [subscribe]);
@@ -295,6 +302,7 @@ const SupportTickets = () => {
         total: tickets.length,
         open: tickets.filter(ticket => ['open', 'in_progress'].includes(ticket.status)).length,
         answered: tickets.filter(ticket => Boolean(ticket.admin_response)).length,
+        unread: tickets.filter(ticket => ticket.unread_for_user).length,
     }), [tickets]);
 
     return (
@@ -311,7 +319,7 @@ const SupportTickets = () => {
                             <p className="text-sm font-medium text-slate-500">Envianos el contexto correcto para resolver mas rapido.</p>
                         </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 sm:min-w-[360px]">
+                    <div className="grid grid-cols-4 gap-2 sm:min-w-[460px]">
                         <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center">
                             <p className="text-lg font-black text-slate-950">{stats.total}</p>
                             <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Tickets</p>
@@ -323,6 +331,10 @@ const SupportTickets = () => {
                         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center">
                             <p className="text-lg font-black text-emerald-700">{stats.answered}</p>
                             <p className="text-[10px] font-black uppercase tracking-wide text-emerald-500">Con respuesta</p>
+                        </div>
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center">
+                            <p className="text-lg font-black text-amber-700">{stats.unread}</p>
+                            <p className="text-[10px] font-black uppercase tracking-wide text-amber-500">Sin leer</p>
                         </div>
                     </div>
                 </div>
@@ -615,7 +627,10 @@ const SupportTickets = () => {
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <h3 className="truncate text-base font-black text-slate-950">{ticket.subject}</h3>
+                                                    <div className="flex items-center gap-2">
+                                                        {ticket.unread_for_user && <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shadow-sm shadow-amber-200" title="Respuesta sin leer" />}
+                                                        <h3 className="truncate text-base font-black text-slate-950">{ticket.subject}</h3>
+                                                    </div>
                                                     <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-400">
                                                         <Clock size={12} /> Creado {formatDateTime(ticket.created_at)}
                                                     </p>
