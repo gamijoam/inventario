@@ -14,6 +14,44 @@ router = APIRouter(
 )
 
 
+ALLOWED_SUPPORT_UPLOAD_EXTENSIONS = {"json", "xlsx", "xls", "csv", "txt", "pdf", "png", "jpg", "jpeg", "webp"}
+MAX_SUPPORT_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
+def _save_support_upload(file: UploadFile, tenant_schema: str, ticket_id: int) -> tuple[str, int]:
+    import os
+    import uuid
+    from ..utils.media_utils import BASE_MEDIA_DIR
+
+    original = file.filename or "archivo"
+    extension = original.rsplit('.', 1)[-1].lower() if '.' in original else ''
+    if extension not in ALLOWED_SUPPORT_UPLOAD_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Tipo de archivo no permitido para soporte")
+
+    target_dir = os.path.join(BASE_MEDIA_DIR, tenant_schema, "support", str(ticket_id))
+    os.makedirs(target_dir, exist_ok=True)
+    stored_name = f"{uuid.uuid4().hex}.{extension}"
+    target_path = os.path.join(target_dir, stored_name)
+
+    size = 0
+    with open(target_path, "wb") as out:
+        while True:
+            chunk = file.file.read(1024 * 1024)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > MAX_SUPPORT_UPLOAD_BYTES:
+                out.close()
+                try:
+                    os.remove(target_path)
+                except OSError:
+                    pass
+                raise HTTPException(status_code=400, detail="El archivo supera el limite de 10 MB")
+            out.write(chunk)
+
+    return f"/media/{tenant_schema}/support/{ticket_id}/{stored_name}", size
+
+
 def _tenant_schema_from_ticket(db: Session, ticket: SupportTicket) -> str:
     if not ticket.tenant_id:
         return "public"
@@ -196,6 +234,7 @@ def list_ticket_messages_admin(
 async def send_ticket_message_admin(
     ticket_id: int,
     message: str = Form(""),
+    file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     current_user: Session = Depends(get_current_superuser)
 ):
@@ -203,8 +242,8 @@ async def send_ticket_message_admin(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     clean_message = (message or "").strip()
-    if not clean_message:
-        raise HTTPException(status_code=400, detail="Escribe un mensaje")
+    if not clean_message and not file:
+        raise HTTPException(status_code=400, detail="Escribe un mensaje o adjunta un archivo")
 
     chat_message = SupportMessage(
         ticket_id=ticket.id,
@@ -213,9 +252,24 @@ async def send_ticket_message_admin(
         message=clean_message,
     )
     db.add(chat_message)
-    ticket.admin_response = clean_message
+    ticket.admin_response = clean_message or ticket.admin_response
     ticket.status = TicketStatus.in_progress if ticket.status == TicketStatus.open else ticket.status
     db.flush()
+
+    if file:
+        tenant_schema = _tenant_schema_from_ticket(db, ticket)
+        stored_url, size = _save_support_upload(file, tenant_schema, ticket.id)
+        attachment = SupportAttachment(
+            ticket_id=ticket.id,
+            message_id=chat_message.id,
+            original_filename=file.filename or "archivo",
+            stored_url=stored_url,
+            content_type=file.content_type,
+            file_size=size,
+        )
+        db.add(attachment)
+        db.flush()
+
     _touch_ticket_for_message(ticket, SupportMessageSender.admin, chat_message.created_at or datetime.now())
     db.commit()
     db.refresh(chat_message)

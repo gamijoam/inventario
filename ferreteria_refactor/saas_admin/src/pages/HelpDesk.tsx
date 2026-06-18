@@ -85,6 +85,7 @@ const HelpDesk: React.FC = () => {
     const [messages, setMessages] = useState<SupportMessage[]>([]);
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [replyMessage, setReplyMessage] = useState('');
+    const [replyFile, setReplyFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
@@ -180,6 +181,7 @@ const HelpDesk: React.FC = () => {
     const openTicket = async (ticket: SupportTicket) => {
         setSelectedTicket(ticket);
         setReplyMessage('');
+        setReplyFile(null);
         setLoadingMessages(true);
         try {
             const data = await getTicketMessages(ticket.id);
@@ -197,22 +199,24 @@ const HelpDesk: React.FC = () => {
         setSelectedTicket(null);
         setMessages([]);
         setReplyMessage('');
+        setReplyFile(null);
     };
 
     const handleReply = async () => {
-        if (!selectedTicket || !replyMessage.trim()) return;
+        if (!selectedTicket || (!replyMessage.trim() && !replyFile)) return;
         setIsSubmitting(true);
         try {
-            const created = await sendTicketMessage(selectedTicket.id, replyMessage.trim());
+            const created = await sendTicketMessage(selectedTicket.id, replyMessage.trim(), replyFile);
             setMessages(prev => [...prev, created]);
             setReplyMessage('');
+            setReplyFile(null);
             setTickets(prev => prev.map(ticket => (
                 ticket.id === selectedTicket.id
-                    ? { ...ticket, admin_response: created.message, status: ticket.status === 'open' ? 'in_progress' : ticket.status, updated_at: created.created_at, last_message_at: created.created_at, last_message_sender: 'admin', unread_for_admin: false }
+                    ? { ...ticket, admin_response: created.message || ticket.admin_response, status: ticket.status === 'open' ? 'in_progress' : ticket.status, updated_at: created.created_at, last_message_at: created.created_at, last_message_sender: 'admin', unread_for_admin: false }
                     : ticket
             )));
-            setSelectedTicket(prev => prev ? { ...prev, admin_response: created.message, status: prev.status === 'open' ? 'in_progress' : prev.status, updated_at: created.created_at, last_message_at: created.created_at, last_message_sender: 'admin', unread_for_admin: false } : prev);
-            toast.success('Mensaje enviado');
+            setSelectedTicket(prev => prev ? { ...prev, admin_response: created.message || prev.admin_response, status: prev.status === 'open' ? 'in_progress' : prev.status, updated_at: created.created_at, last_message_at: created.created_at, last_message_sender: 'admin', unread_for_admin: false } : prev);
+            toast.success(replyFile ? 'Mensaje y archivo enviados' : 'Mensaje enviado');
         } catch (err) {
             console.error(err);
             toast.error('Error al enviar mensaje');
@@ -462,10 +466,31 @@ const HelpDesk: React.FC = () => {
                                     placeholder="Escribe una respuesta para el cliente..."
                                     className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold leading-6 text-slate-700 outline-none transition-colors focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100"
                                 />
-                                <div className="mt-3 flex items-center justify-between gap-3">
-                                    <p className="text-xs font-semibold text-slate-400">Los mensajes llegan en tiempo real al tenant del cliente.</p>
-                                    <button onClick={handleReply} disabled={isSubmitting || !replyMessage.trim()} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">
-                                        <Send size={16} /> {isSubmitting ? 'Enviando...' : 'Enviar mensaje'}
+                                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                        <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+                                            <Paperclip size={15} /> Adjuntar
+                                            <input
+                                                type="file"
+                                                className="hidden"
+                                                accept=".json,.xlsx,.xls,.csv,.txt,.pdf,.png,.jpg,.jpeg,.webp"
+                                                onChange={(event) => setReplyFile(event.target.files?.[0] || null)}
+                                            />
+                                        </label>
+                                        {replyFile ? (
+                                            <span className="inline-flex min-w-0 max-w-[320px] items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">
+                                                <Paperclip size={14} />
+                                                <span className="truncate">{replyFile.name}</span>
+                                                <button type="button" onClick={() => setReplyFile(null)} className="rounded-full p-1 text-blue-500 hover:bg-blue-100 hover:text-blue-800" aria-label="Quitar archivo">
+                                                    <X size={13} />
+                                                </button>
+                                            </span>
+                                        ) : (
+                                            <p className="text-xs font-semibold text-slate-400">Puedes enviar JSON de traslados, Excel, PDF o imagenes.</p>
+                                        )}
+                                    </div>
+                                    <button onClick={handleReply} disabled={isSubmitting || (!replyMessage.trim() && !replyFile)} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">
+                                        <Send size={16} /> {isSubmitting ? 'Enviando...' : 'Enviar'}
                                     </button>
                                 </div>
                             </div>

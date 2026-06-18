@@ -59,9 +59,10 @@ export const getTicketMessages = async (id: number): Promise<SupportMessage[]> =
     return response.data;
 };
 
-export const sendTicketMessage = async (id: number, message: string): Promise<SupportMessage> => {
+export const sendTicketMessage = async (id: number, message: string, file?: File | null): Promise<SupportMessage> => {
     const formData = new FormData();
     formData.append('message', message);
+    if (file) formData.append('file', file);
     const response = await axios.post(`/admin/support/tickets/${id}/messages`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     });
