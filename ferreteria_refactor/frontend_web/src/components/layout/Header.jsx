@@ -9,6 +9,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { cn } from '../../utils/cn';
 import TourSelectionModal from '../common/TourSelectionModal';
 import supportService from '../../services/supportService';
+import { initOrgChatSound, playOrgChatSound } from '../../utils/chatSound';
 import { useWebSocket } from '../../context/WebSocketContext';
 
 // ─── Rate freshness helper ───────────────────────────────────────────────────
@@ -177,6 +178,10 @@ export default function Header() {
     const [supportUnread, setSupportUnread] = useState(0);
     const canAccessOwnerPortal = Boolean(user?.is_superuser || user?.is_org_owner || user?.org_role === 'owner');
 
+    useEffect(() => {
+        initOrgChatSound();
+    }, []);
+
     const secondaryCurrencies = currencies.filter(c => !c.is_anchor && c.is_active);
     const primaryRate = secondaryCurrencies.find(c => c.is_default) || secondaryCurrencies[0];
     const rate = primaryRate ? parseFloat(primaryRate.rate) : 0;
@@ -199,11 +204,14 @@ export default function Header() {
     }, [fetchUnreadCount]);
 
     useEffect(() => {
-        const unsubscribe = subscribe('support:message_created', () => {
+        const unsubscribe = subscribe('support:message_created', (message) => {
             fetchUnreadCount();
+            if (message?.sender_type === 'admin' && location.pathname !== '/support') {
+                playOrgChatSound();
+            }
         });
         return () => unsubscribe && unsubscribe();
-    }, [subscribe, fetchUnreadCount]);
+    }, [subscribe, fetchUnreadCount, location.pathname]);
 
     useEffect(() => {
         if (location.pathname === '/support') {

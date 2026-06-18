@@ -23,7 +23,8 @@ import {
     X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../api/axios';
+import { initSupportSound, playSupportSound } from '../utils/supportSound';
+import { buildAdminWsUrl } from '../utils/ws';
 
 const STATUS_LABELS: Record<string, string> = {
     open: 'Abierto',
@@ -89,6 +90,10 @@ const HelpDesk: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
+        initSupportSound();
+    }, []);
+
+    useEffect(() => {
         fetchInitialData();
     }, [filterStatus, filterPriority]);
 
@@ -96,11 +101,7 @@ const HelpDesk: React.FC = () => {
         const token = localStorage.getItem('token');
         if (!token) return;
 
-        const apiBase = api.defaults.baseURL || `${window.location.origin}/api/v1`;
-        const wsProtocol = apiBase.startsWith('https') ? 'wss:' : 'ws:';
-        const cleanBase = apiBase.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-        const wsUrl = `${wsProtocol}//${cleanBase}/ws?tenant_id=public&token=${encodeURIComponent(token)}`;
-        const socket = new WebSocket(wsUrl);
+        const socket = new WebSocket(buildAdminWsUrl(token));
 
         socket.onmessage = (event) => {
             if (event.data === 'pong') return;
@@ -108,6 +109,7 @@ const HelpDesk: React.FC = () => {
                 const payload = JSON.parse(event.data);
                 if (payload.type === 'support:ticket_created') {
                     fetchInitialData();
+                    playSupportSound();
                     toast.success('Nuevo ticket de soporte recibido');
                 }
                 if (payload.type === 'support:message_created') {
@@ -130,6 +132,9 @@ const HelpDesk: React.FC = () => {
                         if (prev.some(item => item.id === message.id)) return prev;
                         return [...prev, message];
                     });
+                    if (message.sender_type === 'user') {
+                        playSupportSound();
+                    }
                     if (selectedTicket?.id !== message.ticket_id && message.sender_type === 'user') {
                         toast.success('Nuevo mensaje de soporte recibido');
                     }

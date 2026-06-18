@@ -29,6 +29,7 @@ import supportService from '../services/supportService';
 import { useWebSocket } from '../context/WebSocketContext';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
+import { initOrgChatSound, playOrgChatSound } from '../utils/chatSound';
 
 const MODULE_OPTIONS = [
     { id: 'pos', label: 'Punto de venta', icon: ShoppingCart, hint: 'Cobro, carrito, caja, pagos o tickets' },
@@ -111,6 +112,10 @@ const SupportTickets = () => {
     const [sendingMessage, setSendingMessage] = useState(null);
     const { subscribe } = useWebSocket();
 
+    useEffect(() => {
+        initOrgChatSound();
+    }, []);
+
     const hasHelpContext = searchParams.get('source') === 'help';
     const helpContext = searchParams.get('context') || '';
     const selectedModule = MODULE_OPTIONS.find(module => module.id === formData.module) || MODULE_OPTIONS[0];
@@ -147,6 +152,7 @@ const SupportTickets = () => {
     useEffect(() => {
         const unsubscribe = subscribe('support:message_created', async (message) => {
             if (!message?.ticket_id) return;
+            if (message.sender_type === 'admin') playOrgChatSound();
             const isOpenTicket = expandedTicket === message.ticket_id;
             setTicketMessages(prev => {
                 const current = prev[message.ticket_id] || [];
