@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getSystemHealth } from '../api/systemHealth';
-import type { HealthKind, HealthSeverity, SystemHealthEvent, SystemHealthGroup, SystemHealthResponse, SystemHealthTenantOption } from '../api/systemHealth';
+import type { HealthKind, HealthSeverity, SystemHealthEvent, SystemHealthGroup, SystemHealthResponse, SystemHealthTenantCheck, SystemHealthTenantOption } from '../api/systemHealth';
 
 type KindFilter = HealthKind | 'all';
 type SeverityTone = 'red' | 'amber' | 'violet' | 'emerald';
@@ -39,6 +39,8 @@ interface TenantHealth {
     lastSeen: string | null;
     routes: string[];
     events: SystemHealthEvent[];
+    checks: SystemHealthTenantCheck[];
+    checkSummary: { critical: number; warning: number; ok: number };
 }
 
 const kindLabels: Record<HealthKind, string> = {
@@ -153,6 +155,16 @@ const StatusPill = ({ status }: { status: TenantStatus }) => {
             {config.icon}{config.label}
         </span>
     );
+};
+
+const CheckStatusBadge = ({ check }: { check: SystemHealthTenantCheck }) => {
+    if (check.status === 'ok') {
+        return <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700"><CheckCircle2 size={13} />OK</span>;
+    }
+    if (check.severity === 'critical') {
+        return <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-black text-red-700"><XCircle size={13} />Critico</span>;
+    }
+    return <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700"><AlertTriangle size={13} />Revisar</span>;
 };
 
 const EventRow = ({ event }: { event: SystemHealthEvent }) => {
@@ -273,6 +285,12 @@ const TenantHealthCard = ({ tenant, active, onSelect }: { tenant: TenantHealth; 
                 <StatusPill status={tenant.status} />
                 <span className="text-xs font-black text-slate-500">{tenant.total} eventos</span>
             </div>
+            <div className="mt-3 flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-xs font-black text-slate-500">
+                <span>Checks</span>
+                <span className={tenant.checkSummary.critical ? 'text-red-700' : tenant.checkSummary.warning ? 'text-amber-700' : 'text-emerald-700'}>
+                    {tenant.checkSummary.critical} crit. / {tenant.checkSummary.warning} rev.
+                </span>
+            </div>
             <div className="mt-4 grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-xl bg-red-50 px-2 py-2 text-red-700">
                     <p className="text-base font-black">{tenant.critical}</p>
@@ -329,6 +347,39 @@ const TenantDetailPanel = ({ tenant }: { tenant: TenantHealth | null }) => {
             </div>
 
             <div className="border-t border-slate-100 p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h4 className="text-sm font-black text-slate-900">Checks automaticos</h4>
+                        <p className="text-xs font-semibold text-slate-500">Validaciones rapidas de operacion por tenant.</p>
+                    </div>
+                    <div className="flex gap-2 text-[11px] font-black">
+                        <span className="rounded-full bg-red-50 px-2.5 py-1 text-red-700">{tenant.checkSummary.critical} criticos</span>
+                        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tenant.checkSummary.warning} revisar</span>
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">{tenant.checkSummary.ok} ok</span>
+                    </div>
+                </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    {tenant.checks.map(check => (
+                        <div key={check.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="text-sm font-black text-slate-900">{check.title}</p>
+                                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{check.description}</p>
+                                </div>
+                                <CheckStatusBadge check={check} />
+                            </div>
+                            {check.details?.length > 0 && (
+                                <details className="mt-3 rounded-xl border border-slate-200 bg-white p-2 text-xs">
+                                    <summary className="cursor-pointer font-black text-slate-500">Ver detalle</summary>
+                                    <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] font-semibold text-slate-600">{JSON.stringify(check.details.slice(0, 5), null, 2)}</pre>
+                                </details>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className="border-t border-slate-100 p-5">
                 <h4 className="text-sm font-black text-slate-900">Rutas afectadas</h4>
                 {tenant.routes.length ? (
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -374,9 +425,9 @@ const MetricMini = ({ label, value, className }: { label: string; value: number;
     </div>
 );
 
-const getTenantStatus = (critical: number, error: number, warning: number, total: number): TenantStatus => {
-    if (critical > 0 || total >= 10) return 'critical';
-    if (error > 0 || warning > 0) return 'warning';
+const getTenantStatus = (critical: number, error: number, warning: number, total: number, checkCritical: number, checkWarning: number): TenantStatus => {
+    if (critical > 0 || checkCritical > 0 || total >= 10) return 'critical';
+    if (error > 0 || warning > 0 || checkWarning > 0) return 'warning';
     return 'healthy';
 };
 
@@ -421,6 +472,7 @@ const SystemHealth: React.FC = () => {
             list.push(event);
             byTenant.set(event.tenant_schema, list);
         });
+        const checksByTenant = new Map((data?.tenant_checks ?? []).map(item => [item.tenant_schema, item]));
 
         return options.map(option => {
             const tenantEvents = (byTenant.get(option.schema_name) ?? []).sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
@@ -432,9 +484,11 @@ const SystemHealth: React.FC = () => {
             const client = tenantEvents.filter(event => event.kind === 'CLIENT_ERROR').length;
             const routes = Array.from(new Set(tenantEvents.map(event => event.route || event.url).filter(Boolean))) as string[];
             const total = tenantEvents.length;
+            const tenantChecks = checksByTenant.get(option.schema_name);
+            const checkSummary = tenantChecks?.summary ?? { critical: 0, warning: 0, ok: 0 };
             return {
                 option,
-                status: getTenantStatus(critical, errorCount, warning, total),
+                status: getTenantStatus(critical, errorCount, warning, total, checkSummary.critical, checkSummary.warning),
                 total,
                 critical,
                 error: errorCount,
@@ -445,6 +499,8 @@ const SystemHealth: React.FC = () => {
                 lastSeen: tenantEvents[0]?.timestamp ?? null,
                 routes,
                 events: tenantEvents,
+                checks: tenantChecks?.checks ?? [],
+                checkSummary,
             };
         }).sort((a, b) => {
             const statusRank: Record<TenantStatus, number> = { critical: 0, warning: 1, healthy: 2 };
@@ -522,7 +578,7 @@ const SystemHealth: React.FC = () => {
                 <MetricCard label="Criticos" value={data?.summary.critical ?? 0} icon={<ServerCrash size={20} />} tone="red" helper="API 5xx o fallas severas" />
                 <MetricCard label="Errores UI" value={data?.summary.error ?? 0} icon={<Bug size={20} />} tone="violet" helper="Pantallas o componentes rotos" />
                 <MetricCard label="Alertas" value={data?.summary.warning ?? 0} icon={<WifiOff size={20} />} tone="amber" helper="Red, API 400 o eventos a revisar" />
-                <MetricCard label="Estables" value={statusCounts.healthy} icon={<CheckCircle2 size={20} />} tone="emerald" helper={`${data?.summary.affected_tenants ?? 0} tenants con eventos`} />
+                <MetricCard label="Checks criticos" value={data?.summary.check_critical ?? 0} icon={<XCircle size={20} />} tone={(data?.summary.check_critical ?? 0) > 0 ? 'red' : 'emerald'} helper={`${data?.summary.check_warning ?? 0} checks por revisar`} />
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">

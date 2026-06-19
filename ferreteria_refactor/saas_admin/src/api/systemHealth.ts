@@ -10,6 +10,9 @@ export interface SystemHealthSummary {
     warning: number;
     unique_groups: number;
     affected_tenants: number;
+    check_critical: number;
+    check_warning: number;
+    check_ok: number;
     hours: number;
     since: string;
     by_kind: Record<HealthKind, number>;
@@ -71,6 +74,28 @@ export interface SystemHealthAlert extends SystemHealthGroup {
     alert_level: 'critical' | 'warning';
 }
 
+export interface SystemHealthTenantCheck {
+    id: string;
+    title: string;
+    status: 'ok' | 'warn' | 'fail';
+    severity: 'info' | 'warning' | 'critical';
+    description: string;
+    metric?: number | null;
+    details: Record<string, unknown>[];
+}
+
+export interface SystemHealthTenantChecks {
+    tenant_id: number;
+    tenant_name: string;
+    tenant_schema: string;
+    checks: SystemHealthTenantCheck[];
+    summary: {
+        critical: number;
+        warning: number;
+        ok: number;
+    };
+}
+
 export interface SystemHealthResponse {
     summary: SystemHealthSummary;
     events: SystemHealthEvent[];
@@ -78,6 +103,7 @@ export interface SystemHealthResponse {
     alert_candidates: SystemHealthAlert[];
     top_tenants: SystemHealthTopTenant[];
     tenant_options: SystemHealthTenantOption[];
+    tenant_checks: SystemHealthTenantChecks[];
 }
 
 export interface SystemHealthParams {
