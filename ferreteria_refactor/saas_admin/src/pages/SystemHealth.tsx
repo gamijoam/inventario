@@ -283,6 +283,60 @@ const buildTenantDiagnosis = (tenant: TenantHealth): TenantDiagnosis[] => {
     });
 };
 
+const buildTenantReport = (tenant: TenantHealth, diagnosis: TenantDiagnosis[]) => {
+    const statusLabel = tenantStatusConfig[tenant.status].label;
+    const checkLines = tenant.checks.map(check => (
+        `- ${check.title}: ${check.status.toUpperCase()} | ${check.description}`
+    ));
+    const recommendationLines = diagnosis.map((item, index) => (
+        `${index + 1}. [${item.priority.toUpperCase()}] ${item.title}\n   Accion: ${item.action}\n   Impacto: ${item.impact}`
+    ));
+    const eventLines = tenant.events.slice(0, 5).map(event => (
+        `- ${fmtTime(event.timestamp)} | ${event.kind} | ${event.severity} | ${event.route || event.url || 'Sin ruta'} | ${event.message}`
+    ));
+
+    return [
+        `Informe de salud del tenant`,
+        `Tenant: ${tenant.option.name}`,
+        `Schema: ${tenant.option.schema_name}`,
+        `Estado: ${statusLabel}`,
+        `Generado: ${new Date().toLocaleString('es-VE')}`,
+        '',
+        `Resumen`,
+        `- Eventos totales: ${tenant.total}`,
+        `- Criticos: ${tenant.critical}`,
+        `- Errores UI: ${tenant.error}`,
+        `- Alertas: ${tenant.warning}`,
+        `- Checks criticos: ${tenant.checkSummary.critical}`,
+        `- Checks por revisar: ${tenant.checkSummary.warning}`,
+        `- Checks OK: ${tenant.checkSummary.ok}`,
+        '',
+        `Diagnostico recomendado`,
+        recommendationLines.length ? recommendationLines.join('\n') : '- Sin recomendaciones.',
+        '',
+        `Checks automaticos`,
+        checkLines.length ? checkLines.join('\n') : '- Sin checks disponibles.',
+        '',
+        `Ultimos eventos`,
+        eventLines.length ? eventLines.join('\n') : '- Sin eventos en la ventana seleccionada.',
+    ].join('\n');
+};
+
+const downloadTextFile = (filename: string, content: string) => {
+    const blob = new Blob(['\uFEFF' + content], { type: 'text/plain;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = Object.assign(document.createElement('a'), { href: url, download: filename });
+    anchor.click();
+    URL.revokeObjectURL(url);
+};
+
+const slugify = (value: string) => value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '') || 'tenant';
+
 const EventRow = ({ event }: { event: SystemHealthEvent }) => {
     const [open, setOpen] = useState(false);
     const target = event.route || event.url || 'Sin ruta';
@@ -441,6 +495,18 @@ const TenantDetailPanel = ({ tenant }: { tenant: TenantHealth | null }) => {
 
     const topEvents = tenant.events.slice(0, 6);
     const diagnosis = buildTenantDiagnosis(tenant);
+    const report = buildTenantReport(tenant, diagnosis);
+
+    const copyTenantReport = async () => {
+        await navigator.clipboard.writeText(report);
+        toast.success('Diagnostico copiado');
+    };
+
+    const exportTenantReport = () => {
+        const stamp = new Date().toISOString().slice(0, 10);
+        downloadTextFile(`diagnostico_${slugify(tenant.option.schema_name)}_${stamp}.txt`, report);
+        toast.success('Informe exportado');
+    };
 
     return (
         <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -451,7 +517,15 @@ const TenantDetailPanel = ({ tenant }: { tenant: TenantHealth | null }) => {
                         <h3 className="mt-1 text-xl font-black text-slate-900">{tenant.option.name}</h3>
                         <p className="font-mono text-xs font-semibold text-slate-400">{tenant.option.schema_name}</p>
                     </div>
-                    <StatusPill status={tenant.status} />
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button type="button" onClick={copyTenantReport} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-sm transition hover:border-indigo-200 hover:text-indigo-700">
+                            <Copy size={14} /> Copiar
+                        </button>
+                        <button type="button" onClick={exportTenantReport} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-slate-800">
+                            <Download size={14} /> Informe
+                        </button>
+                        <StatusPill status={tenant.status} />
+                    </div>
                 </div>
                 <p className="mt-3 text-sm font-semibold text-slate-500">{tenantStatusConfig[tenant.status].helper}. Ultimo evento: {fmtTime(tenant.lastSeen)}.</p>
             </div>
