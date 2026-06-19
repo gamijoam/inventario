@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, UploadFile, File, Form
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, or_
 from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel, EmailStr
@@ -145,20 +145,20 @@ def get_unread_count(
     if not effective_tenant_id:
         return {"count": 0}
 
-    query = db.query(func.count(SupportTicket.id)).filter(
-        and_(
-            SupportTicket.tenant_id == effective_tenant_id,
-            SupportTicket.user_email == current_user.email,
-            SupportTicket.status.notin_([TicketStatus.closed]),
-            SupportTicket.last_message_sender == "admin",
-            SupportTicket.last_message_at.isnot(None),
-        )
+    count = db.query(func.count(SupportMessage.id)).join(
+        SupportTicket, SupportTicket.id == SupportMessage.ticket_id
     ).filter(
-        (SupportTicket.user_last_read_at.is_(None)) |
-        (SupportTicket.user_last_read_at < SupportTicket.last_message_at)
-    )
+        SupportTicket.tenant_id == effective_tenant_id,
+        SupportTicket.status.notin_([TicketStatus.closed]),
+        SupportMessage.sender_type == SupportMessageSender.admin,
+        SupportMessage.is_internal == False,
+    ).filter(
+        or_(
+            SupportTicket.user_last_read_at.is_(None),
+            SupportMessage.created_at > SupportTicket.user_last_read_at,
+        )
+    ).scalar() or 0
 
-    count = query.scalar() or 0
     return {"count": count}
 
 
@@ -182,19 +182,35 @@ def get_unread_tickets(
         (SupportTicket.user_last_read_at < SupportTicket.last_message_at)
     ).order_by(SupportTicket.last_message_at.desc()).limit(20).all()
 
-    return [
-        {
+    result = []
+    for ticket in tickets:
+        unread_query = db.query(func.count(SupportMessage.id)).filter(
+            SupportMessage.ticket_id == ticket.id,
+            SupportMessage.sender_type == SupportMessageSender.admin,
+            SupportMessage.is_internal == False,
+        )
+        if ticket.user_last_read_at is not None:
+            unread_query = unread_query.filter(SupportMessage.created_at > ticket.user_last_read_at)
+        unread_count = unread_query.scalar() or 0
+        last_admin_message = db.query(SupportMessage).filter(
+            SupportMessage.ticket_id == ticket.id,
+            SupportMessage.sender_type == SupportMessageSender.admin,
+            SupportMessage.is_internal == False,
+        ).order_by(SupportMessage.created_at.desc(), SupportMessage.id.desc()).first()
+
+        result.append({
             "id": ticket.id,
             "subject": ticket.subject,
             "status": ticket.status.value if hasattr(ticket.status, "value") else ticket.status,
             "priority": ticket.priority.value if hasattr(ticket.priority, "value") else ticket.priority,
             "last_message_at": ticket.last_message_at.isoformat() if ticket.last_message_at else None,
             "last_message_sender": ticket.last_message_sender,
-            "admin_response": ticket.admin_response,
+            "admin_response": (last_admin_message.message if last_admin_message else ticket.admin_response),
+            "unread_count": int(unread_count),
             "unread_for_user": True,
-        }
-        for ticket in tickets
-    ]
+        })
+
+    return result
 
 
 @router.post("/{ticket_id}/read")

@@ -379,6 +379,7 @@ export default function Header() {
                                                                 'bg-indigo-100 text-indigo-600'
                                                     )}>
                                                         {n.source === 'support' ? <LifeBuoy size={20} /> :
+                                                            n.source === 'org_chat' ? <Building2 size={20} /> :
                                                             n.level === 'critical' ? <AlertCircle size={20} /> :
                                                                 n.level === 'warning' ? <AlertTriangle size={20} /> :
                                                                     <Bell size={20} />}
@@ -395,6 +396,11 @@ export default function Header() {
                                                         <p className={cn("text-xs leading-relaxed line-clamp-2", !n.isRead ? "text-slate-600" : "text-slate-400")}>
                                                             {n.content}
                                                         </p>
+                                                        {!n.isRead && Number(n.unread_count || 0) > 1 && (
+                                                            <span className="mt-2 inline-flex rounded-md bg-indigo-100 px-2 py-0.5 text-[10px] font-black uppercase text-indigo-700">
+                                                                {Number(n.unread_count)} nuevos
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))}
