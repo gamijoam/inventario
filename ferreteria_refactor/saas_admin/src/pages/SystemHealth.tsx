@@ -16,6 +16,7 @@ import {
     ServerCrash,
     ShieldAlert,
     WifiOff,
+    Wrench,
     XCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -25,6 +26,15 @@ import type { HealthKind, HealthSeverity, SystemHealthEvent, SystemHealthGroup, 
 type KindFilter = HealthKind | 'all';
 type SeverityTone = 'red' | 'amber' | 'violet' | 'emerald';
 type TenantStatus = 'healthy' | 'warning' | 'critical';
+type DiagnosisPriority = 'critical' | 'warning' | 'info';
+
+interface TenantDiagnosis {
+    id: string;
+    priority: DiagnosisPriority;
+    title: string;
+    action: string;
+    impact: string;
+}
 
 interface TenantHealth {
     option: SystemHealthTenantOption;
@@ -165,6 +175,112 @@ const CheckStatusBadge = ({ check }: { check: SystemHealthTenantCheck }) => {
         return <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-black text-red-700"><XCircle size={13} />Critico</span>;
     }
     return <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700"><AlertTriangle size={13} />Revisar</span>;
+};
+
+const diagnosisTone: Record<DiagnosisPriority, string> = {
+    critical: 'border-red-200 bg-red-50 text-red-800',
+    warning: 'border-amber-200 bg-amber-50 text-amber-800',
+    info: 'border-blue-200 bg-blue-50 text-blue-800',
+};
+
+const buildTenantDiagnosis = (tenant: TenantHealth): TenantDiagnosis[] => {
+    const recommendations: TenantDiagnosis[] = [];
+    const failingChecks = tenant.checks.filter(check => check.status !== 'ok');
+
+    failingChecks.forEach(check => {
+        if (check.id === 'exchange_rate_default') {
+            recommendations.push({
+                id: check.id,
+                priority: check.severity === 'critical' ? 'critical' : 'warning',
+                title: 'Revisar tasa activa',
+                action: 'Entrar a Configuracion > Monedas y activar una tasa default con valor mayor a cero.',
+                impact: 'Evita precios en bolivares vacios o conversiones incorrectas en POS y catalogo.',
+            });
+            return;
+        }
+        if (check.id === 'cash_register_bridge') {
+            recommendations.push({
+                id: check.id,
+                priority: 'warning',
+                title: 'Completar ID de caja',
+                action: 'Asignar hardware_client_id a cada caja activa desde Gestion de Cajas.',
+                impact: 'Reduce errores de impresion y enruta tickets al equipo correcto.',
+            });
+            return;
+        }
+        if (check.id === 'serialized_stock_sync') {
+            recommendations.push({
+                id: check.id,
+                priority: 'warning',
+                title: 'Sincronizar stock serializado',
+                action: 'Comparar el detalle del check y cuadrar stock del producto contra IMEIs AVAILABLE.',
+                impact: 'Evita que el POS diga sin disponibilidad cuando hay IMEIs, o que venda equipos inexistentes.',
+            });
+            return;
+        }
+        if (check.id === 'available_imei_duplicates') {
+            recommendations.push({
+                id: check.id,
+                priority: 'critical',
+                title: 'Resolver IMEIs duplicados',
+                action: 'Revisar los seriales duplicados y dejar un unico registro disponible por IMEI.',
+                impact: 'Previene ventas dobles del mismo equipo y garantias con serial repetido.',
+            });
+            return;
+        }
+        if (check.id === 'negative_stock') {
+            recommendations.push({
+                id: check.id,
+                priority: 'critical',
+                title: 'Corregir stock negativo',
+                action: 'Auditar movimientos recientes del producto y ajustar inventario desde Kardex o correccion controlada.',
+                impact: 'Evita descuadres contables y errores de disponibilidad.',
+            });
+            return;
+        }
+        recommendations.push({
+            id: check.id,
+            priority: check.severity === 'critical' ? 'critical' : 'warning',
+            title: check.title,
+            action: check.description,
+            impact: 'Requiere revision operativa antes de cerrar el diagnostico.',
+        });
+    });
+
+    if (tenant.critical > 0) {
+        recommendations.push({
+            id: 'critical_events',
+            priority: 'critical',
+            title: 'Atender errores criticos recientes',
+            action: 'Abrir eventos recientes, copiar la firma y revisar la ruta/status que se repite.',
+            impact: 'Puede estar bloqueando ventas, compras o pantallas clave del tenant.',
+        });
+    }
+
+    if (tenant.error > 0 && tenant.critical === 0) {
+        recommendations.push({
+            id: 'ui_events',
+            priority: 'warning',
+            title: 'Revisar errores visuales',
+            action: 'Filtrar por Pantalla y reproducir las rutas reportadas por el tenant.',
+            impact: 'Mejora estabilidad percibida y reduce tickets de soporte.',
+        });
+    }
+
+    if (recommendations.length === 0) {
+        recommendations.push({
+            id: 'healthy',
+            priority: 'info',
+            title: 'Sin acciones urgentes',
+            action: 'Mantener monitoreo y revisar de nuevo si aparecen eventos o checks con alerta.',
+            impact: 'El tenant luce estable en la ventana seleccionada.',
+        });
+    }
+
+    return recommendations.sort((a, b) => {
+        const rank: Record<DiagnosisPriority, number> = { critical: 0, warning: 1, info: 2 };
+        return rank[a.priority] - rank[b.priority];
+    });
 };
 
 const EventRow = ({ event }: { event: SystemHealthEvent }) => {
@@ -324,6 +440,7 @@ const TenantDetailPanel = ({ tenant }: { tenant: TenantHealth | null }) => {
     }
 
     const topEvents = tenant.events.slice(0, 6);
+    const diagnosis = buildTenantDiagnosis(tenant);
 
     return (
         <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -344,6 +461,28 @@ const TenantDetailPanel = ({ tenant }: { tenant: TenantHealth | null }) => {
                 <MetricMini label="API" value={tenant.api} className="bg-blue-50 text-blue-700" />
                 <MetricMini label="Pantalla" value={tenant.client} className="bg-violet-50 text-violet-700" />
                 <MetricMini label="Red" value={tenant.network} className="bg-amber-50 text-amber-700" />
+            </div>
+
+            <div className="border-t border-slate-100 p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h4 className="inline-flex items-center gap-2 text-sm font-black text-slate-900"><Wrench size={16} /> Diagnostico recomendado</h4>
+                        <p className="text-xs font-semibold text-slate-500">Acciones sugeridas segun checks y eventos capturados.</p>
+                    </div>
+                    <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">{diagnosis.length} acciones</span>
+                </div>
+                <div className="mt-3 space-y-3">
+                    {diagnosis.slice(0, 5).map(item => (
+                        <div key={item.id} className={`rounded-2xl border p-4 ${diagnosisTone[item.priority]}`}>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-sm font-black">{item.title}</p>
+                                <span className="rounded-full bg-white/70 px-2.5 py-1 text-[11px] font-black uppercase">{item.priority === 'critical' ? 'Prioridad alta' : item.priority === 'warning' ? 'Revisar' : 'Informativo'}</span>
+                            </div>
+                            <p className="mt-2 text-xs font-bold leading-5">{item.action}</p>
+                            <p className="mt-2 text-[11px] font-semibold opacity-75">Impacto: {item.impact}</p>
+                        </div>
+                    ))}
+                </div>
             </div>
 
             <div className="border-t border-slate-100 p-5">
