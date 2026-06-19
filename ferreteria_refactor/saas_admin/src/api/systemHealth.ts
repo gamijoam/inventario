@@ -66,10 +66,16 @@ export interface SystemHealthTopTenant {
     count: number;
 }
 
+export interface SystemHealthAlert extends SystemHealthGroup {
+    threshold: number;
+    alert_level: 'critical' | 'warning';
+}
+
 export interface SystemHealthResponse {
     summary: SystemHealthSummary;
     events: SystemHealthEvent[];
     groups: SystemHealthGroup[];
+    alert_candidates: SystemHealthAlert[];
     top_tenants: SystemHealthTopTenant[];
     tenant_options: SystemHealthTenantOption[];
 }
@@ -80,6 +86,7 @@ export interface SystemHealthParams {
     kind?: HealthKind | 'all';
     q?: string;
     limit?: number;
+    alert_threshold?: number;
 }
 
 export const getSystemHealth = async (params: SystemHealthParams = {}): Promise<SystemHealthResponse> => {

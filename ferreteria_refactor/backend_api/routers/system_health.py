@@ -59,12 +59,14 @@ def get_system_health(
     kind: Optional[str] = None,
     q: Optional[str] = None,
     limit: int = 200,
+    alert_threshold: int = 3,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_superuser),
 ):
     """Read frontend/API error reports from tenant audit logs for the SaaS support panel."""
     hours = max(1, min(hours, 24 * 30))
     limit = max(20, min(limit, 500))
+    alert_threshold = max(2, min(alert_threshold, 50))
     normalized_kind = kind.upper() if kind else None
     if normalized_kind and normalized_kind not in SYSTEM_HEALTH_ALLOWED_KINDS:
         raise HTTPException(400, "Tipo de evento invalido")
@@ -213,6 +215,15 @@ def get_system_health(
             "tenants": [{"schema_name": schema, "name": name} for schema, name in group["tenants"].items()],
         })
     grouped.sort(key=lambda item: (item["count"], item.get("last_seen") or ""), reverse=True)
+    alert_candidates = [
+        {
+            **group,
+            "threshold": alert_threshold,
+            "alert_level": "critical" if group.get("severity") == "critical" else "warning",
+        }
+        for group in grouped
+        if group.get("count", 0) >= alert_threshold and group.get("severity") in {"critical", "error"}
+    ][:20]
 
     top_tenants = sorted([
         {
@@ -238,6 +249,7 @@ def get_system_health(
         },
         "events": events,
         "groups": grouped[:50],
+        "alert_candidates": alert_candidates,
         "top_tenants": top_tenants,
         "tenant_options": tenant_options,
     }

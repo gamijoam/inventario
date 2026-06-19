@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getPendingCount } from '../api/support';
+import { getSystemHealth } from '../api/systemHealth';
+import type { SystemHealthAlert } from '../api/systemHealth';
 import { buildAdminWsUrl } from '../utils/ws';
 import { initSupportSound, playSupportSound } from '../utils/supportSound';
 import toast from 'react-hot-toast';
@@ -37,6 +39,8 @@ interface NavItem {
     badge?: number;
     group?: string;
 }
+
+const SYSTEM_ALERT_THRESHOLD = 3;
 
 interface SupportNotificationItem {
     id: string;
@@ -155,8 +159,10 @@ const DashboardLayout: React.FC = () => {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [pendingTickets, setPendingTickets] = useState(0);
     const [supportNotifications, setSupportNotifications] = useState<SupportNotificationItem[]>([]);
+    const [systemAlerts, setSystemAlerts] = useState<SystemHealthAlert[]>([]);
     const [supportMenuOpen, setSupportMenuOpen] = useState(false);
 
+    const seenSystemAlertsRef = useRef<Set<string>>(new Set());
     const overlayRef = useRef<HTMLDivElement>(null);
 
     // Close mobile sidebar on route change
@@ -167,6 +173,12 @@ const DashboardLayout: React.FC = () => {
 
     useEffect(() => {
         initSupportSound();
+        try {
+            const stored = JSON.parse(localStorage.getItem('system_health_seen_alerts') || '[]');
+            if (Array.isArray(stored)) seenSystemAlertsRef.current = new Set(stored);
+        } catch {
+            seenSystemAlertsRef.current = new Set();
+        }
     }, []);
 
     // Pending tickets polling
@@ -184,6 +196,46 @@ const DashboardLayout: React.FC = () => {
         const interval = setInterval(fetchPendingCount, 60000);
         return () => clearInterval(interval);
     }, [fetchPendingCount]);
+
+    const fetchSystemAlerts = useCallback(async () => {
+        try {
+            const data = await getSystemHealth({ hours: 1, limit: 100, alert_threshold: SYSTEM_ALERT_THRESHOLD });
+            const alerts = (data.alert_candidates || []).slice(0, 10);
+            setSystemAlerts(alerts);
+
+            if (location.pathname.includes('/health')) return;
+
+            const unseen = alerts.filter(alert => {
+                const key = `${alert.signature}:${alert.count}:${alert.last_seen || ''}`;
+                return !seenSystemAlertsRef.current.has(key);
+            });
+
+            if (unseen.length > 0) {
+                unseen.forEach(alert => {
+                    seenSystemAlertsRef.current.add(`${alert.signature}:${alert.count}:${alert.last_seen || ''}`);
+                });
+                localStorage.setItem(
+                    'system_health_seen_alerts',
+                    JSON.stringify(Array.from(seenSystemAlertsRef.current).slice(-80))
+                );
+
+                const primary = unseen[0];
+                playSupportSound();
+                toast.error(
+                    `Alerta del sistema: ${primary.count} errores repetidos en ${primary.tenant_count} tenant${primary.tenant_count === 1 ? '' : 's'}`,
+                    { duration: 6500 }
+                );
+            }
+        } catch {
+            // Health polling must never interrupt support operations.
+        }
+    }, [location.pathname]);
+
+    useEffect(() => {
+        fetchSystemAlerts();
+        const interval = setInterval(fetchSystemAlerts, 60000);
+        return () => clearInterval(interval);
+    }, [fetchSystemAlerts]);
 
     useEffect(() => {
         if (!location.pathname.includes('/support')) {
@@ -251,6 +303,13 @@ const DashboardLayout: React.FC = () => {
     }, [fetchPendingCount, location.pathname]);
 
     const notificationUnread = supportNotifications.filter(item => item.unread).length;
+    const systemAlertCount = systemAlerts.length;
+    const totalNotificationCount = notificationUnread + pendingTickets + systemAlertCount;
+
+    const openSystemHealth = () => {
+        navigate('/dashboard/health');
+        setSupportMenuOpen(false);
+    };
 
     const openSupportNotification = (item?: SupportNotificationItem) => {
         if (item?.ticketId) {
@@ -323,7 +382,7 @@ const DashboardLayout: React.FC = () => {
                         <ul className="space-y-0.5">
                             {group.items.map((item) => {
                                 const badge =
-                                    item.href === '/dashboard/support' ? pendingTickets : 0;
+                                    item.href === '/dashboard/support' ? pendingTickets : item.href === '/dashboard/health' ? systemAlertCount : 0;
                                 const active = isActive(item.href);
                                 const Icon = item.icon;
 
@@ -534,7 +593,7 @@ const DashboardLayout: React.FC = () => {
                                 <ul className="space-y-0.5">
                                     {group.items.map((item) => {
                                         const badge =
-                                            item.href === '/dashboard/support' ? pendingTickets : 0;
+                                            item.href === '/dashboard/support' ? pendingTickets : item.href === '/dashboard/health' ? systemAlertCount : 0;
                                         const active = isActive(item.href);
                                         const Icon = item.icon;
                                         return (
@@ -665,15 +724,15 @@ const DashboardLayout: React.FC = () => {
                                 type="button"
                                 onClick={() => setSupportMenuOpen(prev => !prev)}
                                 className={`relative flex h-9 w-9 items-center justify-center rounded-lg border transition-colors
-                                            ${notificationUnread > 0 || pendingTickets > 0
+                                            ${totalNotificationCount > 0
                                             ? 'border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/15'
                                             : 'border-slate-800 bg-slate-900/70 text-slate-500 hover:text-slate-200 hover:bg-slate-800'}`}
                                 aria-label="Notificaciones de soporte"
                             >
                                 <Bell className="h-4 w-4" strokeWidth={2} />
-                                {(notificationUnread > 0 || pendingTickets > 0) && (
+                                {totalNotificationCount > 0 && (
                                     <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white ring-2 ring-slate-950">
-                                        {(notificationUnread || pendingTickets) > 99 ? '99+' : (notificationUnread || pendingTickets)}
+                                        {totalNotificationCount > 99 ? '99+' : totalNotificationCount}
                                     </span>
                                 )}
                             </button>
@@ -684,8 +743,8 @@ const DashboardLayout: React.FC = () => {
                                     <div className="absolute right-0 z-40 mt-2 w-80 overflow-hidden rounded-xl border border-slate-800 bg-slate-950 shadow-2xl shadow-slate-950/50">
                                         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
                                             <div>
-                                                <p className="text-sm font-black text-slate-100">Soporte en vivo</p>
-                                                <p className="text-[11px] font-semibold text-slate-500">{pendingTickets} pendientes de atender</p>
+                                                <p className="text-sm font-black text-slate-100">Centro de alertas</p>
+                                                <p className="text-[11px] font-semibold text-slate-500">{pendingTickets} soporte · {systemAlertCount} sistema</p>
                                             </div>
                                             <button
                                                 type="button"
@@ -697,7 +756,31 @@ const DashboardLayout: React.FC = () => {
                                         </div>
 
                                         <div className="max-h-80 overflow-y-auto">
-                                            {supportNotifications.length === 0 ? (
+                                            {systemAlerts.length > 0 && (
+                                                <div className="border-b border-slate-800 p-3">
+                                                    <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-widest text-rose-300">Salud del sistema</p>
+                                                    <div className="space-y-2">
+                                                        {systemAlerts.slice(0, 4).map(alert => (
+                                                            <button
+                                                                key={alert.signature}
+                                                                type="button"
+                                                                onClick={openSystemHealth}
+                                                                className="flex w-full gap-3 rounded-lg border border-rose-500/15 bg-rose-500/5 px-3 py-2 text-left transition hover:bg-rose-500/10"
+                                                            >
+                                                                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-500/10 text-rose-300">
+                                                                    <ShieldAlert className="h-4 w-4" />
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="truncate text-xs font-black text-slate-100">{alert.count} errores repetidos</p>
+                                                                    <p className="mt-0.5 line-clamp-2 text-[11px] font-medium leading-4 text-slate-500">{alert.message}</p>
+                                                                </div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {supportNotifications.length === 0 && systemAlerts.length === 0 ? (
                                                 <div className="px-5 py-10 text-center">
                                                     <LifeBuoy className="mx-auto mb-2 h-8 w-8 text-slate-700" strokeWidth={1.5} />
                                                     <p className="text-sm font-bold text-slate-400">Sin actividad nueva</p>
