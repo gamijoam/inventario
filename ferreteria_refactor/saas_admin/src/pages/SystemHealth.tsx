@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Activity,
+    AlertTriangle,
     Bug,
     Building2,
+    CheckCircle2,
+    ChevronRight,
     Clock,
     Copy,
     Download,
@@ -13,13 +16,30 @@ import {
     ServerCrash,
     ShieldAlert,
     WifiOff,
+    XCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getSystemHealth } from '../api/systemHealth';
-import type { HealthKind, HealthSeverity, SystemHealthEvent, SystemHealthGroup, SystemHealthResponse } from '../api/systemHealth';
+import type { HealthKind, HealthSeverity, SystemHealthEvent, SystemHealthGroup, SystemHealthResponse, SystemHealthTenantOption } from '../api/systemHealth';
 
 type KindFilter = HealthKind | 'all';
-type SeverityTone = 'red' | 'amber' | 'violet';
+type SeverityTone = 'red' | 'amber' | 'violet' | 'emerald';
+type TenantStatus = 'healthy' | 'warning' | 'critical';
+
+interface TenantHealth {
+    option: SystemHealthTenantOption;
+    status: TenantStatus;
+    total: number;
+    critical: number;
+    error: number;
+    warning: number;
+    api: number;
+    network: number;
+    client: number;
+    lastSeen: string | null;
+    routes: string[];
+    events: SystemHealthEvent[];
+}
 
 const kindLabels: Record<HealthKind, string> = {
     CLIENT_ERROR: 'Pantalla',
@@ -31,6 +51,30 @@ const severityConfig: Record<HealthSeverity, { label: string; tone: SeverityTone
     critical: { label: 'Critico', tone: 'red', className: 'border-red-200 bg-red-50 text-red-700' },
     error: { label: 'Error', tone: 'violet', className: 'border-violet-200 bg-violet-50 text-violet-700' },
     warning: { label: 'Alerta', tone: 'amber', className: 'border-amber-200 bg-amber-50 text-amber-700' },
+};
+
+const tenantStatusConfig: Record<TenantStatus, { label: string; helper: string; className: string; dot: string; icon: React.ReactNode }> = {
+    healthy: {
+        label: 'Estable',
+        helper: 'Sin eventos en la ventana',
+        className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        dot: 'bg-emerald-500',
+        icon: <CheckCircle2 size={16} />,
+    },
+    warning: {
+        label: 'Revisar',
+        helper: 'Errores o red recientes',
+        className: 'border-amber-200 bg-amber-50 text-amber-700',
+        dot: 'bg-amber-500',
+        icon: <AlertTriangle size={16} />,
+    },
+    critical: {
+        label: 'Critico',
+        helper: 'API 5xx o repetidos',
+        className: 'border-red-200 bg-red-50 text-red-700',
+        dot: 'bg-red-500',
+        icon: <XCircle size={16} />,
+    },
 };
 
 const hourOptions = [
@@ -65,6 +109,7 @@ const metricTone: Record<SeverityTone, string> = {
     red: 'border-red-200 bg-red-50 text-red-700',
     amber: 'border-amber-200 bg-amber-50 text-amber-700',
     violet: 'border-violet-200 bg-violet-50 text-violet-700',
+    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700',
 };
 
 const MetricCard = ({ label, value, icon, tone, helper }: {
@@ -100,6 +145,15 @@ const SeverityBadge = ({ severity }: { severity: HealthSeverity }) => (
         {severityConfig[severity].label}
     </span>
 );
+
+const StatusPill = ({ status }: { status: TenantStatus }) => {
+    const config = tenantStatusConfig[status];
+    return (
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black ${config.className}`}>
+            {config.icon}{config.label}
+        </span>
+    );
+};
 
 const EventRow = ({ event }: { event: SystemHealthEvent }) => {
     const [open, setOpen] = useState(false);
@@ -146,11 +200,11 @@ const EventRow = ({ event }: { event: SystemHealthEvent }) => {
                         </div>
                         <div>
                             <p className="font-black uppercase tracking-widest text-slate-400">Metodo / origen</p>
-                            <p className="mt-1 font-semibold text-slate-700">{event.method || '-'} · {event.source}</p>
+                            <p className="mt-1 font-semibold text-slate-700">{event.method || '-'} - {event.source}</p>
                         </div>
                         <div>
                             <p className="font-black uppercase tracking-widest text-slate-400">Usuario / IP</p>
-                            <p className="mt-1 font-semibold text-slate-700">Usuario {event.user_id || '-'} · {event.ip_address || '-'}</p>
+                            <p className="mt-1 font-semibold text-slate-700">Usuario {event.user_id || '-'} - {event.ip_address || '-'}</p>
                         </div>
                         <div>
                             <p className="font-black uppercase tracking-widest text-slate-400">Firma</p>
@@ -193,9 +247,138 @@ const GroupCard = ({ group }: { group: SystemHealthGroup }) => (
             ))}
             {group.tenants.length > 4 && <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">+{group.tenants.length - 4}</span>}
         </div>
-        <p className="mt-3 text-[11px] font-semibold text-slate-400">Ultimo: {fmtTime(group.last_seen)} · Firma {group.signature}</p>
+        <p className="mt-3 text-[11px] font-semibold text-slate-400">Ultimo: {fmtTime(group.last_seen)} - Firma {group.signature}</p>
     </div>
 );
+
+const TenantHealthCard = ({ tenant, active, onSelect }: { tenant: TenantHealth; active: boolean; onSelect: () => void }) => {
+    const config = tenantStatusConfig[tenant.status];
+    return (
+        <button
+            type="button"
+            onClick={onSelect}
+            className={`group rounded-2xl border bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md ${active ? 'border-indigo-300 ring-4 ring-indigo-100' : 'border-slate-200'}`}
+        >
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                        <span className={`h-2.5 w-2.5 rounded-full ${config.dot}`} />
+                        <p className="truncate text-sm font-black text-slate-900">{tenant.option.name}</p>
+                    </div>
+                    <p className="mt-1 truncate font-mono text-[11px] font-semibold text-slate-400">{tenant.option.schema_name}</p>
+                </div>
+                <ChevronRight size={17} className={`shrink-0 text-slate-300 transition group-hover:text-indigo-500 ${active ? 'text-indigo-500' : ''}`} />
+            </div>
+            <div className="mt-4 flex items-center justify-between gap-3">
+                <StatusPill status={tenant.status} />
+                <span className="text-xs font-black text-slate-500">{tenant.total} eventos</span>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-xl bg-red-50 px-2 py-2 text-red-700">
+                    <p className="text-base font-black">{tenant.critical}</p>
+                    <p className="text-[10px] font-black uppercase">Crit.</p>
+                </div>
+                <div className="rounded-xl bg-violet-50 px-2 py-2 text-violet-700">
+                    <p className="text-base font-black">{tenant.error}</p>
+                    <p className="text-[10px] font-black uppercase">UI</p>
+                </div>
+                <div className="rounded-xl bg-amber-50 px-2 py-2 text-amber-700">
+                    <p className="text-base font-black">{tenant.warning}</p>
+                    <p className="text-[10px] font-black uppercase">Red</p>
+                </div>
+            </div>
+            <p className="mt-3 text-xs font-bold text-slate-500">Ultimo evento: {timeAgo(tenant.lastSeen)}</p>
+        </button>
+    );
+};
+
+const TenantDetailPanel = ({ tenant }: { tenant: TenantHealth | null }) => {
+    if (!tenant) {
+        return (
+            <div className="flex min-h-[360px] items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-center">
+                <div>
+                    <Building2 className="mx-auto h-10 w-10 text-slate-300" />
+                    <p className="mt-3 text-base font-black text-slate-800">Selecciona un tenant</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">El panel mostrara rutas afectadas, eventos recientes y severidad.</p>
+                </div>
+            </div>
+        );
+    }
+
+    const topEvents = tenant.events.slice(0, 6);
+
+    return (
+        <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Detalle por tenant</p>
+                        <h3 className="mt-1 text-xl font-black text-slate-900">{tenant.option.name}</h3>
+                        <p className="font-mono text-xs font-semibold text-slate-400">{tenant.option.schema_name}</p>
+                    </div>
+                    <StatusPill status={tenant.status} />
+                </div>
+                <p className="mt-3 text-sm font-semibold text-slate-500">{tenantStatusConfig[tenant.status].helper}. Ultimo evento: {fmtTime(tenant.lastSeen)}.</p>
+            </div>
+
+            <div className="grid gap-3 p-5 sm:grid-cols-4">
+                <MetricMini label="Total" value={tenant.total} className="bg-slate-50 text-slate-700" />
+                <MetricMini label="API" value={tenant.api} className="bg-blue-50 text-blue-700" />
+                <MetricMini label="Pantalla" value={tenant.client} className="bg-violet-50 text-violet-700" />
+                <MetricMini label="Red" value={tenant.network} className="bg-amber-50 text-amber-700" />
+            </div>
+
+            <div className="border-t border-slate-100 p-5">
+                <h4 className="text-sm font-black text-slate-900">Rutas afectadas</h4>
+                {tenant.routes.length ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        {tenant.routes.slice(0, 8).map(route => (
+                            <span key={route} className="max-w-full truncate rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">{route}</span>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="mt-2 text-sm font-semibold text-slate-500">Sin rutas reportadas.</p>
+                )}
+            </div>
+
+            <div className="border-t border-slate-100 p-5">
+                <h4 className="text-sm font-black text-slate-900">Ultimos eventos</h4>
+                {topEvents.length ? (
+                    <div className="mt-3 space-y-3">
+                        {topEvents.map(event => (
+                            <div key={event.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <SeverityBadge severity={event.severity} />
+                                    <KindBadge kind={event.kind} />
+                                    <span className="text-xs font-black text-slate-400">{timeAgo(event.timestamp)}</span>
+                                </div>
+                                <p className="mt-2 line-clamp-2 text-sm font-bold text-slate-800">{event.message}</p>
+                                <p className="mt-1 truncate text-xs font-semibold text-slate-500">{event.route || event.url || 'Sin ruta'}</p>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700">
+                        No hay eventos registrados para este tenant en la ventana seleccionada.
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const MetricMini = ({ label, value, className }: { label: string; value: number; className: string }) => (
+    <div className={`rounded-2xl px-3 py-3 ${className}`}>
+        <p className="text-2xl font-black">{value}</p>
+        <p className="text-[10px] font-black uppercase tracking-widest opacity-70">{label}</p>
+    </div>
+);
+
+const getTenantStatus = (critical: number, error: number, warning: number, total: number): TenantStatus => {
+    if (critical > 0 || total >= 10) return 'critical';
+    if (error > 0 || warning > 0) return 'warning';
+    return 'healthy';
+};
 
 const SystemHealth: React.FC = () => {
     const [data, setData] = useState<SystemHealthResponse | null>(null);
@@ -205,6 +388,7 @@ const SystemHealth: React.FC = () => {
     const [tenant, setTenant] = useState('all');
     const [kind, setKind] = useState<KindFilter>('all');
     const [query, setQuery] = useState('');
+    const [selectedTenant, setSelectedTenant] = useState<string | null>(null);
 
     const loadHealth = useCallback(async () => {
         setLoading(true);
@@ -227,6 +411,65 @@ const SystemHealth: React.FC = () => {
 
     const filteredEvents = data?.events ?? [];
     const topGroups = useMemo(() => (data?.groups ?? []).slice(0, 6), [data]);
+
+    const tenantHealth = useMemo<TenantHealth[]>(() => {
+        const options = data?.tenant_options ?? [];
+        const events = data?.events ?? [];
+        const byTenant = new Map<string, SystemHealthEvent[]>();
+        events.forEach(event => {
+            const list = byTenant.get(event.tenant_schema) ?? [];
+            list.push(event);
+            byTenant.set(event.tenant_schema, list);
+        });
+
+        return options.map(option => {
+            const tenantEvents = (byTenant.get(option.schema_name) ?? []).sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
+            const critical = tenantEvents.filter(event => event.severity === 'critical').length;
+            const errorCount = tenantEvents.filter(event => event.severity === 'error').length;
+            const warning = tenantEvents.filter(event => event.severity === 'warning').length;
+            const api = tenantEvents.filter(event => event.kind === 'API_ERROR').length;
+            const network = tenantEvents.filter(event => event.kind === 'NETWORK_ERROR').length;
+            const client = tenantEvents.filter(event => event.kind === 'CLIENT_ERROR').length;
+            const routes = Array.from(new Set(tenantEvents.map(event => event.route || event.url).filter(Boolean))) as string[];
+            const total = tenantEvents.length;
+            return {
+                option,
+                status: getTenantStatus(critical, errorCount, warning, total),
+                total,
+                critical,
+                error: errorCount,
+                warning,
+                api,
+                network,
+                client,
+                lastSeen: tenantEvents[0]?.timestamp ?? null,
+                routes,
+                events: tenantEvents,
+            };
+        }).sort((a, b) => {
+            const statusRank: Record<TenantStatus, number> = { critical: 0, warning: 1, healthy: 2 };
+            if (statusRank[a.status] !== statusRank[b.status]) return statusRank[a.status] - statusRank[b.status];
+            if (b.total !== a.total) return b.total - a.total;
+            return a.option.name.localeCompare(b.option.name);
+        });
+    }, [data]);
+
+    useEffect(() => {
+        if (!tenantHealth.length) {
+            setSelectedTenant(null);
+            return;
+        }
+        if (!selectedTenant || !tenantHealth.some(item => item.option.schema_name === selectedTenant)) {
+            setSelectedTenant(tenantHealth[0].option.schema_name);
+        }
+    }, [tenantHealth, selectedTenant]);
+
+    const selectedTenantHealth = tenantHealth.find(item => item.option.schema_name === selectedTenant) ?? null;
+    const statusCounts = useMemo(() => ({
+        critical: tenantHealth.filter(item => item.status === 'critical').length,
+        warning: tenantHealth.filter(item => item.status === 'warning').length,
+        healthy: tenantHealth.filter(item => item.status === 'healthy').length,
+    }), [tenantHealth]);
 
     const exportCSV = () => {
         if (!data) return;
@@ -279,7 +522,7 @@ const SystemHealth: React.FC = () => {
                 <MetricCard label="Criticos" value={data?.summary.critical ?? 0} icon={<ServerCrash size={20} />} tone="red" helper="API 5xx o fallas severas" />
                 <MetricCard label="Errores UI" value={data?.summary.error ?? 0} icon={<Bug size={20} />} tone="violet" helper="Pantallas o componentes rotos" />
                 <MetricCard label="Alertas" value={data?.summary.warning ?? 0} icon={<WifiOff size={20} />} tone="amber" helper="Red, API 400 o eventos a revisar" />
-                <MetricCard label="Tenants afectados" value={data?.summary.affected_tenants ?? 0} icon={<Building2 size={20} />} tone="violet" helper={`${data?.summary.unique_groups ?? 0} firmas unicas`} />
+                <MetricCard label="Estables" value={statusCounts.healthy} icon={<CheckCircle2 size={20} />} tone="emerald" helper={`${data?.summary.affected_tenants ?? 0} tenants con eventos`} />
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -319,6 +562,39 @@ const SystemHealth: React.FC = () => {
                 </div>
             )}
 
+            <section className="grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]">
+                <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                        <div>
+                            <h2 className="text-lg font-black text-slate-900">Estado por tenant</h2>
+                            <p className="text-sm font-semibold text-slate-500">Semaforo operativo segun eventos de la ventana seleccionada.</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-xs font-black">
+                            <span className="rounded-full bg-red-50 px-2.5 py-1 text-red-700">{statusCounts.critical} criticos</span>
+                            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{statusCounts.warning} revisar</span>
+                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">{statusCounts.healthy} estables</span>
+                        </div>
+                    </div>
+                    {loading ? (
+                        <div className="flex min-h-72 items-center justify-center">
+                            <RefreshCw className="h-8 w-8 animate-spin text-indigo-500" />
+                        </div>
+                    ) : (
+                        <div className="mt-4 grid max-h-[620px] gap-3 overflow-auto pr-1 md:grid-cols-2 2xl:grid-cols-3">
+                            {tenantHealth.map(item => (
+                                <TenantHealthCard
+                                    key={item.option.schema_name}
+                                    tenant={item}
+                                    active={selectedTenant === item.option.schema_name}
+                                    onSelect={() => setSelectedTenant(item.option.schema_name)}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
+                <TenantDetailPanel tenant={selectedTenantHealth} />
+            </section>
+
             {topGroups.length > 0 && (
                 <section className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -337,7 +613,7 @@ const SystemHealth: React.FC = () => {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h2 className="text-lg font-black text-slate-900">Eventos recientes</h2>
-                        <p className="text-sm font-semibold text-slate-500">{filteredEvents.length} eventos · desde {fmtTime(data?.summary.since ?? null)}</p>
+                        <p className="text-sm font-semibold text-slate-500">{filteredEvents.length} eventos - desde {fmtTime(data?.summary.since ?? null)}</p>
                     </div>
                     <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-500">
                         <Clock size={13} /> Ventana {data?.summary.hours ?? hours}h
@@ -356,7 +632,7 @@ const SystemHealth: React.FC = () => {
                         <div className="text-center">
                             <Activity className="mx-auto h-10 w-10 text-emerald-500" />
                             <p className="mt-3 text-base font-black text-slate-800">Sin errores en esta ventana</p>
-                            <p className="mt-1 text-sm font-semibold text-slate-500">Buena señal. Cambia el rango o limpia filtros si necesitas revisar historico.</p>
+                            <p className="mt-1 text-sm font-semibold text-slate-500">Buena senal. Cambia el rango o limpia filtros si necesitas revisar historico.</p>
                         </div>
                     </div>
                 ) : (
