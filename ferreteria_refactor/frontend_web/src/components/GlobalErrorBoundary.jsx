@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, Home, RefreshCw, Bug } from 'lucide-react';
+import { reportClientError } from '../utils/errorReporter';
 
 class GlobalErrorBoundary extends React.Component {
     constructor(props) {
@@ -13,6 +14,12 @@ class GlobalErrorBoundary extends React.Component {
 
     componentDidCatch(error, errorInfo) {
         console.error('Global Error Caught:', error, errorInfo);
+        reportClientError({
+            kind: 'CLIENT_ERROR',
+            source: 'GlobalErrorBoundary',
+            error,
+            component_stack: errorInfo?.componentStack,
+        });
         this.setState({ errorInfo });
     }
 

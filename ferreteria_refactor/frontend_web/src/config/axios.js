@@ -2,6 +2,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { API_BASE_URL } from './constants';
 import { Capacitor } from '@capacitor/core';
+import { reportClientError } from '../utils/errorReporter';
 
 const isDev = import.meta.env.DEV;
 
@@ -93,6 +94,26 @@ apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
         const status = error.response ? error.response.status : null;
+        const requestUrl = error.config?.url || '';
+        const shouldReportApiError = !error.config?._skipErrorReport
+            && !requestUrl.includes('/audit/client-errors')
+            && !requestUrl.includes('/auth/')
+            && (status >= 500 || status === 400 || !status);
+
+        if (shouldReportApiError) {
+            reportClientError({
+                kind: status ? 'API_ERROR' : 'NETWORK_ERROR',
+                source: 'axios',
+                message: error.response?.data?.detail || error.message || 'Error de API',
+                status,
+                method: error.config?.method?.toUpperCase(),
+                url: requestUrl,
+                context: {
+                    baseURL: error.config?.baseURL,
+                    code: error.code,
+                },
+            });
+        }
 
         if (status === 401) {
             // Exclude ALL /auth/ API routes from automatic redirect
