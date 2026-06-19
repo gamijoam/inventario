@@ -10,6 +10,7 @@ import {
     HardDrive,
     Key,
     Activity,
+    ShieldAlert,
     Layers,
     ChevronLeft,
     ChevronRight,
@@ -111,6 +112,7 @@ const NAV_GROUPS: { label: string; items: Omit<NavItem, 'badge'>[] }[] = [
         label: 'Sistema',
         items: [
             { name: 'Actividad', href: '/dashboard/activity', icon: Activity, group: 'sistema' },
+            { name: 'Salud del Sistema', href: '/dashboard/health', icon: ShieldAlert, group: 'sistema' },
             { name: 'Respaldos', href: '/dashboard/backups', icon: HardDrive, group: 'sistema' },
         ],
     },
@@ -127,6 +129,7 @@ const ROUTE_LABELS: Record<string, string> = {
     '/dashboard/reminders': 'Recordatorios',
     '/dashboard/messages': 'Mensajes',
     '/dashboard/activity': 'Actividad',
+    '/dashboard/health': 'Salud del Sistema',
     '/dashboard/backups': 'Respaldos',
     '/dashboard/organizations': 'Organizaciones',
 };

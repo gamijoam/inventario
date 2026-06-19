@@ -15,6 +15,7 @@ import LicensesPage from './pages/LicensesPage';
 import ActivityDashboard from './pages/ActivityDashboard';
 import Organizations from './pages/Organizations';
 import OrganizationDetails from './pages/OrganizationDetails';
+import SystemHealth from './pages/SystemHealth';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }: { children: ReactElement }) => {
@@ -59,6 +60,7 @@ const App = () => {
             <Route path="backups" element={<BackupsPage />} />
             <Route path="licenses" element={<LicensesPage />} />
             <Route path="activity" element={<ActivityDashboard />} />
+            <Route path="health" element={<SystemHealth />} />
             <Route path="organizations" element={<Organizations />} />
             <Route path="organizations/:id" element={<OrganizationDetails />} />
           </Route>
