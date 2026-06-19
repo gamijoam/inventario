@@ -20,6 +20,7 @@ import {
     XCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { createTask } from '../api/adminTasks';
 import { getSystemHealth } from '../api/systemHealth';
 import type { HealthKind, HealthSeverity, SystemHealthEvent, SystemHealthGroup, SystemHealthResponse, SystemHealthTenantCheck, SystemHealthTenantOption } from '../api/systemHealth';
 
@@ -508,6 +509,19 @@ const TenantDetailPanel = ({ tenant }: { tenant: TenantHealth | null }) => {
         toast.success('Informe exportado');
     };
 
+    const createSupportTask = async () => {
+        const hasCritical = tenant.status === 'critical' || tenant.checkSummary.critical > 0 || tenant.critical > 0;
+        const priority = hasCritical ? 'high' : tenant.status === 'warning' ? 'medium' : 'low';
+        const title = `[Salud] ${tenant.option.name} - ${tenantStatusConfig[tenant.status].label}`;
+        await createTask({
+            title,
+            priority,
+            description: report,
+            is_completed: false,
+        });
+        toast.success('Tarea de soporte creada');
+    };
+
     return (
         <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 p-5">
@@ -523,6 +537,9 @@ const TenantDetailPanel = ({ tenant }: { tenant: TenantHealth | null }) => {
                         </button>
                         <button type="button" onClick={exportTenantReport} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-slate-800">
                             <Download size={14} /> Informe
+                        </button>
+                        <button type="button" onClick={createSupportTask} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-indigo-500">
+                            <Wrench size={14} /> Crear tarea
                         </button>
                         <StatusPill status={tenant.status} />
                     </div>
