@@ -9,12 +9,16 @@ import {
     ChevronRight,
     Database,
     Download,
+    Eye,
     FileSpreadsheet,
+    FileText,
     Filter,
     Layers,
     Package,
     Search,
+    Save,
     Tag,
+    Trash2,
     X,
 } from 'lucide-react';
 import apiClient from '../../config/axios';
@@ -135,6 +139,13 @@ const MOVEMENT_TYPES = [
     { value: 'EXTERNAL_TRANSFER_OUT', label: 'Externos salida' },
 ];
 
+const FORMAT_OPTIONS = [
+    { value: 'xlsx', label: 'Excel', icon: FileSpreadsheet, hint: 'Con resumen, filtros y columnas ajustadas.' },
+    { value: 'csv', label: 'CSV', icon: FileText, hint: 'Ligero para importar en otros sistemas.' },
+];
+
+const STORAGE_KEY = 'inventory_export_templates_v2';
+
 const toneClass = {
     indigo: 'border-indigo-200 bg-indigo-50 text-indigo-700',
     emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700',
@@ -167,6 +178,11 @@ const InventoryExportCenter = ({ isOpen, onClose }) => {
     const [warehouses, setWarehouses] = useState([]);
     const [loadingMeta, setLoadingMeta] = useState(false);
     const [downloading, setDownloading] = useState(false);
+    const [previewLoading, setPreviewLoading] = useState(false);
+    const [preview, setPreview] = useState(null);
+    const [format, setFormat] = useState('xlsx');
+    const [templates, setTemplates] = useState([]);
+    const [templateName, setTemplateName] = useState('');
     const [filters, setFilters] = useState({
         search: '',
         category_id: '',
@@ -195,13 +211,25 @@ const InventoryExportCenter = ({ isOpen, onClose }) => {
             if (cat.status === 'fulfilled') setCategories(cat.value.data || []);
             if (wh.status === 'fulfilled') setWarehouses(wh.value.data || []);
         }).finally(() => setLoadingMeta(false));
+
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            setTemplates(Array.isArray(saved) ? saved : []);
+        } catch {
+            setTemplates([]);
+        }
     }, [isOpen]);
 
     useEffect(() => {
         const nextType = EXPORT_TYPES.find(item => item.key === selectedType) || EXPORT_TYPES[0];
         setColumns(nextType.defaults);
         setFilters(prev => ({ ...prev, include_price_lists: Boolean(nextType.priceLists) }));
+        setPreview(null);
     }, [selectedType]);
+
+    useEffect(() => {
+        setPreview(null);
+    }, [columns, filters, format, selectedType]);
 
     if (!isOpen) return null;
 
@@ -216,6 +244,80 @@ const InventoryExportCenter = ({ isOpen, onClose }) => {
         setFilters(prev => ({ ...prev, [key]: value }));
     };
 
+    const buildPayload = () => ({
+        export_type: selectedType,
+        columns,
+        format,
+        search: filters.search || undefined,
+        category_id: filters.category_id ? Number(filters.category_id) : undefined,
+        warehouse_id: filters.warehouse_id ? Number(filters.warehouse_id) : undefined,
+        stock_filter: filters.stock_filter || undefined,
+        movement_type: filters.movement_type || undefined,
+        start_date: activeType.dateRange ? filters.start_date : undefined,
+        end_date: activeType.dateRange ? filters.end_date : undefined,
+        include_inactive: filters.include_inactive,
+        include_price_lists: filters.include_price_lists,
+        limit: Number(filters.limit || 5000),
+    });
+
+    const handlePreview = async () => {
+        if (!columns.length) {
+            toast.error('Selecciona al menos una columna para previsualizar.');
+            return;
+        }
+        setPreviewLoading(true);
+        try {
+            const response = await apiClient.post('/inventory/export/preview', buildPayload());
+            setPreview(response.data || null);
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, 'No se pudo preparar la vista previa.'));
+        } finally {
+            setPreviewLoading(false);
+        }
+    };
+
+    const persistTemplates = (nextTemplates) => {
+        setTemplates(nextTemplates);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextTemplates));
+    };
+
+    const saveTemplate = () => {
+        const name = templateName.trim();
+        if (!name) {
+            toast.error('Coloca un nombre para la plantilla.');
+            return;
+        }
+        const template = {
+            id: `${Date.now()}`,
+            name,
+            export_type: selectedType,
+            columns,
+            filters,
+            format,
+            created_at: new Date().toISOString(),
+        };
+        persistTemplates([template, ...templates.filter(item => item.name.toLowerCase() !== name.toLowerCase())].slice(0, 8));
+        setTemplateName('');
+        toast.success('Plantilla guardada.');
+    };
+
+    const loadTemplate = (template) => {
+        const nextColumns = Array.isArray(template.columns) && template.columns.length ? template.columns : columns;
+        const nextFilters = template.filters || {};
+        setSelectedType(template.export_type || 'catalog_basic');
+        setFormat(template.format || 'xlsx');
+        setPreview(null);
+        setTimeout(() => {
+            setFilters(prev => ({ ...prev, ...nextFilters }));
+            setColumns(nextColumns);
+        }, 0);
+        toast.success('Plantilla aplicada.');
+    };
+
+    const deleteTemplate = (templateId) => {
+        persistTemplates(templates.filter(item => item.id !== templateId));
+    };
+
     const handleDownload = async () => {
         if (!columns.length) {
             toast.error('Selecciona al menos una columna para descargar.');
@@ -223,24 +325,11 @@ const InventoryExportCenter = ({ isOpen, onClose }) => {
         }
         setDownloading(true);
         try {
-            const payload = {
-                export_type: selectedType,
-                columns,
-                search: filters.search || undefined,
-                category_id: filters.category_id ? Number(filters.category_id) : undefined,
-                warehouse_id: filters.warehouse_id ? Number(filters.warehouse_id) : undefined,
-                stock_filter: filters.stock_filter || undefined,
-                movement_type: filters.movement_type || undefined,
-                start_date: activeType.dateRange ? filters.start_date : undefined,
-                end_date: activeType.dateRange ? filters.end_date : undefined,
-                include_inactive: filters.include_inactive,
-                include_price_lists: filters.include_price_lists,
-                limit: Number(filters.limit || 5000),
-            };
-            const response = await apiClient.post('/inventory/export/modular', payload, { responseType: 'blob' });
+            const response = await apiClient.post('/inventory/export/modular', buildPayload(), { responseType: 'blob' });
+            const extension = format === 'csv' ? 'csv' : 'xlsx';
             const filename = getFilenameFromDisposition(
                 response.headers?.['content-disposition'],
-                `inventario_${selectedType}.xlsx`
+                `inventario_${selectedType}.${extension}`
             );
             downloadBlob(response.data, filename);
             toast.success('Descarga generada correctamente.');
@@ -259,6 +348,7 @@ const InventoryExportCenter = ({ isOpen, onClose }) => {
         activeType.dateRange && 'Fechas',
         filters.include_inactive && 'Incluye inactivos',
         filters.include_price_lists && 'Listas de precio',
+        format === 'csv' && 'CSV',
     ].filter(Boolean);
 
     return (
@@ -283,7 +373,7 @@ const InventoryExportCenter = ({ isOpen, onClose }) => {
                     <aside className="min-h-0 overflow-y-auto border-b border-slate-200 bg-slate-50 p-3 lg:border-b-0 lg:border-r">
                         <div className="mb-2 flex items-center justify-between px-1">
                             <span className="text-xs font-black uppercase tracking-wide text-slate-400">Que quieres descargar</span>
-                            <span className="rounded-md bg-white px-2 py-1 text-[10px] font-black text-slate-500 shadow-sm">Excel</span>
+                            <span className="rounded-md bg-white px-2 py-1 text-[10px] font-black text-slate-500 shadow-sm">Excel / CSV</span>
                         </div>
                         <div className="space-y-2">
                             {EXPORT_TYPES.map(item => {
@@ -477,6 +567,10 @@ const InventoryExportCenter = ({ isOpen, onClose }) => {
                                             <span className="font-black text-indigo-950">{columns.length}</span>
                                         </div>
                                         <div className="flex items-center justify-between gap-3 text-sm">
+                                            <span className="font-bold text-indigo-500">Registros</span>
+                                            <span className="font-black text-indigo-950">{preview ? preview.total_rows : 'Sin calcular'}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3 text-sm">
                                             <span className="font-bold text-indigo-500">Limite</span>
                                             <input
                                                 type="number"
@@ -492,6 +586,73 @@ const InventoryExportCenter = ({ isOpen, onClose }) => {
                                         {activeFilters.length ? activeFilters.map(item => (
                                             <span key={item} className="rounded-md bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wide text-indigo-600">{item}</span>
                                         )) : <span className="text-xs font-bold text-indigo-400">Sin filtros adicionales</span>}
+                                    </div>
+                                    {preview?.sample?.length > 0 && (
+                                        <div className="mt-4 rounded-md border border-indigo-100 bg-white p-3">
+                                            <div className="mb-2 text-[10px] font-black uppercase tracking-wide text-indigo-400">Muestra</div>
+                                            <div className="space-y-1.5">
+                                                {preview.sample.slice(0, 3).map((row, idx) => (
+                                                    <div key={idx} className="truncate rounded bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600">
+                                                        {Object.values(row).slice(0, 3).join(' / ') || 'Fila sin datos'}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                                    <h4 className="text-sm font-black text-slate-900">Formato</h4>
+                                    <div className="mt-3 grid grid-cols-2 gap-2">
+                                        {FORMAT_OPTIONS.map(option => {
+                                            const Icon = option.icon;
+                                            const selected = format === option.value;
+                                            return (
+                                                <button
+                                                    key={option.value}
+                                                    type="button"
+                                                    onClick={() => setFormat(option.value)}
+                                                    className={cn('rounded-md border p-3 text-left transition-colors', selected ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
+                                                >
+                                                    <Icon size={17} />
+                                                    <span className="mt-2 block text-sm font-black">{option.label}</span>
+                                                    <span className="mt-1 block text-[11px] font-medium leading-relaxed text-slate-500">{option.hint}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <h4 className="text-sm font-black text-slate-900">Plantillas</h4>
+                                        <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">{templates.length}/8</span>
+                                    </div>
+                                    <div className="mt-3 flex gap-2">
+                                        <input
+                                            value={templateName}
+                                            onChange={e => setTemplateName(e.target.value)}
+                                            placeholder="Ej: Stock semanal"
+                                            className="h-10 min-w-0 flex-1 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-300"
+                                        />
+                                        <button onClick={saveTemplate} className="inline-flex h-10 items-center gap-1 rounded-md bg-slate-900 px-3 text-xs font-black text-white hover:bg-slate-800">
+                                            <Save size={14} /> Guardar
+                                        </button>
+                                    </div>
+                                    <div className="mt-3 space-y-2">
+                                        {templates.length === 0 ? (
+                                            <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-3 text-xs font-bold text-slate-400">Sin plantillas guardadas.</div>
+                                        ) : templates.map(template => (
+                                            <div key={template.id} className="flex items-center gap-2 rounded-md border border-slate-200 p-2">
+                                                <button onClick={() => loadTemplate(template)} className="min-w-0 flex-1 text-left">
+                                                    <span className="block truncate text-sm font-black text-slate-800">{template.name}</span>
+                                                    <span className="block truncate text-[11px] font-bold text-slate-400">{EXPORT_TYPES.find(item => item.key === template.export_type)?.title || template.export_type} · {(template.format || 'xlsx').toUpperCase()}</span>
+                                                </button>
+                                                <button onClick={() => deleteTemplate(template.id)} className="rounded p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" aria-label="Eliminar plantilla">
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
 
@@ -524,17 +685,25 @@ const InventoryExportCenter = ({ isOpen, onClose }) => {
                 <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
                         <FileSpreadsheet size={15} className="text-emerald-600" />
-                        Se generara un Excel con hoja de resumen y datos filtrados.
+                        {format === 'csv' ? 'Se generara un CSV con los datos filtrados.' : 'Se generara un Excel con hoja de resumen y datos filtrados.'}
                     </div>
                     <div className="flex items-center justify-end gap-2">
                         <button onClick={onClose} className="h-11 rounded-md px-4 text-sm font-black text-slate-600 hover:bg-white">Cancelar</button>
+                        <button
+                            onClick={handlePreview}
+                            disabled={previewLoading || !columns.length}
+                            className="inline-flex h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            <Eye className={previewLoading ? 'animate-pulse' : ''} size={17} />
+                            {previewLoading ? 'Calculando...' : 'Vista previa'}
+                        </button>
                         <button
                             onClick={handleDownload}
                             disabled={downloading || !columns.length}
                             className="inline-flex h-11 items-center gap-2 rounded-md bg-indigo-600 px-5 text-sm font-black text-white shadow-sm shadow-indigo-200 transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {downloading ? <Download className="animate-pulse" size={17} /> : <Download size={17} />}
-                            {downloading ? 'Generando...' : 'Descargar Excel'}
+                            {downloading ? 'Generando...' : `Descargar ${format.toUpperCase()}`}
                             <ChevronRight size={16} />
                         </button>
                     </div>

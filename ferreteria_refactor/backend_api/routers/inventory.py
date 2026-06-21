@@ -211,6 +211,7 @@ class InventoryExportRequest(BaseModel):
     end_date: Optional[str] = None
     include_inactive: bool = False
     include_price_lists: bool = False
+    format: str = "xlsx"
     limit: int = 5000
 
 
@@ -536,14 +537,8 @@ def _export_serial_rows(db: Session, payload: InventoryExportRequest, columns: L
     return rows, len(rows)
 
 
-def _excel_response(rows: List[dict], export_type: str, total: int, payload: InventoryExportRequest):
-    from io import BytesIO
-    import pandas as pd
-    from openpyxl.styles import Font, PatternFill, Alignment
-    from openpyxl.utils import get_column_letter
-
-    output = BytesIO()
-    sheet_name = {
+def _export_sheet_name(export_type: str) -> str:
+    return {
         "catalog_basic": "Catalogo",
         "catalog_prices": "Catalogo precios",
         "stock": "Stock",
@@ -551,6 +546,57 @@ def _excel_response(rows: List[dict], export_type: str, total: int, payload: Inv
         "kardex": "Kardex",
         "serials": "Seriales",
     }.get(export_type, "Inventario")[:31]
+
+
+def _prepare_inventory_export(db: Session, payload: InventoryExportRequest, current_user: models.User):
+    export_type = payload.export_type or "catalog_basic"
+    required_permission = EXPORT_PERMISSION_BY_TYPE.get(export_type)
+    if not required_permission:
+        raise HTTPException(status_code=400, detail="Tipo de exportacion no soportado")
+
+    from ..services.permissions_service import user_has_permission
+    if not user_has_permission(db, current_user, required_permission):
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta descarga")
+
+    allowed_columns = (
+        KARDEX_EXPORT_COLUMNS if export_type == "kardex"
+        else SERIAL_EXPORT_COLUMNS if export_type == "serials"
+        else PRODUCT_EXPORT_COLUMNS
+    )
+    requested = [col for col in (payload.columns or DEFAULT_EXPORT_COLUMNS.get(export_type, [])) if col in allowed_columns]
+    if not requested:
+        requested = DEFAULT_EXPORT_COLUMNS.get(export_type, list(allowed_columns.keys()))
+
+    include_lists = payload.include_price_lists or export_type in {"catalog_prices", "prices"}
+    if export_type in {"catalog_basic", "catalog_prices", "prices"}:
+        rows, total = _export_catalog_rows(db, payload, requested, include_price_lists=include_lists)
+    elif export_type == "stock":
+        rows, total = _export_stock_rows(db, payload, requested)
+    elif export_type == "kardex":
+        rows, total = _export_kardex_rows(db, payload, requested)
+    elif export_type == "serials":
+        rows, total = _export_serial_rows(db, payload, requested)
+    else:
+        raise HTTPException(status_code=400, detail="Tipo de exportacion no soportado")
+
+    return {
+        "export_type": export_type,
+        "rows": rows,
+        "total": total,
+        "requested_columns": requested,
+        "sheet_name": _export_sheet_name(export_type),
+        "format": (payload.format or "xlsx").lower(),
+    }
+
+
+def _excel_response(rows: List[dict], export_type: str, total: int, payload: InventoryExportRequest):
+    from io import BytesIO
+    import pandas as pd
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+
+    output = BytesIO()
+    sheet_name = _export_sheet_name(export_type)
     df = pd.DataFrame(rows)
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         meta = pd.DataFrame([
@@ -586,6 +632,46 @@ def _excel_response(rows: List[dict], export_type: str, total: int, payload: Inv
     )
 
 
+def _csv_response(rows: List[dict], export_type: str):
+    from io import BytesIO
+    import pandas as pd
+
+    output = BytesIO()
+    df = pd.DataFrame(rows)
+    output.write(df.to_csv(index=False).encode("utf-8-sig"))
+    output.seek(0)
+    filename = f"inventario_{export_type}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+    return StreamingResponse(
+        output,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.post("/export/preview", dependencies=[Depends(require_any_permission([
+    "inventory.products.view",
+    "inventory.kardex.view",
+    "inventory.serials.view",
+]))])
+def preview_inventory_export(
+    payload: InventoryExportRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    prepared = _prepare_inventory_export(db, payload, current_user)
+    sample = prepared["rows"][:5]
+    return {
+        "export_type": prepared["export_type"],
+        "format": prepared["format"],
+        "total_rows": prepared["total"],
+        "columns": list(sample[0].keys()) if sample else [],
+        "column_count": len(list(sample[0].keys())) if sample else len(prepared["requested_columns"]),
+        "sample": sample,
+        "limit": min(payload.limit or 5000, 20000),
+        "limited": prepared["total"] >= min(payload.limit or 5000, 20000),
+    }
+
+
 @router.post("/export/modular", dependencies=[Depends(require_any_permission([
     "inventory.products.view",
     "inventory.kardex.view",
@@ -596,37 +682,10 @@ def export_inventory_modular(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    export_type = payload.export_type or "catalog_basic"
-    required_permission = EXPORT_PERMISSION_BY_TYPE.get(export_type)
-    if not required_permission:
-        raise HTTPException(status_code=400, detail="Tipo de exportacion no soportado")
-
-    from ..services.permissions_service import user_has_permission
-    if not user_has_permission(db, current_user, required_permission):
-        raise HTTPException(status_code=403, detail="No tienes permisos para esta descarga")
-
-    allowed_columns = (
-        KARDEX_EXPORT_COLUMNS if export_type == "kardex"
-        else SERIAL_EXPORT_COLUMNS if export_type == "serials"
-        else PRODUCT_EXPORT_COLUMNS
-    )
-    requested = [col for col in (payload.columns or DEFAULT_EXPORT_COLUMNS.get(export_type, [])) if col in allowed_columns]
-    if not requested:
-        requested = DEFAULT_EXPORT_COLUMNS.get(export_type, list(allowed_columns.keys()))
-
-    include_lists = payload.include_price_lists or export_type in {"catalog_prices", "prices"}
-    if export_type in {"catalog_basic", "catalog_prices", "prices"}:
-        rows, total = _export_catalog_rows(db, payload, requested, include_price_lists=include_lists)
-    elif export_type == "stock":
-        rows, total = _export_stock_rows(db, payload, requested)
-    elif export_type == "kardex":
-        rows, total = _export_kardex_rows(db, payload, requested)
-    elif export_type == "serials":
-        rows, total = _export_serial_rows(db, payload, requested)
-    else:
-        raise HTTPException(status_code=400, detail="Tipo de exportacion no soportado")
-
-    return _excel_response(rows, export_type, total, payload)
+    prepared = _prepare_inventory_export(db, payload, current_user)
+    if prepared["format"] == "csv":
+        return _csv_response(prepared["rows"], prepared["export_type"])
+    return _excel_response(prepared["rows"], prepared["export_type"], prepared["total"], payload)
 
 # --- INTER-COMPANY TRANSFER ENDPOINTS ---
 from fastapi import UploadFile, File, Body
