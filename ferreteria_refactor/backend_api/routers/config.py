@@ -8,6 +8,7 @@ import requests
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from pydantic import BaseModel
+import json
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
@@ -146,6 +147,24 @@ def _exchange_rate_payload(rate):
     }
 
 
+def _parse_audit_changes(raw_changes):
+    if not raw_changes:
+        return {}
+    if isinstance(raw_changes, dict):
+        return raw_changes
+    try:
+        return json.loads(raw_changes)
+    except Exception:
+        return {"raw": str(raw_changes)}
+
+
+def _audit_field_pair(changes, key):
+    value = changes.get(key) if isinstance(changes, dict) else None
+    if isinstance(value, dict):
+        return value.get("old"), value.get("new")
+    return None, value
+
+
 @router.get("/exchange-rates", response_model=List[schemas.ExchangeRateRead])
 def get_exchange_rates(
     currency_code: str = None,
@@ -227,6 +246,16 @@ async def create_exchange_rate(
     
     # Capture data
     response_data = _exchange_rate_payload(new_rate)
+
+    from ..audit_utils import log_action
+    log_action(
+        db,
+        user_id=user.id,
+        action="CREATE",
+        table_name="exchange_rates",
+        record_id=response_data["id"],
+        changes=json.dumps({"new": response_data}, default=str, ensure_ascii=False),
+    )
     
     db.commit()
 
@@ -332,6 +361,103 @@ def fetch_bcv_rates():
     }
 
 
+@router.get("/exchange-rates/history")
+def get_exchange_rate_history(
+    rate_id: Optional[int] = None,
+    currency_code: Optional[str] = None,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    user: Any = Depends(require_permission("config.prices.manage")),
+):
+    """Return a clean, user-facing history for exchange-rate changes."""
+    from sqlalchemy.orm import joinedload
+
+    safe_limit = max(1, min(int(limit or 100), 500))
+    rates = db.query(models.ExchangeRate).all()
+    rates_by_id = {r.id: r for r in rates}
+
+    query = (
+        db.query(models.AuditLog)
+        .options(joinedload(models.AuditLog.user))
+        .filter(models.AuditLog.table_name == "exchange_rates")
+    )
+    if rate_id:
+        query = query.filter(models.AuditLog.record_id == rate_id)
+
+    logs = query.order_by(models.AuditLog.timestamp.desc()).limit(safe_limit * 3).all()
+    items = []
+
+    for log in logs:
+        changes = _parse_audit_changes(log.changes)
+        current_rate = rates_by_id.get(log.record_id)
+        embedded = changes.get("new") if isinstance(changes.get("new"), dict) else {}
+        embedded_old = changes.get("old") if isinstance(changes.get("old"), dict) else {}
+
+        rate_name = (
+            changes.get("rate_name")
+            or embedded.get("name")
+            or embedded_old.get("name")
+            or getattr(current_rate, "name", None)
+            or f"Tasa #{log.record_id}"
+        )
+        log_currency = (
+            changes.get("currency_code")
+            or embedded.get("currency_code")
+            or embedded_old.get("currency_code")
+            or getattr(current_rate, "currency_code", None)
+        )
+        if currency_code and (log_currency or "").upper() != currency_code.upper():
+            continue
+
+        old_rate, new_rate = _audit_field_pair(changes, "rate")
+        if old_rate is None and isinstance(embedded_old, dict):
+            old_rate = embedded_old.get("rate")
+        if new_rate is None and isinstance(embedded, dict):
+            new_rate = embedded.get("rate")
+
+        old_active, new_active = _audit_field_pair(changes, "is_active")
+        old_default, new_default = _audit_field_pair(changes, "is_default")
+        old_auto, new_auto = _audit_field_pair(changes, "auto_update_enabled")
+        old_source, new_source = _audit_field_pair(changes, "auto_update_source")
+
+        items.append({
+            "id": log.id,
+            "timestamp": log.timestamp,
+            "action": log.action,
+            "rate_id": log.record_id,
+            "rate_name": rate_name,
+            "currency_code": log_currency,
+            "user_name": getattr(log.user, "full_name", None) or getattr(log.user, "username", None) or getattr(log.user, "email", None) or "Sistema",
+            "user_email": getattr(log.user, "email", None),
+            "old_rate": old_rate,
+            "new_rate": new_rate,
+            "old_is_active": old_active,
+            "new_is_active": new_active,
+            "old_is_default": old_default,
+            "new_is_default": new_default,
+            "old_auto_update_enabled": old_auto,
+            "new_auto_update_enabled": new_auto,
+            "old_auto_update_source": old_source,
+            "new_auto_update_source": new_source,
+            "changes": changes,
+        })
+        if len(items) >= safe_limit:
+            break
+
+    return {
+        "items": items,
+        "total": len(items),
+        "changed_count": sum(
+            1
+            for item in items
+            if item.get("action") == "UPDATE"
+            and item.get("old_rate") is not None
+            and item.get("new_rate") is not None
+            and str(item.get("old_rate")) != str(item.get("new_rate"))
+        ),
+    }
+
+
 @router.get("/exchange-rates/{id}", response_model=schemas.ExchangeRateRead)
 def get_exchange_rate_by_id(id: int, db: Session = Depends(get_db)):
     """Get a specific exchange rate by ID"""
@@ -370,12 +496,31 @@ async def update_exchange_rate(
     if update_data.get("auto_update_enabled") is True and update_data.get("auto_update_source") not in ("bcv_usd", "bcv_eur"):
         update_data["auto_update_source"] = "bcv_usd"
 
+    before_data = _exchange_rate_payload(rate)
+
     # Update fields
     for key, value in update_data.items():
         setattr(rate, key, value)
-    
-    # Capture data
+
+    db.flush()
     response_data = _exchange_rate_payload(rate)
+
+    tracked_changes = {}
+    for field in ("name", "currency_code", "currency_symbol", "rate", "is_default", "is_active", "auto_update_enabled", "auto_update_source"):
+        if before_data.get(field) != response_data.get(field):
+            tracked_changes[field] = {"old": before_data.get(field), "new": response_data.get(field)}
+    tracked_changes["rate_name"] = response_data["name"]
+    tracked_changes["currency_code"] = response_data["currency_code"]
+
+    from ..audit_utils import log_action
+    log_action(
+        db,
+        user_id=user.id,
+        action="UPDATE",
+        table_name="exchange_rates",
+        record_id=response_data["id"],
+        changes=json.dumps(tracked_changes, default=str, ensure_ascii=False),
+    )
 
     db.commit()
 
@@ -385,11 +530,6 @@ async def update_exchange_rate(
     invalidate_resource(_schema, "exchange_rates")
     invalidate_resource(_schema, "pos_init")
     invalidate_resource(_schema, "pos-init")
-
-    # AUDIT LOG
-    from ..audit_utils import log_action
-    import json
-    log_action(db, user_id=user.id, action="UPDATE", table_name="exchange_rates", record_id=response_data["id"], changes=json.dumps({"rate": str(response_data["rate"]), "is_active": response_data["is_active"]}, default=str))
 
     # Broadcast al tenant correcto (no a "public")
     await manager.broadcast(WebSocketEvents.EXCHANGE_RATE_UPDATED, {
@@ -424,6 +564,16 @@ async def delete_exchange_rate(
         )
     
     try:
+        response_data = _exchange_rate_payload(rate)
+        from ..audit_utils import log_action
+        log_action(
+            db,
+            user_id=user.id,
+            action="DELETE",
+            table_name="exchange_rates",
+            record_id=response_data["id"],
+            changes=json.dumps({"old": response_data}, default=str, ensure_ascii=False),
+        )
         db.delete(rate)
         db.commit()
     except Exception as e:

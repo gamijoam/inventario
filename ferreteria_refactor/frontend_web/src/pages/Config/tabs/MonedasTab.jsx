@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Coins, Star, RefreshCw, AlertCircle, Clock, Globe, ArrowRight, Landmark, Zap, Hand } from 'lucide-react';
+import { Plus, Trash2, Coins, Star, RefreshCw, AlertCircle, Clock, Globe, ArrowRight, Landmark, History, X, Activity } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { useConfig } from '../../../context/ConfigContext';
 import { toast } from 'react-hot-toast';
@@ -27,6 +27,9 @@ const MonedasTab = () => {
     const [bcvRates, setBcvRates] = useState(null);
     const [bcvLoading, setBcvLoading] = useState(false);
     const [bcvApplying, setBcvApplying] = useState(false);
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [rateHistory, setRateHistory] = useState({ items: [], total: 0, changed_count: 0 });
 
     useEffect(() => {
         fetchExchangeRates();
@@ -152,6 +155,45 @@ const MonedasTab = () => {
         }
     };
 
+    const fetchRateHistory = async () => {
+        setHistoryLoading(true);
+        try {
+            const response = await apiClient.get('/config/exchange-rates/history', {
+                params: { currency_code: selectedCurrency, limit: 120 }
+            });
+            setRateHistory({
+                items: Array.isArray(response.data?.items) ? response.data.items : [],
+                total: response.data?.total || 0,
+                changed_count: response.data?.changed_count || 0
+            });
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, 'No se pudo cargar el historial de tasas'));
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
+
+    const openHistoryModal = async () => {
+        setShowHistoryModal(true);
+        await fetchRateHistory();
+    };
+
+    const formatRateValue = (value) => {
+        if (value === null || value === undefined || value === '') return 'Sin dato';
+        const numeric = Number(value);
+        if (Number.isNaN(numeric)) return String(value);
+        return numeric.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+    };
+
+    const historyActionLabel = (item) => {
+        if (item.action === 'CREATE') return 'Creacion';
+        if (item.action === 'DELETE') return 'Eliminacion';
+        if (item.old_rate !== null && item.old_rate !== undefined && item.new_rate !== null && item.new_rate !== undefined) return 'Cambio de tasa';
+        if (item.old_auto_update_enabled !== null || item.new_auto_update_enabled !== null) return 'Modo automatico';
+        if (item.old_is_active !== null || item.new_is_active !== null) return 'Estado';
+        return 'Actualizacion';
+    };
+
     const groupedRates = exchangeRates.reduce((acc, rate) => {
         if (!acc[rate.currency_code]) acc[rate.currency_code] = [];
         acc[rate.currency_code].push(rate);
@@ -227,12 +269,20 @@ const MonedasTab = () => {
                                     </div>
                                 </div>
                             </div>
-                            <button
-                                onClick={() => setShowAddRateModal(true)}
-                                className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-indigo-600 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-700"
-                            >
-                                <Plus size={17} /> Nueva Tasa Manual
-                            </button>
+                            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                                <button
+                                    onClick={() => setShowAddRateModal(true)}
+                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-indigo-600 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-700"
+                                >
+                                    <Plus size={17} /> Nueva Tasa
+                                </button>
+                                <button
+                                    onClick={openHistoryModal}
+                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white text-sm font-bold text-slate-700 shadow-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                                >
+                                    <History size={17} /> Historial
+                                </button>
+                            </div>
                         </div>
 
                         <div className="overflow-hidden rounded-lg border border-amber-200 bg-white shadow-sm">
@@ -308,11 +358,17 @@ const MonedasTab = () => {
                     </div>
 
                     <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-                        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                        <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                             <div>
                                 <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Opciones de Conversión</h3>
                                 <p className="text-xs text-slate-400">Tasas configuradas para {selectedCurrency}</p>
                             </div>
+                            <button
+                                onClick={openHistoryModal}
+                                className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                            >
+                                <History size={14} /> Historial
+                            </button>
                         </div>
 
                         <div className="p-4">
@@ -421,6 +477,116 @@ const MonedasTab = () => {
                     </div>
                 </div>
             </div>
+
+            {showHistoryModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-950/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-xl animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-5">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-md bg-indigo-50 text-indigo-600">
+                                    <History size={22} />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{selectedCurrency} / USD</p>
+                                    <h3 className="text-xl font-black text-slate-900">Historial de tasas</h3>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowHistoryModal(false)}
+                                className="rounded-md border border-slate-200 bg-white p-2 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-700"
+                                title="Cerrar"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="grid gap-3 border-b border-slate-100 bg-slate-50 p-4 sm:grid-cols-3">
+                            <div className="rounded-md border border-slate-200 bg-white p-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Registros</p>
+                                <p className="mt-1 text-2xl font-black text-slate-900">{rateHistory.total}</p>
+                            </div>
+                            <div className="rounded-md border border-emerald-100 bg-emerald-50 p-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Cambios de valor</p>
+                                <p className="mt-1 text-2xl font-black text-emerald-700">{rateHistory.changed_count}</p>
+                            </div>
+                            <div className="rounded-md border border-indigo-100 bg-indigo-50 p-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Moneda</p>
+                                <p className="mt-1 text-2xl font-black text-indigo-700">{selectedCurrency}</p>
+                            </div>
+                        </div>
+
+                        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                            {historyLoading ? (
+                                <div className="flex h-64 flex-col items-center justify-center text-slate-400">
+                                    <RefreshCw className="mb-4 animate-spin text-indigo-600" size={28} />
+                                    <p className="text-sm font-bold">Cargando historial...</p>
+                                </div>
+                            ) : rateHistory.items.length === 0 ? (
+                                <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-center">
+                                    <Activity className="mb-3 text-slate-300" size={34} />
+                                    <h4 className="font-black text-slate-900">Sin historial para esta moneda</h4>
+                                    <p className="mt-1 text-sm text-slate-500">Los proximos cambios de tasa quedaran registrados aqui.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {rateHistory.items.map(item => (
+                                        <div key={item.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                                            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                                <div className="min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="rounded-md bg-indigo-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-indigo-700">
+                                                            {historyActionLabel(item)}
+                                                        </span>
+                                                        <span className="font-black text-slate-900">{item.rate_name}</span>
+                                                        <span className="text-xs font-bold text-slate-400">#{item.rate_id}</span>
+                                                    </div>
+                                                    <p className="mt-1 text-xs font-bold text-slate-500">
+                                                        {formatDate(item.timestamp)} · {item.user_name}
+                                                    </p>
+                                                </div>
+
+                                                <div className="grid gap-2 sm:grid-cols-2 md:min-w-[330px]">
+                                                    <div className="rounded-md border border-slate-100 bg-slate-50 px-3 py-2">
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Anterior</p>
+                                                        <p className="text-lg font-black text-slate-700">{formatRateValue(item.old_rate)}</p>
+                                                    </div>
+                                                    <div className="rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2">
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Nuevo</p>
+                                                        <p className="text-lg font-black text-emerald-700">{formatRateValue(item.new_rate)}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {(item.old_auto_update_enabled !== null || item.new_auto_update_enabled !== null || item.old_is_active !== null || item.new_is_active !== null) && (
+                                                <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-bold text-slate-500">
+                                                    {(item.old_auto_update_enabled !== null || item.new_auto_update_enabled !== null) && (
+                                                        <span className="rounded-md bg-slate-100 px-2 py-1">Auto: {String(item.old_auto_update_enabled)} → {String(item.new_auto_update_enabled)}</span>
+                                                    )}
+                                                    {(item.old_is_active !== null || item.new_is_active !== null) && (
+                                                        <span className="rounded-md bg-slate-100 px-2 py-1">Activo: {String(item.old_is_active)} → {String(item.new_is_active)}</span>
+                                                    )}
+                                                    {(item.old_auto_update_source || item.new_auto_update_source) && (
+                                                        <span className="rounded-md bg-slate-100 px-2 py-1">Fuente: {item.old_auto_update_source || 'N/A'} → {item.new_auto_update_source || 'N/A'}</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end border-t border-slate-100 bg-slate-50 p-4">
+                            <button
+                                onClick={() => setShowHistoryModal(false)}
+                                className="rounded-md bg-indigo-600 px-5 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-700"
+                            >
+                                Listo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {showAddRateModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-950/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
