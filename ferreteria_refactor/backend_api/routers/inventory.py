@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from typing import List, Optional, Dict, Any
+from pydantic import BaseModel
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
-from datetime import datetime
-from ..dependencies import warehouse_or_admin, require_permission, require_any_permission
+from datetime import datetime, timedelta
+from ..dependencies import warehouse_or_admin, require_permission, require_any_permission, get_current_active_user
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
 
@@ -196,13 +198,440 @@ def get_kardex(
         
     return query.order_by(models.Kardex.date.desc()).limit(limit).all()
 
+
+class InventoryExportRequest(BaseModel):
+    export_type: str = "catalog_basic"
+    columns: List[str] = []
+    search: Optional[str] = None
+    category_id: Optional[int] = None
+    warehouse_id: Optional[int] = None
+    stock_filter: Optional[str] = None
+    movement_type: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    include_inactive: bool = False
+    include_price_lists: bool = False
+    limit: int = 5000
+
+
+EXPORT_PERMISSION_BY_TYPE = {
+    "catalog_basic": "inventory.products.view",
+    "catalog_prices": "inventory.products.view",
+    "stock": "inventory.products.view",
+    "prices": "inventory.products.view",
+    "kardex": "inventory.kardex.view",
+    "serials": "inventory.serials.view",
+}
+
+PRODUCT_EXPORT_COLUMNS = {
+    "name": "Producto",
+    "sku": "SKU / Codigo",
+    "category": "Categoria",
+    "stock": "Stock total",
+    "warehouse": "Almacen",
+    "warehouse_stock": "Stock almacen",
+    "min_stock": "Stock minimo",
+    "status": "Estado stock",
+    "cost_price": "Costo",
+    "price": "Precio venta",
+    "profit_margin": "Margen %",
+    "tax_rate": "IVA %",
+    "supplier": "Proveedor",
+    "location": "Ubicacion",
+    "type": "Tipo",
+    "description": "Descripcion",
+}
+
+KARDEX_EXPORT_COLUMNS = {
+    "date": "Fecha",
+    "product": "Producto",
+    "sku": "SKU / Codigo",
+    "movement_type": "Movimiento",
+    "quantity": "Cantidad",
+    "balance_after": "Saldo despues",
+    "warehouse": "Almacen",
+    "description": "Descripcion",
+}
+
+SERIAL_EXPORT_COLUMNS = {
+    "product": "Producto",
+    "sku": "SKU / Codigo",
+    "serial_number": "Serial / IMEI",
+    "status": "Estado",
+    "color_name": "Color",
+    "color_hex": "Color HEX",
+    "warehouse": "Almacen",
+    "cost": "Costo",
+    "created_at": "Fecha recepcion",
+}
+
+DEFAULT_EXPORT_COLUMNS = {
+    "catalog_basic": ["name", "sku", "category", "stock", "status"],
+    "catalog_prices": ["name", "sku", "category", "price", "cost_price", "stock"],
+    "stock": ["name", "sku", "category", "warehouse", "warehouse_stock", "stock", "min_stock", "status"],
+    "prices": ["name", "sku", "category", "price", "cost_price", "profit_margin", "tax_rate"],
+    "kardex": ["date", "product", "sku", "movement_type", "quantity", "balance_after", "warehouse", "description"],
+    "serials": ["product", "sku", "serial_number", "status", "color_name", "warehouse", "created_at"],
+}
+
+MOVEMENT_LABELS_EXPORT = {
+    "SALE": "Venta",
+    "SALE_MODIFIER": "Extra de venta",
+    "SALE_REVERSED": "Venta anulada",
+    "PURCHASE": "Compra",
+    "ADJUSTMENT": "Ajuste",
+    "ADJUSTMENT_IN": "Ajuste de entrada",
+    "ADJUSTMENT_OUT": "Ajuste de salida",
+    "DAMAGED": "Danado",
+    "INTERNAL_USE": "Uso interno",
+    "RETURN": "Devolucion",
+    "OUT": "Salida",
+    "TRANSFER_IN": "Traslado recibido",
+    "TRANSFER_OUT": "Traslado enviado",
+    "EXTERNAL_TRANSFER_IN": "Traslado externo recibido",
+    "EXTERNAL_TRANSFER_OUT": "Traslado externo enviado",
+}
+
+
+def _export_enum(value):
+    if value is None:
+        return ""
+    return getattr(value, "value", str(value))
+
+
+def _export_number(value):
+    if value is None:
+        return 0
+    try:
+        return float(value)
+    except Exception:
+        return 0
+
+
+def _export_date(value):
+    if not value:
+        return ""
+    try:
+        return value.strftime("%d/%m/%Y %H:%M")
+    except Exception:
+        return str(value)
+
+
+def _parse_export_date(value, end=False):
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value))
+        if end and len(str(value)) <= 10:
+            parsed = parsed + timedelta(days=1)
+        return parsed
+    except Exception:
+        return None
+
+
+def _stock_status(stock, min_stock):
+    stock_value = _export_number(stock)
+    min_value = _export_number(min_stock) or 5
+    if stock_value <= 0:
+        return "Agotado"
+    if stock_value <= min_value:
+        return "Bajo"
+    return "Disponible"
+
+
+def _product_type_label(product):
+    flags = []
+    if getattr(product, "is_service", False):
+        flags.append("Servicio")
+    if getattr(product, "has_imei", False):
+        flags.append("Serial/IMEI")
+    if getattr(product, "is_combo", False):
+        flags.append("Combo")
+    return ", ".join(flags) or "Producto"
+
+
+def _apply_product_export_filters(query, payload: InventoryExportRequest):
+    if not payload.include_inactive:
+        query = query.filter(models.Product.is_active == True)
+    if payload.search:
+        tokens = [token for token in payload.search.strip().split() if token]
+        for token in tokens:
+            like = f"%{token}%"
+            query = query.filter(or_(models.Product.name.ilike(like), models.Product.sku.ilike(like)))
+    if payload.category_id:
+        query = query.filter(models.Product.category_id == payload.category_id)
+    if payload.stock_filter == "out_of_stock":
+        query = query.filter(models.Product.stock <= 0)
+    elif payload.stock_filter == "low_stock":
+        query = query.filter(models.Product.stock > 0, models.Product.stock < func.coalesce(models.Product.min_stock, 5))
+    elif payload.stock_filter == "in_stock":
+        query = query.filter(models.Product.stock > 0)
+    return query
+
+
+def _load_price_list_maps(db: Session, product_ids: List[int]):
+    price_lists = db.query(models.PriceList).filter(models.PriceList.is_active == True).order_by(models.PriceList.name).all()
+    prices_by_product = {}
+    if product_ids and price_lists:
+        rows = db.query(models.ProductPrice).filter(models.ProductPrice.product_id.in_(product_ids)).all()
+        for row in rows:
+            prices_by_product.setdefault(row.product_id, {})[row.price_list_id] = row.price
+    return price_lists, prices_by_product
+
+
+def _build_product_row(product, columns, price_lists=None, prices_by_product=None, warehouse=None, warehouse_stock=None):
+    price_lists = price_lists or []
+    prices_by_product = prices_by_product or {}
+    values = {
+        "name": product.name,
+        "sku": product.sku or "",
+        "category": product.category.name if product.category else "Sin categoria",
+        "stock": _export_number(product.stock),
+        "warehouse": warehouse.name if warehouse else "Consolidado",
+        "warehouse_stock": _export_number(warehouse_stock if warehouse_stock is not None else product.stock),
+        "min_stock": _export_number(product.min_stock),
+        "status": _stock_status(product.stock, product.min_stock),
+        "cost_price": _export_number(product.cost_price),
+        "price": _export_number(product.price),
+        "profit_margin": _export_number(product.profit_margin),
+        "tax_rate": _export_number(product.tax_rate),
+        "supplier": product.supplier.name if getattr(product, "supplier", None) else "",
+        "location": product.location or "",
+        "type": _product_type_label(product),
+        "description": product.description or "",
+    }
+    row = {PRODUCT_EXPORT_COLUMNS[col]: values.get(col, "") for col in columns if col in PRODUCT_EXPORT_COLUMNS}
+    product_prices = prices_by_product.get(product.id, {})
+    for price_list in price_lists:
+        row[f"Lista: {price_list.name}"] = _export_number(product_prices.get(price_list.id, 0))
+    return row
+
+
+def _export_catalog_rows(db: Session, payload: InventoryExportRequest, columns: List[str], include_price_lists=False):
+    query = db.query(models.Product).options(
+        joinedload(models.Product.category),
+        joinedload(models.Product.supplier),
+    )
+    query = _apply_product_export_filters(query, payload)
+    products = query.order_by(func.lower(models.Product.name)).limit(min(payload.limit or 5000, 20000)).all()
+    price_lists, prices_by_product = _load_price_list_maps(db, [p.id for p in products]) if include_price_lists else ([], {})
+    return [_build_product_row(p, columns, price_lists, prices_by_product) for p in products], len(products)
+
+
+def _export_stock_rows(db: Session, payload: InventoryExportRequest, columns: List[str]):
+    stock_query = db.query(models.ProductStock).join(models.Product).join(models.Warehouse).options(
+        joinedload(models.ProductStock.product).joinedload(models.Product.category),
+        joinedload(models.ProductStock.product).joinedload(models.Product.supplier),
+        joinedload(models.ProductStock.warehouse),
+    )
+    if not payload.include_inactive:
+        stock_query = stock_query.filter(models.Product.is_active == True)
+    if payload.search:
+        tokens = [token for token in payload.search.strip().split() if token]
+        for token in tokens:
+            like = f"%{token}%"
+            stock_query = stock_query.filter(or_(models.Product.name.ilike(like), models.Product.sku.ilike(like)))
+    if payload.category_id:
+        stock_query = stock_query.filter(models.Product.category_id == payload.category_id)
+    if payload.warehouse_id:
+        stock_query = stock_query.filter(models.ProductStock.warehouse_id == payload.warehouse_id)
+    if payload.stock_filter == "out_of_stock":
+        stock_query = stock_query.filter(models.ProductStock.quantity <= 0)
+    elif payload.stock_filter == "low_stock":
+        stock_query = stock_query.filter(models.ProductStock.quantity > 0, models.ProductStock.quantity < func.coalesce(models.Product.min_stock, 5))
+    elif payload.stock_filter == "in_stock":
+        stock_query = stock_query.filter(models.ProductStock.quantity > 0)
+
+    limit = min(payload.limit or 5000, 20000)
+    stock_rows = stock_query.order_by(models.Warehouse.name, func.lower(models.Product.name)).limit(limit).all()
+    rows = [
+        _build_product_row(item.product, columns, warehouse=item.warehouse, warehouse_stock=item.quantity)
+        for item in stock_rows
+    ]
+
+    if not payload.warehouse_id and len(rows) < limit:
+        product_ids_with_stock = [item.product_id for item in stock_rows]
+        product_query = db.query(models.Product).options(
+            joinedload(models.Product.category),
+            joinedload(models.Product.supplier),
+        )
+        product_query = _apply_product_export_filters(product_query, payload)
+        if product_ids_with_stock:
+            product_query = product_query.filter(~models.Product.id.in_(product_ids_with_stock))
+        remaining = max(limit - len(rows), 0)
+        products_without_rows = product_query.order_by(func.lower(models.Product.name)).limit(remaining).all()
+        rows.extend(_build_product_row(product, columns) for product in products_without_rows)
+
+    return rows, len(rows)
+
+
+def _export_kardex_rows(db: Session, payload: InventoryExportRequest, columns: List[str]):
+    query = db.query(models.Kardex, models.Product, models.Warehouse).join(
+        models.Product, models.Kardex.product_id == models.Product.id
+    ).outerjoin(models.Warehouse, models.Kardex.warehouse_id == models.Warehouse.id)
+    start_dt = _parse_export_date(payload.start_date)
+    end_dt = _parse_export_date(payload.end_date, end=True)
+    if start_dt:
+        query = query.filter(models.Kardex.date >= start_dt)
+    if end_dt:
+        query = query.filter(models.Kardex.date < end_dt)
+    if payload.search:
+        tokens = [token for token in payload.search.strip().split() if token]
+        for token in tokens:
+            like = f"%{token}%"
+            query = query.filter(or_(models.Product.name.ilike(like), models.Product.sku.ilike(like), models.Kardex.description.ilike(like)))
+    if payload.category_id:
+        query = query.filter(models.Product.category_id == payload.category_id)
+    if payload.warehouse_id:
+        query = query.filter(models.Kardex.warehouse_id == payload.warehouse_id)
+    if payload.movement_type and payload.movement_type != "ALL":
+        query = query.filter(models.Kardex.movement_type == payload.movement_type)
+    result = query.order_by(models.Kardex.date.desc()).limit(min(payload.limit or 5000, 20000)).all()
+    rows = []
+    for kardex, product, warehouse in result:
+        movement = _export_enum(kardex.movement_type)
+        values = {
+            "date": _export_date(kardex.date),
+            "product": product.name if product else "",
+            "sku": product.sku if product else "",
+            "movement_type": MOVEMENT_LABELS_EXPORT.get(movement, movement),
+            "quantity": _export_number(kardex.quantity),
+            "balance_after": _export_number(kardex.balance_after),
+            "warehouse": warehouse.name if warehouse else "",
+            "description": kardex.description or "",
+        }
+        rows.append({KARDEX_EXPORT_COLUMNS[col]: values.get(col, "") for col in columns if col in KARDEX_EXPORT_COLUMNS})
+    return rows, len(rows)
+
+
+def _export_serial_rows(db: Session, payload: InventoryExportRequest, columns: List[str]):
+    query = db.query(models.ProductInstance, models.Product, models.Warehouse).join(
+        models.Product, models.ProductInstance.product_id == models.Product.id
+    ).outerjoin(models.Warehouse, models.ProductInstance.warehouse_id == models.Warehouse.id)
+    if payload.search:
+        tokens = [token for token in payload.search.strip().split() if token]
+        for token in tokens:
+            like = f"%{token}%"
+            query = query.filter(or_(models.Product.name.ilike(like), models.Product.sku.ilike(like), models.ProductInstance.serial_number.ilike(like), models.ProductInstance.color_name.ilike(like)))
+    if payload.category_id:
+        query = query.filter(models.Product.category_id == payload.category_id)
+    if payload.warehouse_id:
+        query = query.filter(models.ProductInstance.warehouse_id == payload.warehouse_id)
+    rows_data = query.order_by(func.lower(models.Product.name), models.ProductInstance.serial_number).limit(min(payload.limit or 5000, 20000)).all()
+    rows = []
+    for instance, product, warehouse in rows_data:
+        status_value = _export_enum(instance.status)
+        values = {
+            "product": product.name if product else "",
+            "sku": product.sku if product else "",
+            "serial_number": instance.serial_number,
+            "status": status_value,
+            "color_name": instance.color_name or "",
+            "color_hex": instance.color_hex or "",
+            "warehouse": warehouse.name if warehouse else "",
+            "cost": _export_number(instance.cost),
+            "created_at": _export_date(instance.created_at),
+        }
+        rows.append({SERIAL_EXPORT_COLUMNS[col]: values.get(col, "") for col in columns if col in SERIAL_EXPORT_COLUMNS})
+    return rows, len(rows)
+
+
+def _excel_response(rows: List[dict], export_type: str, total: int, payload: InventoryExportRequest):
+    from io import BytesIO
+    import pandas as pd
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+
+    output = BytesIO()
+    sheet_name = {
+        "catalog_basic": "Catalogo",
+        "catalog_prices": "Catalogo precios",
+        "stock": "Stock",
+        "prices": "Precios",
+        "kardex": "Kardex",
+        "serials": "Seriales",
+    }.get(export_type, "Inventario")[:31]
+    df = pd.DataFrame(rows)
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        meta = pd.DataFrame([
+            {"Campo": "Tipo", "Valor": export_type},
+            {"Campo": "Generado", "Valor": datetime.now().strftime("%d/%m/%Y %H:%M")},
+            {"Campo": "Registros", "Valor": total},
+            {"Campo": "Busqueda", "Valor": payload.search or ""},
+            {"Campo": "Fecha inicio", "Valor": payload.start_date or ""},
+            {"Campo": "Fecha fin", "Valor": payload.end_date or ""},
+        ])
+        meta.to_excel(writer, index=False, sheet_name="Resumen")
+        df.to_excel(writer, index=False, sheet_name=sheet_name)
+        workbook = writer.book
+        for ws in workbook.worksheets:
+            for cell in ws[1]:
+                cell.font = Font(bold=True, color="FFFFFF")
+                cell.fill = PatternFill("solid", fgColor="4F46E5")
+                cell.alignment = Alignment(horizontal="center")
+            ws.freeze_panes = "A2"
+            ws.auto_filter.ref = ws.dimensions
+            for column in ws.columns:
+                max_len = 0
+                column_letter = get_column_letter(column[0].column)
+                for cell in column:
+                    max_len = max(max_len, len(str(cell.value or "")))
+                ws.column_dimensions[column_letter].width = min(max(max_len + 2, 12), 42)
+    output.seek(0)
+    filename = f"inventario_{export_type}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.post("/export/modular", dependencies=[Depends(require_any_permission([
+    "inventory.products.view",
+    "inventory.kardex.view",
+    "inventory.serials.view",
+]))])
+def export_inventory_modular(
+    payload: InventoryExportRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    export_type = payload.export_type or "catalog_basic"
+    required_permission = EXPORT_PERMISSION_BY_TYPE.get(export_type)
+    if not required_permission:
+        raise HTTPException(status_code=400, detail="Tipo de exportacion no soportado")
+
+    from ..services.permissions_service import user_has_permission
+    if not user_has_permission(db, current_user, required_permission):
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta descarga")
+
+    allowed_columns = (
+        KARDEX_EXPORT_COLUMNS if export_type == "kardex"
+        else SERIAL_EXPORT_COLUMNS if export_type == "serials"
+        else PRODUCT_EXPORT_COLUMNS
+    )
+    requested = [col for col in (payload.columns or DEFAULT_EXPORT_COLUMNS.get(export_type, [])) if col in allowed_columns]
+    if not requested:
+        requested = DEFAULT_EXPORT_COLUMNS.get(export_type, list(allowed_columns.keys()))
+
+    include_lists = payload.include_price_lists or export_type in {"catalog_prices", "prices"}
+    if export_type in {"catalog_basic", "catalog_prices", "prices"}:
+        rows, total = _export_catalog_rows(db, payload, requested, include_price_lists=include_lists)
+    elif export_type == "stock":
+        rows, total = _export_stock_rows(db, payload, requested)
+    elif export_type == "kardex":
+        rows, total = _export_kardex_rows(db, payload, requested)
+    elif export_type == "serials":
+        rows, total = _export_serial_rows(db, payload, requested)
+    else:
+        raise HTTPException(status_code=400, detail="Tipo de exportacion no soportado")
+
+    return _excel_response(rows, export_type, total, payload)
+
 # --- INTER-COMPANY TRANSFER ENDPOINTS ---
 from fastapi import UploadFile, File, Body
 from ..services.inventory_service import InventoryService
 from ..schemas import TransferPackageSchema, TransferResultSchema, TransferPreviewResult, TransferImportV2Request
-from pydantic import BaseModel
-from typing import Optional
-
 class TransferRequest(BaseModel):
     items: List[Dict[str, Any]]
     source_company: str

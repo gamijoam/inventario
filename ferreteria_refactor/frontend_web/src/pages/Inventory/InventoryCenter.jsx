@@ -1,10 +1,11 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import { useConfig } from '../../context/ConfigContext';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
 import { useSearchParams } from 'react-router-dom';
+import InventoryExportCenter from '../../components/inventory/InventoryExportCenter';
 import {
-    Package, Tags, Archive, ArrowRightLeft, Warehouse, Barcode
+    Package, Tags, Archive, ArrowRightLeft, Warehouse, Barcode, Download
 } from 'lucide-react';
 
 const ProductsTab = lazy(() => import('./tabs/ProductsTab'));
@@ -58,6 +59,7 @@ const TabPlaceholder = ({ label, icon: Icon }) => (
 // ============================================================
 const InventoryCenter = () => {
     const { modules } = useConfig();
+    const [isExportOpen, setIsExportOpen] = useState(false);
     const TABS = modules?.services
         ? [...BASE_TABS, SERIALES_TAB]
         : BASE_TABS;
@@ -151,6 +153,15 @@ const InventoryCenter = () => {
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                    id="tour-inventory-export-center"
+                                    type="button"
+                                    onClick={() => setIsExportOpen(true)}
+                                    className="inline-flex h-10 items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 text-sm font-black text-indigo-700 shadow-sm transition-colors hover:border-indigo-300 hover:bg-indigo-100"
+                                >
+                                    <Download size={16} />
+                                    <span className="hidden sm:inline">Exportar datos</span>
+                                </button>
                                 {helpKey && <HelpButton contextKey={helpKey} onClick={help.open} />}
                             </div>
                         </div>
@@ -203,6 +214,7 @@ const InventoryCenter = () => {
             </main>
 
             {help.isOpen && helpKey && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
+            <InventoryExportCenter isOpen={isExportOpen} onClose={() => setIsExportOpen(false)} />
 
         </div>
     );
