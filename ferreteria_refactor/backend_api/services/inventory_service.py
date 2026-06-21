@@ -429,6 +429,8 @@ class InventoryService:
         warehouse_id: Optional ID of the warehouse to deduct stock from
         """
         transfer_items = []
+        package_id = f"trf-{uuid.uuid4()}"
+        guide_number = f"GD-{datetime.now().strftime('%Y%m%d')}-{package_id[-8:].upper()}"
         source_warehouse_name = None
         if warehouse_id:
             warehouse = db.query(models.Warehouse).filter(models.Warehouse.id == warehouse_id).first()
@@ -517,7 +519,7 @@ class InventoryService:
                 movement_type=models.MovementType.EXTERNAL_TRANSFER_OUT,
                 quantity=-qty,
                 balance_after=balance_after,
-                description=f"Transfer OUT to External (Generated package)",
+                description=f"Transfer OUT package {package_id} guide {guide_number} to {destination_company or 'External'}",
                 warehouse_id=warehouse_id,
                 date=datetime.now()
             )
@@ -549,9 +551,6 @@ class InventoryService:
         units_count = sum(float(item.get("quantity") or 0) for item in transfer_items)
         imei_count = sum(len(item.get("serial_numbers") or []) for item in transfer_items)
         photos_count = len(photo_urls or [])
-
-        package_id = f"trf-{uuid.uuid4()}"
-        guide_number = f"GD-{datetime.now().strftime('%Y%m%d')}-{package_id[-8:].upper()}"
 
         package = {
             "package_id": package_id,
@@ -832,7 +831,7 @@ class InventoryService:
                         movement_type=models.MovementType.EXTERNAL_TRANSFER_IN,
                         quantity=qty,
                         balance_after=product.stock,
-                        description=f"Transfer IN (v2) from {source_company}",
+                        description=f"Transfer IN package {package_id} from {source_company}",
                         warehouse_id=item_warehouse_id,
                         date=datetime.now()
                     )
@@ -881,7 +880,7 @@ class InventoryService:
                         movement_type=models.MovementType.EXTERNAL_TRANSFER_IN,
                         quantity=qty,
                         balance_after=new_product.stock,
-                        description=f"Transfer IN (v2 - new product) from {source_company}",
+                        description=f"Transfer IN package {package_id} from {source_company} (nuevo producto)",
                         warehouse_id=item_warehouse_id,
                         date=datetime.now()
                     )

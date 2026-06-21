@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from collections import OrderedDict
+import re
 from sqlalchemy.orm import Session, joinedload, selectinload
 from typing import List
 from ..database.db import get_db
@@ -107,6 +109,97 @@ def _validate_and_collect_imeis(
             )
 
     return db_instances
+
+
+def _movement_value(value):
+    return getattr(value, "value", str(value))
+
+
+def _extract_transfer_meta(description: str):
+    text = description or ""
+    package_match = re.search(r"package\s+(trf-[\w-]+)", text, re.IGNORECASE)
+    guide_match = re.search(r"guide\s+([A-Z0-9-]+)", text, re.IGNORECASE)
+    to_match = re.search(r"\s+to\s+(.+)$", text, re.IGNORECASE)
+    from_match = re.search(r"\s+from\s+(.+)$", text, re.IGNORECASE)
+    return {
+        "package_id": package_match.group(1) if package_match else None,
+        "dispatch_guide_number": guide_match.group(1) if guide_match else None,
+        "company": (to_match.group(1) if to_match else from_match.group(1) if from_match else None),
+    }
+
+
+@router.get("/external/history", dependencies=[Depends(require_any_permission(["inventory.transfers.export", "inventory.transfers.import", "inventory.kardex.view"]))])
+def read_external_transfer_history(direction: str = "all", limit: int = 200, db: Session = Depends(get_db)):
+    """Historial unificado de salidas/entradas externas basado en Kardex."""
+    from sqlalchemy.orm import joinedload
+
+    allowed = {
+        models.MovementType.EXTERNAL_TRANSFER_OUT,
+        models.MovementType.EXTERNAL_TRANSFER_IN,
+    }
+    query = db.query(models.Kardex).options(joinedload(models.Kardex.product)).filter(
+        models.Kardex.movement_type.in_(list(allowed))
+    )
+    if direction == "out":
+        query = query.filter(models.Kardex.movement_type == models.MovementType.EXTERNAL_TRANSFER_OUT)
+    elif direction == "in":
+        query = query.filter(models.Kardex.movement_type == models.MovementType.EXTERNAL_TRANSFER_IN)
+
+    movements = query.order_by(models.Kardex.date.desc()).limit(max(1, min(limit, 500))).all()
+    warehouse_ids = {m.warehouse_id for m in movements if m.warehouse_id}
+    warehouses = {}
+    if warehouse_ids:
+        warehouses = {
+            w.id: w.name for w in db.query(models.Warehouse).filter(models.Warehouse.id.in_(warehouse_ids)).all()
+        }
+
+    groups = OrderedDict()
+    for movement in movements:
+        movement_type = _movement_value(movement.movement_type)
+        meta = _extract_transfer_meta(movement.description)
+        movement_direction = "out" if movement_type == "EXTERNAL_TRANSFER_OUT" else "in"
+        package_id = meta["package_id"]
+        if package_id:
+            key = f"{movement_direction}:{package_id}"
+        else:
+            minute = movement.date.strftime("%Y-%m-%d %H:%M") if movement.date else "sin-fecha"
+            key = f"{movement_direction}:{minute}:{movement.description or ''}"
+
+        if key not in groups:
+            groups[key] = {
+                "id": key,
+                "direction": movement_direction,
+                "movement_type": movement_type,
+                "package_id": package_id,
+                "dispatch_guide_number": meta["dispatch_guide_number"],
+                "company": meta["company"],
+                "date": movement.date,
+                "warehouse_id": movement.warehouse_id,
+                "warehouse_name": warehouses.get(movement.warehouse_id),
+                "models_count": 0,
+                "units_count": 0.0,
+                "items": [],
+                "description": movement.description,
+            }
+        group = groups[key]
+        qty = abs(float(movement.quantity or 0))
+        group["models_count"] += 1
+        group["units_count"] += qty
+        if movement.date and movement.date > group["date"]:
+            group["date"] = movement.date
+        group["items"].append({
+            "movement_id": movement.id,
+            "product_id": movement.product_id,
+            "product_name": movement.product.name if movement.product else "Producto",
+            "sku": movement.product.sku if movement.product else None,
+            "quantity": qty,
+            "balance_after": float(movement.balance_after or 0),
+            "warehouse_id": movement.warehouse_id,
+            "warehouse_name": warehouses.get(movement.warehouse_id),
+            "description": movement.description,
+        })
+
+    return list(groups.values())
 
 
 @router.get("", response_model=List[schemas.InventoryTransferRead], dependencies=[Depends(require_any_permission(["inventory.transfers.export", "inventory.transfers.import", "inventory.stock.adjust"]))])

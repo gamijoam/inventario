@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowRightLeft, Upload, Download, Building2, CheckCircle2 } from 'lucide-react';
+import { ArrowRightLeft, Upload, Download, Building2, CheckCircle2, History } from 'lucide-react';
 import InventoryTransfers from '../../Warehouses/InventoryTransfers';
 import ExternalTransferOut from '../Transfers/ExternalTransferOut';
 import ExternalTransferIn from '../Transfers/ExternalTransferIn';
+import ExternalTransferHistory from '../Transfers/ExternalTransferHistory';
 
 const SUB_TABS = [
   {
@@ -26,6 +27,13 @@ const SUB_TABS = [
     eyebrow: 'Entrada externa',
     icon: Upload,
     hint: 'Valida el archivo recibido antes de sumar inventario.',
+  },
+  {
+    key: 'external-history',
+    label: 'Historial externo',
+    eyebrow: 'Salidas y entradas',
+    icon: History,
+    hint: 'Audita paquetes enviados y recibidos entre empresas.',
   },
 ];
 
@@ -63,7 +71,7 @@ const TransfersTab = () => {
       </div>
 
       {/* Sub-tab selector */}
-      <div id="tour-transfers-modes" className="grid grid-cols-1 gap-2 md:grid-cols-3">
+      <div id="tour-transfers-modes" className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
         {SUB_TABS.map(({ key, label, eyebrow, icon: Icon, hint }) => {
           const isActive = activeTab === key;
           return (
@@ -99,6 +107,7 @@ const TransfersTab = () => {
       {activeTab === 'internal' && <InventoryTransfers />}
       {activeTab === 'export'   && <ExternalTransferOut />}
       {activeTab === 'import'   && <ExternalTransferIn />}
+      {activeTab === 'external-history' && <ExternalTransferHistory />}
     </div>
   );
 };
