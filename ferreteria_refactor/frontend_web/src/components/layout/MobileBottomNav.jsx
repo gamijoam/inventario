@@ -3,31 +3,38 @@ import { LayoutDashboard, ShoppingCart, Package, Users, Menu, Wrench, BarChart2 
 import { cn } from '../../utils/cn';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
+import { PERMISSIONS, PERMISSION_GROUPS } from '../../config/permissions';
 
 export default function MobileBottomNav({ onOpenMenu }) {
     const location   = useLocation();
     const { modules } = useConfig();
-    const { user }   = useAuth();
-    const isAdmin    = user?.role === 'ADMIN';
+    const { user, hasPermission, hasAnyPermission } = useAuth();
+    const isAdmin = user?.role === 'ADMIN';
+    const canViewDashboard = isAdmin || hasPermission(PERMISSIONS.DASHBOARD_VIEW);
+    const canOpenPos = isAdmin || hasAnyPermission(PERMISSION_GROUPS.POS);
+    const canOpenInventory = isAdmin || hasAnyPermission(PERMISSION_GROUPS.INVENTORY);
+    const canOpenSales = isAdmin || hasAnyPermission(PERMISSION_GROUPS.SALES) || canOpenPos;
+    const canOpenReports = isAdmin || hasAnyPermission(PERMISSION_GROUPS.REPORTS);
+    const canOpenServices = isAdmin || hasPermission(PERMISSIONS.SERVICES_ORDERS_MANAGE);
 
     // Items base — siempre visibles
     const baseItems = [
-        { icon: LayoutDashboard, label: 'Inicio',     path: '/' },
-        { icon: ShoppingCart,    label: 'Vender',     path: '/pos' },
-        { icon: Package,         label: 'Inventario', path: '/inventory-center' },
+        ...(canViewDashboard ? [{ icon: LayoutDashboard, label: 'Inicio', path: '/' }] : []),
+        ...(canOpenPos ? [{ icon: ShoppingCart, label: 'Vender', path: '/pos' }] : []),
+        ...(canOpenInventory ? [{ icon: Package, label: 'Inventario', path: '/inventory-center' }] : []),
     ];
 
     // Item dinámico — Taller si tiene el módulo, si no Clientes
-    const dynamicItem = modules?.services
+    const dynamicItem = modules?.services && canOpenServices
         ? { icon: Wrench, label: 'Taller', path: '/services' }
-        : { icon: Users,  label: 'Clientes', path: '/sales-center?tab=clientes' };
+        : (canOpenSales ? { icon: Users, label: 'Clientes', path: '/sales-center?tab=clientes' } : null);
 
     // Item admin — Reportes si es admin, si no Clientes
-    const adminItem = isAdmin
+    const adminItem = canOpenReports
         ? { icon: BarChart2, label: 'Reportes', path: '/reports' }
-        : { icon: Users,     label: 'Clientes', path: '/sales-center?tab=clientes' };
+        : (canOpenSales ? { icon: Users, label: 'Clientes', path: '/sales-center?tab=clientes' } : null);
 
-    const navItems = [...baseItems, dynamicItem, adminItem];
+    const navItems = [...baseItems, dynamicItem, adminItem].filter(Boolean);
 
     // Deduplicar si hay coincidencias
     const seen = new Set();

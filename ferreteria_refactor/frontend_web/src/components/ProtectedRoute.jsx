@@ -32,15 +32,12 @@ const ProtectedRoute = ({ roles, permissions, children, redirectTo = '/unauthori
         return <Navigate to="/login" replace />;
     }
 
-    // If roles are specified, check if user has required role
-    if (roles && !hasRole(roles)) {
-        console.warn(`Access denied: User ${user.username} (${user.role}) attempted to access route requiring ${roles}`);
-        return <Navigate to={redirectTo} replace />;
-    }
+    const hasRoleAccess = roles ? hasRole(roles) : false;
+    const hasPermissionAccess = permissions ? hasAnyPermission(permissions) : false;
 
-    // If permissions are specified, check fine-grained access.
-    if (permissions && !hasAnyPermission(permissions)) {
-        console.warn(`Access denied: User ${user.username} (${user.role}) attempted to access route requiring permissions ${permissions}`);
+    // During migration, routes can accept either legacy roles or modular permissions.
+    if ((roles || permissions) && !hasRoleAccess && !hasPermissionAccess) {
+        console.warn(`Access denied: User ${user.username} (${user.role}) attempted route requiring roles=${roles || 'none'} permissions=${permissions || 'none'}`);
         return <Navigate to={redirectTo} replace />;
     }
 

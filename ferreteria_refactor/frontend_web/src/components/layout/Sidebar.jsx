@@ -45,10 +45,11 @@ import {
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
+import { PERMISSIONS, PERMISSION_GROUPS } from '../../config/permissions';
 
 export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, closeMobileMenu }) {
     const location = useLocation();
-    const { user } = useAuth();
+    const { user, hasPermission, hasAnyPermission } = useAuth();
     const { modules, business } = useConfig();
     // En desarrollo, VITE_FORCE_ALL_MODULES=true (en .env.development) activa todos los módulos
     // para poder probarlos sin depender de los feature flags reales del backend.
@@ -56,33 +57,46 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     const forceAll = import.meta.env.VITE_FORCE_ALL_MODULES === 'true';
     const effectiveModules = forceAll ? { ...modules, services: true, barbershop: true, restaurant: true, pharmacy: true } : modules;
 
-    // Helpers de rol
+    // Helpers de rol + permisos modulares. Mientras migramos, ADMIN conserva acceso total.
     const role = user?.role;
     const isAdmin = role === 'ADMIN';
-    const isAdminOrWarehouse = ['ADMIN', 'WAREHOUSE'].includes(role);
-    const isAdminOrCashier = ['ADMIN', 'CASHIER'].includes(role);
-    const canOpenOrgPanel = Boolean(isAdmin && (user?.is_superuser || user?.is_org_owner || user?.org_role));
+    const canViewDashboard = isAdmin || hasPermission(PERMISSIONS.DASHBOARD_VIEW);
+    const canOpenPos = isAdmin || hasAnyPermission(PERMISSION_GROUPS.POS);
+    const canOpenSales = isAdmin || hasAnyPermission(PERMISSION_GROUPS.SALES) || canOpenPos;
+    const canOpenInventory = isAdmin || hasAnyPermission(PERMISSION_GROUPS.INVENTORY);
+    const canOpenPurchases = isAdmin || hasAnyPermission(PERMISSION_GROUPS.PURCHASES);
+    const canOpenSuppliers = isAdmin || hasPermission(PERMISSIONS.PURCHASES_SUPPLIERS_MANAGE);
+    const canOpenReports = isAdmin || hasAnyPermission(PERMISSION_GROUPS.REPORTS);
+    const canOpenCashRegisters = isAdmin || hasAnyPermission([PERMISSIONS.CASH_AUDIT_VIEW, PERMISSIONS.CASH_FORCE_CLOSE]);
+    const canOpenConfig = isAdmin || hasAnyPermission(PERMISSION_GROUPS.CONFIG);
+    const canManageRestaurant = isAdmin || hasPermission(PERMISSIONS.RESTAURANT_ORDERS_MANAGE);
+    const canViewKitchen = isAdmin || hasPermission(PERMISSIONS.RESTAURANT_KITCHEN_VIEW);
+    const canOpenServices = isAdmin || hasPermission(PERMISSIONS.SERVICES_ORDERS_MANAGE);
+    const canOpenOrgPanel = Boolean((isAdmin || hasPermission(PERMISSIONS.ORG_PANEL_VIEW)) && (user?.is_superuser || user?.is_org_owner || user?.org_role));
 
-    // Finanzas: items filtrados por rol (si quedan 0 items, el grupo no aparece)
+    // Finanzas: items filtrados por permisos (si quedan 0 items, el grupo no aparece)
     const finanzasItems = [
-        ...(isAdminOrWarehouse ? [
+        ...(canOpenPurchases ? [
             { icon: Briefcase, label: 'Compras', path: '/purchases' },
+        ] : []),
+        ...(canOpenSuppliers ? [
             { icon: Truck, label: 'Proveedores', path: '/suppliers' },
         ] : []),
-        ...(isAdmin ? [
+        ...(canOpenReports ? [
             { icon: BarChart2, label: 'Centro de Reportes', path: '/reports' },
-
+        ] : []),
+        ...(canOpenCashRegisters ? [
             { icon: LayoutGrid, label: 'Gestión de Cajas', path: '/cash-registers' },
         ] : []),
     ];
 
     const menuStructure = [
-        {
+        ...(canViewDashboard ? [{
             type: 'single',
             item: { icon: LayoutDashboard, label: 'Resumen', path: '/' }
-        },
+        }] : []),
         // RESTAURANT MODULE — ADMIN, CASHIER, WAITER, KITCHEN
-        ...(effectiveModules?.restaurant && ['ADMIN', 'CASHIER', 'WAITER', 'KITCHEN'].includes(role) ? [{
+        ...(effectiveModules?.restaurant && (canManageRestaurant || canViewKitchen) ? [{
             type: role === 'WAITER' ? 'single' : 'group',
             ...(role === 'WAITER' ? {
                 item: { icon: Smartphone, label: 'Comandera', path: '/waiter' }
@@ -90,10 +104,10 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 label: 'Restaurante',
                 icon: Utensils,
                 items: [
-                    { icon: Utensils, label: 'Mapa de Mesas', path: '/restaurant/tables' },
-                    { icon: ChefHat, label: 'Cocina', path: '/restaurant/kitchen' },
-                    { icon: Smartphone, label: 'Comandera', path: '/waiter' },
-                    ...(isAdmin ? [
+                    ...(canManageRestaurant ? [{ icon: Utensils, label: 'Mapa de Mesas', path: '/restaurant/tables' }] : []),
+                    ...(canViewKitchen ? [{ icon: ChefHat, label: 'Cocina', path: '/restaurant/kitchen' }] : []),
+                    ...(canManageRestaurant ? [{ icon: Smartphone, label: 'Comandera', path: '/waiter' }] : []),
+                    ...(canManageRestaurant ? [
                         { icon: BookOpen, label: 'Menú Digital', path: '/restaurant/menu' },
                         { icon: ClipboardList, label: 'Recetas', path: '/restaurant/recipes' },
                         { icon: Settings, label: 'Recetas Modificadores', path: '/restaurant/modifiers' },
@@ -102,7 +116,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             })
         }] : []),
         // SERVICE & LAUNDRY MODULES — ADMIN, CASHIER
-        ...((effectiveModules?.services || effectiveModules?.laundry) && isAdminOrCashier ? [{
+        ...((effectiveModules?.services || effectiveModules?.laundry) && canOpenServices ? [{
             type: 'group',
             label: effectiveModules?.services ? 'Servicios' : 'Lavandería',
             icon: effectiveModules?.services ? Wrench : Smartphone,
@@ -122,7 +136,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             icon: Pill,
             items: [
                 { icon: LayoutDashboard, label: 'Dashboard Farmacia', path: '/pharmacy' },
-                ...(isAdminOrWarehouse ? [
+                ...(canOpenInventory ? [
                     { icon: Package, label: 'Gestión de Lotes', path: '/pharmacy/lots' },
                     { icon: BookOpen, label: 'Libro de Control', path: '/pharmacy/control-log' },
                 ] : []),
@@ -130,7 +144,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             ]
         }] : []),
         // BARBERSHOP MODULE — ADMIN, CASHIER
-        ...(effectiveModules?.barbershop && isAdminOrCashier ? [{
+        ...(effectiveModules?.barbershop && canOpenServices ? [{
             type: 'single',
             item: {
                 icon: Scissors,
@@ -138,12 +152,12 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 path: '/barbershop'
             }
         }] : []),
-        {
+        ...(canOpenSales ? [{
             type: 'single',
             item: { icon: ShoppingCart, label: 'Centro de Ventas', path: '/sales-center', prefetch: ['/api/v1/products/catalog', '/api/v1/categories', '/api/v1/warehouses'] }
-        },
+        }] : []),
         // INVENTARIO — ADMIN, WAREHOUSE
-        ...(isAdminOrWarehouse ? [{
+        ...(canOpenInventory ? [{
             type: 'single',
             item: { icon: Package, label: 'Centro de Inventario', path: '/inventory-center' }
         }] : []),
@@ -160,7 +174,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             items: finanzasItems
         }] : []),
         // CONFIGURACIÓN — solo ADMIN
-        ...(isAdmin ? [{
+        ...(canOpenConfig ? [{
             type: 'single',
             item: { icon: Settings, label: 'Configuración', path: '/config-center' }
         }] : []),

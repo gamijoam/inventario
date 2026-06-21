@@ -15,6 +15,7 @@ import AppWithCloudConfig from './components/setup/AppWithCloudConfig';
 import { Capacitor } from '@capacitor/core';
 import AndroidBackButton from './components/common/AndroidBackButton';
 import ChunkReloadGuard from './components/ChunkReloadGuard';
+import { PERMISSIONS, PERMISSION_GROUPS } from './config/permissions';
 
 // Eager imports — critical path only
 import OnboardingWizard from './components/onboarding/OnboardingWizard';
@@ -321,7 +322,7 @@ function App() {
                           <Route path="/reports/unified" element={<Navigate to="/reports" replace />} />
 
                           {/* Standalone POS Routes (No Dashboard Layout) */}
-                          <Route element={<ProtectedRoute roles={['ADMIN', 'CASHIER']} />}>
+                          <Route element={<ProtectedRoute roles={['ADMIN', 'CASHIER']} permissions={PERMISSION_GROUPS.POS} />}>
                             <Route path="/pos" element={<POS />} />
                             <Route path="/pos-express" element={<POSExpress />} />
                             <Route path="/cash-close" element={<CashClose />} />
@@ -347,7 +348,11 @@ function App() {
                           {/* Dashboard Layout Routes */}
                           <Route element={<ProtectedRoute />}>
                             <Route element={<DashboardLayout />}>
-                              <Route path="/" element={<OnboardingGate><Dashboard /></OnboardingGate>} />
+                              <Route path="/" element={
+                                <ProtectedRoute permissions={[PERMISSIONS.DASHBOARD_VIEW]}>
+                                  <OnboardingGate><Dashboard /></OnboardingGate>
+                                </ProtectedRoute>
+                              } />
                               {/* Panel Multi-Empresa con layout propio */}
                               <Route path="/org" element={
                                 <OwnerProtectedRoute>
@@ -367,7 +372,7 @@ function App() {
 
                               {/* Unified Inventory Center */}
                               <Route path="/inventory-center" element={
-                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']} permissions={PERMISSION_GROUPS.INVENTORY}>
                                   <InventoryCenter />
                                 </ProtectedRoute>
                               } />
@@ -381,7 +386,7 @@ function App() {
                               <Route path="/transfers/external/out" element={<Navigate to="/inventory-center?tab=traslados" replace />} />
                               <Route path="/transfers/external/in" element={<Navigate to="/inventory-center?tab=traslados" replace />} />
                               <Route path="/inventory/serialized-reception" element={
-                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']} permissions={[PERMISSIONS.INVENTORY_SERIALS_RECEIVE]}>
                                   <SerializedReception />
                                 </ProtectedRoute>
                               } />
@@ -408,7 +413,7 @@ function App() {
                                 </ProtectedRoute>
                               } />
                               <Route path="/inventory/serialized-reception" element={
-                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']} permissions={[PERMISSIONS.INVENTORY_SERIALS_RECEIVE]}>
                                   <SerializedReception />
                                 </ProtectedRoute>
                               } />
@@ -431,7 +436,7 @@ function App() {
 
                               {/* Unified Sales Center */}
                               <Route path="/sales-center" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER', 'WAREHOUSE']}>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER', 'WAREHOUSE']} permissions={PERMISSION_GROUPS.SALES}>
                                   <SalesCenter />
                                 </ProtectedRoute>
                               } />
@@ -445,7 +450,7 @@ function App() {
                               <Route path="/sales-history" element={<Navigate to="/reports" replace />} />
                               <Route path="/cash-history" element={<Navigate to="/reports" replace />} />
                               <Route path="/cash-registers" element={
-                                <ProtectedRoute roles={['ADMIN']}>
+                                <ProtectedRoute roles={['ADMIN']} permissions={[PERMISSIONS.CASH_AUDIT_VIEW, PERMISSIONS.CASH_FORCE_CLOSE]}>
                                   <CashRegistersPage />
                                 </ProtectedRoute>
                               } />
@@ -453,35 +458,35 @@ function App() {
                               <Route path="/credit/ledger/:clientId" element={<Navigate to="/reports" replace />} />
 
                               <Route path="/quotes" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']} permissions={[PERMISSIONS.SALES_QUOTES_VIEW, PERMISSIONS.SALES_QUOTES_MANAGE]}>
                                   <QuotesManager />
                                 </ProtectedRoute>
                               } />
 
                               {/* Purchases - ADMIN or WAREHOUSE */}
                               <Route path="/purchases" element={
-                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']} permissions={[PERMISSIONS.PURCHASES_VIEW]}>
                                   <Purchases />
                                 </ProtectedRoute>
                               } />
                               <Route path="/purchases/new" element={
-                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']} permissions={[PERMISSIONS.PURCHASES_CREATE]}>
                                   <CreatePurchase />
                                 </ProtectedRoute>
                               } />
                               <Route path="/purchases/:id" element={
-                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']} permissions={[PERMISSIONS.PURCHASES_VIEW]}>
                                   <PurchaseDetail />
                                 </ProtectedRoute>
                               } />
                               <Route path="/suppliers" element={
-                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']} permissions={[PERMISSIONS.PURCHASES_SUPPLIERS_MANAGE]}>
                                   <Suppliers />
                                 </ProtectedRoute>
                               } />
                               <Route path="/accounts-payable" element={<Navigate to="/reports" replace />} />
                               <Route path="/suppliers/:supplierId/ledger" element={
-                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']} permissions={[PERMISSIONS.PURCHASES_VIEW, PERMISSIONS.PURCHASES_PAY]}>
                                   <SupplierLedger />
                                 </ProtectedRoute>
                               } />
@@ -505,7 +510,7 @@ function App() {
                               {/* Admin Only */}
                               <Route path="/settings" element={<Navigate to="/config-center" replace />} />
                               <Route path="/config-center" element={
-                                <ProtectedRoute roles={['ADMIN']}>
+                                <ProtectedRoute roles={['ADMIN']} permissions={PERMISSION_GROUPS.CONFIG}>
                                   <ConfigCenter />
                                 </ProtectedRoute>
                               } />
@@ -519,7 +524,7 @@ function App() {
 
                               {/* Unified Reports Center */}
                                 <Route path="/reports" element={
-                                <ProtectedRoute roles={['ADMIN']}>
+                                <ProtectedRoute roles={['ADMIN']} permissions={PERMISSION_GROUPS.REPORTS}>
                                   <ReportsCenter />
                                 </ProtectedRoute>
                               } />
@@ -538,34 +543,34 @@ function App() {
 
                               {/* Restaurant Module - Phase 1 */}
                               <Route path="/restaurant/tables" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER', 'WAITER']}>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER', 'WAITER']} permissions={[PERMISSIONS.RESTAURANT_ORDERS_MANAGE]}>
                                   <TableMap />
                                 </ProtectedRoute>
                               } />
                               <Route path="/restaurant/kitchen" element={
-                                <ProtectedRoute roles={['ADMIN', 'KITCHEN']}>
+                                <ProtectedRoute roles={['ADMIN', 'KITCHEN']} permissions={[PERMISSIONS.RESTAURANT_KITCHEN_VIEW]}>
                                   <KitchenDisplay />
                                 </ProtectedRoute>
                               } />
                               <Route path="/waiter" element={
-                                <ProtectedRoute roles={['ADMIN', 'WAITER', 'CASHIER']}>
+                                <ProtectedRoute roles={['ADMIN', 'WAITER', 'CASHIER']} permissions={[PERMISSIONS.RESTAURANT_ORDERS_MANAGE]}>
                                   <WaiterStation />
                                 </ProtectedRoute>
                               } />
 
                               {/* Restaurant Management */}
                               <Route path="/restaurant/menu" element={
-                                <ProtectedRoute roles={['ADMIN']}>
+                                <ProtectedRoute roles={['ADMIN']} permissions={[PERMISSIONS.RESTAURANT_ORDERS_MANAGE]}>
                                   <MenuManager />
                                 </ProtectedRoute>
                               } />
                               <Route path="/restaurant/recipes" element={
-                                <ProtectedRoute roles={['ADMIN']}>
+                                <ProtectedRoute roles={['ADMIN']} permissions={[PERMISSIONS.RESTAURANT_ORDERS_MANAGE]}>
                                   <RecipeEditor />
                                 </ProtectedRoute>
                               } />
                               <Route path="/restaurant/modifiers" element={
-                                <ProtectedRoute roles={['ADMIN']}>
+                                <ProtectedRoute roles={['ADMIN']} permissions={[PERMISSIONS.RESTAURANT_ORDERS_MANAGE]}>
                                   <ModifierRecipeEditor />
                                 </ProtectedRoute>
                               } />
@@ -574,44 +579,44 @@ function App() {
                               <Route path="/support" element={<SupportTickets />} />
                               <Route path="/mi-suscripcion" element={<MiSuscripcion />} />
                               <Route path="/funciones" element={
-                                <ProtectedRoute roles={['ADMIN']}>
+                                <ProtectedRoute roles={['ADMIN']} permissions={[PERMISSIONS.CONFIG_BUSINESS_MANAGE]}>
                                   <FuncionesPage />
                                 </ProtectedRoute>
                               } />
 
                               {/* Service Module Routes — ADMIN + CASHIER */}
                               <Route path="/services" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']} permissions={[PERMISSIONS.SERVICES_ORDERS_MANAGE]}>
                                   <ServicesDashboard />
                                 </ProtectedRoute>
                               } />
                               {/* LEGACY routes — kept for direct-link compatibility */}
                               <Route path="/services/orders/:id" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']} permissions={[PERMISSIONS.SERVICES_ORDERS_MANAGE]}>
                                   <ServicesDashboard />
                                 </ProtectedRoute>
                               } />
 
                               {/* Laundry Routes — ADMIN + CASHIER */}
                               <Route path="/laundry" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']} permissions={[PERMISSIONS.SERVICES_ORDERS_MANAGE]}>
                                   <LaundryDashboard />
                                 </ProtectedRoute>
                               } />
                               <Route path="/laundry/new" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']} permissions={[PERMISSIONS.SERVICES_ORDERS_MANAGE]}>
                                   <LaundryForm />
                                 </ProtectedRoute>
                               } />
                               <Route path="/laundry/ticket/:orderId" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']} permissions={[PERMISSIONS.SERVICES_ORDERS_MANAGE]}>
                                   <LaundryTicket />
                                 </ProtectedRoute>
                               } />
 
                               {/* Barbershop Routes — ADMIN + CASHIER */}
                               <Route path="/barbershop" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']} permissions={[PERMISSIONS.SERVICES_ORDERS_MANAGE]}>
                                   <BarbershopDashboard />
                                 </ProtectedRoute>
                               } />

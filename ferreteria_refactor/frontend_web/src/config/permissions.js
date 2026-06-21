@@ -1,0 +1,101 @@
+export const PERMISSIONS = {
+  DASHBOARD_VIEW: 'dashboard.view',
+  DASHBOARD_FINANCIALS_VIEW: 'dashboard.financials.view',
+
+  POS_ACCESS: 'pos.access',
+  POS_SELL: 'pos.sell',
+  POS_REPRINT_TICKET: 'pos.reprint.ticket',
+  POS_REPRINT_WARRANTY: 'pos.reprint.warranty',
+
+  CASH_VIEW: 'cash.view',
+  CASH_OPEN: 'cash.open',
+  CASH_CLOSE_BLIND: 'cash.close.blind',
+  CASH_AUDIT_VIEW: 'cash.audit.view',
+  CASH_FORCE_CLOSE: 'cash.force_close',
+
+  INVENTORY_PRODUCTS_VIEW: 'inventory.products.view',
+  INVENTORY_PRODUCTS_CREATE: 'inventory.products.create',
+  INVENTORY_PRODUCTS_EDIT: 'inventory.products.edit',
+  INVENTORY_SERIALS_VIEW: 'inventory.serials.view',
+  INVENTORY_SERIALS_RECEIVE: 'inventory.serials.receive',
+  INVENTORY_KARDEX_VIEW: 'inventory.kardex.view',
+  INVENTORY_TRANSFERS_EXPORT: 'inventory.transfers.export',
+  INVENTORY_TRANSFERS_IMPORT: 'inventory.transfers.import',
+
+  SALES_QUOTES_VIEW: 'sales.quotes.view',
+  SALES_QUOTES_MANAGE: 'sales.quotes.manage',
+  SALES_CUSTOMERS_MANAGE: 'sales.customers.manage',
+  SALES_RETURNS_CREATE: 'sales.returns.create',
+  SALES_RETURNS_EXCHANGE: 'sales.returns.exchange',
+  SALES_WARRANTIES_VIEW: 'sales.warranties.view',
+  SALES_CREDITS_VIEW: 'sales.credits.view',
+  SALES_CREDITS_PAY: 'sales.credits.pay',
+
+  PURCHASES_VIEW: 'purchases.view',
+  PURCHASES_CREATE: 'purchases.create',
+  PURCHASES_PAY: 'purchases.pay',
+  PURCHASES_SUPPLIERS_MANAGE: 'purchases.suppliers.manage',
+
+  REPORTS_VIEW: 'reports.view',
+  REPORTS_SALES_VIEW: 'reports.sales.view',
+  REPORTS_PROFIT_VIEW: 'reports.profit.view',
+  REPORTS_INVENTORY_VIEW: 'reports.inventory.view',
+  REPORTS_COMMISSIONS_VIEW: 'reports.commissions.view',
+
+  CONFIG_BUSINESS_MANAGE: 'config.business.manage',
+  CONFIG_USERS_MANAGE: 'config.users.manage',
+  CONFIG_PERMISSIONS_MANAGE: 'config.permissions.manage',
+  CONFIG_PRICES_MANAGE: 'config.prices.manage',
+  CONFIG_PAYMENT_METHODS_MANAGE: 'config.payment_methods.manage',
+  CONFIG_PRINTING_MANAGE: 'config.printing.manage',
+  CONFIG_INTEGRATIONS_MANAGE: 'config.integrations.manage',
+
+  SUPPORT_CHAT_USE: 'support.chat.use',
+  SUPPORT_TICKETS_MANAGE: 'support.tickets.manage',
+
+  ORG_PANEL_VIEW: 'org.panel.view',
+  ORG_TENANTS_MANAGE: 'org.tenants.manage',
+  ORG_MEMBERS_MANAGE: 'org.members.manage',
+  ORG_CHAT_USE: 'org.chat.use',
+
+  RESTAURANT_ORDERS_MANAGE: 'restaurant.orders.manage',
+  RESTAURANT_KITCHEN_VIEW: 'restaurant.kitchen.view',
+
+  SERVICES_ORDERS_MANAGE: 'services.orders.manage',
+  SERVICES_TECHNICIAN_VIEW: 'services.technician.view',
+};
+
+export const PERMISSION_GROUPS = {
+  POS: [PERMISSIONS.POS_ACCESS, PERMISSIONS.POS_SELL],
+  INVENTORY: [
+    PERMISSIONS.INVENTORY_PRODUCTS_VIEW,
+    PERMISSIONS.INVENTORY_SERIALS_VIEW,
+    PERMISSIONS.INVENTORY_KARDEX_VIEW,
+    PERMISSIONS.INVENTORY_TRANSFERS_EXPORT,
+    PERMISSIONS.INVENTORY_TRANSFERS_IMPORT,
+  ],
+  SALES: [
+    PERMISSIONS.SALES_QUOTES_VIEW,
+    PERMISSIONS.SALES_CUSTOMERS_MANAGE,
+    PERMISSIONS.SALES_RETURNS_CREATE,
+    PERMISSIONS.SALES_WARRANTIES_VIEW,
+    PERMISSIONS.SALES_CREDITS_VIEW,
+  ],
+  PURCHASES: [PERMISSIONS.PURCHASES_VIEW, PERMISSIONS.PURCHASES_CREATE],
+  REPORTS: [
+    PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.REPORTS_SALES_VIEW,
+    PERMISSIONS.REPORTS_PROFIT_VIEW,
+    PERMISSIONS.REPORTS_INVENTORY_VIEW,
+    PERMISSIONS.REPORTS_COMMISSIONS_VIEW,
+  ],
+  CONFIG: [
+    PERMISSIONS.CONFIG_BUSINESS_MANAGE,
+    PERMISSIONS.CONFIG_USERS_MANAGE,
+    PERMISSIONS.CONFIG_PERMISSIONS_MANAGE,
+    PERMISSIONS.CONFIG_PRICES_MANAGE,
+    PERMISSIONS.CONFIG_PAYMENT_METHODS_MANAGE,
+    PERMISSIONS.CONFIG_PRINTING_MANAGE,
+    PERMISSIONS.CONFIG_INTEGRATIONS_MANAGE,
+  ],
+};
