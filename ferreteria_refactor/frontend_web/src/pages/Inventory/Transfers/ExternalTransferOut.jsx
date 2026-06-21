@@ -17,6 +17,10 @@ const ExternalTransferOut = () => {
     const [sendingChat, setSendingChat] = useState(false);
     const [downloadingGuide, setDownloadingGuide] = useState(false);
     const [destinationCompany, setDestinationCompany] = useState('');
+    const [destinationMode, setDestinationMode] = useState('org');
+    const [orgCompanies, setOrgCompanies] = useState([]);
+    const [loadingOrgCompanies, setLoadingOrgCompanies] = useState(false);
+    const [selectedDestinationTenantId, setSelectedDestinationTenantId] = useState('');
     const [dispatchNotes, setDispatchNotes] = useState('');
     const [photos, setPhotos] = useState([]); // { file, preview, uploading, url }
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
@@ -30,6 +34,7 @@ const ExternalTransferOut = () => {
     const totalUnits = selectedItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
     const totalSerials = selectedItems.reduce((sum, item) => sum + (item.selected_imeis?.length || 0), 0);
     const photoCount = photos.length;
+    const currentTenantSchema = window.location.hostname.split('.')[0];
 
     // Load warehouses on mount
     useEffect(() => {
@@ -54,6 +59,41 @@ const ExternalTransferOut = () => {
         setSelectedItems(prev => prev.map(item => ({ ...item, selected_imeis: [] })));
         setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
     }, [selectedWarehouseId]);
+
+    useEffect(() => {
+        const fetchOrgCompanies = async () => {
+            try {
+                setLoadingOrgCompanies(true);
+                const { data } = await apiClient.get('/organizations/mine');
+                const companies = Array.isArray(data)
+                    ? data.filter(company => company?.is_active !== false && company?.schema_name !== currentTenantSchema)
+                    : [];
+                setOrgCompanies(companies);
+                if (companies.length === 0) {
+                    setDestinationMode('free');
+                }
+            } catch (error) {
+                console.info('No se pudieron cargar empresas de la organizacion para traslado externo', error);
+                setOrgCompanies([]);
+                setDestinationMode('free');
+            } finally {
+                setLoadingOrgCompanies(false);
+            }
+        };
+        fetchOrgCompanies();
+    }, []);
+
+    const handleDestinationModeChange = (mode) => {
+        setDestinationMode(mode);
+        setSelectedDestinationTenantId('');
+        setDestinationCompany('');
+    };
+
+    const handleOrgDestinationChange = (tenantId) => {
+        setSelectedDestinationTenantId(tenantId);
+        const selected = orgCompanies.find(company => String(company.tenant_id) === String(tenantId));
+        setDestinationCompany(selected?.name || '');
+    };
 
     // Initial Search Logic
     useEffect(() => {
@@ -427,17 +467,56 @@ const ExternalTransferOut = () => {
 
                 <div className="mb-4 grid gap-3 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3 shadow-sm">
                     <div>
-                        <label className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase text-indigo-700">
-                            <Building2 size={13} />
-                            Empresa destino
-                        </label>
-                        <input
-                            type="text"
-                            value={destinationCompany}
-                            onChange={(e) => setDestinationCompany(e.target.value)}
-                            placeholder="Ej: Colaloca 2, sucursal centro..."
-                            className="w-full rounded-lg border border-indigo-100 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
-                        />
+                        <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <label className="flex items-center gap-1.5 text-xs font-bold uppercase text-indigo-700">
+                                <Building2 size={13} />
+                                Empresa destino
+                            </label>
+                            <div className="inline-flex rounded-lg border border-indigo-100 bg-white p-1 text-[11px] font-black uppercase text-slate-500">
+                                <button
+                                    type="button"
+                                    onClick={() => handleDestinationModeChange('org')}
+                                    disabled={orgCompanies.length === 0}
+                                    className={`rounded-md px-2.5 py-1 transition-colors ${destinationMode === 'org' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40'}`}
+                                >
+                                    Organizacion
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleDestinationModeChange('free')}
+                                    className={`rounded-md px-2.5 py-1 transition-colors ${destinationMode === 'free' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-50'}`}
+                                >
+                                    Libre
+                                </button>
+                            </div>
+                        </div>
+
+                        {destinationMode === 'org' && orgCompanies.length > 0 ? (
+                            <select
+                                value={selectedDestinationTenantId}
+                                onChange={(e) => handleOrgDestinationChange(e.target.value)}
+                                className="w-full rounded-lg border border-indigo-100 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                            >
+                                <option value="">Selecciona una empresa de la organizacion...</option>
+                                {orgCompanies.map(company => (
+                                    <option key={company.tenant_id || company.schema_name || company.name} value={company.tenant_id}>
+                                        {company.name} {company.schema_name ? `(${company.schema_name})` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        ) : (
+                            <input
+                                type="text"
+                                value={destinationCompany}
+                                onChange={(e) => setDestinationCompany(e.target.value)}
+                                placeholder={loadingOrgCompanies ? 'Cargando empresas...' : 'Ej: Colaloca 2, sucursal centro...'}
+                                className="w-full rounded-lg border border-indigo-100 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                            />
+                        )}
+
+                        {destinationMode === 'org' && orgCompanies.length === 0 && !loadingOrgCompanies && (
+                            <p className="mt-1 text-[11px] font-semibold text-indigo-500">No hay empresas vinculadas disponibles; usa destino libre.</p>
+                        )}
                     </div>
                     <div>
                         <label className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase text-indigo-700">
