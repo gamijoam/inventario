@@ -4,8 +4,9 @@ import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { PERMISSIONS } from '../../config/permissions';
 import {
-    FileText, Users, CornerDownLeft, ShieldCheck, CreditCard, Info
+    FileText, Users, CornerDownLeft, ShieldCheck, CreditCard, Info, Archive
 } from 'lucide-react';
 
 const CotizacionesTab = React.lazy(() => import('./tabs/CotizacionesTab'));
@@ -13,6 +14,7 @@ const ClientesTab = React.lazy(() => import('./tabs/ClientesTab'));
 const DevolucionesTab = React.lazy(() => import('./tabs/DevolucionesTab'));
 const GarantiasTab = React.lazy(() => import('./tabs/GarantiasTab'));
 const CreditosTab = React.lazy(() => import('./tabs/CreditosTab'));
+const ApartadosTab = React.lazy(() => import('./tabs/ApartadosTab'));
 
 // --- Tab descriptions ---
 const TAB_DESCRIPTIONS = {
@@ -21,6 +23,7 @@ const TAB_DESCRIPTIONS = {
     devoluciones: { desc: 'Procesa devoluciones de ventas buscando por número de factura. El stock se reintegra automáticamente.', tip: 'Solo se pueden devolver ventas en estado COMPLETADO.' },
     garantias: { desc: 'Gestiona las reclamaciones de garantía de tus clientes y consulta el historial por producto.', tip: 'Las garantías se vinculan a la política configurada al momento de la venta.' },
     creditos: { desc: 'Controla las cuentas por cobrar: facturas a crédito, abonos pendientes y antigüedad de cartera.', tip: 'Usa el reporte de antigüedad para priorizar cobros urgentes.' },
+    apartados: { desc: 'Gestiona productos reservados con inicial, abonos, vencimientos y liberacion de stock o IMEI.', tip: 'Los apartados reducen el disponible sin cerrar la venta hasta completar el pago.' },
 };
 
 // --- Tab definitions ---
@@ -30,6 +33,7 @@ const ALL_TABS = [
     { id: 'devoluciones', label: 'Devoluciones', icon: CornerDownLeft, adminOnly: true },
     { id: 'garantias',    label: 'Garantías',    icon: ShieldCheck,    adminOnly: true },
     { id: 'creditos',     label: 'Créditos (CxC)', icon: CreditCard,  adminOnly: true },
+    { id: 'apartados',    label: 'Apartados', icon: Archive, permissions: [PERMISSIONS.LAYAWAYS_VIEW] },
 ];
 
 // --- Loading spinner for Suspense ---
@@ -57,12 +61,13 @@ const TabPlaceholder = ({ label, icon: Icon }) => (
 const SalesCenter = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, hasAnyPermission } = useAuth();
     const isCashier = user?.role === 'CASHIER';
     const showCajeroRestringido = useFeatureFlag('cajero_restringido_pos');
-    const TABS = ALL_TABS.filter(t => !t.adminOnly || !(isCashier && showCajeroRestringido));
+    const TABS = ALL_TABS.filter(t => (!t.adminOnly || !(isCashier && showCajeroRestringido)) && (!t.permissions || hasAnyPermission(t.permissions)));
 
-    const activeTab = searchParams.get('tab') || 'cotizaciones';
+    const requestedTab = searchParams.get('tab') || 'cotizaciones';
+    const activeTab = TABS.some(t => t.id === requestedTab) ? requestedTab : (TABS[0]?.id || 'cotizaciones');
     const help = useHelp();
     const helpKey = {
         cotizaciones: 'sales/cotizaciones',
@@ -70,6 +75,7 @@ const SalesCenter = () => {
         devoluciones: 'sales/devoluciones',
         garantias:    'sales/garantias',
         creditos:     'sales/creditos',
+        apartados:    'sales/apartados',
     }[activeTab] || null;
 
     const setActiveTab = (tabId) => {
@@ -112,6 +118,12 @@ const SalesCenter = () => {
                 return (
                     <Suspense fallback={<TabSpinner />}>
                         <CreditosTab />
+                    </Suspense>
+                );
+            case 'apartados':
+                return (
+                    <Suspense fallback={<TabSpinner />}>
+                        <ApartadosTab />
                     </Suspense>
                 );
             default: {
