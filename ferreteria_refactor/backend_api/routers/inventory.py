@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 from typing import List, Optional, Dict, Any
 from ..database.db import get_db
 from ..models import models
@@ -525,6 +526,15 @@ def lookup_imei(imei: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="IMEI no encontrado en el inventario")
 
     product = instance.product
+    available_stock = 0
+    if product and getattr(product, "has_imei", False):
+        available_stock = db.query(func.count(models.ProductInstance.id)).filter(
+            models.ProductInstance.product_id == product.id,
+            models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE,
+        ).scalar() or 0
+    elif product:
+        available_stock = product.stock or 0
+
     return {
         "imei": instance.serial_number,
         "instance_id": instance.id,
@@ -538,7 +548,7 @@ def lookup_imei(imei: str, db: Session = Depends(get_db)):
             "sku": product.sku,
             "price": float(product.price),
             "cost": float(getattr(product, "cost_price", None) or getattr(product, "cost", None) or 0),
-            "stock": float(product.stock),
+            "stock": float(available_stock),
             "category_name": product.category.name if product.category else None,
             "image_url": product.image_url,
             "description": product.description,

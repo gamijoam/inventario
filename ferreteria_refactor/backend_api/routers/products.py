@@ -126,6 +126,35 @@ def _sync_product_gallery(db: Session, product_id: int, gallery_items, fallback_
     return new_gallery
 
 
+def _available_imei_stock(db: Session, product_id: int, warehouse_id: Optional[int] = None) -> Decimal:
+    query = db.query(func.count(models.ProductInstance.id)).filter(
+        models.ProductInstance.product_id == product_id,
+        models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE,
+    )
+    if warehouse_id:
+        query = query.filter(models.ProductInstance.warehouse_id == warehouse_id)
+    return Decimal(str(query.scalar() or 0))
+
+
+def _apply_pos_stock(product, db: Session, warehouse_id: Optional[int] = None):
+    if not product:
+        return product
+    if getattr(product, 'has_imei', False):
+        product.stock = _available_imei_stock(db, product.id, warehouse_id)
+        if warehouse_id and getattr(product, 'stocks', None) is not None:
+            product.stocks = [s for s in product.stocks if s.warehouse_id == warehouse_id]
+        return product
+
+    if warehouse_id:
+        warehouse_stock = sum(float(s.quantity) for s in (product.stocks or []) if s.warehouse_id == warehouse_id)
+        product.stock = Decimal(str(warehouse_stock))
+        if getattr(product, 'stocks', None) is not None:
+            product.stocks = [s for s in product.stocks if s.warehouse_id == warehouse_id]
+    elif getattr(product, 'stocks', None):
+        product.stock = Decimal(str(sum(float(s.quantity) for s in product.stocks)))
+    return product
+
+
 def _serialize_gallery_image(image):
     return {
         'id': image.id,
@@ -487,7 +516,7 @@ def lookup_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    return product
+    return _apply_pos_stock(product, db)
 
 @router.get("/kpis")
 def get_product_kpis(
@@ -667,13 +696,7 @@ def read_products(
                     if available < min_available: min_available = available
                 p.stock = Decimal(str(int(min_available))) if min_available != float('inf') else Decimal('0')
             else:
-                if warehouse_id:
-                    warehouse_stock = sum(float(s.quantity) for s in p.stocks if s.warehouse_id == warehouse_id)
-                    p.stock = Decimal(str(warehouse_stock))
-                else:
-                    p.stock = Decimal(str(sum(float(s.quantity) for s in p.stocks)))
-                if warehouse_id:
-                    p.stocks = [s for s in p.stocks if s.warehouse_id == warehouse_id]
+                _apply_pos_stock(p, db, warehouse_id)
 
         return {
             "items": products,
