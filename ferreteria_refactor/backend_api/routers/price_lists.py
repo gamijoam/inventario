@@ -7,6 +7,7 @@ from .. import schemas
 from datetime import datetime
 from ..cache import invalidate_resource
 from ..tenant_context import get_tenant_schema
+from ..dependencies import require_permission
 
 router = APIRouter(
     prefix="/price-lists",
@@ -54,7 +55,7 @@ def get_price_lists(
     # Ensure default sorting by created_at or ID
     return query.order_by(models.PriceList.id.asc()).offset(skip).limit(limit).all()
 
-@router.post("/", response_model=schemas.PriceListRead, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=schemas.PriceListRead, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("config.prices.manage"))])
 def create_price_list(
     list_data: schemas.PriceListCreate,
     db: Session = Depends(get_db)
@@ -80,7 +81,7 @@ def create_price_list(
     db.expunge(new_list)
     return new_list
 
-@router.put("/{list_id}", response_model=schemas.PriceListRead)
+@router.put("/{list_id}", response_model=schemas.PriceListRead, dependencies=[Depends(require_permission("config.prices.manage"))])
 def update_price_list(
     list_id: int,
     list_data: schemas.PriceListCreate,
@@ -104,7 +105,7 @@ def update_price_list(
     _invalidate_pos_price_list_cache()
     return price_list
 
-@router.patch("/{list_id}", response_model=schemas.PriceListRead)
+@router.patch("/{list_id}", response_model=schemas.PriceListRead, dependencies=[Depends(require_permission("config.prices.manage"))])
 def patch_price_list(
     list_id: int,
     list_data: dict,
@@ -129,7 +130,7 @@ def patch_price_list(
     _invalidate_pos_price_list_cache()
     return price_list
 
-@router.delete("/{list_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{list_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_permission("config.prices.manage"))])
 def delete_price_list(list_id: int, db: Session = Depends(get_db)):
     price_list = db.query(models.PriceList).filter(models.PriceList.id == list_id).first()
     if not price_list:

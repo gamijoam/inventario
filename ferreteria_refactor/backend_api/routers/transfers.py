@@ -4,8 +4,8 @@ from typing import List
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
-from ..models.models import UserRole, ProductInstanceStatus
-from ..dependencies import has_role
+from ..models.models import ProductInstanceStatus
+from ..dependencies import require_any_permission
 from ..models.tenant import Tenant
 from ..tenant_context import get_tenant_schema
 
@@ -109,7 +109,7 @@ def _validate_and_collect_imeis(
     return db_instances
 
 
-@router.get("", response_model=List[schemas.InventoryTransferRead])
+@router.get("", response_model=List[schemas.InventoryTransferRead], dependencies=[Depends(require_any_permission(["inventory.transfers.export", "inventory.transfers.import", "inventory.stock.adjust"]))])
 def read_transfers(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """List all inventory transfers."""
     transfers = db.query(models.InventoryTransfer)\
@@ -124,7 +124,7 @@ def read_transfers(skip: int = 0, limit: int = 100, db: Session = Depends(get_db
     return transfers
 
 
-@router.post("", response_model=schemas.InventoryTransferRead, dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
+@router.post("", response_model=schemas.InventoryTransferRead, dependencies=[Depends(require_any_permission(["inventory.transfers.export", "inventory.transfers.import", "inventory.stock.adjust"]))])
 def create_transfer(transfer_data: schemas.InventoryTransferCreate, db: Session = Depends(get_db)):
     """Create and execute an inventory transfer.
     Si el feature flag 'traslados_con_imei' esta ON, valida y mueve los

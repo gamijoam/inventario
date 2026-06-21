@@ -264,10 +264,16 @@ admin_only = has_role([UserRole.ADMIN])
 require_admin_role = admin_only # Alias for compatibility
 
 # Cashier or Admin - POS operations, sales, returns
-cashier_or_admin = has_role([UserRole.ADMIN, UserRole.CASHIER])
+cashier_or_admin = require_any_permission(["pos.sell", "pos.access", "sales.returns.create"])
 
 # Warehouse or Admin - inventory management, stock adjustments
-warehouse_or_admin = has_role([UserRole.ADMIN, UserRole.WAREHOUSE])
+warehouse_or_admin = require_any_permission([
+    "inventory.stock.adjust",
+    "inventory.serials.receive",
+    "inventory.products.edit",
+    "inventory.transfers.export",
+    "inventory.transfers.import",
+])
 
 # All authenticated users (any role)
 any_authenticated = Depends(get_current_active_user)

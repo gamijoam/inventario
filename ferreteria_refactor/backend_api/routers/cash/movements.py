@@ -15,7 +15,7 @@ from decimal import Decimal
 import logging
 
 from ...database.db import get_db
-from ...dependencies import get_current_active_user
+from ...dependencies import get_current_active_user, require_permission
 from ...models import models
 from ... import schemas
 from ...utils.time_utils import get_venezuela_now
@@ -170,7 +170,7 @@ def get_available_cash(db: Session, session_id: int, currency: str) -> Decimal:
 #  ENDPOINTS
 # ============================================================
 
-@router.post("/movements", response_model=schemas.CashMovementRead)
+@router.post("/movements", response_model=schemas.CashMovementRead, dependencies=[Depends(require_permission("cash.movements.create"))])
 def register_movement(
     movement: schemas.CashMovementCreate,
     db: Session = Depends(get_db),
@@ -222,7 +222,7 @@ def register_movement(
     return response_data
 
 
-@router.get("/balance")
+@router.get("/balance", dependencies=[Depends(require_permission("cash.view"))])
 def get_current_balance(
     currency: str = "USD",
     session_id: Optional[int] = Query(None, description="ID de la sesion de caja actual"),

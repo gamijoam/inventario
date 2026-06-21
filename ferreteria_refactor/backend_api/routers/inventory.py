@@ -7,7 +7,7 @@ from ..database.db import get_db
 from ..models import models
 from .. import schemas
 from datetime import datetime
-from ..dependencies import warehouse_or_admin
+from ..dependencies import warehouse_or_admin, require_permission, require_any_permission
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
 
@@ -169,9 +169,8 @@ async def remove_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = 
     
     return {"status": "success", "new_stock": product_stock, "product_id": product_id}
 
-from ..dependencies import any_authenticated
 
-@router.get("/kardex", response_model=List[schemas.KardexRead], dependencies=[any_authenticated])
+@router.get("/kardex", response_model=List[schemas.KardexRead], dependencies=[Depends(require_permission("inventory.kardex.view"))])
 def get_kardex(
     product_id: Optional[int] = None, 
     start_date: Optional[str] = None,
@@ -210,7 +209,7 @@ class TransferRequest(BaseModel):
     warehouse_id: Optional[int] = None
     photo_urls: Optional[List[str]] = None
 
-@router.post("/transfer/export", response_model=TransferPackageSchema)
+@router.post("/transfer/export", response_model=TransferPackageSchema, dependencies=[Depends(require_permission("inventory.transfers.export"))])
 def export_transfer_package(
     request: TransferRequest,
     db: Session = Depends(get_db),
@@ -233,7 +232,7 @@ def export_transfer_package(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred during transfer export: {e}")
 
-@router.post("/transfer/import", response_model=TransferResultSchema)
+@router.post("/transfer/import", response_model=TransferResultSchema, dependencies=[Depends(require_permission("inventory.transfers.import"))])
 async def import_transfer_package(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
@@ -245,7 +244,7 @@ async def import_transfer_package(
     content = await file.read()
     return InventoryService.process_transfer_package(db, content)
 
-@router.post("/transfer/preview", response_model=TransferPreviewResult)
+@router.post("/transfer/preview", response_model=TransferPreviewResult, dependencies=[Depends(require_permission("inventory.transfers.import"))])
 async def preview_transfer(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
@@ -258,7 +257,7 @@ async def preview_transfer(
     content = await file.read()
     return InventoryService.preview_transfer_package(db, content)
 
-@router.post("/transfer/import-mapped")
+@router.post("/transfer/import-mapped", dependencies=[Depends(require_permission("inventory.transfers.import"))])
 async def import_transfer_mapped(
     request: TransferImportV2Request = Body(...),
     db: Session = Depends(get_db)
@@ -270,7 +269,7 @@ async def import_transfer_mapped(
     data = request.model_dump()
     return InventoryService.process_transfer_package_v2(db, data, request.warehouse_id)
 
-@router.post("/transfer/upload-photo")
+@router.post("/transfer/upload-photo", dependencies=[Depends(require_any_permission(["inventory.transfers.export", "inventory.transfers.import"]))])
 async def upload_transfer_photo(file: UploadFile = File(...)):
     """
     Upload a photo as evidence for a transfer package.
@@ -309,7 +308,7 @@ def validate_imei_for_entry(imei: str, db: Session = Depends(get_db)):
     return InventoryService.validate_imei_for_entry(db, imei)
 
 
-@router.get("/serialized-instances", dependencies=[any_authenticated])
+@router.get("/serialized-instances", dependencies=[Depends(require_permission("inventory.serials.view"))])
 def get_all_serialized_instances(db: Session = Depends(get_db)):
     """
     Get ALL serialized instances (IMEIs) across all products.
@@ -325,7 +324,7 @@ def get_all_serialized_instances(db: Session = Depends(get_db)):
     ).all()
     return instances
 
-@router.get("/product/{product_id}/instances")
+@router.get("/product/{product_id}/instances", dependencies=[Depends(require_permission("inventory.serials.view"))])
 def get_product_instances(product_id: int, db: Session = Depends(get_db)):
     """
     Get all serialized instances (IMEIs) for a specific product.
@@ -509,7 +508,7 @@ def fix_imei_serial(
     }
 
 
-@router.get("/lookup-imei", dependencies=[any_authenticated])
+@router.get("/lookup-imei", dependencies=[Depends(require_any_permission(["inventory.serials.view", "pos.sell"]))])
 def lookup_imei(imei: str, db: Session = Depends(get_db)):
     """
     Buscar un producto por IMEI/serial.

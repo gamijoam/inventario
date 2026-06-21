@@ -6,7 +6,7 @@ from ..database.db import get_db
 from ..models import models
 from .. import schemas
 from ..commission_engine import CommissionEngine
-from ..dependencies import get_current_active_user
+from ..dependencies import get_current_active_user, require_permission, require_any_permission
 from ..utils.time_utils import get_venezuela_now
 from datetime import datetime, date
 from decimal import Decimal
@@ -126,7 +126,7 @@ def _validate_replacement_sale_ready(sale_data: schemas.SaleCreate, db: Session,
         if available < qty:
             raise HTTPException(status_code=400, detail=f"Stock insuficiente para '{product.name}'. Disponible: {available}, solicitado: {qty}")
 
-@router.get("/sales/search")
+@router.get("/sales/search", dependencies=[Depends(require_any_permission(["sales.returns.create", "sales.returns.exchange", "pos.void_sale"]))])
 def search_sales(
     q: Optional[str] = None,
     skip: int = 0,
@@ -214,7 +214,7 @@ def search_sales(
         print(f"ERROR IN SEARCH_SALES: {str(e)}\n{trace}")
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)} | {trace}")
 
-@router.get("/sales/{sale_id}", response_model=schemas.SaleRead)
+@router.get("/sales/{sale_id}", response_model=schemas.SaleRead, dependencies=[Depends(require_any_permission(["sales.returns.create", "sales.returns.exchange", "pos.void_sale"]))])
 def get_sale_for_return(
     sale_id: int,
     db: Session = Depends(get_db),
@@ -233,7 +233,7 @@ def get_sale_for_return(
     
     return sale
 
-@router.post("", response_model=schemas.ReturnRead)
+@router.post("", response_model=schemas.ReturnRead, dependencies=[Depends(require_permission("sales.returns.create"))])
 def process_return(
     return_data: schemas.ReturnCreate,
     db: Session = Depends(get_db),
@@ -585,7 +585,7 @@ def process_return(
     return schemas.ReturnRead.model_validate(new_return)
 
 
-@router.post("/exchange", response_model=schemas.ReturnExchangeRead)
+@router.post("/exchange", response_model=schemas.ReturnExchangeRead, dependencies=[Depends(require_permission("sales.returns.exchange"))])
 def process_exchange_return(
     payload: schemas.ReturnExchangeCreate,
     background_tasks: BackgroundTasks,
@@ -659,7 +659,7 @@ def process_exchange_return(
         "cash_refund_amount": cash_refund_amount,
     }
 
-@router.post("/void/{sale_id}")
+@router.post("/void/{sale_id}", dependencies=[Depends(require_permission("pos.void_sale"))])
 def void_sale(
     sale_id: int,
     reason: str = "ANULACIÓN DE VENTA - ERROR OPERATIVO",
@@ -827,7 +827,7 @@ def void_sale(
     return {"status": "voided", "sale_id": sale_id, "total_refunded": total_refund}
 
 
-@router.get("", response_model=List[schemas.ReturnRead])
+@router.get("", response_model=List[schemas.ReturnRead], dependencies=[Depends(require_any_permission(["sales.returns.create", "sales.returns.exchange", "reports.sales.view"]))])
 def get_returns(
     skip: int = 0, limit: int = 100,
     db: Session = Depends(get_db),
@@ -838,7 +838,7 @@ def get_returns(
         joinedload(models.Return.details).joinedload(models.ReturnDetail.product)
     ).order_by(models.Return.date.desc()).offset(skip).limit(limit).all()
 
-@router.get("/{return_id}", response_model=schemas.ReturnRead)
+@router.get("/{return_id}", response_model=schemas.ReturnRead, dependencies=[Depends(require_any_permission(["sales.returns.create", "sales.returns.exchange", "reports.sales.view"]))])
 def get_return(
     return_id: int,
     db: Session = Depends(get_db),
@@ -854,7 +854,7 @@ def get_return(
     
     return ret
 
-@router.get("/sales/{sale_id}/print-payload")
+@router.get("/sales/{sale_id}/print-payload", dependencies=[Depends(require_permission("pos.reprint.ticket"))])
 def get_sale_print_payload(
     sale_id: int,
     db: Session = Depends(get_db),

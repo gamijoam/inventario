@@ -7,12 +7,16 @@ from datetime import datetime, date, timedelta
 from decimal import Decimal
 from ...database.db import get_db
 from ...models import models
-from ...dependencies import admin_only
+from ...dependencies import require_any_permission
 from ...utils.payment_utils import normalize_payment_method, get_currency_symbol, normalize_currency_code
 from ...services import sales_export_service
 import io
 
-router = APIRouter(dependencies=[Depends(admin_only)])
+router = APIRouter(dependencies=[Depends(require_any_permission([
+    "reports.view",
+    "reports.sales.view",
+    "reports.profit.view",
+]))])
 
 
 @router.get("/dashboard/financials")

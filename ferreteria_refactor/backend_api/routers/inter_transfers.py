@@ -17,7 +17,7 @@ from ..models.tenant import Tenant
 from ..schemas.organization import (
     InterCompanyTransferCreate, InterCompanyTransferOut, TransferItemOut
 )
-from ..dependencies import get_current_active_user
+from ..dependencies import get_current_active_user, require_permission, require_any_permission
 from ..tenant_context import get_tenant_schema
 from ..utils.time_utils import get_venezuela_now
 import httpx
@@ -71,16 +71,15 @@ def _notify_wa_destination(db: Session, from_tenant: Tenant, to_tenant: Tenant,
         print(f"[WA Transfer] Notificación falló (no bloqueante): {e}")
 
 
-def _role_value(user: User) -> str:
-    role = getattr(user, "role", "")
-    return getattr(role, "value", role) or ""
 
+def _assert_inventory_actor(db: Session, user: User, permission_codes: list[str]):
+    from ..services.permissions_service import user_has_any_permission
 
-def _assert_inventory_actor(user: User):
     if user.is_superuser:
         return
-    if _role_value(user) not in {"ADMIN", "WAREHOUSE"}:
-        raise HTTPException(status_code=403, detail="Solo ADMIN o WAREHOUSE puede gestionar traslados entre empresas")
+    if user_has_any_permission(db, user, permission_codes):
+        return
+    raise HTTPException(status_code=403, detail="No tienes permiso para gestionar traslados entre empresas")
 
 
 def _assert_org_operator(db: Session, organization_id: int, user: User):
@@ -118,7 +117,7 @@ def _build_transfer_out(transfer: InterCompanyTransfer, db: Session) -> InterCom
     )
 
 
-@router.post("", response_model=InterCompanyTransferOut, status_code=201)
+@router.post("", response_model=InterCompanyTransferOut, status_code=201, dependencies=[Depends(require_permission("inventory.transfers.export"))])
 def create_transfer(
     data: InterCompanyTransferCreate,
     db: Session = Depends(get_db),
@@ -128,7 +127,7 @@ def create_transfer(
     Crear solicitud de transferencia de stock a otra empresa del mismo grupo.
     El tenant de origen es el tenant actual del usuario.
     """
-    _assert_inventory_actor(current_user)
+    _assert_inventory_actor(db, current_user, ["inventory.transfers.export"])
 
     schema = get_tenant_schema()
     if schema == "public":
@@ -192,7 +191,7 @@ def create_transfer(
     return _build_transfer_out(transfer, db)
 
 
-@router.get("", response_model=List[InterCompanyTransferOut])
+@router.get("", response_model=List[InterCompanyTransferOut], dependencies=[Depends(require_any_permission(["inventory.transfers.export", "inventory.transfers.import"]))])
 def list_transfers(
     status: str = None,
     db: Session = Depends(get_db),
@@ -220,7 +219,7 @@ def list_transfers(
     return [_build_transfer_out(t, db) for t in transfers]
 
 
-@router.patch("/{transfer_id}/accept", response_model=InterCompanyTransferOut)
+@router.patch("/{transfer_id}/accept", response_model=InterCompanyTransferOut, dependencies=[Depends(require_permission("inventory.transfers.import"))])
 def accept_transfer(
     transfer_id: int,
     db: Session = Depends(get_db),
@@ -231,7 +230,7 @@ def accept_transfer(
     Descuenta stock de la empresa origen, suma en la empresa destino,
     y registra en Kardex de ambas.
     """
-    _assert_inventory_actor(current_user)
+    _assert_inventory_actor(db, current_user, ["inventory.transfers.import"])
 
     schema = get_tenant_schema()
     tenant = db.query(Tenant).filter(Tenant.schema_name == schema).first()
@@ -417,14 +416,14 @@ def accept_transfer(
     return _build_transfer_out(transfer, db)
 
 
-@router.patch("/{transfer_id}/reject", response_model=InterCompanyTransferOut)
+@router.patch("/{transfer_id}/reject", response_model=InterCompanyTransferOut, dependencies=[Depends(require_permission("inventory.transfers.import"))])
 def reject_transfer(
     transfer_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """Rechazar una transferencia entrante."""
-    _assert_inventory_actor(current_user)
+    _assert_inventory_actor(db, current_user, ["inventory.transfers.import"])
 
     schema = get_tenant_schema()
     tenant = db.query(Tenant).filter(Tenant.schema_name == schema).first()

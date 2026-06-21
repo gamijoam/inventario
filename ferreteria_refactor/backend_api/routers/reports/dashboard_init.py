@@ -12,7 +12,7 @@ from decimal import Decimal
 
 from ...database.db import get_db
 from ...models import models
-from ...dependencies import get_current_active_user
+from ...dependencies import require_any_permission
 from ...cache import get_cached, set_cached
 
 router = APIRouter()
@@ -27,7 +27,7 @@ def get_dashboard_init(
     date_to: Optional[str] = None,
     refresh: bool = False,
     db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_active_user)
+    _: models.User = Depends(require_any_permission(["dashboard.view", "reports.view"]))
 ):
     """
     Consolida en 1 request todos los datos del Dashboard:

@@ -5,6 +5,7 @@ from ..database.db import get_db
 from ..models import models
 from pydantic import BaseModel
 from typing import List, Optional
+from ..dependencies import require_permission
 
 router = APIRouter(
     prefix="/payment-methods",
@@ -72,8 +73,8 @@ def get_payment_methods(db: Session = Depends(get_db)):
         return []
     return db.query(models.PaymentMethod).all()
 
-@router.post("/", response_model=PaymentMethodResponse)
-@router.post("", response_model=PaymentMethodResponse, include_in_schema=False)
+@router.post("/", response_model=PaymentMethodResponse, dependencies=[Depends(require_permission("config.payment_methods.manage"))])
+@router.post("", response_model=PaymentMethodResponse, include_in_schema=False, dependencies=[Depends(require_permission("config.payment_methods.manage"))])
 def create_payment_method(  # cache invalidation applied
 method: PaymentMethodCreate, db: Session = Depends(get_db)):
     existing = db.query(models.PaymentMethod).filter(models.PaymentMethod.name == method.name).first()
@@ -107,7 +108,7 @@ method: PaymentMethodCreate, db: Session = Depends(get_db)):
     _invalidate_payment_cache()
     return resp_obj
 
-@router.put("/{method_id}", response_model=PaymentMethodResponse)
+@router.put("/{method_id}", response_model=PaymentMethodResponse, dependencies=[Depends(require_permission("config.payment_methods.manage"))])
 def update_payment_method(  # cache invalidation applied
 method_id: int, method: PaymentMethodUpdate, db: Session = Depends(get_db)):
     db_method = db.query(models.PaymentMethod).filter(models.PaymentMethod.id == method_id).first()
@@ -153,7 +154,7 @@ method_id: int, method: PaymentMethodUpdate, db: Session = Depends(get_db)):
     _invalidate_payment_cache()
     return resp_obj
 
-@router.delete("/{method_id}")
+@router.delete("/{method_id}", dependencies=[Depends(require_permission("config.payment_methods.manage"))])
 def delete_payment_method(  # cache invalidation applied
 method_id: int, db: Session = Depends(get_db)):
     db_method = db.query(models.PaymentMethod).filter(models.PaymentMethod.id == method_id).first()

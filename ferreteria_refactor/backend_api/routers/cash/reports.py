@@ -15,7 +15,7 @@ from decimal import Decimal
 import logging
 
 from ...database.db import get_db
-from ...dependencies import get_current_active_user
+from ...dependencies import get_current_active_user, require_permission, require_any_permission
 from ...models import models
 from ... import schemas
 from ...services.cash_reconciliation_service import CashReconciliationService
@@ -29,7 +29,7 @@ router = APIRouter()
 #  ENDPOINTS
 # ============================================================
 
-@router.get("/sessions/history")
+@router.get("/sessions/history", dependencies=[Depends(require_permission("cash.audit.view"))])
 def get_sessions_history(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
@@ -138,7 +138,7 @@ def get_sessions_history(
     return result
 
 
-@router.get("/sessions/{session_id}/audit-report")
+@router.get("/sessions/{session_id}/audit-report", dependencies=[Depends(require_permission("cash.audit.view"))])
 def get_session_audit_report(
     session_id: int,
     db: Session = Depends(get_db),
@@ -156,7 +156,7 @@ def get_session_audit_report(
     return report
 
 
-@router.get("/sessions/{session_id}/details", response_model=schemas.CashSessionCloseResponse)
+@router.get("/sessions/{session_id}/details", response_model=schemas.CashSessionCloseResponse, dependencies=[Depends(require_any_permission(["cash.audit.view", "cash.close.blind"]))])
 def get_session_details(
     session_id: int,
     db: Session = Depends(get_db),
@@ -456,7 +456,7 @@ def get_session_details(
     }
 
 
-@router.get("/sessions/{session_id}/z-report-payload")
+@router.get("/sessions/{session_id}/z-report-payload", dependencies=[Depends(require_any_permission(["cash.audit.pdf", "cash.audit.view"]))])
 def get_z_report_payload(
     session_id: int,
     db: Session = Depends(get_db),

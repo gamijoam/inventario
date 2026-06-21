@@ -18,7 +18,7 @@ from decimal import Decimal
 import logging
 
 from ...database.db import get_db, _validate_schema_name
-from ...dependencies import get_current_active_user
+from ...dependencies import get_current_active_user, require_permission
 from ...models import models
 from ...websocket.manager import manager
 from ...tenant_context import get_tenant_schema
@@ -78,7 +78,7 @@ def _assert_hardware_client_id_available(
             )
         )
 
-@router.get("/registers", response_model=List[schemas.CashRegisterRead])
+@router.get("/registers", response_model=List[schemas.CashRegisterRead], dependencies=[Depends(require_permission("cash.view"))])
 def list_cash_registers(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
@@ -89,7 +89,7 @@ def list_cash_registers(
     ).order_by(models.CashRegister.id).all()
 
 
-@router.post("/registers", response_model=schemas.CashRegisterRead)
+@router.post("/registers", response_model=schemas.CashRegisterRead, dependencies=[Depends(require_permission("config.printing.manage"))])
 def create_cash_register(
     data: schemas.CashRegisterCreate,
     db: Session = Depends(get_db),
@@ -121,7 +121,7 @@ def create_cash_register(
     return register
 
 
-@router.put("/registers/{register_id}", response_model=schemas.CashRegisterRead)
+@router.put("/registers/{register_id}", response_model=schemas.CashRegisterRead, dependencies=[Depends(require_permission("config.printing.manage"))])
 def update_cash_register(
     register_id: int,
     data: schemas.CashRegisterUpdate,
@@ -161,7 +161,7 @@ def update_cash_register(
     return register
 
 
-@router.post("/registers/{register_id}/force-close-session")
+@router.post("/registers/{register_id}/force-close-session", dependencies=[Depends(require_permission("cash.force_close"))])
 def force_close_register_session(
     register_id: int,
     db: Session = Depends(get_db),
@@ -209,7 +209,7 @@ def force_close_register_session(
     }
 
 
-@router.get("/registers/status", response_model=List[dict])
+@router.get("/registers/status", response_model=List[dict], dependencies=[Depends(require_permission("cash.view"))])
 def get_registers_status(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
@@ -256,7 +256,7 @@ def get_registers_status(
     return result
 
 
-@router.get("/registers/print-status", response_model=dict)
+@router.get("/registers/print-status", response_model=dict, dependencies=[Depends(require_permission("config.printing.manage"))])
 def get_registers_print_status(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
@@ -299,7 +299,7 @@ def get_registers_print_status(
 #  CASH SESSIONS — Open / Current / Close
 # ============================================================
 
-@router.post("/sessions/open", response_model=schemas.CashSessionRead)
+@router.post("/sessions/open", response_model=schemas.CashSessionRead, dependencies=[Depends(require_permission("cash.open"))])
 async def open_cash_session(
     initial_cash: schemas.CashSessionCreate,
     db: Session = Depends(get_db),
@@ -473,7 +473,7 @@ async def open_cash_session(
     return new_session
 
 
-@router.api_route("/sessions/current", methods=["GET","HEAD"], response_model=Optional[schemas.CashSessionRead])
+@router.api_route("/sessions/current", methods=["GET","HEAD"], response_model=Optional[schemas.CashSessionRead], dependencies=[Depends(require_permission("cash.view"))])
 def get_current_session(
     register_id: Optional[int] = Query(None, description="ID de la caja. Si se omite retorna la sesión del usuario actual."),
     db: Session = Depends(get_db),
@@ -540,7 +540,7 @@ def get_current_session(
     return session
 
 
-@router.post("/sessions/{session_id}/close", response_model=schemas.CashSessionRead)
+@router.post("/sessions/{session_id}/close", response_model=schemas.CashSessionRead, dependencies=[Depends(require_permission("cash.close.blind"))])
 async def close_cash_session(
     session_id: int,
     close_data: schemas.CashSessionClose,

@@ -6,7 +6,7 @@ from collections import Counter
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
-from ..dependencies import get_current_user, get_current_active_user
+from ..dependencies import get_current_user, get_current_active_user, require_permission
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
 from ..services.cash_session_resolver import resolve_current_cash_session
@@ -95,7 +95,7 @@ def _find_product_for_import(db: Session, sku: str, name: str):
     return None
 
 
-@router.post("/import-batch")
+@router.post("/import-batch", dependencies=[Depends(require_permission("purchases.create"))])
 async def import_purchase_batch(rows: List[dict] = Body(...), db: Session = Depends(get_db)):
     """Importa compras desde Excel como recepcion real: stock, kardex e IMEIs."""
     if not rows:
@@ -173,12 +173,12 @@ async def import_purchase_batch(rows: List[dict] = Body(...), db: Session = Depe
     return {"imported": len(imported), "purchases": imported}
 
 
-@router.post("/import-row")
+@router.post("/import-row", dependencies=[Depends(require_permission("purchases.create"))])
 async def import_purchase_row(row: dict = Body(...), db: Session = Depends(get_db)):
     return await import_purchase_batch([row], db)
 
 
-@router.post("/import-payable")
+@router.post("/import-payable", dependencies=[Depends(require_permission("purchases.create"))])
 def import_purchase_payable(row: dict = Body(...), db: Session = Depends(get_db)):
     supplier_name = _str_cell(row, "proveedor", "supplier")
     if not supplier_name:
@@ -206,7 +206,7 @@ def import_purchase_payable(row: dict = Body(...), db: Session = Depends(get_db)
     db.refresh(purchase)
     return {"id": purchase.id, "message": "Cuenta por pagar importada"}
 
-@router.post("", response_model=schemas.PurchaseOrderResponse)
+@router.post("", response_model=schemas.PurchaseOrderResponse, dependencies=[Depends(require_permission("purchases.create"))])
 async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Session = Depends(get_db)):
     """
     Create a new purchase order with automatic:
@@ -499,7 +499,7 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("", response_model=List[schemas.PurchaseOrderResponse])
+@router.get("", response_model=List[schemas.PurchaseOrderResponse], dependencies=[Depends(require_permission("purchases.view"))])
 def get_all_purchase_orders(status: Optional[str] = None, db: Session = Depends(get_db)):
     """Get all purchase orders, optionally filtered by status"""
     query = db.query(models.PurchaseOrder).options(
@@ -518,7 +518,7 @@ def get_all_purchase_orders(status: Optional[str] = None, db: Session = Depends(
     
     return query.order_by(models.PurchaseOrder.purchase_date.desc()).all()
 
-@router.get("/pending", response_model=List[schemas.PurchaseOrderResponse])
+@router.get("/pending", response_model=List[schemas.PurchaseOrderResponse], dependencies=[Depends(require_permission("purchases.view"))])
 def get_pending_purchases(db: Session = Depends(get_db)):
     """Get all pending and partially paid purchases"""
     purchases = db.query(models.PurchaseOrder).options(
@@ -531,7 +531,7 @@ def get_pending_purchases(db: Session = Depends(get_db)):
     
     return purchases
 
-@router.get("/{order_id}", response_model=schemas.PurchaseOrderResponse)
+@router.get("/{order_id}", response_model=schemas.PurchaseOrderResponse, dependencies=[Depends(require_permission("purchases.view"))])
 def get_purchase_order(order_id: int, db: Session = Depends(get_db)):
     """Get purchase order by ID"""
     order = db.query(models.PurchaseOrder).options(
@@ -665,7 +665,7 @@ async def void_purchase_order(
 
 # Accounts Payable Endpoints
 
-@router.post("/{purchase_id}/payment", response_model=schemas.PurchasePaymentResponse)
+@router.post("/{purchase_id}/payment", response_model=schemas.PurchasePaymentResponse, dependencies=[Depends(require_permission("purchases.pay"))])
 def register_payment(
     purchase_id: int,
     payment_data: schemas.PurchasePaymentCreate,
@@ -764,7 +764,7 @@ def register_payment(
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/{purchase_id}/payments", response_model=List[schemas.PurchasePaymentResponse])
+@router.get("/{purchase_id}/payments", response_model=List[schemas.PurchasePaymentResponse], dependencies=[Depends(require_permission("purchases.view"))])
 def get_purchase_payments(purchase_id: int, db: Session = Depends(get_db)):
     """Get all payments for a purchase order"""
     purchase = db.query(models.PurchaseOrder).filter(models.PurchaseOrder.id == purchase_id).first()

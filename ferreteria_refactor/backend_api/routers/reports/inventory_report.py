@@ -3,9 +3,12 @@ from sqlalchemy.orm import Session
 from decimal import Decimal
 from ...database.db import get_db
 from ...models import models
-from ...dependencies import admin_only
+from ...dependencies import require_any_permission
 
-router = APIRouter(dependencies=[Depends(admin_only)])
+router = APIRouter(dependencies=[Depends(require_any_permission([
+    "reports.view",
+    "reports.inventory.view",
+]))])
 
 
 @router.get("/low-stock")
