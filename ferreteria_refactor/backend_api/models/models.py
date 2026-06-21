@@ -1133,6 +1133,10 @@ class TransferDetailInstance(Base):
 
     __table_args__ = (UniqueConstraint('transfer_detail_id', 'product_instance_id', name='uix_tdi_detail_instance'),)
 
+    @property
+    def serial_number(self):
+        return self.product_instance.serial_number if self.product_instance else None
+
     def __repr__(self):
         return f"<TransferDetailInstance(td={self.transfer_detail_id}, pi={self.product_instance_id})>"
 
