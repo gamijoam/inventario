@@ -1140,6 +1140,7 @@ class PurchasePaymentResponse(BaseModel):
     amount: Decimal
     payment_date: datetime
     payment_method: str
+    session_id: Optional[int] = None
     reference: Optional[str] = None
     notes: Optional[str] = None
     currency: Optional[str] = "USD"
@@ -1413,6 +1414,7 @@ class ServicePaymentRead(BaseModel):
     amount: Decimal
     currency: str
     payment_method: str
+    session_id: Optional[int] = None
     reference: Optional[str] = None
     created_at: datetime
     

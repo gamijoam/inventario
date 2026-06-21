@@ -19,6 +19,7 @@ import traceback
 import unicodedata
 from decimal import Decimal
 from ..services.service_checkout_service import ServiceCheckoutService
+from ..services.cash_session_resolver import resolve_current_cash_session
 
 
 def _service_order_options():
@@ -147,6 +148,7 @@ def create_service_order(
                 db.add(new_detail)
         
         # 6. Process Initial Payments (Abonos) - NEW!
+        cash_session = resolve_current_cash_session(db, current_user) if order_data.payments else None
         if order_data.payments:
             for p in order_data.payments:
                 new_payment = models.ServicePayment(
@@ -155,6 +157,7 @@ def create_service_order(
                     amount=p.amount,
                     currency=p.currency,
                     payment_method=p.payment_method,
+                    session_id=cash_session.id if cash_session else None,
                     reference=p.reference
                 )
                 db.add(new_payment)
@@ -630,12 +633,14 @@ def add_service_payment(
     if (order.order_metadata or {}).get("payment_status") == "PAID":
         raise HTTPException(status_code=400, detail="Esta orden ya está completamente pagada")
 
+    cash_session = resolve_current_cash_session(db, current_user)
     new_payment = models.ServicePayment(
         tenant_id=tenant_id,
         service_order_id=order.id,
         amount=payment.amount,
         currency=payment.currency,
         payment_method=payment.payment_method,
+        session_id=cash_session.id if cash_session else None,
         reference=payment.reference,
     )
     db.add(new_payment)

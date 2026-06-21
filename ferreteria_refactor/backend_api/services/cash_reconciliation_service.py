@@ -81,6 +81,22 @@ class CashReconciliationService:
             cash_flow=cash_flow,
             transactions=transactions,
         )
+        CashReconciliationService._append_purchase_payment_transactions(
+            db=db,
+            session=session,
+            external_financers=external_financers,
+            cash_flow=cash_flow,
+            payment_breakdown=payment_breakdown,
+            transactions=transactions,
+        )
+        CashReconciliationService._append_service_payment_transactions(
+            db=db,
+            session=session,
+            external_financers=external_financers,
+            cash_flow=cash_flow,
+            payment_breakdown=payment_breakdown,
+            transactions=transactions,
+        )
 
         credit_summary = CashReconciliationService._credit_summary(db, session, end_time)
         purchase_risk = CashReconciliationService._purchase_payment_risk(db, session, end_time)
@@ -349,6 +365,91 @@ class CashReconciliationService:
             })
 
     @staticmethod
+    def _append_purchase_payment_transactions(
+        db: Session,
+        session: models.CashSession,
+        external_financers: set,
+        cash_flow: Dict[str, Dict[str, Any]],
+        payment_breakdown: Dict[Tuple[str, str], Dict[str, Any]],
+        transactions: List[Dict[str, Any]],
+    ) -> None:
+        payments = db.query(models.PurchasePayment).options(
+            joinedload(models.PurchasePayment.purchase)
+        ).filter(models.PurchasePayment.session_id == session.id).order_by(models.PurchasePayment.payment_date.asc(), models.PurchasePayment.id.asc()).all()
+
+        for payment in payments:
+            method = payment.payment_method or "Sin metodo"
+            method_label = f"{method} (Pago proveedor)"
+            currency = CashReconciliationService._currency_key(payment.currency)
+            amount = CashReconciliationService._decimal(payment.amount)
+            is_cash = CashReconciliationService._is_cash_method(method, external_financers)
+
+            CashReconciliationService._add_payment_breakdown(
+                payment_breakdown, method_label, currency, amount, "purchase_payment"
+            )
+            if is_cash:
+                CashReconciliationService._add_cash_part(cash_flow, currency, "purchase_cash", amount)
+
+            transactions.append({
+                "id": f"purchase_payment:{payment.id}",
+                "occurred_at": payment.payment_date,
+                "source_type": "purchase_payment",
+                "source_id": payment.id,
+                "reference": payment.reference or f"Compra #{payment.purchase_id}",
+                "description": "Pago a proveedor",
+                "method": method,
+                "currency": currency,
+                "inflow": ZERO,
+                "outflow": amount,
+                "affects_cash": is_cash,
+                "cash_bucket": "purchase_cash" if is_cash else "non_cash_purchase_payment",
+                "purchase_id": payment.purchase_id,
+            })
+
+    @staticmethod
+    def _append_service_payment_transactions(
+        db: Session,
+        session: models.CashSession,
+        external_financers: set,
+        cash_flow: Dict[str, Dict[str, Any]],
+        payment_breakdown: Dict[Tuple[str, str], Dict[str, Any]],
+        transactions: List[Dict[str, Any]],
+    ) -> None:
+        payments = db.query(models.ServicePayment).options(
+            joinedload(models.ServicePayment.service_order)
+        ).filter(models.ServicePayment.session_id == session.id).order_by(models.ServicePayment.created_at.asc(), models.ServicePayment.id.asc()).all()
+
+        for payment in payments:
+            method = payment.payment_method or "Sin metodo"
+            method_label = f"{method} (Servicio)"
+            currency = CashReconciliationService._currency_key(payment.currency)
+            amount = CashReconciliationService._decimal(payment.amount)
+            is_cash = CashReconciliationService._is_cash_method(method, external_financers)
+
+            CashReconciliationService._add_payment_breakdown(
+                payment_breakdown, method_label, currency, amount, "service_payment"
+            )
+            if is_cash:
+                CashReconciliationService._add_cash_part(cash_flow, currency, "debt_cash", amount)
+
+            ticket = getattr(payment.service_order, "ticket_number", None) if payment.service_order else None
+            transactions.append({
+                "id": f"service_payment:{payment.id}",
+                "occurred_at": payment.created_at,
+                "source_type": "service_payment",
+                "source_id": payment.id,
+                "reference": ticket or f"Servicio #{payment.service_order_id}",
+                "description": "Cobro de servicio/taller",
+                "method": method,
+                "currency": currency,
+                "inflow": amount,
+                "outflow": ZERO,
+                "affects_cash": is_cash,
+                "cash_bucket": "service_cash" if is_cash else "non_cash_service_payment",
+                "service_order_id": payment.service_order_id,
+            })
+
+    @staticmethod
     def _load_movements(db: Session, session_id: int) -> List[models.CashMovement]:
         return db.query(models.CashMovement).filter(
             models.CashMovement.session_id == session_id
@@ -421,6 +522,7 @@ class CashReconciliationService:
     @staticmethod
     def _purchase_payment_risk(db: Session, session: models.CashSession, end_time: datetime) -> Dict[str, Any]:
         payments = db.query(models.PurchasePayment).filter(
+            models.PurchasePayment.session_id.is_(None),
             models.PurchasePayment.payment_date >= session.start_time,
             models.PurchasePayment.payment_date <= end_time,
         ).all()
@@ -436,6 +538,7 @@ class CashReconciliationService:
     @staticmethod
     def _service_payment_risk(db: Session, session: models.CashSession, end_time: datetime) -> Dict[str, Any]:
         payments = db.query(models.ServicePayment).filter(
+            models.ServicePayment.session_id.is_(None),
             models.ServicePayment.created_at >= session.start_time,
             models.ServicePayment.created_at <= end_time,
         ).all()
@@ -476,6 +579,7 @@ class CashReconciliationService:
             "debt_cash": ZERO,
             "manual_in": ZERO,
             "manual_out": ZERO,
+            "purchase_cash": ZERO,
             "returns": ZERO,
             "cash_advances": ZERO,
             "change_given": ZERO,
@@ -506,6 +610,7 @@ class CashReconciliationService:
                 + row["debt_cash"]
                 + row["manual_in"]
                 - row["manual_out"]
+                - row["purchase_cash"]
                 - row["returns"]
                 - row["cash_advances"]
                 - row["change_given"]

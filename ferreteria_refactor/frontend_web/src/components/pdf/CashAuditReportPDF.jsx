@@ -27,7 +27,9 @@ const sourceLabel = {
     debt_payment: 'CxC',
     cash_movement: 'Movimiento',
     cash_advance_incoming: 'Avance digital',
-    sale_change: 'Vuelto'
+    sale_change: 'Vuelto',
+    purchase_payment: 'Proveedor',
+    service_payment: 'Servicio'
 };
 
 const bucketLabel = {
@@ -39,6 +41,7 @@ const bucketLabel = {
     returns: 'Devolucion',
     cash_advances: 'Avance efectivo',
     change_given: 'Vuelto',
+    purchase_cash: 'Pago proveedor',
     digital_advance_incoming: 'Contraparte digital',
     digital_or_movement_backed_debt: 'CxC conciliado'
 };
@@ -315,7 +318,7 @@ const CashAuditReportPDF = ({ report, business }) => {
                         <Text style={[styles.th, styles.right, { flex: 1 }]}>Dif.</Text>
                     </View>
                     {cashRows.map((row) => {
-                        const outflows = Number(row.manual_out || 0) + Number(row.returns || 0) + Number(row.cash_advances || 0) + Number(row.change_given || 0);
+                        const outflows = Number(row.manual_out || 0) + Number(row.purchase_cash || 0) + Number(row.returns || 0) + Number(row.cash_advances || 0) + Number(row.change_given || 0);
                         const inflows = Number(row.manual_in || 0) + Number(row.debt_cash || 0);
                         const diff = Number(row.difference || 0);
                         return (

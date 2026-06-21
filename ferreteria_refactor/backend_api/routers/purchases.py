@@ -6,9 +6,10 @@ from collections import Counter
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
-from ..dependencies import get_current_user
+from ..dependencies import get_current_user, get_current_active_user
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
+from ..services.cash_session_resolver import resolve_current_cash_session
 
 router = APIRouter(
     prefix="/purchases",
@@ -668,7 +669,8 @@ async def void_purchase_order(
 def register_payment(
     purchase_id: int,
     payment_data: schemas.PurchasePaymentCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     """Register a payment for a purchase order"""
     purchase = db.query(models.PurchaseOrder).filter(models.PurchaseOrder.id == purchase_id).first()
@@ -707,11 +709,14 @@ def register_payment(
                 )
             )
 
+        cash_session = resolve_current_cash_session(db, current_user)
+
         # Create payment record
         payment = models.PurchasePayment(
             purchase_id=purchase_id,
             amount=payment_amount,
             payment_method=payment_data.payment_method,
+            session_id=cash_session.id if cash_session else None,
             reference=payment_data.reference,
             notes=payment_data.notes,
             currency=currency,

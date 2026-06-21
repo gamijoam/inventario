@@ -32,7 +32,9 @@ const SOURCE_LABELS = {
     debt_payment: 'CxC',
     cash_movement: 'Caja',
     cash_advance_incoming: 'Avance',
-    sale_change: 'Vuelto'
+    sale_change: 'Vuelto',
+    purchase_payment: 'Proveedor',
+    service_payment: 'Servicio'
 };
 
 const BUCKET_LABELS = {
@@ -44,6 +46,7 @@ const BUCKET_LABELS = {
     returns: 'Devolucion',
     cash_advances: 'Avance efectivo',
     change_given: 'Vuelto',
+    purchase_cash: 'Pago proveedor',
     digital_advance_incoming: 'Contraparte digital',
     digital_or_movement_backed_debt: 'CxC conciliado'
 };
@@ -228,6 +231,7 @@ const CashAuditModal = ({ session, isOpen, onClose }) => {
                                             <MoneyLine label="Abonos CxC" value={row.debt_cash} currency={row.currency} money={money} positive />
                                             <MoneyLine label="Entradas" value={row.manual_in} currency={row.currency} money={money} positive />
                                             <MoneyLine label="Salidas" value={row.manual_out} currency={row.currency} money={money} negative />
+                                            <MoneyLine label="Pagos proveedor" value={row.purchase_cash} currency={row.currency} money={money} negative />
                                             <MoneyLine label="Devoluciones" value={row.returns} currency={row.currency} money={money} negative />
                                             <MoneyLine label="Avances" value={row.cash_advances} currency={row.currency} money={money} negative />
                                             <div className="mt-3 border-t border-dashed border-slate-300 pt-3">

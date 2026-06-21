@@ -954,6 +954,7 @@ class PurchasePayment(Base):
     amount = Column(Numeric(12, 2), nullable=False)
     payment_date = Column(DateTime, default=get_venezuela_now)
     payment_method = Column(String, default="Efectivo")  # Efectivo, Transferencia, Cheque
+    session_id = Column(Integer, ForeignKey("cash_sessions.id"), nullable=True, index=True)
     reference = Column(String, nullable=True)  # Transfer/check number
     notes = Column(Text, nullable=True)
     currency = Column(String, default="USD")
@@ -961,6 +962,7 @@ class PurchasePayment(Base):
     
     # Relationship
     purchase = relationship("PurchaseOrder", back_populates="payments")
+    cash_session = relationship("CashSession", foreign_keys=[session_id])
     
     
     def __repr__(self):
@@ -1276,10 +1278,12 @@ class ServicePayment(Base):
     amount = Column(Numeric(18, 4), nullable=False)
     currency = Column(String, default="USD")
     payment_method = Column(String, default="Efectivo")
+    session_id = Column(Integer, ForeignKey("cash_sessions.id"), nullable=True, index=True)
     reference = Column(String, nullable=True)
     created_at = Column(DateTime, default=get_venezuela_now)
     
     service_order = relationship("ServiceOrder", back_populates="payments")
+    cash_session = relationship("CashSession", foreign_keys=[session_id])
 
     def __repr__(self):
         return f"<ServicePayment(order={self.service_order_id}, amount={self.amount})>"
