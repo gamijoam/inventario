@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
-import { Search, Package, ArrowRight, Download, Trash2, AlertTriangle, CheckCircle, Camera, X, Image as ImageIcon, Zap, MessageSquareShare, Loader2 } from 'lucide-react';
+import { Search, Package, ArrowRight, Download, Trash2, AlertTriangle, CheckCircle, Camera, X, Image as ImageIcon, Zap, MessageSquareShare, Loader2, FileText, Building2, ClipboardList } from 'lucide-react';
 
 const ExternalTransferOut = () => {
     const [products, setProducts] = useState([]);
@@ -15,6 +15,9 @@ const ExternalTransferOut = () => {
     const [exportSummary, setExportSummary] = useState(null);
     const [lastPackage, setLastPackage] = useState(null);
     const [sendingChat, setSendingChat] = useState(false);
+    const [downloadingGuide, setDownloadingGuide] = useState(false);
+    const [destinationCompany, setDestinationCompany] = useState('');
+    const [dispatchNotes, setDispatchNotes] = useState('');
     const [photos, setPhotos] = useState([]); // { file, preview, uploading, url }
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
     const [imeiPicker, setImeiPicker] = useState({ openFor: null, instances: [], loading: false, query: '' });
@@ -257,6 +260,44 @@ const ExternalTransferOut = () => {
         }
     };
 
+    const downloadBlobFile = (blob, filename) => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+    };
+
+    const downloadDispatchGuide = async (packageData = lastPackage?.packageData) => {
+        if (!packageData) {
+            toast.error('No hay paquete disponible para la guia');
+            return;
+        }
+        try {
+            setDownloadingGuide(true);
+            const response = await apiClient.post('/inventory/transfer/dispatch-guide', {
+                package: packageData,
+                destination_company: destinationCompany.trim(),
+                notes: dispatchNotes.trim(),
+            }, { responseType: 'blob' });
+
+            const disposition = response.headers?.['content-disposition'] || '';
+            const match = disposition.match(/filename="?([^";]+)"?/i);
+            const filename = match?.[1] || `guia-despacho-${packageData.dispatch_guide_number || packageData.package_id || 'traslado'}.pdf`;
+            downloadBlobFile(response.data, filename);
+            toast.success('Guia de despacho descargada');
+        } catch (error) {
+            console.error('Error descargando guia de despacho:', error);
+            const msg = error.response?.data?.detail || 'No se pudo generar la guia de despacho';
+            toast.error(msg);
+        } finally {
+            setDownloadingGuide(false);
+        }
+    };
+
     const handleExport = async () => {
         if (selectedItems.length === 0) return;
         if (!selectedWarehouseId) {
@@ -295,6 +336,8 @@ const ExternalTransferOut = () => {
             const payload = {
                 source_company: "Ferreteria Principal", // TODO: Make configurable or dynamic
                 warehouse_id: parseInt(selectedWarehouseId),
+                destination_company: destinationCompany.trim() || null,
+                dispatch_notes: dispatchNotes.trim() || null,
                 items: selectedItems.map(item => ({
                     product_id: item.product_id,
                     quantity: item.quantity,
@@ -310,14 +353,7 @@ const ExternalTransferOut = () => {
             const packageFilename = `TRANSFER_${new Date().toISOString().slice(0, 10)}.json`;
             const packageJson = JSON.stringify(response.data, null, 2);
             const blob = new Blob([packageJson], { type: 'application/json;charset=utf-8' });
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', packageFilename);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
+            downloadBlobFile(blob, packageFilename);
 
             const summary = response.data || {};
             const modelsCount = summary.models_count ?? summary.items_count ?? selectedItems.length;
@@ -334,6 +370,8 @@ const ExternalTransferOut = () => {
                 serials: serialsCount,
                 photos: photosCount,
                 warehouse: summary.source_warehouse_name || selectedWarehouse?.name || 'almacén origen',
+                destination: summary.destination_company || destinationCompany.trim() || 'Destino por definir',
+                guideNumber: summary.dispatch_guide_number,
                 items: selectedItems.map(i => ({ sku: i.sku, name: i.name, quantity: i.quantity, serials: i.selected_imeis?.length || 0 }))
             });
             setLastPackage({
@@ -343,6 +381,8 @@ const ExternalTransferOut = () => {
                 units: unitsCount,
                 serials: serialsCount,
                 packageId: summary.package_id,
+                guideNumber: summary.dispatch_guide_number,
+                packageData: summary,
             });
             setSelectedItems([]);
             setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
@@ -383,6 +423,35 @@ const ExternalTransferOut = () => {
                             <option key={w.id} value={w.id}>{w.name} {w.is_main ? '(Principal)' : ''}</option>
                         ))}
                     </select>
+                </div>
+
+                <div className="mb-4 grid gap-3 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3 shadow-sm">
+                    <div>
+                        <label className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase text-indigo-700">
+                            <Building2 size={13} />
+                            Empresa destino
+                        </label>
+                        <input
+                            type="text"
+                            value={destinationCompany}
+                            onChange={(e) => setDestinationCompany(e.target.value)}
+                            placeholder="Ej: Colaloca 2, sucursal centro..."
+                            className="w-full rounded-lg border border-indigo-100 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                        />
+                    </div>
+                    <div>
+                        <label className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase text-indigo-700">
+                            <ClipboardList size={13} />
+                            Nota de despacho
+                        </label>
+                        <textarea
+                            value={dispatchNotes}
+                            onChange={(e) => setDispatchNotes(e.target.value)}
+                            placeholder="Transportista, observaciones, responsable que recibe..."
+                            rows={2}
+                            className="w-full resize-none rounded-lg border border-indigo-100 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                        />
+                    </div>
                 </div>
 
                 <div className="relative mb-6">
@@ -669,15 +738,25 @@ const ExternalTransferOut = () => {
                                 <div className="min-w-0 flex-1">
                                     <p className="font-bold">Paquete generado y stock descontado.</p>
                                     <p className="mt-0.5 text-emerald-700">
-                                        {exportSummary.models} modelo{exportSummary.models !== 1 ? 's' : ''}, {exportSummary.units} unidad{exportSummary.units !== 1 ? 'es' : ''} desde {exportSummary.warehouse}.
+                                        {exportSummary.models} modelo{exportSummary.models !== 1 ? 's' : ''}, {exportSummary.units} unidad{exportSummary.units !== 1 ? 'es' : ''} desde {exportSummary.warehouse} hacia {exportSummary.destination}.
                                     </p>
-                                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
                                         <span className="rounded-md bg-white/70 px-2 py-1 font-bold text-emerald-800">Seriales: {exportSummary.serials}</span>
                                         <span className="rounded-md bg-white/70 px-2 py-1 font-bold text-emerald-800">Fotos: {exportSummary.photos}</span>
+                                        <span className="truncate rounded-md bg-white/70 px-2 py-1 font-mono text-[11px] text-emerald-700">{exportSummary.guideNumber || 'Guia lista'}</span>
                                         <span className="truncate rounded-md bg-white/70 px-2 py-1 font-mono text-[11px] text-emerald-700">{exportSummary.packageId || 'JSON listo'}</span>
                                     </div>
                                 </div>
                                 <div className="flex shrink-0 flex-col gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => downloadDispatchGuide()}
+                                        disabled={downloadingGuide || !lastPackage}
+                                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-60"
+                                    >
+                                        {downloadingGuide ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+                                        PDF guia
+                                    </button>
                                     <button
                                         type="button"
                                         onClick={sendLastPackageToOrgChat}
@@ -733,6 +812,9 @@ const ExternalTransferOut = () => {
                                 <div className="rounded-lg bg-white/70 px-2 py-2"><b className="block text-base text-slate-900">{totalUnits}</b>Unidades</div>
                                 <div className="rounded-lg bg-white/70 px-2 py-2"><b className="block text-base text-slate-900">{totalSerials}</b>Seriales</div>
                                 <div className="rounded-lg bg-white/70 px-2 py-2"><b className="block text-base text-slate-900">{photoCount}</b>Fotos</div>
+                            </div>
+                            <div className="mb-3 rounded-lg bg-white/70 px-3 py-2 text-sm text-amber-900">
+                                <span className="font-bold">Destino:</span> {destinationCompany.trim() || 'Destino por definir'}
                             </div>
                             <ul className="mb-3 ml-1 space-y-1 text-sm text-amber-900">
                                 {selectedItems.map(item => (

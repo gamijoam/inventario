@@ -421,6 +421,8 @@ class InventoryService:
         source_company: str,
         warehouse_id: int = None,
         photo_urls: List[str] = None,
+        destination_company: str = None,
+        dispatch_notes: str = None,
     ) -> Dict[str, Any]:
         """
         items_data: List of dicts like {'product_id': 1, 'quantity': 10}
@@ -548,9 +550,15 @@ class InventoryService:
         imei_count = sum(len(item.get("serial_numbers") or []) for item in transfer_items)
         photos_count = len(photo_urls or [])
 
+        package_id = f"trf-{uuid.uuid4()}"
+        guide_number = f"GD-{datetime.now().strftime('%Y%m%d')}-{package_id[-8:].upper()}"
+
         package = {
-            "package_id": f"trf-{uuid.uuid4()}",
+            "package_id": package_id,
+            "dispatch_guide_number": guide_number,
             "source_company": source_company,
+            "destination_company": destination_company,
+            "dispatch_notes": dispatch_notes,
             "source_warehouse_id": warehouse_id,
             "source_warehouse_name": source_warehouse_name,
             "generated_at": datetime.now().isoformat(),

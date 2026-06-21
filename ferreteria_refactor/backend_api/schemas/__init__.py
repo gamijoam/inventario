@@ -1322,6 +1322,9 @@ class TransferPackageSchema(BaseModel):
     photos_count: Optional[int] = None
     source_warehouse_id: Optional[int] = None
     source_warehouse_name: Optional[str] = None
+    destination_company: Optional[str] = None
+    dispatch_notes: Optional[str] = None
+    dispatch_guide_number: Optional[str] = None
     photo_urls: Optional[List[str]] = None
 
 class TransferResultSchema(BaseModel):

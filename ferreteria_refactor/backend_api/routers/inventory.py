@@ -695,7 +695,15 @@ class TransferRequest(BaseModel):
     items: List[Dict[str, Any]]
     source_company: str
     warehouse_id: Optional[int] = None
+    destination_company: Optional[str] = None
+    dispatch_notes: Optional[str] = None
     photo_urls: Optional[List[str]] = None
+
+class DispatchGuideRequest(BaseModel):
+    package: Dict[str, Any]
+    source_company: Optional[str] = None
+    destination_company: Optional[str] = None
+    notes: Optional[str] = None
 
 @router.post("/transfer/export", response_model=TransferPackageSchema, dependencies=[Depends(require_permission("inventory.transfers.export"))])
 def export_transfer_package(
@@ -713,12 +721,224 @@ def export_transfer_package(
             request.items,
             request.source_company,
             request.warehouse_id,
-            request.photo_urls
+            request.photo_urls,
+            request.destination_company,
+            request.dispatch_notes
         )
     except HTTPException as e:
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred during transfer export: {e}")
+
+
+def _business_config_map(db: Session) -> Dict[str, str]:
+    try:
+        rows = db.query(models.BusinessConfig).filter(
+            models.BusinessConfig.key.in_([
+                "business_name", "business_rif", "business_address", "business_phone"
+            ])
+        ).all()
+        return {row.key: row.value for row in rows if row.value}
+    except Exception:
+        return {}
+
+
+def _safe_transfer_filename(value: str) -> str:
+    raw = (value or "guia-despacho").strip().lower()
+    cleaned = "".join(ch if ch.isalnum() else "-" for ch in raw)
+    while "--" in cleaned:
+        cleaned = cleaned.replace("--", "-")
+    return cleaned.strip("-") or "guia-despacho"
+
+
+@router.post("/transfer/dispatch-guide", dependencies=[Depends(require_permission("inventory.transfers.export"))])
+def generate_transfer_dispatch_guide(
+    request: DispatchGuideRequest,
+    db: Session = Depends(get_db),
+):
+    """Generate a printable dispatch guide from an inter-company transfer package."""
+    from io import BytesIO
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+
+    package = request.package or {}
+    items = package.get("items") or []
+    if not isinstance(items, list) or not items:
+        raise HTTPException(status_code=400, detail="El paquete no tiene productos para generar la guia")
+
+    cfg = _business_config_map(db)
+    now = datetime.now()
+    package_id = str(package.get("package_id") or "SIN-PAQUETE")
+    guide_number = str(
+        package.get("dispatch_guide_number")
+        or f"GD-{now.strftime('%Y%m%d')}-{package_id[-8:].upper()}"
+    )
+    source_company = request.source_company or package.get("source_company") or cfg.get("business_name") or "Mi Inventario"
+    destination_company = request.destination_company or package.get("destination_company") or "Destino por definir"
+    notes = request.notes or package.get("dispatch_notes") or ""
+    generated_at = package.get("generated_at") or now.isoformat()
+
+    models_count = int(package.get("models_count") or package.get("items_count") or len(items))
+    units_count = sum(float(item.get("quantity") or 0) for item in items)
+    imei_count = sum(len(item.get("serial_numbers") or []) for item in items)
+    photos_count = int(package.get("photos_count") or len(package.get("photo_urls") or []))
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=14 * mm,
+        leftMargin=14 * mm,
+        topMargin=12 * mm,
+        bottomMargin=12 * mm,
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "DispatchTitle", parent=styles["Title"], fontSize=16, leading=19,
+        textColor=colors.HexColor("#1E3A8A"), alignment=TA_CENTER, spaceAfter=4,
+    )
+    subtitle_style = ParagraphStyle(
+        "DispatchSubtitle", parent=styles["Normal"], fontSize=8, leading=10,
+        textColor=colors.HexColor("#64748B"), alignment=TA_CENTER,
+    )
+    label_style = ParagraphStyle(
+        "DispatchLabel", parent=styles["Normal"], fontSize=7, leading=9,
+        textColor=colors.HexColor("#64748B"), fontName="Helvetica-Bold",
+    )
+    value_style = ParagraphStyle(
+        "DispatchValue", parent=styles["Normal"], fontSize=9, leading=11,
+        textColor=colors.HexColor("#0F172A"), fontName="Helvetica-Bold",
+    )
+    small_style = ParagraphStyle(
+        "DispatchSmall", parent=styles["Normal"], fontSize=7, leading=9,
+        textColor=colors.HexColor("#475569"),
+    )
+    right_style = ParagraphStyle(
+        "DispatchRight", parent=value_style, alignment=TA_RIGHT,
+    )
+
+    def cell_label(text):
+        return Paragraph(str(text or ""), label_style)
+
+    def cell_value(text):
+        return Paragraph(str(text or ""), value_style)
+
+    story = []
+    story.append(Paragraph("GUIA DE DESPACHO", title_style))
+    story.append(Paragraph("Documento de control logistico. No sustituye factura fiscal.", subtitle_style))
+    story.append(Spacer(1, 7 * mm))
+
+    header = Table([
+        [cell_label("EMISOR"), cell_label("GUIA"), cell_label("FECHA")],
+        [cell_value(source_company), Paragraph(guide_number, right_style), Paragraph(now.strftime("%d/%m/%Y %H:%M"), right_style)],
+    ], colWidths=[95 * mm, 45 * mm, 40 * mm])
+    header.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EEF2FF")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#475569")),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#E2E8F0")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 7),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(header)
+    story.append(Spacer(1, 5 * mm))
+
+    info = Table([
+        [cell_label("DESTINO / EMPRESA RECEPTORA"), cell_label("ALMACEN ORIGEN"), cell_label("PAQUETE")],
+        [cell_value(destination_company), cell_value(package.get("source_warehouse_name") or "Sin almacen"), cell_value(package_id)],
+        [cell_label("GENERADO EN"), cell_label("CONTACTO / RIF"), cell_label("NOTAS")],
+        [cell_value(generated_at), cell_value(cfg.get("business_rif") or cfg.get("business_phone") or ""), Paragraph(notes or "Sin notas", small_style)],
+    ], colWidths=[65 * mm, 55 * mm, 60 * mm])
+    info.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F8FAFC")),
+        ("BACKGROUND", (0, 2), (-1, 2), colors.HexColor("#F8FAFC")),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#E2E8F0")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(info)
+    story.append(Spacer(1, 5 * mm))
+
+    totals = Table([[f"Modelos: {models_count}", f"Unidades: {units_count:g}", f"Seriales/IMEI: {imei_count}", f"Fotos: {photos_count}"]], colWidths=[45 * mm] * 4)
+    totals.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#ECFDF5")),
+        ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#047857")),
+        ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#A7F3D0")),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+    ]))
+    story.append(totals)
+    story.append(Spacer(1, 5 * mm))
+
+    table_data = [[
+        Paragraph("SKU", label_style),
+        Paragraph("PRODUCTO", label_style),
+        Paragraph("CANT.", label_style),
+        Paragraph("SERIALES / IMEI", label_style),
+    ]]
+    for item in items:
+        serials = item.get("serial_numbers") or []
+        serial_text = ", ".join(str(s) for s in serials) if serials else "-"
+        table_data.append([
+            Paragraph(str(item.get("sku") or ""), small_style),
+            Paragraph(str(item.get("name") or ""), small_style),
+            Paragraph(f"{float(item.get('quantity') or 0):g}", small_style),
+            Paragraph(serial_text, small_style),
+        ])
+
+    details = Table(table_data, colWidths=[32 * mm, 73 * mm, 20 * mm, 55 * mm], repeatRows=1)
+    details.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1E3A8A")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#CBD5E1")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (2, 1), (2, -1), "CENTER"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(details)
+    story.append(Spacer(1, 10 * mm))
+
+    signatures = Table([
+        ["ENTREGA", "TRANSPORTA", "RECIBE"],
+        ["\n\nFirma / Sello", "\n\nNombre / Cedula", "\n\nFirma / Sello"],
+    ], colWidths=[60 * mm] * 3)
+    signatures.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#1E3A8A")),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#E2E8F0")),
+        ("TOPPADDING", (0, 1), (-1, 1), 18),
+        ("BOTTOMPADDING", (0, 1), (-1, 1), 8),
+    ]))
+    story.append(signatures)
+
+    doc.build(story)
+    buffer.seek(0)
+    filename = _safe_transfer_filename(f"guia-despacho-{guide_number}") + ".pdf"
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 @router.post("/transfer/import", response_model=TransferResultSchema, dependencies=[Depends(require_permission("inventory.transfers.import"))])
 async def import_transfer_package(
