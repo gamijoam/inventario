@@ -31,7 +31,7 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
     useEffect(() => {
         if (!isOpen || !autoPrintTicket || !saleId || autoPrintedSaleRef.current === saleId) return;
         autoPrintedSaleRef.current = saleId;
-        printerService.printTicket(saleId).catch(() => {});
+        printerService.printTicket(saleId, { route: 'sale' }).catch(() => {});
     }, [isOpen, autoPrintTicket, saleId]);
 
     const hasImeiItems = useMemo(() => {
@@ -55,7 +55,7 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
         }
         setPrinting(true);
         try {
-            await printerService.printTicket(saleId);
+            await printerService.printTicket(saleId, { route: 'sale' });
             toast.success("Ticket enviado a la impresora");
         } catch (error) {
             toast.error(getApiErrorMessage(error, 'No se pudo imprimir el ticket'));

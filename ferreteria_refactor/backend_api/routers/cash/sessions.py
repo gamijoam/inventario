@@ -508,6 +508,19 @@ def get_current_session(
     ).first()
     print(f"💰 [DEBUG] Found session: {session.id if session else 'None'}")
 
+    # Si el navegador conservaba una caja vieja, recuperar la sesion real del cajero.
+    # Esto evita que una PC usada por caja-1 deje a caja-2 sin ruta de impresion al cambiar usuario.
+    if not session and register_id is not None and not is_admin:
+        session = db.query(models.CashSession).filter(
+            models.CashSession.status == "OPEN",
+            models.CashSession.user_id == current_user.id
+        ).options(
+            joinedload(models.CashSession.register),
+            joinedload(models.CashSession.currencies),
+        ).first()
+        if session:
+            print(f"[DEBUG] Recovered cashier session ignoring stale register_id={register_id}: {session.id}")
+
     # Si no hay sesion propia y es ADMIN, devolver cualquier sesion abierta del tenant.
     # Importante: si register_id fue enviado, nunca reemplazar la sesion encontrada por otra caja.
     if not session and register_id is None and is_admin:
@@ -813,6 +826,8 @@ async def close_cash_session(
     try:
         await manager.broadcast("cash_session:closed", {
             "session_id": broadcast_session_id,
+            "register_id": session.register_id,
+            "register_code": session.register.code if session.register else None,
             "end_time": broadcast_end_time,
             "final_cash_reported": broadcast_final_reported,
             "final_cash_reported_bs": broadcast_final_reported_bs,

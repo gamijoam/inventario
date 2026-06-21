@@ -1199,8 +1199,10 @@ class AuditLogRead(AuditLogBase):
 
 class RemotePrintRequest(BaseModel):
     """Request body for remote printing via WebSocket"""
-    client_id: str = Field(..., description="Hardware Bridge client ID", json_schema_extra={'example': "escritorio-caja-1"})
     sale_id: int = Field(..., description="Sale ID to print", json_schema_extra={'example': 123})
+    client_id: Optional[str] = Field(None, description="Hardware Bridge client ID for the current station", json_schema_extra={'example': "escritorio-caja-1"})
+    register_id: Optional[int] = Field(None, description="Cash register selected for this station")
+    prefer_sale_register: bool = Field(False, description="Route to the cash register that created the sale")
 
 # ========================
 # Warehouse Schemas

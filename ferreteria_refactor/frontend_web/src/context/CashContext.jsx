@@ -29,6 +29,14 @@ const persistStationRegister = (register) => {
     }
 };
 
+const userMatchesRegisterOwner = (register, user) => {
+    if (!register || register.session_status !== 'OPEN' || !register.opened_by) return true;
+    const candidates = [user?.username, user?.email, user?.full_name, user?.name]
+        .filter(Boolean)
+        .map(value => String(value).trim().toLowerCase());
+    return candidates.includes(String(register.opened_by).trim().toLowerCase());
+};
+
 const clearPrinterRoute = () => {
     localStorage.removeItem('hardware_client_id');
 };
@@ -70,11 +78,23 @@ export const CashProvider = ({ children }) => {
 
             const storedRegisterId = readStoredRegisterId();
             const storedRegister = storedRegisterId ? list.find(r => Number(r.id) === storedRegisterId) : null;
-            if (storedRegister) {
+            const isAdmin = user?.is_superuser || user?.role === 'ADMIN' || user?.role === 'UserRole.ADMIN';
+            const currentUserOpenRegister = list.find(r =>
+                r.session_status === 'OPEN' && userMatchesRegisterOwner(r, user)
+            );
+
+            if (!isAdmin && currentUserOpenRegister && (!storedRegister || Number(storedRegister.id) !== Number(currentUserOpenRegister.id))) {
+                setActiveRegister(currentUserOpenRegister);
+            } else if (storedRegister && (isAdmin || userMatchesRegisterOwner(storedRegister, user))) {
                 setActiveRegisterState(storedRegister);
                 persistStationRegister(storedRegister);
+            } else if (currentUserOpenRegister) {
+                setActiveRegister(currentUserOpenRegister);
             } else if (list.length === 1) {
                 setActiveRegister(list[0]);
+            } else if (storedRegister && !userMatchesRegisterOwner(storedRegister, user)) {
+                localStorage.removeItem(ACTIVE_REGISTER_STORAGE_KEY);
+                clearPrinterRoute();
             }
             return list;
         } catch (e) {
@@ -213,11 +233,11 @@ export const CashProvider = ({ children }) => {
             // AUTO-PRINT Z REPORT
             if (data.print_payload) {
                 console.log("Printing Z Report automatically...");
-                printerService.printRaw(data.print_payload).then(() => {
+                printerService.printRaw(data.print_payload, { registerId: data.register_id }).then(() => {
                     toast.success("Reporte Z enviado a la impresora");
                 }).catch(err => {
                     console.error("Failed to auto-print Z Report", err);
-                    toast.error("Error imprimiendo Reporte Z");
+                    toast.error(err?.message || "Error imprimiendo Reporte Z");
                 });
             }
         });

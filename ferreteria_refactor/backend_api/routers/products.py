@@ -1974,6 +1974,116 @@ def print_sale_endpoint(sale_id: int, db: Session = Depends(get_db)):
     # Now returns JSON { template, context, status }
     return SalesService.get_sale_print_payload(db, sale_id)
 
+def _normalize_print_client_id(value: Optional[str]) -> Optional[str]:
+    normalized = (value or "").strip().lower()
+    return normalized or None
+
+
+def _resolve_print_register(db: Session, register_id: Optional[int]):
+    if not register_id:
+        return None
+    return db.query(models.CashRegister).filter(
+        models.CashRegister.id == register_id,
+        models.CashRegister.is_active == True
+    ).first()
+
+
+def _resolve_sale_print_register(db: Session, sale_id: int):
+    sale = db.query(models.Sale).options(
+        joinedload(models.Sale.cash_session).joinedload(models.CashSession.register)
+    ).filter(models.Sale.id == sale_id).first()
+    if not sale:
+        raise HTTPException(status_code=404, detail="Venta no encontrada")
+    return sale.cash_session.register if sale.cash_session else None
+
+
+def _find_connected_print_client(manager, tenant_id: str, client_id: Optional[str]) -> Optional[str]:
+    target_client_id = _normalize_print_client_id(client_id)
+    if not target_client_id:
+        return None
+    for connected_client in manager.active_connections.get(tenant_id, {}).keys():
+        if connected_client.strip().lower() == target_client_id:
+            return connected_client
+    return None
+
+
+def _connected_print_clients(manager, tenant_id: str) -> List[str]:
+    return sorted(
+        client_id for client_id in manager.active_connections.get(tenant_id, {}).keys()
+        if client_id and not client_id.lower().startswith("web_")
+    )
+
+
+def _resolve_print_target(
+    db: Session,
+    manager,
+    tenant_id: str,
+    *,
+    sale_id: Optional[int] = None,
+    request_client_id: Optional[str] = None,
+    register_id: Optional[int] = None,
+    prefer_sale_register: bool = False,
+):
+    """Resolve the target bridge deterministically for a print job.
+
+    - New sale auto-print can ask for the sale register, avoiding browser cache drift.
+    - Reprints/reports can still use the currently selected station register/client.
+    """
+    route = "station"
+    register = None
+
+    if prefer_sale_register and sale_id:
+        register = _resolve_sale_print_register(db, sale_id)
+        route = "sale_register"
+    elif register_id:
+        register = _resolve_print_register(db, register_id)
+        route = "station_register"
+    elif not request_client_id and sale_id:
+        register = _resolve_sale_print_register(db, sale_id)
+        route = "sale_register_fallback"
+
+    target_client_id = _normalize_print_client_id(request_client_id)
+    if register:
+        target_client_id = _normalize_print_client_id(register.hardware_client_id)
+        if not target_client_id:
+            label = register.code or register.name or f"#{register.id}"
+            raise HTTPException(
+                status_code=400,
+                detail=f"La caja {label} no tiene ID de impresora configurado. Configuralo en Gestion de Cajas."
+            )
+    elif register_id:
+        raise HTTPException(status_code=404, detail="Caja no encontrada o inactiva")
+
+    if tenant_id not in manager.active_connections:
+        print(f"❌ [PRINT DEBUG] Active Tenants in Memory: {list(manager.active_connections.keys())}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Ninguna impresora conectada para la empresa '{tenant_id}'. Verifique que Invensoft Bridge este abierto."
+        )
+
+    actual_client_id = _find_connected_print_client(manager, tenant_id, target_client_id)
+    if not actual_client_id:
+        connected = _connected_print_clients(manager, tenant_id)
+        print(f"❌ [PRINT DEBUG] Active Clients in '{tenant_id}': {list(manager.active_connections.get(tenant_id, {}).keys())}")
+        print(f"❌ [PRINT] Client '{target_client_id}' NOT connected for Tenant '{tenant_id}'")
+        connected_text = ", ".join(connected) if connected else "ninguna"
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"La impresora '{target_client_id or 'sin ID'}' no esta conectada. "
+                f"Bridge(s) conectados: {connected_text}. Verifique que la caja y el ID del puente coincidan."
+            )
+        )
+
+    return {
+        "client_id": actual_client_id,
+        "requested_client_id": target_client_id,
+        "route": route,
+        "register_id": register.id if register else register_id,
+        "register_code": register.code if register else None,
+    }
+
+
 @router.post("/print/remote", dependencies=[Depends(cashier_or_admin)])
 async def print_remote(
     request: schemas.RemotePrintRequest,
@@ -1981,74 +2091,62 @@ async def print_remote(
     db: Session = Depends(get_db)
 ):
     """
-    Send print command to Hardware Bridge via WebSocket
-    Strictly isolated by current_user's tenant_id.
+    Send print command to Hardware Bridge via WebSocket.
+    The backend can now route by sale/register instead of trusting only browser cache.
     """
     from ..services.sales_service import SalesService
     from ..tenant_context import get_tenant_schema
     from ..services.websocket_manager import manager
-    
-    # We use the schema name (e.g. "prueba3") as the universal identifier for this business.
-    # The bridge registers securely under this tag.
+
     tenant_id = get_tenant_schema()
-    print(f"📡 [PRINT] Remote request: Client '{request.client_id}' for Tenant Context '{tenant_id}'")
-    
-    # CHECK: Ensure client is actually connected under THIS tenant
-    if tenant_id not in manager.active_connections:
-        # Dump exactly what is in memory to see the mismatch
-        print(f"❌ [PRINT DEBUG] Active Tenants in Memory: {list(manager.active_connections.keys())}")
-        raise HTTPException(
-            status_code=503,
-            detail=f"Ninguna impresora conectada para la empresa '{tenant_id}'. Verifique el puente."
-        )
+    target = _resolve_print_target(
+        db,
+        manager,
+        tenant_id,
+        sale_id=request.sale_id,
+        request_client_id=request.client_id,
+        register_id=request.register_id,
+        prefer_sale_register=request.prefer_sale_register,
+    )
+    print(
+        f"📡 [PRINT] Remote request sale={request.sale_id} route={target['route']} "
+        f"client='{target['client_id']}' tenant='{tenant_id}'"
+    )
 
-    # Fuzzy matching for client_id to prevent Case-Sensitivity or Trailing spaces bugs
-    target_client_id = request.client_id.strip().lower()
-    actual_client_id = None
-    
-    for connected_client in manager.active_connections[tenant_id].keys():
-        if connected_client.strip().lower() == target_client_id:
-            actual_client_id = connected_client
-            break
-
-    if not actual_client_id:
-        print(f"❌ [PRINT DEBUG] Active Clients in '{tenant_id}': {list(manager.active_connections[tenant_id].keys())}")
-        print(f"❌ [PRINT] Client '{request.client_id}' NOT connected for Tenant '{tenant_id}'")
-        raise HTTPException(
-            status_code=503,
-            detail=f"Impresora '{request.client_id}' no está conectada. Verifique el puente en su computadora."
-        )
-
-    # Get print payload
     try:
         payload = SalesService.get_sale_print_payload(db, request.sale_id)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generando ticket: {str(e)}")
-    
-    # Send to Hardware Bridge via WebSocket
+
     message = {
         "type": "print",
         "sale_id": request.sale_id,
         "payload": payload
     }
-    
-    success = await manager.send_to_client(message, actual_client_id, tenant_id, timeout=1.5)
-    
+
+    success = await manager.send_to_client(message, target["client_id"], tenant_id, timeout=2.5)
+
     if not success:
         raise HTTPException(
             status_code=500,
-            detail=f"Error enviando comando de impresión a '{actual_client_id}'"
+            detail=f"El bridge '{target['client_id']}' estaba conectado pero no confirmo el envio. Reabra Invensoft Bridge e intente de nuevo."
         )
-    
+
     return {
         "status": "success",
-        "message": f"Comando de impresión enviado a {actual_client_id}",
-        "sale_id": request.sale_id
+        "message": f"Comando de impresion enviado a {target['client_id']}",
+        "sale_id": request.sale_id,
+        "target": target,
     }
 
+
 class RemotePrintPayloadRequest(BaseModel):
-    client_id: str
+    client_id: Optional[str] = None
+    register_id: Optional[int] = None
     payload: dict
+
 
 @router.post("/print/remote/payload", tags=["Print"])
 async def print_remote_payload(
@@ -2057,52 +2155,38 @@ async def print_remote_payload(
     db: Session = Depends(get_db)
 ):
     """
-    Send raw print payload to Hardware Bridge via WebSocket
-    Strictly isolated by current_user's tenant_id.
+    Send raw print payload to Hardware Bridge via WebSocket.
+    Reports can route by register_id to avoid stale browser printer IDs.
     """
     from ..services.websocket_manager import manager
     from ..tenant_context import get_tenant_schema
-    
+
     tenant_id = get_tenant_schema()
-    
-    if tenant_id not in manager.active_connections:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Ninguna impresora conectada para la empresa '{tenant_id}'."
-        )
+    target = _resolve_print_target(
+        db,
+        manager,
+        tenant_id,
+        request_client_id=request.client_id,
+        register_id=request.register_id,
+    )
 
-    # Fuzzy matching for client_id
-    target_client_id = request.client_id.strip().lower()
-    actual_client_id = None
-    
-    for connected_client in manager.active_connections[tenant_id].keys():
-        if connected_client.strip().lower() == target_client_id:
-            actual_client_id = connected_client
-            break
-
-    if not actual_client_id:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Impresora '{request.client_id}' no está conectada."
-        )
-
-    # Send to Hardware Bridge via WebSocket
     message = {
         "type": "print",
         "payload": request.payload
     }
-    
-    success = await manager.send_to_client(message, actual_client_id, tenant_id, timeout=1.5)
-    
+
+    success = await manager.send_to_client(message, target["client_id"], tenant_id, timeout=2.5)
+
     if not success:
         raise HTTPException(
             status_code=500,
-            detail=f"Error enviando comando de impresión a '{request.client_id}'"
+            detail=f"El bridge '{target['client_id']}' estaba conectado pero no confirmo el envio."
         )
-    
+
     return {
         "status": "success",
-        "message": f"Reporte enviado a {request.client_id}"
+        "message": f"Reporte enviado a {target['client_id']}",
+        "target": target,
     }
 
 @router.post("/sales/payments", dependencies=[Depends(cashier_or_admin)])
