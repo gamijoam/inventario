@@ -24,6 +24,7 @@ from ...websocket.manager import manager
 from ...tenant_context import get_tenant_schema
 from ... import schemas
 from ...audit_utils import log_action
+from ...services.cash_reconciliation_service import CashReconciliationService
 
 logger = logging.getLogger(__name__)
 
@@ -554,141 +555,56 @@ async def close_cash_session(
     if session.status == "CLOSED":
         raise HTTPException(status_code=400, detail="La sesión ya está cerrada")
 
-    # Re-calculate expected totals to save them (isolated by session_id for new sessions)
-    sales_query = db.query(models.SalePayment).join(models.Sale).filter(
-        models.Sale.session_id == session.id
-        if session.id else
-        models.Sale.date >= session.start_time
-    )
-    from sqlalchemy import or_, and_
-    sales_query = db.query(models.SalePayment).join(models.Sale).filter(
-        or_(
-            models.Sale.session_id == session.id,
-            and_(
-                models.Sale.session_id.is_(None),
-                models.Sale.date >= session.start_time,
-            )
-        )
-    )
-    payments = sales_query.all()
-    movements = db.query(models.CashMovement).filter(models.CashMovement.session_id == session.id).all()
-
-    # ============================================
-    # CALCULATE EXPECTED BY CURRENCY
-    # ============================================
-
-    # Track sales and movements by currency
-    cash_sales_by_currency = {}  # {currency_symbol: amount}
-    movements_by_currency = {}   # {currency_symbol: {'deposits': X, 'expenses': Y}}
-
-    # Process payments
-    for p in payments:
-        if "efectivo" in p.payment_method.lower() or "cash" in p.payment_method.lower() or "divisa" in p.payment_method.lower():
-            curr = p.currency or "USD"
-            # Normalize currency symbols
-            if curr.upper() in ["BS", "VES", "VEF"]:
-                curr = "Bs"
-
-            if curr not in cash_sales_by_currency:
-                cash_sales_by_currency[curr] = Decimal("0.00")
-            cash_sales_by_currency[curr] += p.amount
+    close_time = get_venezuela_now()
+    session.end_time = close_time
 
     def _currency_key(value):
-        curr = value or "USD"
+        curr = (value or "USD").strip()
         if curr.upper() in ["BS", "VES", "VEF"]:
             return "Bs"
         if curr in ("$", ""):
             return "USD"
         return curr
 
-    def _has_matching_debt_deposit(dp):
-        dp_amount = Decimal(str(dp.amount or 0))
-        dp_currency = _currency_key(dp.currency)
-        for movement in movements:
-            if movement.type not in ["DEPOSIT", "IN"]:
-                continue
-            if _currency_key(movement.currency) != dp_currency:
-                continue
-            movement_amount = Decimal(str(movement.amount or 0))
-            if movement_amount != dp_amount:
-                continue
-            description = (movement.description or "").lower()
-            if "abono" in description or "cxc" in description or "cuenta" in description:
-                return True
-        return False
+    def _to_decimal(value):
+        if value is None:
+            return Decimal("0.00")
+        return Decimal(str(value))
 
-    # 1.5 Process Debt Payments (Abonos)
-    # Newer CxC payments create a CashMovement(DEPOSIT). Count the payment only as
-    # fallback for legacy rows without movement; otherwise the close doubles it.
-    debt_payments = db.query(models.Payment).filter(models.Payment.session_id == session.id).all()
-    for dp in debt_payments:
-        method = (dp.payment_method or "").lower()
-        if "efectivo" in method or "cash" in method or "divisa" in method:
-            if _has_matching_debt_deposit(dp):
-                continue
-            curr = _currency_key(dp.currency)
+    reported_by_currency = {
+        "USD": _to_decimal(close_data.final_cash_reported),
+        "Bs": _to_decimal(close_data.final_cash_reported_bs),
+    }
+    if getattr(close_data, 'currencies', None):
+        for curr_data in close_data.currencies:
+            reported_by_currency[_currency_key(curr_data.currency_symbol)] = _to_decimal(curr_data.final_reported)
 
-            if curr not in cash_sales_by_currency:
-                cash_sales_by_currency[curr] = Decimal("0.00")
-            cash_sales_by_currency[curr] += dp.amount
+    # Canonical expected totals come from the read-only audit engine. This keeps
+    # close, history, audit modal and PDF aligned to one calculation path.
+    audit_report = CashReconciliationService.build_session_audit(db, session.id)
+    if not audit_report:
+        raise HTTPException(status_code=404, detail="Sesión no encontrada")
 
-    # Process Change (Vuelto)
-    change_by_currency = {}
-    sales_for_change = db.query(models.Sale.change_amount, models.Sale.change_currency).filter(
-        or_(
-            models.Sale.session_id == session.id,
-            and_(models.Sale.session_id.is_(None), models.Sale.date >= session.start_time)
-        ),
-        models.Sale.change_amount > 0
-    ).all()
+    cash_rows = audit_report.get("cash_by_currency", [])
+    cash_rows_by_currency = {row["currency"]: row for row in cash_rows}
 
-    for s_change in sales_for_change:
-        curr = s_change.change_currency or "USD"
-        if curr.upper() in ["BS", "VES", "VEF"]:
-            curr = "Bs"
+    # Include every opened/reported/audited currency, even when it has zero movement.
+    all_currencies = set(reported_by_currency.keys())
+    all_currencies.update(cash_rows_by_currency.keys())
+    all_currencies.update(
+        _currency_key(record.currency_symbol)
+        for record in db.query(models.CashSessionCurrency).filter(
+            models.CashSessionCurrency.session_id == session.id
+        ).all()
+    )
 
-        if curr not in change_by_currency:
-            change_by_currency[curr] = Decimal("0.00")
-        change_by_currency[curr] += s_change.change_amount
-
-    # Process movements
-    for m in movements:
-        curr = m.currency or "USD"
-        # Normalize currency symbols
-        if curr.upper() in ["BS", "VES", "VEF"]:
-            curr = "Bs"
-
-        if curr not in movements_by_currency:
-            movements_by_currency[curr] = {'deposits': Decimal("0.00"), 'expenses': Decimal("0.00")}
-
-        if m.type in ["DEPOSIT", "IN"]:
-            movements_by_currency[curr]['deposits'] += m.amount
-        elif m.type in ["EXPENSE", "WITHDRAWAL", "OUT", "CASH_ADVANCE", "RETURN"]:
-            movements_by_currency[curr]['expenses'] += m.amount
-
-    # ============================================
-    # UPDATE CURRENCY RECORDS
-    # ============================================
-
-    # Get all currency records for this session
     currency_records = db.query(models.CashSessionCurrency).filter(
         models.CashSessionCurrency.session_id == session.id
     ).all()
+    currency_records_by_symbol = {_currency_key(r.currency_symbol): r for r in currency_records}
 
-    # Build a lookup of existing currency records for this session
-    currency_records_by_symbol = {r.currency_symbol: r for r in currency_records}
-
-    # Collect ALL currencies that appear in sales, change, movements or existing records
-    all_currencies = set(currency_records_by_symbol.keys())
-    all_currencies.update(cash_sales_by_currency.keys())
-    all_currencies.update(change_by_currency.keys())
-    all_currencies.update(movements_by_currency.keys())
-
-    for symbol in all_currencies:
+    for symbol in sorted(all_currencies):
         curr_record = currency_records_by_symbol.get(symbol)
-
-        # If no record exists for this currency (e.g. COP appeared in sales but wasn't
-        # registered at session open), create one dynamically
         if curr_record is None:
             curr_record = models.CashSessionCurrency(
                 session_id=session.id,
@@ -700,67 +616,30 @@ async def close_cash_session(
             currency_records_by_symbol[symbol] = curr_record
             currency_records.append(curr_record)
 
-        # Calculate expected
-        initial = curr_record.initial_amount or Decimal("0.00")
-        sales = cash_sales_by_currency.get(symbol, Decimal("0.00"))
-        deposits = movements_by_currency.get(symbol, {}).get('deposits', Decimal("0.00"))
-        expenses = movements_by_currency.get(symbol, {}).get('expenses', Decimal("0.00"))
-        change = change_by_currency.get(symbol, Decimal("0.00"))
+        audit_row = cash_rows_by_currency.get(symbol, {})
+        expected = _to_decimal(audit_row.get("expected"))
+        reported = reported_by_currency.get(symbol, Decimal("0.00"))
 
-        expected = initial + sales - change + deposits - expenses
-
-        # Get reported from close_data
-        # close_data should have currencies array with {currency_symbol, final_reported}
-        reported = Decimal("0.00")
-        if hasattr(close_data, 'currencies') and close_data.currencies:
-            for curr_data in close_data.currencies:
-                if curr_data.currency_symbol == symbol:
-                    reported = Decimal(str(curr_data.final_reported))
-                    break
-
-        # Update currency record
         curr_record.final_expected = expected
         curr_record.final_reported = reported
         curr_record.difference = reported - expected
 
-    # ============================================
-    # UPDATE LEGACY FIELDS (for backward compatibility)
-    # ============================================
+    expected_usd = _to_decimal(cash_rows_by_currency.get("USD", {}).get("expected"))
+    expected_bs = _to_decimal(cash_rows_by_currency.get("Bs", {}).get("expected"))
+    reported_usd = reported_by_currency.get("USD", Decimal("0.00"))
+    reported_bs = reported_by_currency.get("Bs", Decimal("0.00"))
 
-    # Calculate legacy USD and BS totals
-    cash_sales_usd = cash_sales_by_currency.get("USD", Decimal("0.00"))
-    cash_sales_bs = cash_sales_by_currency.get("Bs", Decimal("0.00"))
-
-    expenses_usd = movements_by_currency.get("USD", {}).get('expenses', Decimal("0.00"))
-    expenses_bs = movements_by_currency.get("Bs", {}).get('expenses', Decimal("0.00"))
-
-    deposits_usd = movements_by_currency.get("USD", {}).get('deposits', Decimal("0.00"))
-    deposits_bs = movements_by_currency.get("Bs", {}).get('deposits', Decimal("0.00"))
-
-    change_usd = change_by_currency.get("USD", Decimal("0.00"))
-    change_bs = change_by_currency.get("Bs", Decimal("0.00"))
-
-    expected_usd = session.initial_cash + cash_sales_usd - change_usd + deposits_usd - expenses_usd
-    expected_bs = session.initial_cash_bs + cash_sales_bs - change_bs + deposits_bs - expenses_bs
-
-    # Calculate unpaid credit sales for reporting
-    credit_sales = db.query(models.Sale).filter(
-        models.Sale.date >= session.start_time,
-        models.Sale.date <= datetime.now(),
-        models.Sale.is_credit == True,
-        models.Sale.balance_pending > 0  # Only unpaid credits
-    ).all()
-
-    total_credit_pending = sum(float(sale.balance_pending or 0) for sale in credit_sales)
+    credit_summary = audit_report.get("credits") or {}
+    total_credit_pending = float(credit_summary.get("pending_amount") or 0)
+    credit_count = int(credit_summary.get("pending_count") or 0)
 
     # Update Session
-    session.end_time = get_venezuela_now()
-    session.final_cash_reported = close_data.final_cash_reported
-    session.final_cash_reported_bs = close_data.final_cash_reported_bs
+    session.final_cash_reported = reported_usd
+    session.final_cash_reported_bs = reported_bs
     session.final_cash_expected = expected_usd
     session.final_cash_expected_bs = expected_bs
-    session.difference = close_data.final_cash_reported - expected_usd
-    session.difference_bs = close_data.final_cash_reported_bs - expected_bs
+    session.difference = reported_usd - expected_usd
+    session.difference_bs = reported_bs - expected_bs
     session.status = "CLOSED"
 
     # Generate Payload BEFORE Commit to avoid lazy load issues later
@@ -834,7 +713,7 @@ async def close_cash_session(
             "difference": broadcast_difference,
             "difference_bs": broadcast_difference_bs,
             "credit_pending": total_credit_pending,
-            "credit_count": len(credit_sales),
+            "credit_count": credit_count,
             "print_payload": z_report_payload
         })
     except Exception as e:
