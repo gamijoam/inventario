@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
     TrendingUp, TrendingDown, AlertTriangle, DollarSign, Clock,
-    User, CheckCircle, ChevronDown, Download, Printer, FileText
+    User, CheckCircle, ChevronDown, Download, Printer, FileText, ShieldCheck
 } from 'lucide-react';
 import cashService from '../../../services/cashService';
 import reportService from '../../../services/reportService';
@@ -11,6 +11,7 @@ import { toast } from 'react-hot-toast';
 import { getApiErrorMessage } from '../../../utils/apiErrors';
 import { pdf } from '@react-pdf/renderer';
 import ZReportPDF from '../../../components/pdf/ZReportPDF';
+import CashAuditModal from '../../../components/cash/CashAuditModal';
 import apiClient from '../../../config/axios';
 import clsx from 'clsx';
 
@@ -23,6 +24,7 @@ const CashTab = ({ dateRange }) => {
     const [loading, setLoading] = useState(false);
     const [expandedId, setExpandedId] = useState(null);
     const [downloading, setDownloading] = useState(false);
+    const [auditSession, setAuditSession] = useState(null);
 
     // Local date state synced from parent dateRange
     const [startDate, setStartDate] = useState(dateRange?.start || '');
@@ -488,6 +490,16 @@ const CashTab = ({ dateRange }) => {
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
+                                                        setAuditSession(session);
+                                                    }}
+                                                    className="flex-1 h-10 px-3 bg-slate-900 text-white rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors shadow-sm active:scale-95"
+                                                >
+                                                    <ShieldCheck size={15} />
+                                                    Ver Auditoria
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
                                                         handleReprintZReport(session.id);
                                                     }}
                                                     className="flex-1 h-10 px-3 bg-indigo-600 text-white rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-sm active:scale-95"
@@ -514,6 +526,12 @@ const CashTab = ({ dateRange }) => {
                     })
                 )}
             </div>
+
+            <CashAuditModal
+                session={auditSession}
+                isOpen={Boolean(auditSession)}
+                onClose={() => setAuditSession(null)}
+            />
         </div>
     );
 };

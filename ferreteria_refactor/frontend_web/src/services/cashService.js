@@ -29,6 +29,11 @@ const cashService = {
 
         const response = await apiClient.get('/cash/sessions/history', { params });
         return response.data;
+    },
+
+    getAuditReport: async (sessionId) => {
+        const response = await apiClient.get(`/cash/sessions/${sessionId}/audit-report`);
+        return response.data;
     }
 };
 
