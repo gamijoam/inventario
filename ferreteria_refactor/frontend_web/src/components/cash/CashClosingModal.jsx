@@ -1,123 +1,94 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useCash } from '../../context/CashContext';
 import { useConfig } from '../../context/ConfigContext';
-import { AlertTriangle, CheckCircle, TrendingUp, Calculator, X, Printer, Banknote, CreditCard, Coins, ArrowRight, Wallet } from 'lucide-react';
+import { Banknote, ClipboardCheck, Coins, Printer, ShieldCheck, Wallet, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import apiClient from '../../config/axios';
-import { getApiErrorMessage } from '../../utils/apiErrors';
 import { Button } from '../ui/button';
-import { Separator } from '../ui/separator';
+
+const formatCurrencyValue = (value) => {
+    const numeric = Number(value) || 0;
+    return numeric.toLocaleString('es-VE', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+};
+
+const normalizeSymbol = (symbol) => String(symbol || '').trim();
 
 const CashClosingModal = ({ isOpen, onClose }) => {
-    const { closeSession, session } = useCash();
+    const { closeSession, session, activeRegister } = useCash();
     const { getActiveCurrencies } = useConfig();
     const [counts, setCounts] = useState({});
     const [currencies, setCurrencies] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [observations, setObservations] = useState('');
 
-    // Detailed Session Data State
-    const [sessionDetails, setSessionDetails] = useState(null);
-    const [loadingDetails, setLoadingDetails] = useState(false);
-
     useEffect(() => {
-        if (isOpen) {
-            fetchSessionDetails();
+        if (!isOpen) return;
 
-            // Get currencies to count
-            const rawCurrencies = [
-                { symbol: 'USD', name: 'Dólar' },
-                ...getActiveCurrencies()
-            ];
+        const rawCurrencies = [
+            { symbol: 'USD', name: 'Dolar' },
+            ...getActiveCurrencies(),
+        ];
 
-            const uniqueSymbols = new Set();
-            const uniqueCurrencies = [];
+        const uniqueSymbols = new Set();
+        const uniqueCurrencies = [];
 
-            rawCurrencies.forEach(c => {
-                const sym = (c.symbol || c.currency_symbol || '').trim();
-                if (sym && !uniqueSymbols.has(sym)) {
-                    uniqueSymbols.add(sym);
-                    uniqueCurrencies.push({ ...c, symbol: sym });
-                }
+        rawCurrencies.forEach((currency) => {
+            const symbol = normalizeSymbol(currency.symbol || currency.currency_symbol);
+            if (!symbol || uniqueSymbols.has(symbol)) return;
+            uniqueSymbols.add(symbol);
+            uniqueCurrencies.push({
+                ...currency,
+                symbol,
+                name: currency.name || currency.currency_name || symbol,
             });
+        });
 
-            setCurrencies(uniqueCurrencies);
+        setCurrencies(uniqueCurrencies);
+        setCounts(Object.fromEntries(uniqueCurrencies.map((currency) => [currency.symbol, ''])));
+        setObservations('');
+    }, [isOpen, getActiveCurrencies]);
 
-            // Reset counts
-            const initialCounts = {};
-            uniqueCurrencies.forEach(c => initialCounts[c.symbol] = '');
-            setCounts(initialCounts);
-            setObservations('');
-        }
-    }, [isOpen]);
+    const declaredCurrencies = useMemo(() => {
+        return currencies.map((currency) => ({
+            ...currency,
+            value: Number.parseFloat(counts[currency.symbol]) || 0,
+        }));
+    }, [currencies, counts]);
 
-
-
-    const fetchSessionDetails = async () => {
-        if (!session?.id) return;
-        setLoadingDetails(true);
-        try {
-            const response = await apiClient.get(`/cash/sessions/${session.id}/details`);
-            setSessionDetails(response.data);
-        } catch (error) {
-            console.error("Error fetching detailed closing info:", error);
-            toast.error(getApiErrorMessage(error, 'No se pudieron obtener los detalles del sistema'));
-        } finally {
-            setLoadingDetails(false);
-        }
+    const getReportedAmount = (...symbols) => {
+        const normalized = symbols.map((symbol) => normalizeSymbol(symbol).toLowerCase());
+        const match = Object.entries(counts).find(([symbol]) => normalized.includes(normalizeSymbol(symbol).toLowerCase()));
+        return Number.parseFloat(match?.[1]) || 0;
     };
 
-    const auditData = useMemo(() => {
-        if (!sessionDetails) return [];
+    const handleCountChange = (symbol, value) => {
+        setCounts((current) => ({
+            ...current,
+            [symbol]: value,
+        }));
+    };
 
-        return currencies.map(curr => {
-            const expected = parseFloat(sessionDetails.expected_by_currency?.[curr.symbol] || 0);
-            const reported = parseFloat(counts[curr.symbol]) || 0;
-            const diff = reported - expected;
+    const handleSubmit = async (event) => {
+        event.preventDefault();
 
-            // Color Logic (Clean & Vivid):
-            // Match (Green)
-            // Missing (Red)
-            // Surplus (Blue)
-            const diffColor = Math.abs(diff) < 0.01
-                ? 'text-emerald-700 bg-white border-emerald-500 ring-1 ring-emerald-500'
-                : diff < 0
-                    ? 'text-rose-700 bg-white border-rose-500 ring-1 ring-rose-500'
-                    : 'text-blue-700 bg-white border-blue-500 ring-1 ring-blue-500';
-
-            return {
-                ...curr,
-                expected,
-                reported,
-                diff,
-                diffColor,
-                isMatch: Math.abs(diff) < 0.01,
-                hasValue: counts[curr.symbol] !== ''
-            };
-        });
-    }, [currencies, counts, sessionDetails]);
-
-    const isBalanced = auditData.every(d => d.isMatch);
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        if (!window.confirm("¿Está seguro de cerrar la caja? Esta acción no se puede deshacer.")) return;
+        if (!window.confirm('Confirma que el conteo fisico ya fue revisado. Al cerrar la caja no podras modificar este arqueo.')) return;
 
         setIsSubmitting(true);
         const closingData = {
-            final_cash_reported: parseFloat(counts['USD']) || 0,
-            final_cash_reported_bs: parseFloat(counts['Bs']) || 0,
-            currencies: currencies.map(c => ({
-                currency_symbol: c.symbol,
-                final_reported: parseFloat(counts[c.symbol]) || 0
+            final_cash_reported: getReportedAmount('USD', '$'),
+            final_cash_reported_bs: getReportedAmount('Bs', 'VES', 'Bs.'),
+            currencies: currencies.map((currency) => ({
+                currency_symbol: currency.symbol,
+                final_reported: Number.parseFloat(counts[currency.symbol]) || 0,
             })),
-            notes: observations
+            notes: observations,
         };
 
         const success = await closeSession(closingData);
         if (success) {
-            toast.success("Caja cerrada y reporte enviado");
+            toast.success('Caja cerrada. El reporte quedo disponible para auditoria.');
             onClose();
         }
         setIsSubmitting(false);
@@ -125,28 +96,25 @@ const CashClosingModal = ({ isOpen, onClose }) => {
 
     if (!isOpen) return null;
 
-    // Destructure Details for Right Panel
-    const details = sessionDetails?.details || {};
-    const {
-        expenses_usd = 0, expenses_bs = 0,
-        cash_advances_usd = 0, cash_advances_bs = 0,
-        transfers_by_currency = {},
-        sales_total = 0
-    } = details;
+    const registerName = activeRegister?.name || session?.register?.name || session?.cash_register_name || 'Caja activa';
+    const openedBy = session?.opened_by || session?.user_name || session?.cashier_name || 'Turno actual';
 
     return (
-        <div id="tour-cash-closing-modal" className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-slate-950 rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[95vh] border border-slate-200 dark:border-slate-800">
-
-                {/* Header - PURE WHITE */}
-                <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 dark:border-slate-800 bg-white">
-                    <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 bg-white text-indigo-600 rounded-xl flex items-center justify-center border border-indigo-100 shadow-sm">
-                            <Wallet size={24} strokeWidth={1.5} />
+        <div id="tour-cash-closing-modal" className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[94vh] border border-slate-200">
+                <div className="flex items-center justify-between px-6 lg:px-8 py-5 border-b border-slate-100 bg-white">
+                    <div className="flex items-center gap-4 min-w-0">
+                        <div className="h-12 w-12 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                            <Wallet size={24} strokeWidth={1.8} />
                         </div>
-                        <div>
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-50 tracking-tight">Cierre de Turno</h2>
-                            <p className="text-sm font-medium text-slate-500">Arqueo de Caja y Verificación de Ventas</p>
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <h2 className="text-xl font-bold text-slate-950 tracking-tight">Cierre ciego de caja</h2>
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700">
+                                    <ShieldCheck size={13} /> Sin monto esperado
+                                </span>
+                            </div>
+                            <p className="text-sm font-medium text-slate-500 truncate">{registerName} · {openedBy}</p>
                         </div>
                     </div>
                     <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full h-10 w-10 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
@@ -154,188 +122,125 @@ const CashClosingModal = ({ isOpen, onClose }) => {
                     </Button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto bg-white">
-                    <div className="grid grid-cols-1 lg:grid-cols-12 min-h-full divide-x divide-slate-100">
-
-                        {/* LEFT COLUMN: AUDIT (7 cols) - PURE WHITE */}
-                        <div className="lg:col-span-7 p-6 lg:p-8 space-y-8 bg-white">
-
-
-
-                            <div className="space-y-6">
-                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                    <Banknote size={16} /> Arqueo de Efectivo
-                                </h3>
-
-                                {loadingDetails ? (
-                                    <div className="py-12 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {auditData.map((data) => (
-                                            <div key={data.symbol} className="group relative bg-white border border-slate-200 rounded-2xl transition-all hover:border-indigo-300 hover:shadow-md p-1">
-                                                <div className="p-4 flex items-start justify-between">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center font-bold text-slate-700 text-lg border border-slate-100">
-                                                            {data.symbol}
-                                                        </div>
-                                                        <div>
-                                                            <div className="font-bold text-slate-900 text-lg">{data.name}</div>
-                                                            <div className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg inline-block mt-1">
-                                                                Esperado: <span className="font-mono text-slate-900">{data.symbol === 'USD' ? '$' : data.symbol} {Number(data.expected).toFixed(2)}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Badge Diff Removed */}
-                                                </div>
-
-                                                <div className="bg-white p-4 rounded-b-2xl border-t border-slate-100 flex items-center gap-3">
-                                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
-                                                        Contado:
-                                                    </label>
-                                                    <div className="relative flex-1">
-                                                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 font-bold pointer-events-none">
-                                                            {data.symbol === 'USD' ? '$' : data.symbol}
-                                                        </span>
-                                                        <input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={counts[data.symbol] || ''}
-                                                            onChange={(e) => setCounts({ ...counts, [data.symbol]: e.target.value })}
-                                                            className={`w-full h-11 pl-10 pr-4 bg-white rounded-lg border-2 font-mono text-lg font-bold outline-none transition-all shadow-sm text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 border-slate-200`}
-                                                            placeholder="0.00"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="space-y-3 pt-4">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Observaciones</label>
-                                <div className="relative">
-                                    <textarea
-                                        className="w-full h-24 p-4 bg-white border border-slate-200 rounded-xl text-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none resize-none placeholder:text-slate-300 text-slate-900 shadow-sm"
-                                        placeholder="Indique motivo de descuadre o notas del turno..."
-                                        value={observations}
-                                        onChange={(e) => setObservations(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* RIGHT COLUMN: DETAILS - PURE WHITE (Removed bg-slate-50) */}
-                        <div className="lg:col-span-5 p-6 lg:p-8 space-y-8 bg-white">
-
-                            {/* NON-CASH SUMMARY */}
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                        <CreditCard size={16} /> Pagos Digitales
+                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto bg-slate-50/70">
+                    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-5 p-5 lg:p-6">
+                        <section className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+                                <div>
+                                    <h3 className="text-base font-black text-slate-950 flex items-center gap-2">
+                                        <Banknote size={19} className="text-indigo-600" /> Conteo declarado
                                     </h3>
-                                    <span className="text-[10px] bg-blue-50 text-blue-700 font-black px-2 py-1 rounded-lg border border-blue-200">AUTO-VERIFICADO</span>
-                                </div>
-
-                                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                                    {Object.keys(transfers_by_currency).length === 0 ? (
-                                        <div className="p-8 text-center text-slate-400 italic text-sm">No hubo pagos digitales en este turno.</div>
-                                    ) : (
-                                        <div className="divide-y divide-slate-100">
-                                            {Object.entries(transfers_by_currency).map(([currency, methods]) => (
-                                                <div key={currency} className="p-4 hover:bg-slate-50 transition-colors">
-                                                    <div className="flex items-center gap-2 mb-3">
-                                                        <div className="w-1.5 h-6 rounded-full bg-indigo-500"></div>
-                                                        <div className="text-xs font-black text-slate-600 uppercase tracking-wider">{currency}</div>
-                                                    </div>
-                                                    <div className="space-y-2 pl-3.5">
-                                                        {Object.entries(methods).map(([method, amount]) => (
-                                                            <div key={method} className="flex items-center justify-between group">
-                                                                <span className="text-sm font-medium text-slate-600 group-hover:text-indigo-600 transition-colors">{method}</span>
-                                                                <span className="text-sm font-bold font-mono text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg">{Number(amount).toFixed(2)}</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                    <p className="text-sm text-slate-500 mt-1">Ingresa el efectivo fisico contado por moneda.</p>
                                 </div>
                             </div>
 
-                            {/* MOVEMENTS SUMMARY */}
-                            <div className="space-y-4">
-                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                    <TrendingUp size={16} /> Salidas de Caja
-                                </h3>
+                            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {declaredCurrencies.map((currency) => (
+                                    <label key={currency.symbol} className="group block rounded-2xl border border-slate-200 bg-white p-4 transition-all hover:border-indigo-300 hover:shadow-sm focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10">
+                                        <div className="flex items-center justify-between gap-3 mb-3">
+                                            <div className="min-w-0">
+                                                <div className="text-xs font-black uppercase tracking-widest text-slate-400">{currency.symbol}</div>
+                                                <div className="font-bold text-slate-900 truncate">{currency.name}</div>
+                                            </div>
+                                            <div className="h-10 w-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 font-black">
+                                                {currency.symbol === 'USD' ? '$' : currency.symbol.slice(0, 2)}
+                                            </div>
+                                        </div>
+                                        <div className="relative">
+                                            <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400 font-black pointer-events-none">
+                                                {currency.symbol === 'USD' ? '$' : currency.symbol}
+                                            </span>
+                                            <input
+                                                type="number"
+                                                inputMode="decimal"
+                                                min="0"
+                                                step="0.01"
+                                                value={counts[currency.symbol] || ''}
+                                                onChange={(event) => handleCountChange(currency.symbol, event.target.value)}
+                                                className="w-full h-12 pl-14 pr-4 bg-white rounded-xl border-2 border-slate-200 font-mono text-xl font-black outline-none transition-all text-slate-950 focus:border-indigo-500 placeholder:text-slate-300"
+                                                placeholder="0.00"
+                                                aria-label={`Monto contado en ${currency.name}`}
+                                            />
+                                        </div>
+                                    </label>
+                                ))}
+                            </div>
 
-                                <div className="grid gap-4">
-                                    {/* Gastos */}
-                                    <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:border-slate-300 transition-all flex items-center justify-between group">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-slate-50 rounded-lg text-slate-400 group-hover:text-amber-600 group-hover:bg-amber-50 transition-colors">
-                                                <Coins size={20} />
-                                            </div>
-                                            <div>
-                                                <div className="text-sm font-bold text-slate-800">Gastos Operativos</div>
-                                                <div className="text-xs text-slate-500">Pagos a proveedores</div>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-sm font-mono font-bold text-rose-600">-${Number(expenses_usd).toFixed(2)}</div>
-                                            <div className="text-xs font-mono text-slate-500">Bs {Number(expenses_bs).toFixed(2)}</div>
-                                        </div>
+                            <div className="px-5 pb-5">
+                                <label className="block rounded-2xl border border-slate-200 bg-white p-4 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10">
+                                    <span className="text-xs font-black uppercase tracking-widest text-slate-500">Observaciones del cierre</span>
+                                    <textarea
+                                        className="mt-3 w-full h-24 border-0 p-0 text-sm text-slate-900 outline-none resize-none placeholder:text-slate-300"
+                                        placeholder="Notas del cajero, billetes apartados, pagos pendientes por revisar..."
+                                        value={observations}
+                                        onChange={(event) => setObservations(event.target.value)}
+                                    />
+                                </label>
+                            </div>
+                        </section>
+
+                        <aside className="space-y-4">
+                            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                                        <ClipboardCheck size={19} />
                                     </div>
+                                    <div>
+                                        <div className="text-sm font-black text-slate-950">Resumen declarado</div>
+                                        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sin comparativo previo</div>
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    {declaredCurrencies.map((currency) => (
+                                        <div key={currency.symbol} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 border border-slate-100">
+                                            <span className="text-sm font-bold text-slate-600">{currency.symbol}</span>
+                                            <span className="font-mono font-black text-slate-950">{formatCurrencyValue(currency.value)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
 
-                                    {/* Avances */}
-                                    <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:border-slate-300 transition-all flex items-center justify-between group">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-slate-50 rounded-lg text-slate-400 group-hover:text-blue-600 group-hover:bg-blue-50 transition-colors">
-                                                <ArrowRight size={20} />
-                                            </div>
-                                            <div>
-                                                <div className="text-sm font-bold text-slate-800">Avances</div>
-                                                <div className="text-xs text-slate-500">Retiros de efectivo</div>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-sm font-mono font-bold text-rose-600">-${Number(cash_advances_usd).toFixed(2)}</div>
-                                            <div className="text-xs font-mono text-slate-500">Bs {Number(cash_advances_bs).toFixed(2)}</div>
-                                        </div>
+                            <div className="bg-white border border-amber-200 rounded-2xl p-5 shadow-sm">
+                                <div className="flex items-start gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                                        <Coins size={19} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="text-sm font-black text-slate-950">Antes de confirmar</div>
+                                        <p className="text-sm leading-6 text-slate-600">Cuenta el cajon completo, incluyendo el fondo inicial. El sistema calculara diferencias despues del cierre para gerencia y auditoria.</p>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
+                        </aside>
                     </div>
-                </div>
+                </form>
 
-                {/* Footer Actions */}
-                <div className="p-6 border-t border-slate-100 bg-white flex justify-between items-center z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)]">
-                    <div className="text-xs text-slate-400 hidden lg:flex items-center gap-2">
+                <div className="p-5 lg:px-6 border-t border-slate-100 bg-white flex flex-col-reverse sm:flex-row justify-between gap-3 items-stretch sm:items-center z-10 shadow-[0_-4px_6px_-1px_rgba(15,23,42,0.03)]">
+                    <div className="text-xs text-slate-400 flex items-center gap-2">
                         <Printer size={14} />
-                        <strong>Nota:</strong> Al cerrar, se generará el Reporte Z automáticamente.
+                        El Reporte Z se emitira al cerrar la caja.
                     </div>
-                    <div className="flex gap-3 w-full lg:w-auto">
+                    <div className="flex gap-3">
                         <Button
+                            type="button"
                             variant="ghost"
                             size="lg"
                             onClick={onClose}
-                            className="flex-1 lg:flex-none text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold"
+                            className="flex-1 sm:flex-none text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold"
                         >
                             Cancelar
                         </Button>
                         <Button
+                            type="button"
                             size="lg"
-                            className="flex-1 lg:flex-none h-12 px-8 font-bold shadow-lg flex items-center gap-2 transition-all text-white bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200"
+                            className="flex-1 sm:flex-none h-12 px-8 font-bold shadow-lg flex items-center gap-2 transition-all text-white bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200"
                             onClick={handleSubmit}
-                            disabled={isSubmitting || loadingDetails}
+                            disabled={isSubmitting}
                         >
-                            {isSubmitting ? 'Procesando...' : (
+                            {isSubmitting ? 'Cerrando...' : (
                                 <>
                                     <Printer size={18} />
-                                    Confirmar Cierre
+                                    Cerrar caja
                                 </>
                             )}
                         </Button>
