@@ -183,6 +183,9 @@ const InventoryExportCenter = ({ isOpen, onClose }) => {
     const [format, setFormat] = useState('xlsx');
     const [templates, setTemplates] = useState([]);
     const [templateName, setTemplateName] = useState('');
+    const [productSuggestions, setProductSuggestions] = useState([]);
+    const [productSearchLoading, setProductSearchLoading] = useState(false);
+    const [showProductSuggestions, setShowProductSuggestions] = useState(false);
     const [filters, setFilters] = useState({
         search: '',
         category_id: '',
@@ -231,6 +234,39 @@ const InventoryExportCenter = ({ isOpen, onClose }) => {
         setPreview(null);
     }, [columns, filters, format, selectedType]);
 
+    useEffect(() => {
+        if (!isOpen) return undefined;
+
+        const term = String(filters.search || '').trim();
+        if (term.length < 2) {
+            setProductSuggestions([]);
+            setProductSearchLoading(false);
+            return undefined;
+        }
+
+        let cancelled = false;
+        setProductSearchLoading(true);
+        const timer = window.setTimeout(async () => {
+            try {
+                const { data } = await apiClient.get('/products', {
+                    params: { search: term, limit: 8 },
+                });
+                if (cancelled) return;
+                const results = Array.isArray(data) ? data : (data?.items || []);
+                setProductSuggestions(results.slice(0, 8));
+            } catch {
+                if (!cancelled) setProductSuggestions([]);
+            } finally {
+                if (!cancelled) setProductSearchLoading(false);
+            }
+        }, 250);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+        };
+    }, [filters.search, isOpen]);
+
     if (!isOpen) return null;
 
     const toggleColumn = (key) => {
@@ -242,6 +278,12 @@ const InventoryExportCenter = ({ isOpen, onClose }) => {
 
     const updateFilter = (key, value) => {
         setFilters(prev => ({ ...prev, [key]: value }));
+    };
+
+    const selectProductSuggestion = (product) => {
+        const nextSearch = product?.name || product?.sku || '';
+        updateFilter('search', nextSearch);
+        setShowProductSuggestions(false);
     };
 
     const buildPayload = () => ({
@@ -445,14 +487,56 @@ const InventoryExportCenter = ({ isOpen, onClose }) => {
                                     <div className="grid gap-3 p-4 md:grid-cols-2">
                                         <label className="md:col-span-2">
                                             <span className="text-xs font-black uppercase tracking-wide text-slate-400">Buscar producto, SKU, IMEI o descripcion</span>
-                                            <div className="mt-1 flex h-11 items-center gap-2 rounded-md border border-slate-200 px-3 focus-within:border-indigo-300">
-                                                <Search size={17} className="text-slate-400" />
-                                                <input
-                                                    value={filters.search}
-                                                    onChange={e => updateFilter('search', e.target.value)}
-                                                    placeholder="Ej: itel a100, bateria, 357..."
-                                                    className="h-full flex-1 bg-transparent text-sm font-medium text-slate-700 outline-none"
-                                                />
+                                            <div className="relative mt-1">
+                                                <div className="flex h-11 items-center gap-2 rounded-md border border-slate-200 px-3 focus-within:border-indigo-300">
+                                                    <Search size={17} className="text-slate-400" />
+                                                    <input
+                                                        value={filters.search}
+                                                        onChange={e => {
+                                                            updateFilter('search', e.target.value);
+                                                            setShowProductSuggestions(true);
+                                                        }}
+                                                        onFocus={() => setShowProductSuggestions(true)}
+                                                        onBlur={() => window.setTimeout(() => setShowProductSuggestions(false), 120)}
+                                                        placeholder="Ej: itel a100, bateria, 357..."
+                                                        className="h-full flex-1 bg-transparent text-sm font-medium text-slate-700 outline-none"
+                                                    />
+                                                </div>
+                                                {showProductSuggestions && String(filters.search || '').trim().length >= 2 && (
+                                                    <div className="absolute left-0 right-0 top-full z-40 mt-2 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+                                                        {productSearchLoading ? (
+                                                            <div className="flex items-center gap-2 px-3 py-3 text-sm font-bold text-slate-500">
+                                                                <Search size={15} className="animate-pulse text-indigo-500" />
+                                                                Buscando productos...
+                                                            </div>
+                                                        ) : productSuggestions.length > 0 ? (
+                                                            productSuggestions.map(product => (
+                                                                <button
+                                                                    key={product.id || product.sku || product.name}
+                                                                    type="button"
+                                                                    onMouseDown={event => event.preventDefault()}
+                                                                    onClick={() => selectProductSuggestion(product)}
+                                                                    className="flex w-full items-center gap-3 border-b border-slate-100 px-3 py-2.5 text-left last:border-b-0 hover:bg-indigo-50"
+                                                                >
+                                                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-500">
+                                                                        <Package size={16} />
+                                                                    </span>
+                                                                    <span className="min-w-0 flex-1">
+                                                                        <span className="block truncate text-sm font-black text-slate-800">{product.name || 'Producto sin nombre'}</span>
+                                                                        <span className="block truncate text-xs font-bold text-slate-400">{product.sku || 'Sin SKU'}</span>
+                                                                    </span>
+                                                                    <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-black text-emerald-700">
+                                                                        {Number(product.stock ?? product.total_stock ?? 0)} un.
+                                                                    </span>
+                                                                </button>
+                                                            ))
+                                                        ) : (
+                                                            <div className="px-3 py-3 text-sm font-bold text-slate-500">
+                                                                Sin sugerencias. Puedes buscar igual por texto, SKU, IMEI o descripcion.
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         </label>
 
