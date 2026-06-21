@@ -188,21 +188,37 @@ class SalesService:
             if not warehouse_id and not is_service_only:
                  raise HTTPException(status_code=500, detail="No active warehouse found to deduct stock")
 
-            # 0.6. Currency policy validation for price lists.
-            # Existing lists are flexible by default; strict lists force payments in their configured currency.
-            price_list_ids = {item.price_list_id for item in sale_data.items if getattr(item, "price_list_id", None)}
-            if price_list_ids and not sale_data.is_credit:
-                price_lists = db.query(models.PriceList).filter(models.PriceList.id.in_(price_list_ids)).all()
-                strict_currencies = {
-                    _normalize_payment_currency(getattr(pl, "currency_code", "FLEX"))
-                    for pl in price_lists
-                    if (getattr(pl, "payment_policy", "flexible") or "flexible").lower() == "strict"
-                    and _normalize_payment_currency(getattr(pl, "currency_code", "FLEX")) != "FLEX"
-                }
+            # 0.6. Currency policy validation for price lists and base price.
+            # Existing lists and base price are flexible by default; strict policies force payments in their configured currency.
+            if not sale_data.is_credit:
+                strict_sources = []
+                price_list_ids = {item.price_list_id for item in sale_data.items if getattr(item, "price_list_id", None)}
+                if price_list_ids:
+                    price_lists = db.query(models.PriceList).filter(models.PriceList.id.in_(price_list_ids)).all()
+                    for pl in price_lists:
+                        currency = _normalize_payment_currency(getattr(pl, "currency_code", "FLEX"))
+                        policy = (getattr(pl, "payment_policy", "flexible") or "flexible").lower()
+                        if policy == "strict" and currency != "FLEX":
+                            strict_sources.append((currency, f"lista {pl.name}"))
+
+                uses_base_price = any(not getattr(item, "price_list_id", None) for item in sale_data.items)
+                if uses_base_price:
+                    base_config = {
+                        cfg.key: cfg.value
+                        for cfg in db.query(models.BusinessConfig).filter(
+                            models.BusinessConfig.key.in_(["pos_base_currency_code", "pos_base_payment_policy"])
+                        ).all()
+                    }
+                    base_currency = _normalize_payment_currency(base_config.get("pos_base_currency_code", "FLEX"))
+                    base_policy = (base_config.get("pos_base_payment_policy", "flexible") or "flexible").lower()
+                    if base_policy == "strict" and base_currency != "FLEX":
+                        strict_sources.append((base_currency, "precio base"))
+
+                strict_currencies = {currency for currency, _source in strict_sources}
                 if len(strict_currencies) > 1:
                     raise HTTPException(
                         status_code=400,
-                        detail="El carrito mezcla listas de precio con monedas de cobro incompatibles. Separa la venta por moneda."
+                        detail="El carrito mezcla precios con monedas de cobro incompatibles. Separa la venta por moneda."
                     )
                 if strict_currencies:
                     expected_currency = next(iter(strict_currencies))
@@ -211,10 +227,11 @@ class SalesService:
                     ] or [_normalize_payment_currency(sale_data.currency)]
                     invalid_currencies = sorted({c for c in submitted_currencies if c != expected_currency})
                     if invalid_currencies:
+                        source_label = strict_sources[0][1] if strict_sources else "esta venta"
                         raise HTTPException(
                             status_code=400,
                             detail=(
-                                f"Esta lista de precios solo permite cobrar en {expected_currency}. "
+                                f"El {source_label} solo permite cobrar en {expected_currency}. "
                                 f"Monedas recibidas: {', '.join(invalid_currencies)}"
                             )
                         )

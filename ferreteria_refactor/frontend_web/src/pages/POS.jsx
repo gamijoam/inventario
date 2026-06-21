@@ -89,6 +89,8 @@ const POS = () => {
     useEffect(() => {
         const listId = posSettings?.pos_default_price_list_id || '';
         const selectedList = listId ? priceLists.find(l => String(l.id) === String(listId)) : null;
+        localStorage.setItem('pos_base_currency_code', posSettings?.pos_base_currency_code || 'FLEX');
+        localStorage.setItem('pos_base_payment_policy', posSettings?.pos_base_payment_policy || 'flexible');
         if (listId) {
             localStorage.setItem('pos_default_price_list_id', listId);
             if (selectedList) {
@@ -102,7 +104,7 @@ const POS = () => {
             localStorage.removeItem('pos_default_price_list_currency_code');
             localStorage.removeItem('pos_default_price_list_payment_policy');
         }
-    }, [posSettings?.pos_default_price_list_id, priceLists]);
+    }, [posSettings?.pos_default_price_list_id, posSettings?.pos_base_currency_code, posSettings?.pos_base_payment_policy, priceLists]);
     useEffect(() => {
         refreshConfig?.();
         const handleFocus = () => refreshConfig?.();
@@ -891,7 +893,16 @@ const POS = () => {
         if (!list) {
             const itemProduct = getFromCache(item.product_id);
             const basePrice = itemProduct ? parseFloat(itemProduct.price) : item.unit_price_usd;
-            updateCartItem(item.id, { unit_price_usd: basePrice, price_list_id: null, price_list_name: null, price_list_currency_code: null, price_list_payment_policy: null, auth_user_id: null });
+            const baseCurrencyCode = posSettings?.pos_base_currency_code || 'FLEX';
+            const basePaymentPolicy = posSettings?.pos_base_payment_policy || 'flexible';
+            updateCartItem(item.id, {
+                unit_price_usd: basePrice,
+                price_list_id: null,
+                price_list_name: basePaymentPolicy === 'strict' && baseCurrencyCode !== 'FLEX' ? `Base ${baseCurrencyCode}` : null,
+                price_list_currency_code: baseCurrencyCode,
+                price_list_payment_policy: basePaymentPolicy,
+                auth_user_id: null
+            });
             toast.success('Precio revertido al precio base');
             return;
         }

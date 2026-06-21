@@ -66,7 +66,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         const strictItems = (cart || [])
             .map(item => ({
                 name: item.name || item.product?.name || 'Producto',
-                listName: item.price_list_name || 'lista de precios',
+                listName: item.price_list_name || 'Precio base',
                 policy: String(item.price_list_payment_policy || item.payment_policy || 'flexible').toLowerCase(),
                 currency: normalizeCurrencyCode(item.price_list_currency_code || item.currency_code || 'FLEX'),
             }))
@@ -304,7 +304,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         // Si cambia la moneda -> buscar automaticamente un metodo permitido para esa moneda
         if (field === 'currency') {
             if (!isCurrencyAllowed(value)) {
-                toast.error('La lista de precio seleccionada no permite cobrar en esa moneda');
+                toast.error('La regla de cobro seleccionada no permite cobrar en esa moneda');
                 return;
             }
             const bestMethodName = pickDefaultMethod(value);
@@ -553,7 +553,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         }
 
         if (!isCreditSale && hasPaymentPolicyConflict) {
-            toast.error('El carrito mezcla listas de precio con monedas incompatibles. Separa la venta.');
+            toast.error('El carrito mezcla reglas de cobro con monedas incompatibles. Separa la venta.');
             return;
         }
         if (!isCreditSale && hasNoAllowedMethods) {
@@ -573,7 +573,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 }
 
                 if (!isCurrencyAllowed(p.currency)) {
-                    toast.error(`La moneda ${p.currency} no esta permitida para esta lista de precio.`);
+                    toast.error(`La moneda ${p.currency} no esta permitida para la regla de cobro activa.`);
                     return;
                 }
 
@@ -895,12 +895,12 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
                             {hasPaymentPolicyConflict && (
                                 <div className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
-                                    El carrito mezcla listas de precio con monedas incompatibles. Separa la venta por moneda.
+                                    El carrito mezcla reglas de cobro con monedas incompatibles. Separa la venta por moneda.
                                 </div>
                             )}
                             {!hasPaymentPolicyConflict && cartCurrencyPolicy.strictCurrency && (
                                 <div className="mb-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700">
-                                    Cobro limitado a {cartCurrencyPolicy.strictCurrency} por la lista de precio seleccionada.
+                                    Cobro limitado a {cartCurrencyPolicy.strictCurrency} por {cartCurrencyPolicy.strictItems[0]?.listName || 'la regla activa'}.
                                 </div>
                             )}
                             {hasNoAllowedMethods && (

@@ -17,6 +17,8 @@ const EstacionPOSTab = () => {
     // ── Lista de precio predeterminada + visibilidad Bs (por tenant) ──
     const [priceLists, setPriceLists] = useState([]);
     const [defaultPriceListId, setDefaultPriceListId] = useState('');  // '' = Precio Base
+    const [baseCurrencyCode, setBaseCurrencyCode] = useState('FLEX');
+    const [basePaymentPolicy, setBasePaymentPolicy] = useState('flexible');
     const [showBs, setShowBs] = useState(true);
     const [savingPricing, setSavingPricing] = useState(false);
 
@@ -29,6 +31,12 @@ const EstacionPOSTab = () => {
         apiClient.get('/config/pos_default_price_list_id')
             .then(r => setDefaultPriceListId(r.data?.value || ''))
             .catch(() => setDefaultPriceListId(''));
+        apiClient.get('/config/pos_base_currency_code')
+            .then(r => setBaseCurrencyCode(r.data?.value || 'FLEX'))
+            .catch(() => setBaseCurrencyCode('FLEX'));
+        apiClient.get('/config/pos_base_payment_policy')
+            .then(r => setBasePaymentPolicy(r.data?.value || 'flexible'))
+            .catch(() => setBasePaymentPolicy('flexible'));
         apiClient.get('/config/pos_show_bs')
             .then(r => setShowBs(r.data?.value !== 'false'))
             .catch(() => setShowBs(true));
@@ -44,6 +52,27 @@ const EstacionPOSTab = () => {
                 : 'Precio base predeterminado');
         } catch (error) {
             toast.error(getApiErrorMessage(error, 'No se pudo guardar la lista predeterminada'));
+        } finally { setSavingPricing(false); }
+    };
+
+    const saveBasePricePolicy = async (patch) => {
+        const nextCurrency = patch.currency_code ?? baseCurrencyCode;
+        let nextPolicy = patch.payment_policy ?? basePaymentPolicy;
+        if (nextCurrency === 'FLEX') nextPolicy = 'flexible';
+
+        setSavingPricing(true);
+        setBaseCurrencyCode(nextCurrency);
+        setBasePaymentPolicy(nextPolicy);
+        try {
+            await Promise.all([
+                apiClient.put('/config/pos_base_currency_code', { key: 'pos_base_currency_code', value: nextCurrency }),
+                apiClient.put('/config/pos_base_payment_policy', { key: 'pos_base_payment_policy', value: nextPolicy }),
+            ]);
+            toast.success(nextPolicy === 'strict'
+                ? `Precio base limitado a ${nextCurrency}`
+                : 'Precio base flexible para cobrar');
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, 'No se pudo guardar la regla del precio base'));
         } finally { setSavingPricing(false); }
     };
 
@@ -144,6 +173,55 @@ const EstacionPOSTab = () => {
                                     <option key={l.id} value={l.id}>{l.name}</option>
                                 ))}
                             </select>
+                        </div>
+
+                        {/* Politica del precio base */}
+                        <div className="p-4 bg-white rounded-lg border border-indigo-100 shadow-sm">
+                            <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <p className="font-bold text-slate-800 text-sm">Regla de cobro del precio base</p>
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                        Define si el precio normal del producto se puede cobrar en cualquier moneda o queda limitado.
+                                    </p>
+                                </div>
+                                <span className={`w-fit rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wide ${
+                                    basePaymentPolicy === 'strict' && baseCurrencyCode !== 'FLEX'
+                                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                }`}>
+                                    {basePaymentPolicy === 'strict' && baseCurrencyCode !== 'FLEX' ? `Solo ${baseCurrencyCode}` : 'Flexible'}
+                                </span>
+                            </div>
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                <label className="space-y-1">
+                                    <span className="text-[11px] font-black uppercase tracking-wide text-slate-500">Moneda del precio base</span>
+                                    <select
+                                        value={baseCurrencyCode}
+                                        onChange={e => saveBasePricePolicy({ currency_code: e.target.value })}
+                                        disabled={savingPricing}
+                                        className="w-full px-3 py-2.5 rounded-md border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-50"
+                                    >
+                                        <option value="FLEX">Flexible</option>
+                                        <option value="USD">USD</option>
+                                        <option value="VES">Bs / VES</option>
+                                    </select>
+                                </label>
+                                <label className="space-y-1">
+                                    <span className="text-[11px] font-black uppercase tracking-wide text-slate-500">Métodos permitidos</span>
+                                    <select
+                                        value={basePaymentPolicy}
+                                        onChange={e => saveBasePricePolicy({ payment_policy: e.target.value })}
+                                        disabled={savingPricing || baseCurrencyCode === 'FLEX'}
+                                        className="w-full px-3 py-2.5 rounded-md border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-50"
+                                    >
+                                        <option value="flexible">Cobro flexible</option>
+                                        <option value="strict">Solo su moneda</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <p className="mt-3 text-[11px] font-semibold text-slate-500">
+                                Recomendado: deja el precio base flexible si vendes el precio normal tanto en USD como en Bs.
+                            </p>
                         </div>
 
                         {/* Toggle mostrar Bs */}

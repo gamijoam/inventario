@@ -528,6 +528,8 @@ def get_pos_init(db: Session = Depends(get_db)):
             "auto_print_ticket": configs.get("auto_print_ticket", "false").lower() == "true",
             "paper_width": configs.get("paper_width", "58"),
             "pos_default_price_list_id": configs.get("pos_default_price_list_id", ""),
+            "pos_base_currency_code": configs.get("pos_base_currency_code", "FLEX") or "FLEX",
+            "pos_base_payment_policy": configs.get("pos_base_payment_policy", "flexible") or "flexible",
             "pos_show_bs": configs.get("pos_show_bs", "true").lower() != "false",
         }
     }

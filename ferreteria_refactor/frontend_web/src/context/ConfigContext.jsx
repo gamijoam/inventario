@@ -25,6 +25,8 @@ export const ConfigProvider = ({ children }) => {
     const [posWarehouses, setPosWarehouses] = useState([]);
     const [posSettings, setPosSettings] = useState({
         pos_default_price_list_id: '',
+        pos_base_currency_code: 'FLEX',
+        pos_base_payment_policy: 'flexible',
         pos_show_bs: true,
     });
 
