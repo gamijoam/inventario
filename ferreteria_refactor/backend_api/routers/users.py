@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from .. import schemas
 from ..database.db import get_db
 from ..models import models
-from typing import List
+from typing import List, Optional
 from datetime import timedelta
 from ..security import verify_password, get_password_hash, create_access_token, pwd_context
 from ..config import settings
@@ -16,6 +16,8 @@ from ..audit_utils import log_action
 
 class PinVerifyRequest(BaseModel):
     pin: str
+    permission_code: Optional[str] = None
+    required_permission: Optional[str] = None
 
 
 class PermissionOverridesRequest(BaseModel):
@@ -577,6 +579,11 @@ def verify_pin(request: Request, user_id: int, body: PinVerifyRequest, db: Sessi
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
     if user.pin and pwd_context.verify(body.pin, user.pin):
+        required_permission = body.permission_code or body.required_permission
+        if required_permission:
+            from ..services.permissions_service import user_has_permission
+            if not user_has_permission(db, user, required_permission):
+                raise HTTPException(status_code=403, detail="El usuario del PIN no tiene permiso para autorizar esta accion")
         return {"verified": True, "role": user.role.value if hasattr(user.role, 'value') else user.role}
     else:
         return {"verified": False}

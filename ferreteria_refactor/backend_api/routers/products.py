@@ -10,10 +10,9 @@ import asyncio
 from datetime import date, datetime, timedelta
 from ..database.db import get_db
 from ..models import models
-from ..models.models import UserRole
 from ..models import restaurant as rest_models # NEW
 from .. import schemas
-from ..dependencies import has_role, cashier_or_admin, get_current_active_user
+from ..dependencies import cashier_or_admin, get_current_active_user, require_permission, require_any_permission
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
 from ..audit_utils import log_action
@@ -217,10 +216,10 @@ def _ensure_product_units_not_duplicated(units):
         seen_factors.add(factor_key)
 
 
-@router.post("/upload-image", dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
+@router.post("/upload-image", dependencies=[Depends(require_permission("inventory.products.edit"))])
 async def upload_product_image(
     file: UploadFile = File(...),
-    current_user: models.User = Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))
+    current_user: models.User = Depends(require_permission("inventory.products.edit"))
 ):
     """
     Securely upload a product image.
@@ -231,10 +230,10 @@ async def upload_product_image(
     return {"success": True, "image_url": image_url}
 
 
-@router.post("/remove-background", dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
+@router.post("/remove-background", dependencies=[Depends(require_permission("inventory.products.edit"))])
 async def remove_image_background(
     file: UploadFile = File(...),
-    current_user: models.User = Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))
+    current_user: models.User = Depends(require_permission("inventory.products.edit"))
 ):
     """
     Elimina el fondo de una imagen usando AI (rembg/u2netp).
@@ -709,8 +708,8 @@ def read_products(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error loading products: {str(e)}")
 
-@router.post("/", response_model=schemas.ProductRead, dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
-@router.post("", response_model=schemas.ProductRead, dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))], include_in_schema=False)
+@router.post("/", response_model=schemas.ProductRead, dependencies=[Depends(require_permission("inventory.products.create"))])
+@router.post("", response_model=schemas.ProductRead, dependencies=[Depends(require_permission("inventory.products.create"))], include_in_schema=False)
 async def create_product(product: schemas.ProductCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_user)):
     _ensure_product_sku_available(db, product.sku)
     _ensure_product_units_not_duplicated(product.units)
@@ -957,7 +956,7 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
         
     return db_product
 
-@router.put("/{product_id}", response_model=schemas.ProductRead, dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
+@router.put("/{product_id}", response_model=schemas.ProductRead, dependencies=[Depends(require_permission("inventory.products.edit"))])
 async def update_product(product_id: int, product_update: schemas.ProductUpdate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_user)):
     # 1. Eager Load Initial State (Robustness)
     db_product = db.query(models.Product).options(
@@ -1311,7 +1310,7 @@ def download_template():
         headers={"Content-Disposition": "attachment; filename=plantilla_productos.xlsx"}
     )
 
-@router.post("/import", dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
+@router.post("/import", dependencies=[Depends(require_permission("inventory.products.create"))])
 async def import_products(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
@@ -1629,7 +1628,7 @@ def read_product(product_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Product not found")
     return product
 
-@router.delete("/{product_id}", dependencies=[Depends(has_role([UserRole.ADMIN]))])
+@router.delete("/{product_id}", dependencies=[Depends(require_permission("inventory.products.delete"))])
 def delete_product(product_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_user)):
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
@@ -1655,7 +1654,7 @@ def delete_product(product_id: int, background_tasks: BackgroundTasks, db: Sessi
 
     return {"status": "success", "message": "Product deactivated"}
 
-@router.delete("/{product_id}/image", dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
+@router.delete("/{product_id}/image", dependencies=[Depends(require_permission("inventory.products.edit"))])
 def delete_product_image(product_id: int, db: Session = Depends(get_db)):
     """
     Remove the product image URL from the database.
@@ -1672,7 +1671,7 @@ def delete_product_image(product_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{product_id}/remove-background-on-existing",
-             dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
+             dependencies=[Depends(require_permission("inventory.products.edit"))])
 def remove_bg_on_existing(product_id: int, db: Session = Depends(get_db)):
     """
     Procesa la imagen ACTUAL de un producto: elimina el fondo con rembg
@@ -1734,7 +1733,7 @@ def remove_bg_on_existing(product_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{product_id}/restore-background",
-             dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
+             dependencies=[Depends(require_permission("inventory.products.edit"))])
 def restore_bg_on_existing(product_id: int, db: Session = Depends(get_db)):
     """
     Restaura la imagen ORIGINAL del producto (deshace remove-background).
@@ -2650,7 +2649,7 @@ def create_discount_rule(
     product_id: int,
     data: schemas.DiscountRuleBase,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(has_role([models.UserRole.ADMIN, models.UserRole.WAREHOUSE]))
+    current_user: models.User = Depends(require_permission("config.prices.manage"))
 ):
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
@@ -2673,7 +2672,7 @@ def update_discount_rule(
     rule_id: int,
     data: schemas.DiscountRuleUpdate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(has_role([models.UserRole.ADMIN, models.UserRole.WAREHOUSE]))
+    current_user: models.User = Depends(require_permission("config.prices.manage"))
 ):
     rule = db.query(models.DiscountRule).filter(
         models.DiscountRule.id == rule_id,
@@ -2696,7 +2695,7 @@ def delete_discount_rule(
     product_id: int,
     rule_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(has_role([models.UserRole.ADMIN, models.UserRole.WAREHOUSE]))
+    current_user: models.User = Depends(require_permission("config.prices.manage"))
 ):
     rule = db.query(models.DiscountRule).filter(
         models.DiscountRule.id == rule_id,

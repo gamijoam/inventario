@@ -6,6 +6,7 @@ from ..models import models
 from .. import schemas
 from ..cache import invalidate_resource
 from ..tenant_context import get_tenant_schema
+from ..dependencies import require_permission
 
 router = APIRouter(
     prefix="/categories",
@@ -47,8 +48,8 @@ def get_category(category_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Category not found")
     return category
 
-@router.post("/", response_model=schemas.CategoryResponse)
-@router.post("", response_model=schemas.CategoryResponse, include_in_schema=False)
+@router.post("/", response_model=schemas.CategoryResponse, dependencies=[Depends(require_permission("inventory.categories.manage"))])
+@router.post("", response_model=schemas.CategoryResponse, include_in_schema=False, dependencies=[Depends(require_permission("inventory.categories.manage"))])
 def create_category(category: schemas.CategoryCreate, db: Session = Depends(get_db)):
     """Create a new category or subcategory"""
     
@@ -90,7 +91,7 @@ def create_category(category: schemas.CategoryCreate, db: Session = Depends(get_
     # Return independent data, NOT the ORM object
     return response_data
 
-@router.put("/{category_id}", response_model=schemas.CategoryResponse)
+@router.put("/{category_id}", response_model=schemas.CategoryResponse, dependencies=[Depends(require_permission("inventory.categories.manage"))])
 def update_category(category_id: int, category: schemas.CategoryUpdate, db: Session = Depends(get_db)):
     """Update a category"""
     db_category = db.query(models.Category).filter(models.Category.id == category_id).first()
@@ -132,7 +133,7 @@ def update_category(category_id: int, category: schemas.CategoryUpdate, db: Sess
     db.expunge(db_category)
     return db_category
 
-@router.delete("/{category_id}")
+@router.delete("/{category_id}", dependencies=[Depends(require_permission("inventory.categories.manage"))])
 def delete_category(category_id: int, db: Session = Depends(get_db)):
     """Delete a category"""
     category = db.query(models.Category).filter(models.Category.id == category_id).first()

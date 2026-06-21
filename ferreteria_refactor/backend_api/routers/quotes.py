@@ -7,14 +7,14 @@ from ..models import models
 from .. import schemas
 from sqlalchemy.orm import joinedload
 from ..template_presets import get_quote_58_template, get_quote_80_template
-from ..dependencies import get_current_active_user
+from ..dependencies import get_current_active_user, require_any_permission, require_permission
 
 router = APIRouter(
     prefix="/quotes",
     tags=["quotes"]
 )
 
-@router.post("", response_model=schemas.QuoteRead)
+@router.post("", response_model=schemas.QuoteRead, dependencies=[Depends(require_permission("sales.quotes.manage"))])
 def create_quote(
     quote_data: schemas.QuoteCreate,
     db: Session = Depends(get_db),
@@ -58,7 +58,7 @@ def create_quote(
     
     return response_data
 
-@router.get("")
+@router.get("", dependencies=[Depends(require_any_permission(["sales.quotes.view", "sales.quotes.manage"]))])
 def read_quotes(skip: int = 0, limit: int = Query(default=500, le=5000), db: Session = Depends(get_db)):
     # Optimize query to load customer and user (creator)
     base_query = db.query(models.Quote)
@@ -74,7 +74,7 @@ def read_quotes(skip: int = 0, limit: int = Query(default=500, le=5000), db: Ses
     return {"items": items, "total": total, "has_more": (skip + limit) < total}
 
 
-@router.get("/{quote_id}", response_model=schemas.QuoteReadWithDetails)
+@router.get("/{quote_id}", response_model=schemas.QuoteReadWithDetails, dependencies=[Depends(require_any_permission(["sales.quotes.view", "sales.quotes.manage"]))])
 def read_quote_details(quote_id: int, db: Session = Depends(get_db)):
     # Optimize query to load details and products within details
     quote = db.query(models.Quote)\
@@ -100,7 +100,7 @@ def read_quote_details(quote_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Quote not found")
     return quote
 
-@router.put("/{quote_id}/convert")
+@router.put("/{quote_id}/convert", dependencies=[Depends(require_permission("sales.quotes.manage"))])
 def mark_quote_converted(quote_id: int, db: Session = Depends(get_db)):
     quote = db.query(models.Quote).filter(models.Quote.id == quote_id).first()
     if not quote:
@@ -110,7 +110,7 @@ def mark_quote_converted(quote_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"status": "success", "message": "Quote converted to sale"}
 
-@router.put("/{quote_id}", response_model=schemas.QuoteRead)
+@router.put("/{quote_id}", response_model=schemas.QuoteRead, dependencies=[Depends(require_permission("sales.quotes.manage"))])
 def update_quote(quote_id: int, quote_data: schemas.QuoteCreate, db: Session = Depends(get_db)):
     # Fetch existing header
     db_quote = db.query(models.Quote).filter(models.Quote.id == quote_id).first()
@@ -155,7 +155,7 @@ def update_quote(quote_id: int, quote_data: schemas.QuoteCreate, db: Session = D
     return response_data
 
 
-@router.post("/{quote_id}/duplicate", response_model=schemas.QuoteRead)
+@router.post("/{quote_id}/duplicate", response_model=schemas.QuoteRead, dependencies=[Depends(require_permission("sales.quotes.manage"))])
 def duplicate_quote(quote_id: int, db: Session = Depends(get_db)):
     """Duplica una cotización existente creando una nueva en estado PENDING."""
     original = db.query(models.Quote).options(
@@ -274,7 +274,7 @@ def get_quote_thermal_payload(quote_id: int, width: str = None, db: Session = De
     }
 
 
-@router.delete("/{quote_id}")
+@router.delete("/{quote_id}", dependencies=[Depends(require_permission("sales.quotes.manage"))])
 def delete_quote(quote_id: int, db: Session = Depends(get_db)):
     quote = db.query(models.Quote).filter(models.Quote.id == quote_id).first()
     if not quote:

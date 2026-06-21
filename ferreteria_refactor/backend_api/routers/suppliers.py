@@ -6,6 +6,7 @@ from ..models import models
 from .. import schemas
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
+from ..dependencies import require_permission
 
 router = APIRouter(
     prefix="/suppliers",
@@ -37,8 +38,8 @@ def read_suppliers(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error al listar proveedores: {str(e)}")
 
-@router.post("/", response_model=schemas.SupplierRead)
-@router.post("", response_model=schemas.SupplierRead, include_in_schema=False)
+@router.post("/", response_model=schemas.SupplierRead, dependencies=[Depends(require_permission("purchases.suppliers.manage"))])
+@router.post("", response_model=schemas.SupplierRead, include_in_schema=False, dependencies=[Depends(require_permission("purchases.suppliers.manage"))])
 async def create_supplier(supplier: schemas.SupplierCreate, db: Session = Depends(get_db)):
     # Check duplicate name
     exists = db.query(models.Supplier).filter(models.Supplier.name.ilike(supplier.name)).first()
@@ -84,7 +85,7 @@ def read_supplier(supplier_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Supplier not found")
     return supplier
 
-@router.put("/{supplier_id}", response_model=schemas.SupplierRead)
+@router.put("/{supplier_id}", response_model=schemas.SupplierRead, dependencies=[Depends(require_permission("purchases.suppliers.manage"))])
 async def update_supplier(supplier_id: int, supplier_update: schemas.SupplierCreate, db: Session = Depends(get_db)):
     db_supplier = db.query(models.Supplier).filter(models.Supplier.id == supplier_id).first()
     if not db_supplier:

@@ -6,9 +6,8 @@ from datetime import datetime
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
-from ..dependencies import get_current_active_user, has_role
+from ..dependencies import get_current_active_user, require_permission, require_all_permissions
 from ..models import models
-from ..models.models import UserRole
 
 router = APIRouter(
     prefix="/commissions",
@@ -19,7 +18,7 @@ router = APIRouter(
 @router.get("/summary", response_model=List[schemas.CommissionSummaryRead])
 def get_commissions_summary(
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(has_role([UserRole.ADMIN]))
+    current_user: models.User = Depends(require_permission("reports.commissions.view"))
 ):
     """
     Resumen de comisiones por usuario — incluye total ganado, pendiente y rol.
@@ -66,7 +65,7 @@ def get_commissions_summary(
 def get_user_commissions(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(has_role([UserRole.ADMIN]))
+    current_user: models.User = Depends(require_permission("reports.commissions.view"))
 ):
     """
     Get detailed pending commissions for a specific user, incluyendo método de pago de la venta.
@@ -160,7 +159,7 @@ def get_user_commissions(
 def payout_commissions(
     payout_data: schemas.CommissionPayoutRequest,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(has_role([UserRole.ADMIN]))
+    current_user: models.User = Depends(require_all_permissions(["reports.commissions.view", "cash.movements.create"]))
 ):
     """
     Pay selected commissions and record an expense in the cash register.

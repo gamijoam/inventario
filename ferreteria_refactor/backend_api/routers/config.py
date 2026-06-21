@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
-from ..dependencies import admin_only, get_current_active_user
+from ..dependencies import get_current_active_user, require_permission
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
 from ..template_presets import (
@@ -211,7 +211,7 @@ def get_exchange_rates(
 async def create_exchange_rate(
     rate_data: schemas.ExchangeRateCreate,
     db: Session = Depends(get_db),
-    user: Any = Depends(admin_only)  # Protect mutation
+    user: Any = Depends(require_permission("config.prices.manage"))
 ):
     """Create a new exchange rate"""
     # Validate: If is_default=True, unset other defaults for same currency
@@ -346,7 +346,7 @@ async def update_exchange_rate(
     id: int,
     rate_data: schemas.ExchangeRateUpdate,
     db: Session = Depends(get_db),
-    user: Any = Depends(admin_only)  # Protect mutation
+    user: Any = Depends(require_permission("config.prices.manage"))
 ):
     """Update an exchange rate"""
     rate = db.query(models.ExchangeRate).get(id)
@@ -410,7 +410,7 @@ async def update_exchange_rate(
 async def delete_exchange_rate(
     id: int,
     db: Session = Depends(get_db),
-    user: Any = Depends(admin_only)  # Protect mutation
+    user: Any = Depends(require_permission("config.prices.manage"))
 ):
     """Soft delete (deactivate) an exchange rate"""
     rate = db.query(models.ExchangeRate).get(id)
@@ -572,7 +572,7 @@ def get_business_info(db: Session = Depends(get_db)):
 def update_business_info(
     info: schemas.BusinessInfo, 
     db: Session = Depends(get_db),
-    user: Any = Depends(admin_only)
+    user: Any = Depends(require_permission("config.business.manage"))
 ):
     """Update aggregated business information"""
     mapping = {
@@ -603,7 +603,7 @@ def update_business_info(
 def patch_business_config(
     data: dict,
     db: Session = Depends(get_db),
-    user: Any = Depends(admin_only)
+    user: Any = Depends(require_permission("config.business.manage"))
 ):
     """Actualizar campos individuales de la configuración del negocio"""
     allowed_keys = [
@@ -733,7 +733,7 @@ def get_template_presets():
 def apply_template_preset(
     preset_id: str,
     db: Session = Depends(get_db),
-    user: Any = Depends(admin_only)
+    user: Any = Depends(require_permission("config.printing.manage"))
 ):
     """Apply a template preset to business configuration"""
     from ..template_presets import get_preset_by_id
@@ -786,7 +786,7 @@ def get_services_ticket_config(db: Session = Depends(get_db)):
 def save_services_ticket_config(
     payload: ServicesTicketPayload,
     db: Session = Depends(get_db),
-    user: Any = Depends(admin_only),
+    user: Any = Depends(require_permission("config.printing.manage")),
 ):
     """Save 58mm and/or 80mm services sale ticket templates."""
     to_save = {}
@@ -809,7 +809,7 @@ def save_services_ticket_config(
 def apply_services_ticket_preset(
     preset_id: str,
     db: Session = Depends(get_db),
-    user: Any = Depends(admin_only),
+    user: Any = Depends(require_permission("config.printing.manage")),
 ):
     """Apply a services-category preset to the services ticket template."""
     preset = get_preset_by_id(preset_id)
@@ -967,7 +967,7 @@ def set_config(
     key: str, 
     config_data: schemas.BusinessConfigCreate, 
     db: Session = Depends(get_db),
-    user: Any = Depends(admin_only)  # Protect mutation
+    user: Any = Depends(require_permission("config.business.manage"))
 ):
     """Set configuration value"""
     # SECURITY: Check Tenant Context (Prevent UndefinedTable in public)
@@ -1006,7 +1006,7 @@ def set_config(
 def set_configs_batch(
     configs: Dict[str, str], 
     db: Session = Depends(get_db),
-    user: Any = Depends(admin_only)  # Protect mutation
+    user: Any = Depends(require_permission("config.business.manage"))
 ):
     """Set multiple configuration values at once"""
     # SECURITY: Check Tenant Context (Prevent UndefinedTable in public)
@@ -1051,7 +1051,7 @@ def get_default_tax_rate(db: Session = Depends(get_db)):
 def set_default_tax_rate(
     rate_data: Dict[str, Any], 
     db: Session = Depends(get_db),
-    user: Any = Depends(admin_only)
+    user: Any = Depends(require_permission("config.prices.manage"))
 ):
     """Set the default tax rate percentage"""
     try:
@@ -1194,7 +1194,7 @@ def debug_seed_currencies(db: Session = Depends(get_db)):
 async def upload_warranty_format(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    user: Any = Depends(admin_only)
+    user: Any = Depends(require_permission("sales.warranties.manage"))
 ):
     import os
     from ..tenant_context import get_tenant_schema
@@ -1301,7 +1301,7 @@ class AutoPrintTicketPayload(BaseModel):
 def set_auto_print_ticket(
     payload: AutoPrintTicketPayload,
     db: Session = Depends(get_db),
-    user: Any = Depends(admin_only),
+    user: Any = Depends(require_permission("config.printing.manage")),
 ):
     """Activar/desactivar impresión automática de ticket al confirmar venta. Solo ADMIN."""
     enabled = payload.enabled
@@ -1317,7 +1317,7 @@ def set_auto_print_ticket(
 async def upload_business_logo(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    user: Any = Depends(admin_only)
+    user: Any = Depends(require_permission("config.business.manage"))
 ):
     """Sube el logo del negocio y guarda la URL en business_config.business_logo"""
     import os, time
@@ -1379,7 +1379,7 @@ async def upload_business_logo(
 @router.delete("/business/logo")
 def delete_business_logo(
     db: Session = Depends(get_db),
-    user: Any = Depends(admin_only)
+    user: Any = Depends(require_permission("config.business.manage"))
 ):
     """Elimina el logo del negocio."""
     import os

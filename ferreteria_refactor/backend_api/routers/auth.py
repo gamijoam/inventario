@@ -496,6 +496,11 @@ async def validate_pin(request: Request, pin_data: dict, db: Session = Depends(g
     
     # Validate PIN
     if pwd_context.verify(pin, user.pin):
+        required_permission = pin_data.get("permission_code") or pin_data.get("required_permission")
+        if required_permission:
+            from ..services.permissions_service import user_has_permission
+            if not user_has_permission(db, user, required_permission):
+                raise HTTPException(status_code=403, detail="El usuario del PIN no tiene permiso para autorizar esta accion")
         return {
             "valid": True,
             "user_id": user.id,

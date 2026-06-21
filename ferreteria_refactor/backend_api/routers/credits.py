@@ -4,6 +4,7 @@ from ..database.db import get_db
 from ..models import models
 from typing import List, Optional
 from pydantic import BaseModel
+from ..dependencies import require_permission
 
 router = APIRouter(prefix="/credits", tags=["credits"])
 
@@ -14,7 +15,7 @@ class ValuationResponse(BaseModel):
     breakdown: str
     exchange_rate_used: float  # Weighted average or effective rate
 
-@router.get("/sales/{sale_id}/valuation", response_model=ValuationResponse)
+@router.get("/sales/{sale_id}/valuation", response_model=ValuationResponse, dependencies=[Depends(require_permission("sales.credits.view"))])
 def get_sale_valuation(sale_id: int, db: Session = Depends(get_db)):
     """
     Calculate the current valuation of a credit sale in VES (Bs),
@@ -130,7 +131,7 @@ def get_sale_valuation(sale_id: int, db: Session = Depends(get_db)):
 from datetime import datetime, timedelta
 from ..utils.time_utils import get_venezuela_now
 
-@router.get("/aging-report")
+@router.get("/aging-report", dependencies=[Depends(require_permission("sales.credits.view"))])
 def get_aging_report(db: Session = Depends(get_db)):
     """
     Generates a breakdown of Accounts Receivable by age of debt.
@@ -184,7 +185,7 @@ def get_aging_report(db: Session = Depends(get_db)):
     # Convert to list
     return list(report.values())
 
-@router.get("/client/{client_id}/ledger")
+@router.get("/client/{client_id}/ledger", dependencies=[Depends(require_permission("sales.credits.view"))])
 def get_client_ledger(client_id: int, db: Session = Depends(get_db)):
     """
     Returns a chronological ledger of sales and payments for a client.

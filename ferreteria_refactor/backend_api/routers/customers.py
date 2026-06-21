@@ -9,6 +9,7 @@ from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
 from ..cache import get_cached, set_cached, invalidate_resource, TTL
 from ..tenant_context import get_tenant_schema
+from ..dependencies import require_permission, require_any_permission, cashier_or_admin
 
 router = APIRouter(
     prefix="/customers",
@@ -80,8 +81,8 @@ def read_customers(
     set_cached(schema, "customers", result, cache_extra, ttl=TTL.get("customers", 120))
     return result
 
-@router.post("/", response_model=schemas.CustomerRead)
-@router.post("", response_model=schemas.CustomerRead, include_in_schema=False)
+@router.post("/", response_model=schemas.CustomerRead, dependencies=[Depends(require_permission("sales.customers.manage"))])
+@router.post("", response_model=schemas.CustomerRead, include_in_schema=False, dependencies=[Depends(require_permission("sales.customers.manage"))])
 async def create_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_db)):
     # Check duplicate ID
     if customer.id_number:
@@ -150,7 +151,7 @@ async def create_customer(customer: schemas.CustomerCreate, db: Session = Depend
 
     return response_data
 
-@router.put("/{customer_id}", response_model=schemas.CustomerRead)
+@router.put("/{customer_id}", response_model=schemas.CustomerRead, dependencies=[Depends(require_permission("sales.customers.manage"))])
 async def update_customer(customer_id: int, customer_data: schemas.CustomerCreate, db: Session = Depends(get_db)):
     db_customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not db_customer:
@@ -294,7 +295,7 @@ def get_customer_financial_status(customer_id: int, db: Session = Depends(get_db
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/{customer_id}")
+@router.delete("/{customer_id}", dependencies=[Depends(require_permission("sales.customers.manage"))])
 def delete_customer(customer_id: int, db: Session = Depends(get_db)):
     """Soft-delete a customer (set is_active=False)"""
     customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
@@ -307,7 +308,7 @@ def delete_customer(customer_id: int, db: Session = Depends(get_db)):
     return {"status": "success", "message": "Cliente desactivado"}
 
 
-@router.put("/{customer_id}/deactivate")
+@router.put("/{customer_id}/deactivate", dependencies=[Depends(require_permission("sales.customers.manage"))])
 def deactivate_customer(customer_id: int, db: Session = Depends(get_db)):
     """Deactivate (soft-delete) a customer"""
     customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
@@ -320,7 +321,7 @@ def deactivate_customer(customer_id: int, db: Session = Depends(get_db)):
     return {"status": "success", "message": "Cliente desactivado"}
 
 
-@router.put("/{customer_id}/activate")
+@router.put("/{customer_id}/activate", dependencies=[Depends(require_permission("sales.customers.manage"))])
 def activate_customer(customer_id: int, db: Session = Depends(get_db)):
     """Reactivate a soft-deleted customer"""
     customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()

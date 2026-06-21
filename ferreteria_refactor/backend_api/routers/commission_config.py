@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from decimal import Decimal
 from ..database.db import get_db
-from ..dependencies import has_role
+from ..dependencies import require_permission
 from ..models import models
 from ..models.models import UserRole
 
@@ -96,7 +96,7 @@ def _get_or_create_settings(db: Session) -> models.CommissionSettings:
 @router.get("/settings", response_model=CommissionSettingsRead)
 def get_settings(
     db: Session = Depends(get_db),
-    _=Depends(has_role([UserRole.ADMIN]))
+    _=Depends(require_permission("reports.commissions.view"))
 ):
     s = _get_or_create_settings(db)
     result = CommissionSettingsRead(
@@ -114,7 +114,7 @@ def get_settings(
 def update_settings(
     data: CommissionSettingsUpdate,
     db: Session = Depends(get_db),
-    _=Depends(has_role([UserRole.ADMIN]))
+    _=Depends(require_permission("config.business.manage"))
 ):
     s = _get_or_create_settings(db)
     if data.global_enabled is not None:                     s.global_enabled = data.global_enabled
@@ -139,7 +139,7 @@ def update_settings(
 @router.get("/rules", response_model=List[CommissionRuleRead])
 def list_rules(
     db: Session = Depends(get_db),
-    _=Depends(has_role([UserRole.ADMIN]))
+    _=Depends(require_permission("reports.commissions.view"))
 ):
     rules = (
         db.query(models.CommissionRule)
@@ -153,7 +153,7 @@ def list_rules(
 def create_rule(
     data: CommissionRuleCreate,
     db: Session = Depends(get_db),
-    _=Depends(has_role([UserRole.ADMIN]))
+    _=Depends(require_permission("config.business.manage"))
 ):
     if data.category_id:
         cat = db.query(models.Category).filter(models.Category.id == data.category_id).first()
@@ -187,7 +187,7 @@ def update_rule(
     rule_id: int,
     data: CommissionRuleUpdate,
     db: Session = Depends(get_db),
-    _=Depends(has_role([UserRole.ADMIN]))
+    _=Depends(require_permission("config.business.manage"))
 ):
     rule = (
         db.query(models.CommissionRule)
@@ -219,7 +219,7 @@ def update_rule(
 def delete_rule(
     rule_id: int,
     db: Session = Depends(get_db),
-    _=Depends(has_role([UserRole.ADMIN]))
+    _=Depends(require_permission("config.business.manage"))
 ):
     rule = db.query(models.CommissionRule).filter(models.CommissionRule.id == rule_id).first()
     if not rule:
@@ -232,7 +232,7 @@ def delete_rule(
 @router.get("/user-rates")
 def list_user_rates(
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(has_role([UserRole.ADMIN]))
+    current_user: models.User = Depends(require_permission("reports.commissions.view"))
 ):
     users = db.query(models.User).filter(
         models.User.is_active == True,
@@ -256,7 +256,7 @@ def update_user_rates(
     user_id: int,
     data: UserCommissionRates,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(has_role([UserRole.ADMIN]))
+    current_user: models.User = Depends(require_permission("config.business.manage"))
 ):
     user = db.query(models.User).filter(
         models.User.id == user_id,

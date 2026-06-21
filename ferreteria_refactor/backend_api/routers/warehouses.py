@@ -5,8 +5,7 @@ from typing import List
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
-from ..models.models import UserRole
-from ..dependencies import has_role
+from ..dependencies import require_permission
 from ..cache import invalidate_resource
 from ..tenant_context import get_tenant_schema
 
@@ -29,7 +28,7 @@ def read_warehouses(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
     # For now, simplistic approach or just don't return it if not needed yet.
     return warehouses
 
-@router.post("", response_model=schemas.WarehouseRead, dependencies=[Depends(has_role([UserRole.ADMIN]))])
+@router.post("", response_model=schemas.WarehouseRead, dependencies=[Depends(require_permission("inventory.warehouses.manage"))])
 def create_warehouse(warehouse: schemas.WarehouseCreate, db: Session = Depends(get_db)):
     """Create a new warehouse."""
     db_warehouse = models.Warehouse(**warehouse.dict())
@@ -52,7 +51,7 @@ def create_warehouse(warehouse: schemas.WarehouseCreate, db: Session = Depends(g
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/{warehouse_id}", response_model=schemas.WarehouseRead, dependencies=[Depends(has_role([UserRole.ADMIN]))])
+@router.put("/{warehouse_id}", response_model=schemas.WarehouseRead, dependencies=[Depends(require_permission("inventory.warehouses.manage"))])
 def update_warehouse(warehouse_id: int, warehouse: schemas.WarehouseUpdate, db: Session = Depends(get_db)):
     """Update a warehouse."""
     db_warehouse = db.query(models.Warehouse).filter(models.Warehouse.id == warehouse_id).first()
@@ -76,7 +75,7 @@ def update_warehouse(warehouse_id: int, warehouse: schemas.WarehouseUpdate, db: 
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.delete("/{warehouse_id}", dependencies=[Depends(has_role([UserRole.ADMIN]))])
+@router.delete("/{warehouse_id}", dependencies=[Depends(require_permission("inventory.warehouses.manage"))])
 def delete_warehouse(warehouse_id: int, db: Session = Depends(get_db)):
     """Delete a warehouse."""
     db_warehouse = db.query(models.Warehouse).filter(models.Warehouse.id == warehouse_id).first()
