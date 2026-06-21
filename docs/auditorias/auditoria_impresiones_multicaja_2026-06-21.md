@@ -65,3 +65,30 @@ La estructura correcta para multicaja debe ser:
 - Agregar una pantalla de salud de impresoras por caja con: conectado, ultimo ping, ultimo ticket, ultimo error.
 - Agregar historial `print_jobs` persistente para auditar cada intento de impresion.
 - Mejorar el bridge para ACK real de trabajo impreso, no solo mensaje WebSocket recibido.
+
+
+## Fase 2 aplicada en QA: print_jobs
+
+Archivo SQL guardado para prod:
+
+- `ferreteria_refactor/migrations/2026_06_21_add_print_jobs.sql`
+
+Se agrego una tabla tenant-scope `print_jobs` para auditar intentos de impresion termica y payloads crudos:
+
+- `job_type`: `ticket` o `raw_payload`.
+- `status`: `PENDING`, `SENT`, `FAILED`.
+- `sale_id`, `register_id`, `user_id`.
+- `requested_client_id`, `resolved_client_id`, `route`.
+- `request_payload`, `response_payload`, `error_message`.
+- timestamps de creacion, envio y fallo.
+
+Tambien se agrego el endpoint de soporte:
+
+- `GET /api/v1/products/print/jobs`
+
+Pruebas QA:
+
+- Migracion aplicada en QA: OK.
+- `POST /products/print/remote` sin bridge conectado registra `FAILED` con `sale_id`, `register_id`, caja y `resolved_client_id`.
+- `POST /products/print/remote/payload` sin bridge conectado registra `FAILED` con caja y bridge esperado.
+- Backend compile: OK.

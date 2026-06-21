@@ -276,7 +276,7 @@ def run_broadcast(event: str, data: dict):
         loop.close()
 
 from typing import Optional
-from sqlalchemy import or_, and_, func
+from sqlalchemy import or_, and_, func, text
 from pydantic import BaseModel
 
 @router.get("/catalog", response_model=schemas.PaginatedCatalog)
@@ -1974,6 +1974,104 @@ def print_sale_endpoint(sale_id: int, db: Session = Depends(get_db)):
     # Now returns JSON { template, context, status }
     return SalesService.get_sale_print_payload(db, sale_id)
 
+def _json_for_print_job(value):
+    if value is None:
+        return None
+    try:
+        return json.dumps(value, default=str)
+    except Exception:
+        return json.dumps({"unserializable": str(value)[:500]})
+
+
+def _print_jobs_table(tenant_id: str) -> str:
+    safe_schema = (tenant_id or "").replace('"', '""')
+    return f'"{safe_schema}".print_jobs'
+
+
+def _create_print_job(
+    db: Session,
+    tenant_id: str,
+    *,
+    job_type: str,
+    sale_id: Optional[int] = None,
+    user_id: Optional[int] = None,
+    requested_client_id: Optional[str] = None,
+    register_id: Optional[int] = None,
+    route: Optional[str] = None,
+    request_payload: Optional[dict] = None,
+):
+    try:
+        table = _print_jobs_table(tenant_id)
+        result = db.execute(text(f"""
+            INSERT INTO {table} (
+                job_type, status, sale_id, user_id, requested_client_id,
+                register_id, route, request_payload, created_at, updated_at
+            ) VALUES (
+                :job_type, 'PENDING', :sale_id, :user_id, :requested_client_id,
+                :register_id, :route, CAST(:request_payload AS jsonb), NOW(), NOW()
+            )
+            RETURNING id
+        """), {
+            "job_type": job_type,
+            "sale_id": sale_id,
+            "user_id": user_id,
+            "requested_client_id": requested_client_id,
+            "register_id": register_id,
+            "route": route,
+            "request_payload": _json_for_print_job(request_payload or {}),
+        })
+        job_id = result.scalar()
+        db.commit()
+        return job_id
+    except Exception as exc:
+        print(f"⚠️ [PRINT JOB] Could not create print_jobs row: {exc}")
+        db.rollback()
+        return None
+
+
+def _update_print_job(
+    db: Session,
+    tenant_id: str,
+    job_id: Optional[int],
+    *,
+    status: str,
+    resolved_client_id: Optional[str] = None,
+    register_id: Optional[int] = None,
+    route: Optional[str] = None,
+    response_payload: Optional[dict] = None,
+    error_message: Optional[str] = None,
+):
+    if not job_id:
+        return
+    try:
+        table = _print_jobs_table(tenant_id)
+        db.execute(text(f"""
+            UPDATE {table}
+            SET status = :status,
+                resolved_client_id = COALESCE(:resolved_client_id, resolved_client_id),
+                register_id = COALESCE(:register_id, register_id),
+                route = COALESCE(:route, route),
+                response_payload = COALESCE(CAST(:response_payload AS jsonb), response_payload),
+                error_message = :error_message,
+                sent_at = CASE WHEN :status = 'SENT' THEN NOW() ELSE sent_at END,
+                failed_at = CASE WHEN :status = 'FAILED' THEN NOW() ELSE failed_at END,
+                updated_at = NOW()
+            WHERE id = :job_id
+        """), {
+            "job_id": job_id,
+            "status": status,
+            "resolved_client_id": resolved_client_id,
+            "register_id": register_id,
+            "route": route,
+            "response_payload": _json_for_print_job(response_payload) if response_payload is not None else None,
+            "error_message": (error_message or None),
+        })
+        db.commit()
+    except Exception as exc:
+        print(f"⚠️ [PRINT JOB] Could not update print_jobs row #{job_id}: {exc}")
+        db.rollback()
+
+
 def _normalize_print_client_id(value: Optional[str]) -> Optional[str]:
     normalized = (value or "").strip().lower()
     return normalized or None
@@ -2012,6 +2110,46 @@ def _connected_print_clients(manager, tenant_id: str) -> List[str]:
         client_id for client_id in manager.active_connections.get(tenant_id, {}).keys()
         if client_id and not client_id.lower().startswith("web_")
     )
+
+
+def _infer_print_target_hint(
+    db: Session,
+    *,
+    sale_id: Optional[int] = None,
+    request_client_id: Optional[str] = None,
+    register_id: Optional[int] = None,
+    prefer_sale_register: bool = False,
+):
+    try:
+        register = None
+        route = "station"
+        if prefer_sale_register and sale_id:
+            register = _resolve_sale_print_register(db, sale_id)
+            route = "sale_register"
+        elif register_id:
+            register = _resolve_print_register(db, register_id)
+            route = "station_register"
+        elif not request_client_id and sale_id:
+            register = _resolve_sale_print_register(db, sale_id)
+            route = "sale_register_fallback"
+
+        if register:
+            return {
+                "register_id": register.id,
+                "resolved_client_id": _normalize_print_client_id(register.hardware_client_id),
+                "route": route,
+            }
+        return {
+            "register_id": register_id,
+            "resolved_client_id": _normalize_print_client_id(request_client_id),
+            "route": route,
+        }
+    except Exception:
+        return {
+            "register_id": register_id,
+            "resolved_client_id": _normalize_print_client_id(request_client_id),
+            "route": "sale_register" if prefer_sale_register else "station",
+        }
 
 
 def _resolve_print_target(
@@ -2099,25 +2237,94 @@ async def print_remote(
     from ..services.websocket_manager import manager
 
     tenant_id = get_tenant_schema()
-    target = _resolve_print_target(
+    request_payload = {
+        "sale_id": request.sale_id,
+        "client_id": request.client_id,
+        "register_id": request.register_id,
+        "prefer_sale_register": request.prefer_sale_register,
+    }
+    job_id = _create_print_job(
         db,
-        manager,
         tenant_id,
+        job_type="ticket",
         sale_id=request.sale_id,
-        request_client_id=request.client_id,
+        user_id=getattr(current_user, "id", None),
+        requested_client_id=request.client_id,
         register_id=request.register_id,
-        prefer_sale_register=request.prefer_sale_register,
+        route="sale_register" if request.prefer_sale_register else "station",
+        request_payload=request_payload,
     )
+
+    try:
+        target = _resolve_print_target(
+            db,
+            manager,
+            tenant_id,
+            sale_id=request.sale_id,
+            request_client_id=request.client_id,
+            register_id=request.register_id,
+            prefer_sale_register=request.prefer_sale_register,
+        )
+    except HTTPException as exc:
+        hint = _infer_print_target_hint(
+            db,
+            sale_id=request.sale_id,
+            request_client_id=request.client_id,
+            register_id=request.register_id,
+            prefer_sale_register=request.prefer_sale_register,
+        )
+        _update_print_job(
+            db,
+            tenant_id,
+            job_id,
+            status="FAILED",
+            resolved_client_id=hint.get("resolved_client_id"),
+            register_id=hint.get("register_id"),
+            route=hint.get("route"),
+            error_message=str(exc.detail),
+        )
+        raise
+
+    _update_print_job(
+        db,
+        tenant_id,
+        job_id,
+        status="PENDING",
+        resolved_client_id=target.get("client_id"),
+        register_id=target.get("register_id"),
+        route=target.get("route"),
+    )
+
     print(
         f"📡 [PRINT] Remote request sale={request.sale_id} route={target['route']} "
-        f"client='{target['client_id']}' tenant='{tenant_id}'"
+        f"client='{target['client_id']}' tenant='{tenant_id}' job={job_id}"
     )
 
     try:
         payload = SalesService.get_sale_print_payload(db, request.sale_id)
-    except HTTPException:
+    except HTTPException as exc:
+        _update_print_job(
+            db,
+            tenant_id,
+            job_id,
+            status="FAILED",
+            resolved_client_id=target.get("client_id"),
+            register_id=target.get("register_id"),
+            route=target.get("route"),
+            error_message=str(exc.detail),
+        )
         raise
     except Exception as e:
+        _update_print_job(
+            db,
+            tenant_id,
+            job_id,
+            status="FAILED",
+            resolved_client_id=target.get("client_id"),
+            register_id=target.get("register_id"),
+            route=target.get("route"),
+            error_message=f"Error generando ticket: {str(e)}",
+        )
         raise HTTPException(status_code=500, detail=f"Error generando ticket: {str(e)}")
 
     message = {
@@ -2129,16 +2336,39 @@ async def print_remote(
     success = await manager.send_to_client(message, target["client_id"], tenant_id, timeout=2.5)
 
     if not success:
-        raise HTTPException(
-            status_code=500,
-            detail=f"El bridge '{target['client_id']}' estaba conectado pero no confirmo el envio. Reabra Invensoft Bridge e intente de nuevo."
+        detail = f"El bridge '{target['client_id']}' estaba conectado pero no confirmo el envio. Reabra Invensoft Bridge e intente de nuevo."
+        _update_print_job(
+            db,
+            tenant_id,
+            job_id,
+            status="FAILED",
+            resolved_client_id=target.get("client_id"),
+            register_id=target.get("register_id"),
+            route=target.get("route"),
+            error_message=detail,
         )
+        raise HTTPException(status_code=500, detail=detail)
 
-    return {
-        "status": "success",
+    response_payload = {
         "message": f"Comando de impresion enviado a {target['client_id']}",
         "sale_id": request.sale_id,
         "target": target,
+    }
+    _update_print_job(
+        db,
+        tenant_id,
+        job_id,
+        status="SENT",
+        resolved_client_id=target.get("client_id"),
+        register_id=target.get("register_id"),
+        route=target.get("route"),
+        response_payload=response_payload,
+    )
+
+    return {
+        "status": "success",
+        **response_payload,
+        "print_job_id": job_id,
     }
 
 
@@ -2162,12 +2392,55 @@ async def print_remote_payload(
     from ..tenant_context import get_tenant_schema
 
     tenant_id = get_tenant_schema()
-    target = _resolve_print_target(
+    job_id = _create_print_job(
         db,
-        manager,
         tenant_id,
-        request_client_id=request.client_id,
+        job_type="raw_payload",
+        user_id=getattr(current_user, "id", None),
+        requested_client_id=request.client_id,
         register_id=request.register_id,
+        route="station_register" if request.register_id else "station",
+        request_payload={
+            "client_id": request.client_id,
+            "register_id": request.register_id,
+            "payload_type": request.payload.get("status") if isinstance(request.payload, dict) else None,
+        },
+    )
+
+    try:
+        target = _resolve_print_target(
+            db,
+            manager,
+            tenant_id,
+            request_client_id=request.client_id,
+            register_id=request.register_id,
+        )
+    except HTTPException as exc:
+        hint = _infer_print_target_hint(
+            db,
+            request_client_id=request.client_id,
+            register_id=request.register_id,
+        )
+        _update_print_job(
+            db,
+            tenant_id,
+            job_id,
+            status="FAILED",
+            resolved_client_id=hint.get("resolved_client_id"),
+            register_id=hint.get("register_id"),
+            route=hint.get("route"),
+            error_message=str(exc.detail),
+        )
+        raise
+
+    _update_print_job(
+        db,
+        tenant_id,
+        job_id,
+        status="PENDING",
+        resolved_client_id=target.get("client_id"),
+        register_id=target.get("register_id"),
+        route=target.get("route"),
     )
 
     message = {
@@ -2178,16 +2451,98 @@ async def print_remote_payload(
     success = await manager.send_to_client(message, target["client_id"], tenant_id, timeout=2.5)
 
     if not success:
-        raise HTTPException(
-            status_code=500,
-            detail=f"El bridge '{target['client_id']}' estaba conectado pero no confirmo el envio."
+        detail = f"El bridge '{target['client_id']}' estaba conectado pero no confirmo el envio."
+        _update_print_job(
+            db,
+            tenant_id,
+            job_id,
+            status="FAILED",
+            resolved_client_id=target.get("client_id"),
+            register_id=target.get("register_id"),
+            route=target.get("route"),
+            error_message=detail,
         )
+        raise HTTPException(status_code=500, detail=detail)
 
-    return {
-        "status": "success",
+    response_payload = {
         "message": f"Reporte enviado a {target['client_id']}",
         "target": target,
     }
+    _update_print_job(
+        db,
+        tenant_id,
+        job_id,
+        status="SENT",
+        resolved_client_id=target.get("client_id"),
+        register_id=target.get("register_id"),
+        route=target.get("route"),
+        response_payload=response_payload,
+    )
+
+    return {
+        "status": "success",
+        **response_payload,
+        "print_job_id": job_id,
+    }
+
+@router.get("/print/jobs", dependencies=[Depends(cashier_or_admin)])
+def list_print_jobs(
+    limit: int = Query(50, ge=1, le=200),
+    status: Optional[str] = Query(None),
+    register_id: Optional[int] = Query(None),
+    sale_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Recent print attempts for diagnostics and support."""
+    tenant_id = get_tenant_schema()
+    table = _print_jobs_table(tenant_id)
+    where = []
+    params = {"limit": limit}
+    if status:
+        where.append("pj.status = :status")
+        params["status"] = status.upper()
+    if register_id:
+        where.append("pj.register_id = :register_id")
+        params["register_id"] = register_id
+    if sale_id:
+        where.append("pj.sale_id = :sale_id")
+        params["sale_id"] = sale_id
+
+    where_sql = "WHERE " + " AND ".join(where) if where else ""
+    try:
+        rows = db.execute(text(f"""
+            SELECT
+                pj.id,
+                pj.job_uuid::text AS job_uuid,
+                pj.job_type,
+                pj.status,
+                pj.sale_id,
+                pj.register_id,
+                cr.code AS register_code,
+                cr.name AS register_name,
+                pj.user_id,
+                u.email AS user_email,
+                pj.requested_client_id,
+                pj.resolved_client_id,
+                pj.route,
+                pj.error_message,
+                pj.created_at,
+                pj.sent_at,
+                pj.failed_at,
+                pj.updated_at
+            FROM {table} pj
+            LEFT JOIN {_print_jobs_table(tenant_id).rsplit('.', 1)[0]}.cash_registers cr ON cr.id = pj.register_id
+            LEFT JOIN public.users u ON u.id = pj.user_id
+            {where_sql}
+            ORDER BY pj.created_at DESC, pj.id DESC
+            LIMIT :limit
+        """), params).mappings().all()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"No se pudo leer print_jobs: {str(exc)}")
+
+    return [dict(row) for row in rows]
+
 
 @router.post("/sales/payments", dependencies=[Depends(cashier_or_admin)])
 def register_sale_payment(
