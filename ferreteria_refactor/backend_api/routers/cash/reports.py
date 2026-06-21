@@ -18,6 +18,7 @@ from ...database.db import get_db
 from ...dependencies import get_current_active_user
 from ...models import models
 from ... import schemas
+from ...services.cash_reconciliation_service import CashReconciliationService
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,24 @@ def get_sessions_history(
         result.append(session_dict)
 
     return result
+
+
+@router.get("/sessions/{session_id}/audit-report")
+def get_session_audit_report(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """
+    Read-only transaction ledger for a cash session.
+
+    This endpoint does not mutate close totals. It centralizes the cash audit
+    source of truth for the future closing UI and PDF report.
+    """
+    report = CashReconciliationService.build_session_audit(db, session_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Sesión no encontrada")
+    return report
 
 
 @router.get("/sessions/{session_id}/details", response_model=schemas.CashSessionCloseResponse)
