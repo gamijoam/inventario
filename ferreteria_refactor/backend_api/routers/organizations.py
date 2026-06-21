@@ -26,7 +26,7 @@ from ..schemas.organization import (
     StockSearchMatch, StockSearchResponse,
     OrganizationChatMessageOut
 )
-from ..dependencies import get_current_active_user, get_current_superuser
+from ..dependencies import get_current_active_user, get_current_superuser, require_permission, require_any_permission
 from ..utils.time_utils import get_venezuela_now
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
@@ -316,7 +316,7 @@ def list_organizations(
     return result
 
 
-@router.get("/my-org")
+@router.get("/my-org", dependencies=[Depends(require_permission("org.panel.view"))])
 def get_my_organization(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
@@ -366,7 +366,7 @@ def get_my_organization(
     return result
 
 
-@router.get("/mine", response_model=List[OrgCompanyOut])
+@router.get("/mine", response_model=List[OrgCompanyOut], dependencies=[Depends(require_permission("org.panel.view"))])
 def my_companies(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
@@ -407,7 +407,7 @@ def my_companies(
     return companies
 
 
-@router.get("/consolidated-mine", response_model=ConsolidatedSummary)
+@router.get("/consolidated-mine", response_model=ConsolidatedSummary, dependencies=[Depends(require_permission("org.panel.view"))])
 def consolidated_mine(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
@@ -445,7 +445,7 @@ def consolidated_mine(
     return consolidated_dashboard(membership.organization_id, db, current_user)
 
 
-@router.get("/my-org/stock-search", response_model=StockSearchResponse)
+@router.get("/my-org/stock-search", response_model=StockSearchResponse, dependencies=[Depends(require_permission("org.panel.view"))])
 def stock_search_my_org(
     q: str = Query(..., min_length=2, description="Buscar por SKU o nombre (mín. 2 caracteres)"),
     limit_per_tenant: int = Query(50, ge=1, le=200),
@@ -537,7 +537,7 @@ def stock_search_my_org(
     )
 
 
-@router.get("/{org_id}", response_model=OrganizationOut)
+@router.get("/{org_id}", response_model=OrganizationOut, dependencies=[Depends(require_permission("org.panel.view"))])
 def get_organization(
     org_id: int,
     db: Session = Depends(get_db),
@@ -592,7 +592,7 @@ def update_organization(
 # GESTIÓN DE EMPRESAS (TENANTS) EN LA ORGANIZACIÓN
 # ══════════════════════════════════════════════════════════════════════════════
 
-@router.get("/{org_id}/tenants", response_model=List[OrganizationTenantOut])
+@router.get("/{org_id}/tenants", response_model=List[OrganizationTenantOut], dependencies=[Depends(require_permission("org.panel.view"))])
 def list_org_tenants(
     org_id: int,
     db: Session = Depends(get_db),
@@ -612,7 +612,7 @@ def list_org_tenants(
     ) for t in tenants]
 
 
-@router.post("/{org_id}/tenants/{tenant_id}", status_code=200)
+@router.post("/{org_id}/tenants/{tenant_id}", status_code=200, dependencies=[Depends(require_permission("org.tenants.manage"))])
 def add_tenant_to_org(
     org_id: int, tenant_id: int,
     db: Session = Depends(get_db),
@@ -676,7 +676,7 @@ def add_tenant_to_org(
     return {"message": f"Empresa '{tenant.name}' agregada a '{org.name}'", "tenant_id": tenant_id}
 
 
-@router.delete("/{org_id}/tenants/{tenant_id}", status_code=200)
+@router.delete("/{org_id}/tenants/{tenant_id}", status_code=200, dependencies=[Depends(require_permission("org.tenants.manage"))])
 def remove_tenant_from_org(
     org_id: int, tenant_id: int,
     db: Session = Depends(get_db),
@@ -698,7 +698,7 @@ def remove_tenant_from_org(
 # TRANSFERENCIA DE EMPRESAS ENTRE ORGANIZACIONES
 # ══════════════════════════════════════════════════════════════════════════════
 
-@router.post("/{org_id}/tenants/{tenant_id}/transfer", status_code=200)
+@router.post("/{org_id}/tenants/{tenant_id}/transfer", status_code=200, dependencies=[Depends(require_permission("org.tenants.manage"))])
 def transfer_tenant_to_org(
     org_id: int,
     tenant_id: int,
@@ -760,7 +760,7 @@ def transfer_tenant_to_org(
 # GESTIÓN DE MIEMBROS
 # ══════════════════════════════════════════════════════════════════════════════
 
-@router.get("/{org_id}/members", response_model=List[OrganizationMemberOut])
+@router.get("/{org_id}/members", response_model=List[OrganizationMemberOut], dependencies=[Depends(require_permission("org.panel.view"))])
 def list_members(
     org_id: int,
     db: Session = Depends(get_db),
@@ -773,7 +773,7 @@ def list_members(
     return org.members
 
 
-@router.post("/{org_id}/members", response_model=OrganizationMemberOut, status_code=201)
+@router.post("/{org_id}/members", response_model=OrganizationMemberOut, status_code=201, dependencies=[Depends(require_permission("org.members.manage"))])
 def invite_member(
     org_id: int,
     data: InviteMemberRequest,
@@ -807,7 +807,7 @@ def invite_member(
     return member
 
 
-@router.delete("/{org_id}/members/{member_id}", status_code=200)
+@router.delete("/{org_id}/members/{member_id}", status_code=200, dependencies=[Depends(require_permission("org.members.manage"))])
 def remove_member(
     org_id: int, member_id: int,
     db: Session = Depends(get_db),
@@ -834,7 +834,7 @@ def remove_member(
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-@router.get("/{org_id}/activity")
+@router.get("/{org_id}/activity", dependencies=[Depends(require_permission("org.panel.view"))])
 def get_org_activity(
     org_id: int,
     limit: int = Query(30, ge=1, le=100),
@@ -932,7 +932,7 @@ def get_org_activity(
     }
 
 
-@router.get("/{org_id}/catalog", response_model=List[SharedProductOut])
+@router.get("/{org_id}/catalog", response_model=List[SharedProductOut], dependencies=[Depends(require_permission("org.panel.view"))])
 def list_shared_catalog(
     org_id: int,
     search: Optional[str] = None,
@@ -951,7 +951,7 @@ def list_shared_catalog(
     return q.order_by(SharedProduct.name).all()
 
 
-@router.post("/{org_id}/catalog", response_model=SharedProductOut, status_code=201)
+@router.post("/{org_id}/catalog", response_model=SharedProductOut, status_code=201, dependencies=[Depends(require_permission("org.tenants.manage"))])
 def add_to_catalog(
     org_id: int,
     data: SharedProductCreate,
@@ -978,7 +978,7 @@ def add_to_catalog(
     return product
 
 
-@router.post("/{org_id}/catalog/import")
+@router.post("/{org_id}/catalog/import", dependencies=[Depends(require_permission("org.tenants.manage"))])
 def import_catalog_to_tenant(
     org_id: int,
     data: ImportSharedProductRequest,
@@ -1043,7 +1043,7 @@ def import_catalog_to_tenant(
 # CHAT ORGANIZACIONAL
 # ══════════════════════════════════════════════════════════════════════════════
 
-@router.get("/{org_id}/chat/unread-count")
+@router.get("/{org_id}/chat/unread-count", dependencies=[Depends(require_permission("org.chat.use"))])
 def get_org_chat_unread_count(
     org_id: int,
     db: Session = Depends(get_db),
@@ -1064,7 +1064,7 @@ def get_org_chat_unread_count(
     return {"count": count, "last_read_message_id": int(read.last_read_message_id or 0)}
 
 
-@router.post("/{org_id}/chat/mark-read")
+@router.post("/{org_id}/chat/mark-read", dependencies=[Depends(require_permission("org.chat.use"))])
 def mark_org_chat_read(
     org_id: int,
     message_id: Optional[int] = None,
@@ -1080,7 +1080,7 @@ def mark_org_chat_read(
     return {"ok": True, "last_read_message_id": int(read.last_read_message_id or 0)}
 
 
-@router.get("/{org_id}/chat/messages", response_model=List[OrganizationChatMessageOut])
+@router.get("/{org_id}/chat/messages", response_model=List[OrganizationChatMessageOut], dependencies=[Depends(require_permission("org.chat.use"))])
 def list_org_chat_messages(
     org_id: int,
     limit: int = Query(80, ge=1, le=200),
@@ -1107,7 +1107,7 @@ def list_org_chat_messages(
     return [_decorate_org_chat_message(row) for row in rows]
 
 
-@router.post("/{org_id}/chat/messages", response_model=OrganizationChatMessageOut, status_code=status.HTTP_201_CREATED)
+@router.post("/{org_id}/chat/messages", response_model=OrganizationChatMessageOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("org.chat.use"))])
 async def send_org_chat_message(
     org_id: int,
     message: str = Form(""),
@@ -1182,7 +1182,7 @@ async def send_org_chat_message(
 # CONFIGURACIÓN DE PLAN — Sprint 6
 # ══════════════════════════════════════════════════════════════════════════════
 
-@router.patch("/{org_id}/plan", response_model=OrganizationOut)
+@router.patch("/{org_id}/plan", response_model=OrganizationOut, dependencies=[Depends(require_permission("org.tenants.manage"))])
 def update_org_plan(
     org_id: int,
     config: OrgPlanConfig,
@@ -1222,7 +1222,7 @@ def update_org_plan(
 # CONFIGURACIÓN DE WHATSAPP COMPARTIDO — Sprint 6
 # ══════════════════════════════════════════════════════════════════════════════
 
-@router.patch("/{org_id}/whatsapp", response_model=OrganizationOut)
+@router.patch("/{org_id}/whatsapp", response_model=OrganizationOut, dependencies=[Depends(require_permission("org.tenants.manage"))])
 def update_org_whatsapp(
     org_id: int,
     config: OrgWhatsAppConfig,
@@ -1268,7 +1268,7 @@ def update_org_whatsapp(
 # RESUMEN DEL PLAN — info pública del plan de la organización
 # ══════════════════════════════════════════════════════════════════════════════
 
-@router.get("/{org_id}/plan-info")
+@router.get("/{org_id}/plan-info", dependencies=[Depends(require_permission("org.panel.view"))])
 def get_plan_info(
     org_id: int,
     db: Session = Depends(get_db),
@@ -1323,7 +1323,7 @@ def get_plan_info(
     }
 
 
-@router.get("/{org_id}/consolidated", response_model=ConsolidatedSummary)
+@router.get("/{org_id}/consolidated", response_model=ConsolidatedSummary, dependencies=[Depends(require_permission("org.panel.view"))])
 def consolidated_dashboard(
     org_id: int,
     db: Session = Depends(get_db),

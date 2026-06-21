@@ -16,6 +16,7 @@ router = APIRouter(dependencies=[Depends(require_any_permission([
     "reports.view",
     "reports.sales.view",
     "reports.profit.view",
+    "dashboard.financials.view",
 ]))])
 
 

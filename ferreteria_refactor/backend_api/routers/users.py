@@ -10,7 +10,7 @@ from typing import List, Optional
 from datetime import timedelta
 from ..security import verify_password, get_password_hash, create_access_token, pwd_context
 from ..config import settings
-from ..dependencies import get_current_active_user, limiter
+from ..dependencies import get_current_active_user, limiter, require_permission
 from ..audit_utils import log_action
 
 
@@ -45,11 +45,19 @@ def _resolve_target_tenant_id(db: Session, current_user: models.User):
     return target_tenant_id
 
 
-def _can_manage_permissions(db: Session, current_user: models.User) -> bool:
-    if current_user.is_superuser or current_user.role == models.UserRole.ADMIN:
+def _has_modular_permission(db: Session, current_user: models.User, permission_code: str) -> bool:
+    if current_user.is_superuser:
         return True
     from ..services.permissions_service import user_has_permission
-    return user_has_permission(db, current_user, "config.permissions.manage")
+    return user_has_permission(db, current_user, permission_code)
+
+
+def _can_manage_permissions(db: Session, current_user: models.User) -> bool:
+    return current_user.role == models.UserRole.ADMIN or _has_modular_permission(db, current_user, "config.permissions.manage")
+
+
+def _can_manage_users(db: Session, current_user: models.User) -> bool:
+    return current_user.role == models.UserRole.ADMIN or _has_modular_permission(db, current_user, "config.users.manage")
 
 # Deleted local hash_password and verify_password in favor of imported ones
 
@@ -61,11 +69,10 @@ def create_user(
     current_user: models.User = Depends(get_current_active_user)
 ):
     """Create a new user within the same tenant"""
-    # Authorization: Only ADMINs can create users
-    if current_user.role != models.UserRole.ADMIN and not current_user.is_superuser:
+    if not _can_manage_users(db, current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo los administradores pueden crear usuarios"
+            detail="No tienes permisos para administrar usuarios"
         )
 
     # Check if email exists within the same tenant (only if provided)
@@ -377,8 +384,8 @@ def update_user(
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado en tu empresa")
     
-    # Authorization: Admins can update anyone in their tenant, others can only update themselves (limited)
-    if current_user.role != models.UserRole.ADMIN and current_user.id != user_id:
+    can_manage_users = _can_manage_users(db, current_user)
+    if not can_manage_users and current_user.id != user_id:
         raise HTTPException(status_code=403, detail="No tienes permisos para modificar este usuario")
 
     # Protección del dueño de organización — solo él mismo puede modificar su cuenta
@@ -462,9 +469,8 @@ def delete_user(
     current_user: models.User = Depends(get_current_active_user)
 ):
     """Deactivate user (soft delete) with tenant isolation"""
-    # Authorization: Only admins can deactivate users
-    if current_user.role != models.UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Solo los administradores pueden desactivar usuarios")
+    if not _can_manage_users(db, current_user):
+        raise HTTPException(status_code=403, detail="No tienes permisos para administrar usuarios")
         
     # Resolve target tenant_id
     target_tenant_id = current_user.tenant_id

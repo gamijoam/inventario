@@ -5,7 +5,7 @@ from .. import schemas
 from ..models import models
 from ..database.db import get_db
 from ..tenant_context import get_tenant_schema
-from ..dependencies import get_current_active_user
+from ..dependencies import get_current_active_user, require_permission, require_any_permission
 from ..security import pwd_context
 from ..utils.time_utils import get_venezuela_now
 from ..template_presets import (
@@ -54,7 +54,7 @@ router = APIRouter(
 # 🔒 SECURITY DEPENDENCY: Ensure user has tenant context
 # NOTE: We use current_user.tenant_id (from schema name or string ID)
 
-@router.post("/orders", response_model=schemas.ServiceOrderRead)
+@router.post("/orders", response_model=schemas.ServiceOrderRead, dependencies=[Depends(require_permission("services.orders.manage"))])
 def create_service_order(
     order_data: schemas.ServiceOrderCreate, 
     db: Session = Depends(get_db),
@@ -225,7 +225,7 @@ def create_service_order(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error en servidor al crear orden: {str(e)}")
 
-@router.delete("/orders/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/orders/{order_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_permission("services.orders.manage"))])
 def delete_service_order(
     order_id: int, 
     db: Session = Depends(get_db),
@@ -247,7 +247,7 @@ def delete_service_order(
     db.commit()
     return None
 
-@router.get("/orders", response_model=List[schemas.ServiceOrderRead])
+@router.get("/orders", response_model=List[schemas.ServiceOrderRead], dependencies=[Depends(require_any_permission(["services.technician.view", "services.orders.manage"]))])
 def get_service_orders(
     skip: int = 0,
     limit: int = 100,
@@ -294,7 +294,7 @@ def get_service_orders(
     
     return query.offset(skip).limit(limit).all()
 
-@router.get("/orders/{order_id}", response_model=schemas.ServiceOrderRead)
+@router.get("/orders/{order_id}", response_model=schemas.ServiceOrderRead, dependencies=[Depends(require_any_permission(["services.technician.view", "services.orders.manage"]))])
 def get_service_order(
     order_id: int, 
     db: Session = Depends(get_db),
@@ -315,7 +315,7 @@ def get_service_order(
         raise HTTPException(status_code=404, detail="Service Order not found")
     return order
 
-@router.post("/orders/{order_id}/items", response_model=schemas.ServiceOrderRead)
+@router.post("/orders/{order_id}/items", response_model=schemas.ServiceOrderRead, dependencies=[Depends(require_permission("services.orders.manage"))])
 def add_service_order_item(
     order_id: int, 
     item_data: schemas.ServiceOrderDetailCreate, 
@@ -373,7 +373,7 @@ def add_service_order_item(
     db.commit()
     return result
 
-@router.delete("/orders/{order_id}/items/{item_id}", response_model=schemas.ServiceOrderRead)
+@router.delete("/orders/{order_id}/items/{item_id}", response_model=schemas.ServiceOrderRead, dependencies=[Depends(require_permission("services.orders.manage"))])
 def delete_service_order_item(
     order_id: int,
     item_id: int,
@@ -409,7 +409,7 @@ def delete_service_order_item(
     db.commit()
     return result
 
-@router.patch("/orders/{order_id}/status", response_model=schemas.ServiceOrderRead)
+@router.patch("/orders/{order_id}/status", response_model=schemas.ServiceOrderRead, dependencies=[Depends(require_permission("services.orders.manage"))])
 def update_service_order_status(
     order_id: int, 
     update_data: schemas.ServiceOrderUpdate,
@@ -592,7 +592,7 @@ def update_service_order_status(
     return schemas.ServiceOrderRead.model_validate(final_order)
 
 
-@router.get("/orders/status/ready", response_model=List[schemas.ServiceOrderRead])
+@router.get("/orders/status/ready", response_model=List[schemas.ServiceOrderRead], dependencies=[Depends(require_any_permission(["services.technician.view", "services.orders.manage"]))])
 def get_ready_service_orders(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
@@ -612,7 +612,7 @@ def get_ready_service_orders(
     return [o for o in orders if (o.order_metadata or {}).get("payment_status") != "PAID"]
 
 
-@router.post("/orders/{order_id}/payments")
+@router.post("/orders/{order_id}/payments", dependencies=[Depends(require_permission("services.orders.manage"))])
 def add_service_payment(
     order_id: int,
     payment: schemas.ServicePaymentCreate,
@@ -731,7 +731,7 @@ def add_service_payment(
     return result
 
 
-@router.post("/orders/{order_id}/checkout")
+@router.post("/orders/{order_id}/checkout", dependencies=[Depends(require_permission("services.orders.manage"))])
 def checkout_service_order(
     order_id: int, 
     payment_data: schemas.ServiceCheckoutPayment,
@@ -756,7 +756,7 @@ def checkout_service_order(
     return {"status": "success", "sale_id": sale.id, "ticket_number": sale.id}
 
 
-@router.patch("/orders/{order_id}/archive")
+@router.patch("/orders/{order_id}/archive", dependencies=[Depends(require_permission("services.orders.manage"))])
 def archive_service_order(
     order_id: int,
     db: Session = Depends(get_db),
@@ -779,7 +779,7 @@ def archive_service_order(
     return {"id": order.id, "ticket_number": order.ticket_number, "is_archived": getattr(order, "is_archived", False)}
 
 
-@router.get("/orders/{order_id}/print/thermal")
+@router.get("/orders/{order_id}/print/thermal", dependencies=[Depends(require_any_permission(["services.technician.view", "services.orders.manage"]))])
 def get_laundry_thermal_payload(
     order_id: int,
     width: str = None,

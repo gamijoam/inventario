@@ -171,9 +171,6 @@ def force_close_register_session(
     Admin: Force-close an orphaned OPEN session on a register.
     Use when a session is stuck (e.g. after a server restart or migration).
     """
-    if current_user.role not in ["ADMIN"] and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Solo administradores pueden forzar el cierre de sesiones")
-
     register = db.query(models.CashRegister).filter(
         models.CashRegister.id == register_id
     ).first()

@@ -339,12 +339,12 @@ def get_product_instances(product_id: int, db: Session = Depends(get_db)):
     return instances
 
 
-@router.delete("/instance/{instance_id}", dependencies=[Depends(warehouse_or_admin)])
+@router.delete("/instance/{instance_id}", dependencies=[Depends(require_permission("inventory.serials.delete"))])
 def delete_imei_instance(
     instance_id: int,
     reason: str = "Corrección de error",
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(warehouse_or_admin)
+    current_user: models.User = Depends(require_permission("inventory.serials.delete"))
 ):
     """
     Eliminar un IMEI/serial ingresado por error.

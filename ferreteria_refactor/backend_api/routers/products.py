@@ -517,7 +517,7 @@ def lookup_product(
 
     return _apply_pos_stock(product, db)
 
-@router.get("/kpis")
+@router.get("/kpis", dependencies=[Depends(require_permission("inventory.products.view"))])
 def get_product_kpis(
     warehouse_id: Optional[int] = None,
     db: Session = Depends(get_db)
@@ -586,8 +586,8 @@ def get_product_kpis(
         "out_of_stock": int(result.out_of_stock or 0),
     }
 
-@router.get("/", response_model=schemas.PaginatedProductList)
-@router.get("", response_model=schemas.PaginatedProductList, include_in_schema=False)
+@router.get("/", response_model=schemas.PaginatedProductList, dependencies=[Depends(require_permission("inventory.products.view"))])
+@router.get("", response_model=schemas.PaginatedProductList, include_in_schema=False, dependencies=[Depends(require_permission("inventory.products.view"))])
 def read_products(
     skip: int = 0,
     limit: int = Query(default=50, le=2000),
@@ -1297,7 +1297,7 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
 # (Must be BEFORE /{product_id} to avoid route conflicts)
 # ========================================
 
-@router.get("/template")
+@router.get("/template", dependencies=[Depends(require_permission("inventory.products.view"))])
 def download_template():
     """
     Download Excel template for bulk product import
@@ -1368,7 +1368,7 @@ async def import_products(
         )
 
 
-@router.get("/export/excel")
+@router.get("/export/excel", dependencies=[Depends(require_permission("inventory.products.view"))])
 def export_excel(
     search: Optional[str] = None,
     category_id: Optional[int] = None,
@@ -1410,7 +1410,7 @@ def export_excel(
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
-@router.get("/export/pdf")
+@router.get("/export/pdf", dependencies=[Depends(require_permission("inventory.products.view"))])
 def export_pdf(
     search: Optional[str] = None,
     category_id: Optional[int] = None,
@@ -1612,7 +1612,7 @@ def get_all_sales(
 
 
 
-@router.get("/{product_id}", response_model=schemas.ProductRead)
+@router.get("/{product_id}", response_model=schemas.ProductRead, dependencies=[Depends(require_permission("inventory.products.view"))])
 def read_product(product_id: int, db: Session = Depends(get_db)):
     product = db.query(models.Product).options(
         joinedload(models.Product.units),
@@ -1814,7 +1814,7 @@ def calculate_price(
             "conversions": results
         }
 
-@router.get("/{product_id}/rules", response_model=List[schemas.PriceRuleRead])
+@router.get("/{product_id}/rules", response_model=List[schemas.PriceRuleRead], dependencies=[Depends(require_permission("config.prices.manage"))])
 def read_price_rules(product_id: int, db: Session = Depends(get_db)):
     rules = db.query(models.PriceRule).filter(models.PriceRule.product_id == product_id).order_by(models.PriceRule.min_quantity).all()
     return rules

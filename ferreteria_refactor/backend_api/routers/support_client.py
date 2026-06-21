@@ -5,7 +5,7 @@ from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel, EmailStr
 from ..database.db import get_db
-from ..dependencies import get_current_active_user
+from ..dependencies import get_current_active_user, require_permission
 from ..models.models import User
 from ..models.support import SupportTicket, TicketStatus, TicketPriority, SupportMessage, SupportAttachment, SupportMessageSender
 from ..models.tenant import Tenant
@@ -131,7 +131,7 @@ def _resolve_tenant_id(current_user: User, db: Session) -> Optional[int]:
     return effective_tenant_id
 
 
-@router.get("/unread-count")
+@router.get("/unread-count", dependencies=[Depends(require_permission("support.chat.use"))])
 def get_unread_count(
     since: Optional[str] = Query(None, description="ISO timestamp of last visit"),
     db: Session = Depends(get_db),
@@ -162,7 +162,7 @@ def get_unread_count(
     return {"count": count}
 
 
-@router.get("/unread")
+@router.get("/unread", dependencies=[Depends(require_permission("support.chat.use"))])
 def get_unread_tickets(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
@@ -213,7 +213,7 @@ def get_unread_tickets(
     return result
 
 
-@router.post("/{ticket_id}/read")
+@router.post("/{ticket_id}/read", dependencies=[Depends(require_permission("support.chat.use"))])
 def mark_ticket_read(
     ticket_id: int,
     db: Session = Depends(get_db),
@@ -226,7 +226,8 @@ def mark_ticket_read(
     return {"ok": True, "ticket_id": ticket.id}
 
 
-@router.post("/", response_model=SupportTicketOut, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=SupportTicketOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("support.chat.use"))])
+@router.post("", response_model=SupportTicketOut, status_code=status.HTTP_201_CREATED, include_in_schema=False, dependencies=[Depends(require_permission("support.chat.use"))])
 async def create_ticket(
     ticket_in: SupportTicketCreate,
     db: Session = Depends(get_db),
@@ -286,7 +287,8 @@ async def create_ticket(
 
     return _decorate_ticket(db_ticket, "user")
 
-@router.get("/", response_model=List[SupportTicketOut])
+@router.get("/", response_model=List[SupportTicketOut], dependencies=[Depends(require_permission("support.chat.use"))])
+@router.get("", response_model=List[SupportTicketOut], include_in_schema=False, dependencies=[Depends(require_permission("support.chat.use"))])
 def list_my_tickets(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
@@ -355,7 +357,7 @@ def public_contact(
     return {"message": "Tu mensaje fue enviado. Te contactaremos pronto."}
 
 
-@router.get("/{ticket_id}/messages", response_model=List[SupportMessageOut])
+@router.get("/{ticket_id}/messages", response_model=List[SupportMessageOut], dependencies=[Depends(require_permission("support.chat.use"))])
 def list_ticket_messages(
     ticket_id: int,
     db: Session = Depends(get_db),
@@ -375,7 +377,7 @@ def list_ticket_messages(
     return messages
 
 
-@router.post("/{ticket_id}/messages", response_model=SupportMessageOut, status_code=status.HTTP_201_CREATED)
+@router.post("/{ticket_id}/messages", response_model=SupportMessageOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("support.chat.use"))])
 async def send_ticket_message(
     ticket_id: int,
     message: str = Form(""),

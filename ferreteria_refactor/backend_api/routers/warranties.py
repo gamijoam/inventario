@@ -18,7 +18,7 @@ router = APIRouter(
 # WARRANTY POLICIES
 # ========================
 
-@router.get("/policies", response_model=List[schemas.WarrantyPolicyRead])
+@router.get("/policies", response_model=List[schemas.WarrantyPolicyRead], dependencies=[Depends(require_any_permission(["sales.warranties.view", "sales.warranties.manage"]))])
 def get_warranty_policies(
     skip: int = 0,
     limit: int = 100,
@@ -111,7 +111,7 @@ def delete_warranty_policy(
 # WARRANTY CLAIMS
 # ========================
 
-@router.get("/claims", response_model=List[schemas.WarrantyClaimRead])
+@router.get("/claims", response_model=List[schemas.WarrantyClaimRead], dependencies=[Depends(require_any_permission(["sales.warranties.view", "sales.warranties.manage"]))])
 def get_warranty_claims(
     skip: int = 0,
     limit: int = 100,
@@ -125,7 +125,7 @@ def get_warranty_claims(
 
     return query.offset(skip).limit(limit).all()
 
-@router.post("/claims", response_model=schemas.WarrantyClaimRead)
+@router.post("/claims", response_model=schemas.WarrantyClaimRead, dependencies=[Depends(require_permission("sales.warranties.manage"))])
 def create_warranty_claim(
     claim: schemas.WarrantyClaimCreate,
     db: Session = Depends(get_db),
@@ -156,7 +156,7 @@ def create_warranty_claim(
     db.commit()
     return new_claim
 
-@router.put("/claims/{claim_id}", response_model=schemas.WarrantyClaimRead)
+@router.put("/claims/{claim_id}", response_model=schemas.WarrantyClaimRead, dependencies=[Depends(require_permission("sales.warranties.manage"))])
 def update_warranty_claim(
     claim_id: int,
     claim_update: schemas.WarrantyClaimUpdate,
@@ -212,7 +212,7 @@ async def upload_warranty_template(
     return policy
 
 
-@router.get("/print/{sale_id}")
+@router.get("/print/{sale_id}", dependencies=[Depends(require_permission("pos.reprint.warranty"))])
 def print_warranty_pdf(
     sale_id: int,
     db: Session = Depends(get_db),
@@ -251,7 +251,7 @@ def print_warranty_pdf(
 # SEND WARRANTY VIA WHATSAPP
 # ========================
 
-@router.post("/send-whatsapp/{sale_id}")
+@router.post("/send-whatsapp/{sale_id}", dependencies=[Depends(require_permission("pos.reprint.warranty"))])
 async def send_warranty_whatsapp(
     sale_id: int,
     db: Session = Depends(get_db),
@@ -384,7 +384,7 @@ def list_templates():
     return TEMPLATES
 
 
-@router.get("/template-config")
+@router.get("/template-config", dependencies=[Depends(require_any_permission(["sales.warranties.view", "sales.warranties.manage"]))])
 def get_template_config(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
@@ -422,7 +422,7 @@ def set_template_config(
     return {"success": True, "style": body.style}
 
 
-@router.get("/template-preview/{style}")
+@router.get("/template-preview/{style}", dependencies=[Depends(require_any_permission(["sales.warranties.view", "sales.warranties.manage"]))])
 def template_preview(
     style: str,
     db: Session = Depends(get_db),
