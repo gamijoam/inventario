@@ -334,7 +334,7 @@ def activate_customer(customer_id: int, db: Session = Depends(get_db)):
 from ..dependencies import cashier_or_admin
 
 @router.post("/{customer_id}/payments", dependencies=[Depends(cashier_or_admin)])
-def create_customer_payment(customer_id: int, payment: schemas.CustomerPaymentCreate, db: Session = Depends(get_db)):
+def create_customer_payment(customer_id: int, payment: schemas.CustomerPaymentCreate, db: Session = Depends(get_db), current_user: models.User = Depends(cashier_or_admin)):
     db_customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not db_customer:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
@@ -352,12 +352,15 @@ def create_customer_payment(customer_id: int, payment: schemas.CustomerPaymentCr
     )
     
     # 1.5 Link to Active Cash Session (Enforce Open Session)
-    active_session = db.query(models.CashSession).filter(models.CashSession.status == "OPEN").first()
+    active_session = db.query(models.CashSession).filter(
+        models.CashSession.status == "OPEN",
+        models.CashSession.user_id == current_user.id
+    ).order_by(models.CashSession.start_time.desc()).first()
     if not active_session:
-        raise HTTPException(status_code=400, detail="No hay una caja abierta. Debe abrir caja para recibir pagos.")
+        raise HTTPException(status_code=400, detail="No tienes una caja abierta para recibir abonos. Abre caja con tu usuario e intenta de nuevo.")
     
     new_payment.session_id = active_session.id
-    print(f"[INFO] Pago de deuda vinculado a Sesión #{active_session.id}")
+    print(f"[INFO] Pago de deuda vinculado a Sesión #{active_session.id} (user #{current_user.id})")
 
     db.add(new_payment)
     

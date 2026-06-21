@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional, Dict, Any
 from ..database.db import get_db
 from ..models import models
@@ -347,8 +348,8 @@ def delete_imei_instance(
 ):
     """
     Eliminar un IMEI/serial ingresado por error.
-    - Si está AVAILABLE: descuenta el stock y elimina el registro
-    - Si está SOLD: solo elimina el registro (el stock ya salió con la venta)
+    Solo se permite borrar físicamente seriales disponibles y sin historial.
+    Si el IMEI ya participó en ventas/devoluciones, se conserva la trazabilidad.
     """
     instance = db.query(models.ProductInstance).filter(
         models.ProductInstance.id == instance_id
@@ -370,6 +371,59 @@ def delete_imei_instance(
         "status_was": instance.status.value if hasattr(instance.status, 'value') else str(instance.status),
         "stock_adjusted": False
     }
+
+    sale_link = db.query(models.SaleDetailInstance, models.SaleDetail, models.Sale).join(
+        models.SaleDetail, models.SaleDetail.id == models.SaleDetailInstance.sale_detail_id
+    ).join(
+        models.Sale, models.Sale.id == models.SaleDetail.sale_id
+    ).filter(
+        models.SaleDetailInstance.product_instance_id == instance.id
+    ).first()
+
+    return_link = db.query(models.ReturnDetailInstance, models.ReturnDetail, models.Return).join(
+        models.ReturnDetail, models.ReturnDetail.id == models.ReturnDetailInstance.return_detail_id
+    ).join(
+        models.Return, models.Return.id == models.ReturnDetail.return_id
+    ).filter(
+        models.ReturnDetailInstance.product_instance_id == instance.id
+    ).first()
+
+    if sale_link or return_link:
+        sale_id = sale_link[2].id if sale_link else None
+        return_id = return_link[2].id if return_link else None
+        references = []
+        if sale_id:
+            references.append(f"venta #{sale_id}")
+        if return_id:
+            references.append(f"devolución #{return_id}")
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    f"No se puede eliminar el IMEI {instance.serial_number} porque ya tiene historial en "
+                    f"{', '.join(references)}. Para corregirlo, usa devolución/anulación o ajuste de estado, "
+                    "pero no borrado físico."
+                ),
+                "imei": instance.serial_number,
+                "product_name": product.name,
+                "status": result["status_was"],
+                "sale_id": sale_id,
+                "return_id": return_id,
+                "code": "IMEI_HAS_HISTORY"
+            }
+        )
+
+    if str(instance.status) not in ("AVAILABLE", "ProductInstanceStatus.AVAILABLE"):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": f"Solo se pueden eliminar IMEIs disponibles y sin historial. El IMEI {instance.serial_number} está en estado {result['status_was']}.",
+                "imei": instance.serial_number,
+                "product_name": product.name,
+                "status": result["status_was"],
+                "code": "IMEI_NOT_AVAILABLE"
+            }
+        )
 
     if str(instance.status) in ("AVAILABLE", "ProductInstanceStatus.AVAILABLE"):
         # Descontar del stock ya que el IMEI estaba disponible
@@ -399,7 +453,20 @@ def delete_imei_instance(
 
     # Eliminar el instance
     db.delete(instance)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": f"No se puede eliminar el IMEI {instance.serial_number} porque está relacionado con historial del sistema.",
+                "imei": instance.serial_number,
+                "product_name": product.name,
+                "status": result["status_was"],
+                "code": "IMEI_DELETE_CONFLICT"
+            }
+        )
 
     return {"status": "deleted", **result}
 

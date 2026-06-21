@@ -18,6 +18,7 @@ from ...database.db import get_db
 from ...dependencies import get_current_active_user
 from ...models import models
 from ... import schemas
+from ...utils.time_utils import get_venezuela_now
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +117,34 @@ def get_available_cash(db: Session, session_id: int, currency: str) -> Decimal:
         models.CashMovement.currency.in_(target_currencies)
     ).scalar() or Decimal("0.00")
 
+    # 3.5 Customer debt payments (CxC) that were not mirrored as cash movements.
+    # Some flows store a Payment row only, while newer/manual flows may also create
+    # a matching DEPOSIT movement. Count Payment-only rows so advances/withdrawals
+    # see the real drawer balance without duplicating CxC deposits.
+    debt_payments = Decimal("0.00")
+    possible_debt_payments = db.query(models.Payment).filter(
+        models.Payment.session_id == session.id,
+        models.Payment.currency.in_(target_currencies),
+    ).all()
+    for payment in possible_debt_payments:
+        method = (payment.payment_method or "").lower()
+        if "efectivo" not in method and "cash" not in method and "divisa" not in method:
+            continue
+        amount = Decimal(str(payment.amount or 0))
+        matching_deposit = db.query(models.CashMovement.id).filter(
+            models.CashMovement.session_id == session.id,
+            models.CashMovement.type.in_(["DEPOSIT", "IN"]),
+            models.CashMovement.currency.in_(target_currencies),
+            models.CashMovement.amount == amount,
+            or_(
+                models.CashMovement.description.ilike("%abono%"),
+                models.CashMovement.description.ilike("%cxc%"),
+                models.CashMovement.description.ilike("%cuenta%"),
+            )
+        ).first()
+        if not matching_deposit:
+            debt_payments += amount
+
     # 4. Change Given (Vuelto) - DEDUCT FROM DRAWER
     # We must check if the change was given in this currency
     # Note: We assume change is always given in CASH
@@ -134,7 +163,7 @@ def get_available_cash(db: Session, session_id: int, currency: str) -> Decimal:
         models.Sale.change_amount > 0
     ).scalar() or Decimal("0.00")
 
-    return initial + cash_sales - cash_change + movements_in - movements_out
+    return initial + cash_sales + debt_payments - cash_change + movements_in - movements_out
 
 
 # ============================================================
@@ -170,7 +199,7 @@ def register_movement(
         incoming_currency=movement.incoming_currency,
         incoming_method=movement.incoming_method,
         incoming_reference=movement.incoming_reference,
-        date=datetime.now()
+        date=get_venezuela_now()
     )
     db.add(new_movement)
     db.flush()

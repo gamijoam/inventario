@@ -1627,7 +1627,7 @@ Cierre:   {{ session.end_time }}
         
         # 2. Record Payment
         # Determine payment date (allow backdating)
-        actual_date = payment_data.payment_date if payment_data.payment_date else datetime.now()
+        actual_date = payment_data.payment_date if payment_data.payment_date else get_venezuela_now()
 
         # 2. Record Payment
         payment = models.SalePayment(
@@ -1646,7 +1646,16 @@ Cierre:   {{ session.end_time }}
         # So we MUST create a 'models.Payment' (Debt Payment) to show it in the Session Report.
         # If Sale is from THIS session, 'financials.py' already picks up the SalePayment.
         
-        active_session = db.query(models.CashSession).filter(models.CashSession.status == "OPEN").first()
+        active_session = None
+        if sale.session_id:
+            active_session = db.query(models.CashSession).filter(
+                models.CashSession.id == sale.session_id,
+                models.CashSession.status == "OPEN"
+            ).first()
+        if not active_session:
+            active_session = db.query(models.CashSession).filter(
+                models.CashSession.status == "OPEN"
+            ).order_by(models.CashSession.start_time.desc(), models.CashSession.id.desc()).first()
         if active_session:
             # Check if Sale is older than session start
             # Use buffer of 1 minute to avoid race conditions

@@ -187,11 +187,25 @@ def force_close_register_session(
     if not open_session:
         raise HTTPException(status_code=404, detail="No hay sesión abierta en esta caja")
 
+    from .movements import get_available_cash
+
+    expected_usd = get_available_cash(db, open_session.id, "USD")
+    expected_bs = get_available_cash(db, open_session.id, "Bs")
+    open_session.final_cash_expected = expected_usd
+    open_session.final_cash_expected_bs = expected_bs
+    open_session.final_cash_reported = open_session.final_cash_reported if open_session.final_cash_reported is not None else expected_usd
+    open_session.final_cash_reported_bs = open_session.final_cash_reported_bs if open_session.final_cash_reported_bs is not None else expected_bs
+    open_session.difference = open_session.final_cash_reported - expected_usd
+    open_session.difference_bs = open_session.final_cash_reported_bs - expected_bs
     open_session.status = "CLOSED"
-    open_session.end_time = datetime.now()
+    open_session.end_time = get_venezuela_now()
     db.commit()
 
-    return {"detail": f"Sesión #{open_session.id} de '{register.name}' cerrada forzosamente."}
+    return {
+        "detail": f"Sesión #{open_session.id} de '{register.name}' cerrada forzosamente.",
+        "final_cash_expected": float(expected_usd),
+        "final_cash_expected_bs": float(expected_bs),
+    }
 
 
 @router.get("/registers/status", response_model=List[dict])
@@ -566,13 +580,40 @@ async def close_cash_session(
                 cash_sales_by_currency[curr] = Decimal("0.00")
             cash_sales_by_currency[curr] += p.amount
 
+    def _currency_key(value):
+        curr = value or "USD"
+        if curr.upper() in ["BS", "VES", "VEF"]:
+            return "Bs"
+        if curr in ("$", ""):
+            return "USD"
+        return curr
+
+    def _has_matching_debt_deposit(dp):
+        dp_amount = Decimal(str(dp.amount or 0))
+        dp_currency = _currency_key(dp.currency)
+        for movement in movements:
+            if movement.type not in ["DEPOSIT", "IN"]:
+                continue
+            if _currency_key(movement.currency) != dp_currency:
+                continue
+            movement_amount = Decimal(str(movement.amount or 0))
+            if movement_amount != dp_amount:
+                continue
+            description = (movement.description or "").lower()
+            if "abono" in description or "cxc" in description or "cuenta" in description:
+                return True
+        return False
+
     # 1.5 Process Debt Payments (Abonos)
+    # Newer CxC payments create a CashMovement(DEPOSIT). Count the payment only as
+    # fallback for legacy rows without movement; otherwise the close doubles it.
     debt_payments = db.query(models.Payment).filter(models.Payment.session_id == session.id).all()
     for dp in debt_payments:
-        if "efectivo" in dp.payment_method.lower() or "cash" in dp.payment_method.lower() or "divisa" in dp.payment_method.lower():
-            curr = dp.currency or "USD"
-            if curr.upper() in ["BS", "VES", "VEF"]:
-                curr = "Bs"
+        method = (dp.payment_method or "").lower()
+        if "efectivo" in method or "cash" in method or "divisa" in method:
+            if _has_matching_debt_deposit(dp):
+                continue
+            curr = _currency_key(dp.currency)
 
             if curr not in cash_sales_by_currency:
                 cash_sales_by_currency[curr] = Decimal("0.00")

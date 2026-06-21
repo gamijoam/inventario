@@ -197,9 +197,34 @@ def get_session_details(
     debt_payments_total_usd = Decimal("0.00")
     debt_payments_total_bs = Decimal("0.00")
 
-    # Add Debt Payments to Sales By Method (or separate bucket?)
-    # For Cash Consistency, we must add them to the relevant "Method" bucket so they count towards expected.
+    def _currency_key(value):
+        curr = value or "USD"
+        if curr.upper() in ["BS", "VES", "VEF"]:
+            return "Bs"
+        if curr in ("$", ""):
+            return "USD"
+        return curr
+
+    def _has_matching_debt_deposit(dp):
+        dp_amount = Decimal(str(dp.amount or 0))
+        dp_currency = _currency_key(dp.currency)
+        for movement in movements:
+            if movement.type not in ["DEPOSIT", "IN"]:
+                continue
+            if _currency_key(movement.currency) != dp_currency:
+                continue
+            if Decimal(str(movement.amount or 0)) != dp_amount:
+                continue
+            description = (movement.description or "").lower()
+            if "abono" in description or "cxc" in description or "cuenta" in description:
+                return True
+        return False
+
+    # Add Debt Payments only if they don't already have a cash movement.
+    # Newer CxC flow writes Payment + CashMovement(DEPOSIT); counting both doubles caja.
     for dp in debt_payments:
+        if _has_matching_debt_deposit(dp):
+            continue
         curr = dp.currency
         method = dp.payment_method  # "Efectivo", "Zelle", etc.
         amt = dp.amount

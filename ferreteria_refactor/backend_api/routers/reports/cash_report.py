@@ -47,35 +47,54 @@ def get_credits_summary(db: Session = Depends(get_db)):
 @router.get("/dashboard/cashflow")
 def get_dashboard_cashflow(db: Session = Depends(get_db)):
     """
-    Calculate physical cash balance by currency in open cash sessions
-
-    Returns real money that should be in the cash drawer:
-    - Initial cash from open sessions
-    - + Sales income (from SalePayment)
-    - + Deposits
-    - - Expenses
-    - - Withdrawals
-    - - Returns/Refunds
+    Physical cash balance by currency across open cash sessions.
+    Uses the same reconciliation rules as cash closing: session-linked cash sales,
+    Payment-only CxC cash receipts, deposits, returns, advances and withdrawals.
     """
-    # Get all active currencies from config
     active_currencies = db.query(models.Currency).filter(models.Currency.is_active == True).all()
-    currency_codes = [c.symbol for c in active_currencies] if active_currencies else ['USD', 'Bs']
+    raw_currency_codes = [c.symbol for c in active_currencies] if active_currencies else ['USD', 'Bs']
+    currency_codes = []
+    for code in raw_currency_codes:
+        normalized = 'VES' if str(code).upper() in ['BS', 'VES', 'VEF'] else (code or 'USD')
+        if normalized not in currency_codes:
+            currency_codes.append(normalized)
 
-    # Get open cash sessions
     open_sessions = db.query(models.CashSession).filter(models.CashSession.status == "OPEN").all()
-
     if not open_sessions:
-        # No open sessions, return zeros
         return {
             "balances": [{"currency": code, "initial": 0, "sales": 0, "expenses": 0, "net_balance": 0} for code in currency_codes],
             "alerts": ["No hay sesiones de caja abiertas"]
         }
 
+    def _currency_key(value):
+        curr = value or "USD"
+        if str(curr).upper() in ["BS", "VES", "VEF"]:
+            return "VES"
+        if curr in ("$", ""):
+            return "USD"
+        return curr
+
+    def _is_cash_method(method):
+        text = (method or "").lower()
+        return "efectivo" in text or "cash" in text or "divisa" in text
+
+    def _matching_currencies(currency):
+        return ["Bs", "VES", "VEF"] if str(currency or "").upper() in ["BS", "VES", "VEF"] else [currency or "USD"]
+
+    def _has_matching_deposit(session_id, currency, amount):
+        return db.query(models.CashMovement.id).filter(
+            models.CashMovement.session_id == session_id,
+            models.CashMovement.type.in_(["DEPOSIT", "IN"]),
+            models.CashMovement.currency.in_(_matching_currencies(currency)),
+            models.CashMovement.amount == amount,
+            (models.CashMovement.description.ilike("%abono%") |
+             models.CashMovement.description.ilike("%cxc%") |
+             models.CashMovement.description.ilike("%cuenta%"))
+        ).first() is not None
+
     session_ids = [s.id for s in open_sessions]
     balances = {}
     alerts = []
-
-    # Initialize balances for each currency
     for currency in currency_codes:
         balances[currency] = {
             "currency": currency,
@@ -84,83 +103,72 @@ def get_dashboard_cashflow(db: Session = Depends(get_db)):
             "expenses": 0.0,
             "net_balance": 0.0
         }
-
-    # 1. Get initial cash from open sessions
     for session in open_sessions:
-        # Check if session has multi-currency support
-        if session.currencies:
-            for curr in session.currencies:
-                if curr.currency_symbol in balances:
-                    balances[curr.currency_symbol]["initial"] += curr.initial_amount
-        else:
-            # Fallback to old dual-currency model
-            balances["USD"]["initial"] += session.initial_cash or 0
-            if "Bs" in balances:
-                balances["Bs"]["initial"] += session.initial_cash_bs or 0
+        balances.setdefault("USD", {"currency": "USD", "initial": 0.0, "sales": 0.0, "expenses": 0.0, "net_balance": 0.0})
+        balances["USD"]["initial"] += float(session.initial_cash or 0)
+        if "VES" in balances:
+            balances["VES"]["initial"] += float(session.initial_cash_bs or 0)
 
-    sales_query = db.query(
+    sales_rows = db.query(
         models.SalePayment.currency,
         func.sum(models.SalePayment.amount).label('total')
     ).join(models.Sale).filter(
-        models.Sale.date >= open_sessions[0].start_time,  # Since first session opened
-        # CRITICAL FIX: Only include payments made within the session window.
-        # This handles "Abonos" correctly:
-        # - If Abono was made TODAY (after session start), it's included.
-        # - If Abono was made YESTERDAY, its payment_date < session_start, so it's EXCLUDED.
-        models.SalePayment.payment_date >= open_sessions[0].start_time
-    )
+        models.Sale.session_id.in_(session_ids),
+        (models.SalePayment.payment_method.ilike("%efectivo%") |
+         models.SalePayment.payment_method.ilike("%cash%") |
+         models.SalePayment.payment_method.ilike("%divisa%"))
+    ).group_by(models.SalePayment.currency).all()
 
-    sales_by_currency = sales_query.group_by(models.SalePayment.currency).all()
+    for currency, total in sales_rows:
+        key = _currency_key(currency)
+        if key in balances:
+            balances[key]["sales"] += float(total or 0)
 
-    for currency, total in sales_by_currency:
-        if currency in balances:
-            balances[currency]["sales"] += total
-
-    # 3. Get cash movements (expenses, deposits, withdrawals, returns)
-    movements = db.query(models.CashMovement).filter(
-        models.CashMovement.session_id.in_(session_ids)
-    ).all()
-
-    for movement in movements:
-        currency = movement.currency or "USD"
-        if currency not in balances:
+    debt_payments = db.query(models.Payment).filter(models.Payment.session_id.in_(session_ids)).all()
+    for payment in debt_payments:
+        if not _is_cash_method(payment.payment_method):
             continue
+        key = _currency_key(payment.currency)
+        if key not in balances:
+            continue
+        amount = payment.amount or Decimal("0.00")
+        if not _has_matching_deposit(payment.session_id, payment.currency, amount):
+            balances[key]["sales"] += float(amount)
 
-        if movement.type == "DEPOSIT":
-            # Deposits are income
-            balances[currency]["sales"] += movement.amount
-        elif movement.type in ["EXPENSE", "WITHDRAWAL"]:
-            # Expenses and withdrawals reduce cash
-            balances[currency]["expenses"] -= movement.amount
-        elif movement.type == "RETURN":
-            # Returns are refunds (reduce cash)
-            balances[currency]["expenses"] -= movement.amount
+    movements = db.query(models.CashMovement).filter(models.CashMovement.session_id.in_(session_ids)).all()
+    for movement in movements:
+        key = _currency_key(movement.currency)
+        if key not in balances:
+            continue
+        amount = float(movement.amount or 0)
+        if movement.type in ["DEPOSIT", "IN"]:
+            balances[key]["sales"] += amount
+        elif movement.type in ["EXPENSE", "WITHDRAWAL", "OUT", "RETURN", "CASH_ADVANCE"]:
+            balances[key]["expenses"] -= amount
 
-    # 4. Calculate net balance and check for alerts
+    change_rows = db.query(models.Sale.change_currency, func.sum(models.Sale.change_amount)).filter(
+        models.Sale.session_id.in_(session_ids),
+        models.Sale.change_amount > 0
+    ).group_by(models.Sale.change_currency).all()
+    for currency, amount in change_rows:
+        key = _currency_key(currency)
+        if key in balances:
+            balances[key]["expenses"] -= float(amount or 0)
+
     for currency_code, data in balances.items():
         data["net_balance"] = data["initial"] + data["sales"] + data["expenses"]
-
-        # Alert if negative balance
         if data["net_balance"] < 0:
             alerts.append(f"Caja en {currency_code} tiene saldo negativo: {data['net_balance']:.2f} (Revisar)")
-
-        # Round values
         data["initial"] = round(data["initial"], 2)
         data["sales"] = round(data["sales"], 2)
         data["expenses"] = round(data["expenses"], 2)
         data["net_balance"] = round(data["net_balance"], 2)
 
-    # Convert to list and filter out currencies with no activity
     balance_list = [data for data in balances.values() if data["initial"] != 0 or data["sales"] != 0 or data["expenses"] != 0]
-
-    # If no activity, show at least USD
     if not balance_list:
-        balance_list = [balances["USD"]]
+        balance_list = [balances.get("USD", {"currency": "USD", "initial": 0, "sales": 0, "expenses": 0, "net_balance": 0})]
 
-    return {
-        "balances": balance_list,
-        "alerts": alerts if alerts else []
-    }
+    return {"balances": balance_list, "alerts": alerts if alerts else []}
 
 
 @router.get("/cash-flow")
@@ -223,18 +231,28 @@ def get_daily_close(
     db: Session = Depends(get_db)
 ):
     """
-    Daily Closing Report (IMPROVED):
-    - Normalized payment methods (consolidates variants)
-    - Proper currency separation with symbols
-    - Structured cash flow data
-    - Cash reconciliation
-    - Category sales breakdown
+    Daily Closing Report aligned with cash-session reconciliation.
+    Aggregates all sessions that touch the day and separates physical cash from digital methods.
     """
 
     start_dt = datetime.combine(date, datetime.min.time())
-    end_dt = datetime.combine(date, datetime.max.time())
+    end_dt = datetime.combine(date + timedelta(days=1), datetime.min.time())
 
-    # 1. Query Sales by Payment Method (from SalePayment table for accuracy)
+    def _currency_key(value):
+        curr = value or "USD"
+        if str(curr).upper() in ["BS", "VES", "VEF"]:
+            return "VES"
+        if curr in ("$", ""):
+            return "USD"
+        return curr
+
+    def _is_cash_method(method):
+        text = (method or "").lower()
+        return "efectivo" in text or "cash" in text or "divisa" in text
+
+    def _matching_currencies(currency):
+        return ["Bs", "VES", "VEF"] if str(currency or "").upper() in ["BS", "VES", "VEF"] else [currency or "USD"]
+
     sales_by_method_raw = db.query(
         models.SalePayment.payment_method,
         models.SalePayment.currency,
@@ -242,135 +260,131 @@ def get_daily_close(
         func.count(models.SalePayment.id).label('count')
     ).join(models.Sale).filter(
         models.Sale.date >= start_dt,
-        models.Sale.date <= end_dt
+        models.Sale.date < end_dt
     ).group_by(
         models.SalePayment.payment_method,
         models.SalePayment.currency
     ).all()
 
-    # 2. Normalize and structure payment breakdown
     payment_breakdown = []
     total_revenue_usd = Decimal("0.00")
     total_revenue_ves = Decimal("0.00")
     total_sales_count = 0
+    cash_by_currency = {"USD": Decimal("0.00"), "VES": Decimal("0.00")}
 
-    # Track cash sales for reconciliation
-    cash_usd = Decimal("0.00")
-    cash_ves = Decimal("0.00")
-
-    for r in sales_by_method_raw:
-        raw_method = r[0] or "N/A"
-        currency = r[1] or "USD"
-        amount = Decimal(str(r[2]))
-        count = r[3]
-
-        # Normalize method name
+    for raw_method, raw_currency, raw_total, count in sales_by_method_raw:
+        raw_method = raw_method or "N/A"
+        currency_key = _currency_key(raw_currency)
+        amount = Decimal(str(raw_total or 0))
         normalized_method = normalize_payment_method(raw_method)
-
-        # Get currency symbol
-        symbol = get_currency_symbol(currency)
-
-        # Normalize currency name
-        currency_normalized = "VES" if symbol == "Bs" else "USD"
+        symbol = get_currency_symbol(raw_currency or "USD")
 
         payment_breakdown.append({
             "method": normalized_method,
-            "currency": currency_normalized,
+            "currency": currency_key,
             "symbol": symbol,
             "amount": float(amount),
             "count": count
         })
 
-        # Track totals
         total_sales_count += count
-        if symbol == "Bs":
+        if currency_key == "VES":
             total_revenue_ves += amount
-            # Track cash for reconciliation
-            if normalized_method == "Efectivo":
-                cash_ves += amount
-        else:
+        elif currency_key == "USD":
             total_revenue_usd += amount
-            # Track cash for reconciliation
-            if normalized_method == "Efectivo":
-                cash_usd += amount
 
-    # 3. Calculate change given
-    total_change_query = db.query(
-        func.sum(models.Sale.change_amount)
-    ).filter(
+        if _is_cash_method(raw_method):
+            cash_by_currency[currency_key] = cash_by_currency.get(currency_key, Decimal("0.00")) + amount
+
+    sessions = db.query(models.CashSession).filter(
+        models.CashSession.start_time < end_dt,
+        func.coalesce(models.CashSession.end_time, datetime.now()) >= start_dt
+    ).all()
+    session_ids = [s.id for s in sessions]
+
+    movements = []
+    if session_ids:
+        movements = db.query(models.CashMovement).filter(models.CashMovement.session_id.in_(session_ids)).all()
+
+    deposits = {"USD": Decimal("0.00"), "VES": Decimal("0.00")}
+    outbound = {"USD": Decimal("0.00"), "VES": Decimal("0.00")}
+    returns = {"USD": Decimal("0.00"), "VES": Decimal("0.00")}
+    cash_advances = {"USD": Decimal("0.00"), "VES": Decimal("0.00")}
+
+    for movement in movements:
+        currency_key = _currency_key(movement.currency)
+        if currency_key not in deposits:
+            deposits[currency_key] = Decimal("0.00")
+            outbound[currency_key] = Decimal("0.00")
+            returns[currency_key] = Decimal("0.00")
+            cash_advances[currency_key] = Decimal("0.00")
+        amount = Decimal(str(movement.amount or 0))
+        if movement.type in ["DEPOSIT", "IN"]:
+            deposits[currency_key] += amount
+        elif movement.type in ["EXPENSE", "WITHDRAWAL", "OUT", "RETURN", "CASH_ADVANCE"]:
+            outbound[currency_key] += amount
+            if movement.type == "RETURN":
+                returns[currency_key] += amount
+            if movement.type == "CASH_ADVANCE":
+                cash_advances[currency_key] += amount
+
+    if session_ids:
+        debt_payments = db.query(models.Payment).filter(models.Payment.session_id.in_(session_ids)).all()
+        for payment in debt_payments:
+            if not _is_cash_method(payment.payment_method):
+                continue
+            currency_key = _currency_key(payment.currency)
+            amount = Decimal(str(payment.amount or 0))
+            matching_deposit = db.query(models.CashMovement.id).filter(
+                models.CashMovement.session_id == payment.session_id,
+                models.CashMovement.type.in_(["DEPOSIT", "IN"]),
+                models.CashMovement.currency.in_(_matching_currencies(payment.currency)),
+                models.CashMovement.amount == amount,
+                (models.CashMovement.description.ilike("%abono%") |
+                 models.CashMovement.description.ilike("%cxc%") |
+                 models.CashMovement.description.ilike("%cuenta%"))
+            ).first()
+            if not matching_deposit:
+                deposits[currency_key] = deposits.get(currency_key, Decimal("0.00")) + amount
+
+    change = {"USD": Decimal("0.00"), "VES": Decimal("0.00")}
+    change_rows = db.query(models.Sale.change_currency, func.sum(models.Sale.change_amount)).filter(
         models.Sale.date >= start_dt,
-        models.Sale.date <= end_dt
-    ).scalar() or Decimal("0.00")
+        models.Sale.date < end_dt,
+        models.Sale.change_amount > 0
+    ).group_by(models.Sale.change_currency).all()
+    for currency, amount in change_rows:
+        change[_currency_key(currency)] = change.get(_currency_key(currency), Decimal("0.00")) + Decimal(str(amount or 0))
 
-    # 4. Cash Reconciliation (try to get from cash session, otherwise estimate)
-    # Find cash session for this date
-    cash_session = db.query(models.CashSession).filter(
-        models.CashSession.start_time >= start_dt,
-        models.CashSession.start_time <= end_dt
-    ).first()
+    initial = {"USD": Decimal("0.00"), "VES": Decimal("0.00")}
+    reported = {"USD": Decimal("0.00"), "VES": Decimal("0.00")}
+    for session in sessions:
+        initial["USD"] += Decimal(str(session.initial_cash or 0))
+        initial["VES"] += Decimal(str(session.initial_cash_bs or 0))
+        reported["USD"] += Decimal(str(session.final_cash_reported or 0))
+        reported["VES"] += Decimal(str(session.final_cash_reported_bs or 0))
 
-    cash_reconciliation = {
-        "usd": {
-            "inbound": float(cash_usd),
-            "outbound": 0.00,
-            "expected_in_drawer": float(cash_usd)
-        },
-        "ves": {
-            "inbound": float(cash_ves),
-            "outbound": 0.00,
-            "expected_in_drawer": float(cash_ves)
-        }
-    }
-
-    # If we have a cash session, use its data
-    if cash_session:
-        # Query movements for this session
-        movements = db.query(models.CashMovement).filter(
-            models.CashMovement.session_id == cash_session.id
-        ).all()
-
-        # Calculate movements
-        deposits_usd = sum(
-            (Decimal(str(m.amount)) for m in movements
-             if m.type == "DEPOSIT" and m.currency == "USD"),
-            Decimal("0.00")
+    def _recon(currency_key):
+        expected = (
+            initial.get(currency_key, Decimal("0.00"))
+            + cash_by_currency.get(currency_key, Decimal("0.00"))
+            + deposits.get(currency_key, Decimal("0.00"))
+            - outbound.get(currency_key, Decimal("0.00"))
+            - change.get(currency_key, Decimal("0.00"))
         )
-        expenses_usd = sum(
-            (Decimal(str(m.amount)) for m in movements
-             if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and m.currency == "USD"),
-            Decimal("0.00")
-        )
-
-        deposits_ves = sum(
-            (Decimal(str(m.amount)) for m in movements
-             if m.type == "DEPOSIT" and m.currency in ["VES", "Bs", "VEF"]),
-            Decimal("0.00")
-        )
-        expenses_ves = sum(
-            (Decimal(str(m.amount)) for m in movements
-             if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and m.currency in ["VES", "Bs", "VEF"]),
-            Decimal("0.00")
-        )
-
-        initial_usd = Decimal(str(cash_session.initial_cash or 0))
-        initial_ves = Decimal(str(cash_session.initial_cash_bs or 0))
-
-        cash_reconciliation = {
-            "usd": {
-                "initial": float(initial_usd),
-                "inbound": float(cash_usd + deposits_usd),
-                "outbound": float(expenses_usd),
-                "expected_in_drawer": float(initial_usd + cash_usd + deposits_usd - expenses_usd)
-            },
-            "ves": {
-                "initial": float(initial_ves),
-                "inbound": float(cash_ves + deposits_ves),
-                "outbound": float(expenses_ves),
-                "expected_in_drawer": float(initial_ves + cash_ves + deposits_ves - expenses_ves)
-            }
+        return {
+            "initial": float(initial.get(currency_key, Decimal("0.00"))),
+            "cash_sales": float(cash_by_currency.get(currency_key, Decimal("0.00"))),
+            "deposits": float(deposits.get(currency_key, Decimal("0.00"))),
+            "returns": float(returns.get(currency_key, Decimal("0.00"))),
+            "cash_advances": float(cash_advances.get(currency_key, Decimal("0.00"))),
+            "outbound": float(outbound.get(currency_key, Decimal("0.00"))),
+            "change": float(change.get(currency_key, Decimal("0.00"))),
+            "expected_in_drawer": float(expected),
+            "reported": float(reported.get(currency_key, Decimal("0.00"))),
+            "difference": float(reported.get(currency_key, Decimal("0.00")) - expected),
         }
 
-    # 5. Query Category Sales Breakdown
     category_sales = db.query(
         models.Category.name.label('category_name'),
         func.sum(models.SaleDetail.subtotal).label('total_usd'),
@@ -383,34 +397,32 @@ def get_daily_close(
         models.Sale, models.SaleDetail.sale_id == models.Sale.id
     ).filter(
         models.Sale.date >= start_dt,
-        models.Sale.date <= end_dt
+        models.Sale.date < end_dt
     ).group_by(
         models.Category.name
     ).all()
 
-    # Build category breakdown
-    category_breakdown = []
-    for cat in category_sales:
-        category_breakdown.append({
-            "category": cat.category_name or "Sin Categoría",
-            "total_usd": float(cat.total_usd or 0),
-            "count": cat.count
-        })
-
-    # Sort by revenue (highest first)
+    category_breakdown = [
+        {"category": cat.category_name or "Sin Categoría", "total_usd": float(cat.total_usd or 0), "count": cat.count}
+        for cat in category_sales
+    ]
     category_breakdown.sort(key=lambda x: x["total_usd"], reverse=True)
 
-    # 6. Build structured response
     return {
         "date": date.isoformat(),
         "summary": {
             "total_sales_count": total_sales_count,
             "total_revenue_usd": float(total_revenue_usd),
-            "total_revenue_ves": float(total_revenue_ves)
+            "total_revenue_ves": float(total_revenue_ves),
+            "sessions_count": len(sessions),
         },
         "payment_breakdown": payment_breakdown,
         "category_breakdown": category_breakdown,
-        "cash_reconciliation": cash_reconciliation,
-        "total_change_given": float(total_change_query),
+        "cash_reconciliation": {
+            "usd": _recon("USD"),
+            "ves": _recon("VES"),
+        },
+        "total_change_given": float(sum(change.values(), Decimal("0.00"))),
         "system_status": "OK"
     }
+

@@ -7,6 +7,7 @@ from ..models import models
 from .. import schemas
 from ..commission_engine import CommissionEngine
 from ..dependencies import get_current_active_user
+from ..utils.time_utils import get_venezuela_now
 from datetime import datetime, date
 from decimal import Decimal
 
@@ -53,6 +54,27 @@ def _payments_cover_difference(payments, difference_due: Decimal) -> bool:
             if rate > 0:
                 total_usd += amount / rate
     return total_usd + Decimal("0.05") >= difference_due
+
+
+def _resolve_cash_session_for_refund(db: Session, sale: models.Sale, current_user: Optional[models.User]):
+    """Pick the cash session that should absorb a refund/void movement."""
+    if sale.session_id:
+        sale_session = db.query(models.CashSession).filter(
+            models.CashSession.id == sale.session_id,
+            models.CashSession.status == "OPEN"
+        ).first()
+        if sale_session:
+            return sale_session
+
+    if current_user is not None:
+        user_session = db.query(models.CashSession).filter(
+            models.CashSession.status == "OPEN",
+            models.CashSession.user_id == current_user.id
+        ).order_by(models.CashSession.start_time.desc(), models.CashSession.id.desc()).first()
+        if user_session:
+            return user_session
+
+    return None
 
 
 def _validate_replacement_sale_ready(sale_data: schemas.SaleCreate, db: Session, current_user: models.User):
@@ -408,6 +430,11 @@ def process_return(
                     sdi.returned_at = datetime.now()
                     sdi.returned_in_return_id = new_return.id
 
+                db.add(models.ReturnDetailInstance(
+                    return_detail_id=ret_detail.id,
+                    product_instance_id=pi.id,
+                ))
+
         # Handle stock based on condition
         if item.condition == "GOOD":
             product.stock += actual_qty
@@ -426,6 +453,7 @@ def process_return(
                     ))
             kardex = models.Kardex(
                 product_id=product.id,
+                warehouse_id=sale.warehouse_id,
                 movement_type="RETURN",
                 quantity=actual_qty,
                 balance_after=product.stock,
@@ -437,6 +465,7 @@ def process_return(
             product.stock += actual_qty
             kardex_return = models.Kardex(
                 product_id=product.id,
+                warehouse_id=sale.warehouse_id,
                 movement_type="RETURN",
                 quantity=actual_qty,
                 balance_after=product.stock,
@@ -447,6 +476,7 @@ def process_return(
             product.stock -= actual_qty
             kardex_adjustment = models.Kardex(
                 product_id=product.id,
+                warehouse_id=sale.warehouse_id,
                 movement_type="ADJUSTMENT_OUT",
                 quantity=actual_qty,
                 balance_after=product.stock,
@@ -513,15 +543,7 @@ def process_return(
         if return_data.refund_currency == "Bs":
             amount_to_record = actual_cash_refund * return_data.exchange_rate
 
-        session = db.query(models.CashSession).filter(
-            models.CashSession.status == "OPEN"
-        ).first()
-
-        # Si no hay caja abierta → usar la sesión original de la venta
-        if not session and sale.session_id:
-            session = db.query(models.CashSession).filter(
-                models.CashSession.id == sale.session_id
-            ).first()
+        session = _resolve_cash_session_for_refund(db, sale, current_user)
 
         if session:
             cash_movement = models.CashMovement(
@@ -530,7 +552,8 @@ def process_return(
                 amount=amount_to_record,
                 currency=return_data.refund_currency,
                 exchange_rate=return_data.exchange_rate,
-                description=f"Devolución Venta #{sale.id}: {return_data.reason}"
+                description=f"Devolución Venta #{sale.id}: {return_data.reason}",
+                date=get_venezuela_now()
             )
             db.add(cash_movement)
         else:
@@ -640,7 +663,8 @@ def process_exchange_return(
 def void_sale(
     sale_id: int,
     reason: str = "ANULACIÓN DE VENTA - ERROR OPERATIVO",
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     """
     Anulación directa de una venta completa.
@@ -787,9 +811,7 @@ def void_sale(
 
     # Movimiento de caja
     if actual_cash_refund > 0:
-        session = db.query(models.CashSession).filter(models.CashSession.status == "OPEN").first()
-        if not session and sale.session_id:
-            session = db.query(models.CashSession).filter(models.CashSession.id == sale.session_id).first()
+        session = _resolve_cash_session_for_refund(db, sale, current_user)
         if session:
             db.add(models.CashMovement(
                 session_id=session.id,
@@ -797,7 +819,8 @@ def void_sale(
                 amount=actual_cash_refund,
                 currency="USD",
                 exchange_rate=1.0,
-                description=f"Anulación Venta #{sale.id}: {reason}"
+                description=f"Anulación Venta #{sale.id}: {reason}",
+                date=get_venezuela_now()
             ))
 
     db.commit()
