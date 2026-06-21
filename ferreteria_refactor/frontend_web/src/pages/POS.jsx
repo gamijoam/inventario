@@ -57,7 +57,7 @@ const POS = () => {
     const { user, updateUserPreferences } = useAuth();
     const { cart, addToCart, canAddToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart, overwriteCart } = useCart();
     const { isSessionOpen, openSession, loading: isCashLoading, session, activeRegister, registers, selectStationRegister, fetchRegisters } = useCash();
-    const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency, posSettings, priceLists, posCategories, posWarehouses } = useConfig();
+    const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency, posSettings, priceLists, posCategories, posWarehouses, refreshConfig } = useConfig();
     const { subscribe } = useWebSocket();
     const {
         products: displayProducts, isLoading: catalogLoading, isLoadingMore,
@@ -91,6 +91,13 @@ const POS = () => {
         if (listId) localStorage.setItem('pos_default_price_list_id', listId);
         else localStorage.removeItem('pos_default_price_list_id');
     }, [posSettings?.pos_default_price_list_id]);
+    useEffect(() => {
+        refreshConfig?.();
+        const handleFocus = () => refreshConfig?.();
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
+    }, []);
+
 
     const isCurrencyVisible = (code) => showCurrencies[code] !== false;
     const toggleCurrency = (code) => {

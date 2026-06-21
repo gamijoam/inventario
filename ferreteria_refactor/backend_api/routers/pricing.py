@@ -121,6 +121,14 @@ def _schema(db: Session) -> str:
     return s
 
 
+def _invalidate_pricing_cache(schema: str) -> None:
+    for resource in ("catalog", "price_lists", "pos_init", "pos-init"):
+        try:
+            invalidate_resource(schema, resource)
+        except Exception:
+            pass
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("/price-lists", response_model=List[PriceListOut])
@@ -230,8 +238,7 @@ def delete_price_list(list_id: int,
         ), {"id": list_id})
 
         db.commit()
-        try: invalidate_resource(s, "catalog")
-        except Exception: pass
+        _invalidate_pricing_cache(s)
         return {
             "success": True,
             "message": f"Lista \"{lst.name}\" eliminada",
@@ -323,8 +330,7 @@ def apply_bulk_margin(req: BulkMarginRequest,
             })
 
         db.commit()
-        try: invalidate_resource(s, "catalog")
-        except Exception: pass
+        _invalidate_pricing_cache(s)
         return ApplyResponse(
             log_id=log_id,
             margin_percent=float(margin),
@@ -399,8 +405,7 @@ def revert_change(log_id: int,
         ), {"u": current_user.email, "id": log_id})
 
         db.commit()
-        try: invalidate_resource(s, "catalog")
-        except Exception: pass
+        _invalidate_pricing_cache(s)
         return ApplyResponse(
             log_id=log_id, margin_percent=0, target=log.target,
             total_products=len(items),
