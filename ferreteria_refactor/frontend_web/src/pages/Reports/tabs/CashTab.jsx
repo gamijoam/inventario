@@ -10,7 +10,7 @@ import { useConfig } from '../../../context/ConfigContext';
 import { toast } from 'react-hot-toast';
 import { getApiErrorMessage } from '../../../utils/apiErrors';
 import { pdf } from '@react-pdf/renderer';
-import ZReportPDF from '../../../components/pdf/ZReportPDF';
+import CashAuditReportPDF from '../../../components/pdf/CashAuditReportPDF';
 import CashAuditModal from '../../../components/cash/CashAuditModal';
 import apiClient from '../../../config/axios';
 import clsx from 'clsx';
@@ -196,20 +196,21 @@ const CashTab = ({ dateRange }) => {
         }
     };
 
-    const handleDownloadZReportPDF = async (session) => {
-        const toastId = toast.loading('Generando PDF...');
+    const handleDownloadAuditPDF = async (session) => {
+        const toastId = toast.loading('Generando auditoria PDF...');
         try {
-            const blob = await pdf(<ZReportPDF session={session} business={business} />).toBlob();
+            const auditReport = await cashService.getAuditReport(session.id);
+            const blob = await pdf(<CashAuditReportPDF report={auditReport} business={business} />).toBlob();
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `Reporte-Z-Sesion-${session.id}.pdf`;
+            link.download = `Auditoria-Arqueo-Sesion-${session.id}.pdf`;
             link.click();
             URL.revokeObjectURL(url);
-            toast.success('PDF descargado', { id: toastId });
+            toast.success('Auditoria PDF descargada', { id: toastId });
         } catch (error) {
-            console.error('Error generating PDF:', error);
-            toast.error(getApiErrorMessage(error, 'Error al generar PDF'), { id: toastId });
+            console.error('Error generating audit PDF:', error);
+            toast.error(getApiErrorMessage(error, 'Error al generar auditoria PDF'), { id: toastId });
         }
     };
 
@@ -510,12 +511,12 @@ const CashTab = ({ dateRange }) => {
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleDownloadZReportPDF(session);
+                                                        handleDownloadAuditPDF(session);
                                                     }}
                                                     className="flex-1 h-10 px-3 bg-white border border-indigo-200 text-indigo-600 rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:border-indigo-300 transition-colors active:scale-95"
                                                 >
                                                     <FileText size={15} />
-                                                    Descargar PDF
+                                                    Descargar Auditoria
                                                 </button>
                                             </div>
                                         )}
