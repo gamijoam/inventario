@@ -35,7 +35,8 @@ const sourceLabel = {
 const bucketLabel = {
     cash_sales: 'Venta efectivo',
     digital_sales: 'Venta no efectivo',
-    debt_cash: 'Abono CxC',
+    debt_cash: 'Abono CxC / servicio',
+    service_cash: 'Servicio efectivo',
     manual_in: 'Entrada manual',
     manual_out: 'Salida manual',
     returns: 'Devolucion',
@@ -43,7 +44,9 @@ const bucketLabel = {
     change_given: 'Vuelto',
     purchase_cash: 'Pago proveedor',
     digital_advance_incoming: 'Contraparte digital',
-    digital_or_movement_backed_debt: 'CxC conciliado'
+    digital_or_movement_backed_debt: 'CxC conciliado',
+    non_cash_purchase_payment: 'Pago proveedor no efectivo',
+    non_cash_service_payment: 'Servicio no efectivo'
 };
 
 const C = {
@@ -54,6 +57,7 @@ const C = {
     soft: '#F8FAFC',
     softer: '#EEF2FF',
     primary: '#4F46E5',
+    blue: '#2563EB',
     green: '#047857',
     greenBg: '#ECFDF5',
     red: '#BE123C',
@@ -102,6 +106,25 @@ const styles = StyleSheet.create({
         fontSize: 8,
         fontFamily: 'Helvetica-Bold'
     },
+    diagnostic: {
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: C.line,
+        borderRadius: 6,
+        padding: 9,
+        backgroundColor: C.soft
+    },
+    diagnosticTitle: {
+        fontSize: 11,
+        fontFamily: 'Helvetica-Bold',
+        color: C.ink
+    },
+    diagnosticText: {
+        marginTop: 4,
+        fontSize: 8,
+        color: C.muted,
+        lineHeight: 1.35
+    },
     grid2: {
         flexDirection: 'row',
         gap: 8,
@@ -128,7 +151,7 @@ const styles = StyleSheet.create({
     },
     cardValue: {
         marginTop: 4,
-        fontSize: 13,
+        fontSize: 12,
         fontFamily: 'Helvetica-Bold',
         color: C.ink
     },
@@ -194,6 +217,7 @@ const styles = StyleSheet.create({
     bold: { fontFamily: 'Helvetica-Bold' },
     green: { color: C.green },
     red: { color: C.red },
+    blue: { color: C.blue },
     alertBox: {
         marginBottom: 6,
         padding: 7,
@@ -203,6 +227,22 @@ const styles = StyleSheet.create({
         backgroundColor: C.amberBg,
         color: C.amber,
         fontSize: 8,
+        fontFamily: 'Helvetica-Bold'
+    },
+    signatureWrap: {
+        flexDirection: 'row',
+        gap: 18,
+        marginTop: 16,
+        marginBottom: 8
+    },
+    signature: {
+        flex: 1,
+        paddingTop: 20,
+        borderTopWidth: 1,
+        borderTopColor: C.ink,
+        textAlign: 'center',
+        fontSize: 8,
+        color: C.muted,
         fontFamily: 'Helvetica-Bold'
     },
     footer: {
@@ -239,17 +279,24 @@ const CashAuditReportPDF = ({ report, business }) => {
     const methods = report.payment_methods || [];
     const transactions = report.transactions || [];
     const alerts = report.alerts || [];
+    const credits = report.credits || {};
     const generatedAt = fmtDate(new Date().toISOString());
+    const diagnostic = buildDiagnostic(summary);
 
     return (
         <Document>
             <Page size="A4" style={styles.page} wrap>
                 <View style={styles.header} fixed>
                     <View>
-                        <Text style={styles.title}>Auditoria de Arqueo de Caja</Text>
+                        <Text style={styles.title}>Informe de Arqueo de Caja</Text>
                         <Text style={styles.subtitle}>{business?.name || 'Mi Inventario'} - Sesion #{session.id || 'N/A'}</Text>
                     </View>
                     <Text style={styles.badge}>{report.schema_version || 'cash-audit'}</Text>
+                </View>
+
+                <View style={[styles.diagnostic, diagnostic.style]}>
+                    <Text style={[styles.diagnosticTitle, diagnostic.textStyle]}>{diagnostic.title}</Text>
+                    <Text style={styles.diagnosticText}>{diagnostic.description}</Text>
                 </View>
 
                 <View style={styles.grid2}>
@@ -265,22 +312,22 @@ const CashAuditReportPDF = ({ report, business }) => {
 
                 <View style={styles.grid4}>
                     <View style={styles.card}>
-                        <Text style={styles.cardLabel}>Transacciones</Text>
-                        <Text style={styles.cardValue}>{summary.transaction_count || 0}</Text>
-                    </View>
-                    <View style={styles.card}>
-                        <Text style={styles.cardLabel}>Metodos</Text>
-                        <Text style={styles.cardValue}>{summary.payment_method_count || 0}</Text>
-                    </View>
-                    <View style={styles.card}>
                         <Text style={styles.cardLabel}>Esperado</Text>
                         <Text style={styles.cardValue}>{fmtCurrency(summary.cash_expected_total_display_only, 'USD')}</Text>
+                    </View>
+                    <View style={styles.card}>
+                        <Text style={styles.cardLabel}>Declarado</Text>
+                        <Text style={styles.cardValue}>{fmtCurrency(summary.cash_reported_total_display_only, 'USD')}</Text>
                     </View>
                     <View style={styles.card}>
                         <Text style={styles.cardLabel}>Diferencia</Text>
                         <Text style={[styles.cardValue, Math.abs(Number(summary.cash_difference_total_display_only || 0)) > 0.01 ? styles.red : styles.green]}>
                             {fmtCurrency(summary.cash_difference_total_display_only, 'USD')}
                         </Text>
+                    </View>
+                    <View style={styles.card}>
+                        <Text style={styles.cardLabel}>Alertas</Text>
+                        <Text style={[styles.cardValue, Number(summary.alert_count || 0) > 0 ? styles.red : styles.green]}>{summary.alert_count || 0}</Text>
                     </View>
                 </View>
 
@@ -290,6 +337,8 @@ const CashAuditReportPDF = ({ report, business }) => {
                         <InfoRow label="Apertura" value={fmtDate(session.start_time)} />
                         <InfoRow label="Cierre" value={fmtDate(session.end_time)} />
                         <InfoRow label="Estado" value={session.status || 'N/A'} />
+                        <InfoRow label="Transacciones" value={summary.transaction_count || 0} />
+                        <InfoRow label="Metodos de pago" value={summary.payment_method_count || 0} />
                         <InfoRow label="Generado" value={generatedAt} last />
                     </View>
                 </View>
@@ -310,30 +359,39 @@ const CashAuditReportPDF = ({ report, business }) => {
                     <View style={styles.tableHeader}>
                         <Text style={[styles.th, { flex: 0.7 }]}>Moneda</Text>
                         <Text style={[styles.th, styles.right, { flex: 1 }]}>Inicial</Text>
-                        <Text style={[styles.th, styles.right, { flex: 1 }]}>Ventas</Text>
+                        <Text style={[styles.th, styles.right, { flex: 1 }]}>Cobros</Text>
                         <Text style={[styles.th, styles.right, { flex: 1 }]}>Entradas</Text>
                         <Text style={[styles.th, styles.right, { flex: 1 }]}>Salidas</Text>
                         <Text style={[styles.th, styles.right, { flex: 1 }]}>Esperado</Text>
-                        <Text style={[styles.th, styles.right, { flex: 1 }]}>Reportado</Text>
+                        <Text style={[styles.th, styles.right, { flex: 1 }]}>Declarado</Text>
                         <Text style={[styles.th, styles.right, { flex: 1 }]}>Dif.</Text>
                     </View>
                     {cashRows.map((row) => {
+                        const inflows = Number(row.cash_sales || 0) + Number(row.debt_cash || 0) + Number(row.manual_in || 0);
                         const outflows = Number(row.manual_out || 0) + Number(row.purchase_cash || 0) + Number(row.returns || 0) + Number(row.cash_advances || 0) + Number(row.change_given || 0);
-                        const inflows = Number(row.manual_in || 0) + Number(row.debt_cash || 0);
                         const diff = Number(row.difference || 0);
                         return (
                             <View key={row.currency} style={styles.tr} wrap={false}>
                                 <Text style={[styles.td, styles.bold, { flex: 0.7 }]}>{row.currency}</Text>
                                 <Text style={[styles.td, styles.right, { flex: 1 }]}>{fmtCurrency(row.initial, row.currency)}</Text>
                                 <Text style={[styles.td, styles.right, { flex: 1 }]}>{fmtCurrency(row.cash_sales, row.currency)}</Text>
-                                <Text style={[styles.td, styles.right, { flex: 1 }]}>{fmtCurrency(inflows, row.currency)}</Text>
+                                <Text style={[styles.td, styles.right, { flex: 1 }]}>{fmtCurrency(inflows - Number(row.cash_sales || 0), row.currency)}</Text>
                                 <Text style={[styles.td, styles.right, { flex: 1 }]}>{fmtCurrency(outflows, row.currency)}</Text>
                                 <Text style={[styles.td, styles.right, styles.bold, { flex: 1 }]}>{fmtCurrency(row.expected, row.currency)}</Text>
                                 <Text style={[styles.td, styles.right, { flex: 1 }]}>{fmtCurrency(row.reported, row.currency)}</Text>
-                                <Text style={[styles.td, styles.right, styles.bold, diff < -0.01 ? styles.red : diff > 0.01 ? styles.green : null, { flex: 1 }]}>{fmtCurrency(diff, row.currency)}</Text>
+                                <Text style={[styles.td, styles.right, styles.bold, diff < -0.01 ? styles.red : diff > 0.01 ? styles.blue : styles.green, { flex: 1 }]}>{fmtCurrency(diff, row.currency)}</Text>
                             </View>
                         );
                     })}
+                </View>
+
+                <View style={styles.section} wrap={false}>
+                    <Text style={styles.sectionTitle}>Creditos y cuentas por cobrar</Text>
+                    <View style={styles.sectionBody}>
+                        <InfoRow label="Creditos abiertos en el turno" value={`${credits.opened_count || 0} / ${fmtCurrency(credits.opened_amount || 0, 'USD')}`} />
+                        <InfoRow label="Creditos pendientes" value={`${credits.pending_count || 0} / ${fmtCurrency(credits.pending_amount || 0, 'USD')}`} />
+                        <InfoRow label="Creditos pagados" value={credits.paid_count || 0} last />
+                    </View>
                 </View>
 
                 <View style={styles.section}>
@@ -381,6 +439,11 @@ const CashAuditReportPDF = ({ report, business }) => {
                     ))}
                 </View>
 
+                <View style={styles.signatureWrap} wrap={false}>
+                    <Text style={styles.signature}>Firma cajero</Text>
+                    <Text style={styles.signature}>Firma supervisor</Text>
+                </View>
+
                 <View style={styles.footer} fixed>
                     <Text style={styles.footerText}>Mi Inventario Facil - Informe de auditoria de caja</Text>
                     <Text style={styles.footerText} render={({ pageNumber, totalPages }) => `Pagina ${pageNumber} de ${totalPages}`} />
@@ -388,6 +451,35 @@ const CashAuditReportPDF = ({ report, business }) => {
             </Page>
         </Document>
     );
+};
+
+const buildDiagnostic = (summary) => {
+    const diff = Number(summary.cash_difference_total_display_only || 0);
+    const alertCount = Number(summary.alert_count || 0);
+    if (Math.abs(diff) <= 0.01 && alertCount === 0) {
+        return {
+            title: 'Caja cuadrada sin alertas',
+            description: 'El efectivo declarado coincide con el calculo del sistema y no hay advertencias operativas en esta sesion.',
+            style: { borderColor: '#A7F3D0', backgroundColor: C.greenBg },
+            textStyle: { color: C.green }
+        };
+    }
+    if (Math.abs(diff) > 0.01) {
+        return {
+            title: diff < 0 ? 'Faltante detectado' : 'Sobrante detectado',
+            description: diff < 0
+                ? 'El cajero declaro menos efectivo que el esperado. Revisar salidas, devoluciones, avances, vuelto y pagos en efectivo.'
+                : 'El cajero declaro mas efectivo que el esperado. Revisar entradas manuales, abonos CxC y cobros que pudieron quedar sin registrar.',
+            style: { borderColor: diff < 0 ? '#FDA4AF' : '#93C5FD', backgroundColor: diff < 0 ? C.redBg : '#EFF6FF' },
+            textStyle: { color: diff < 0 ? C.red : C.blue }
+        };
+    }
+    return {
+        title: 'Caja cuadrada con alertas',
+        description: 'El efectivo cuadra, pero existen movimientos que conviene revisar antes de archivar el cierre.',
+        style: { borderColor: '#FCD34D', backgroundColor: C.amberBg },
+        textStyle: { color: C.amber }
+    };
 };
 
 const InfoRow = ({ label, value, last }) => (
