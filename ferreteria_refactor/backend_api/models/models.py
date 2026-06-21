@@ -22,6 +22,7 @@ class ProductInstanceStatus(enum.Enum):
     SOLD = "SOLD"
     RMA = "RMA"
     TRANSIT = "TRANSIT"
+    RESERVED = "RESERVED"
     DAMAGED = "DAMAGED"
 
 class WarrantyUnit(str, enum.Enum):
@@ -583,6 +584,116 @@ class CashMovement(Base):
 
     def __repr__(self):
         return f"<CashMovement(type='{self.type}', amount={self.amount})>"
+
+
+class LayawaySetting(Base):
+    __tablename__ = "layaway_settings"
+
+    id = Column(Integer, primary_key=True, default=1)
+    enabled = Column(Boolean, default=True, nullable=False)
+    default_term_days = Column(Integer, default=10, nullable=False)
+    max_term_days = Column(Integer, default=30, nullable=False)
+    minimum_down_payment_type = Column(String(16), default="percent", nullable=False)
+    minimum_down_payment_value = Column(Numeric(18, 4), default=30.0000, nullable=False)
+    expiration_action = Column(String(32), default="manual_review", nullable=False)
+    expired_payment_policy = Column(String(32), default="store_credit", nullable=False)
+    allow_extensions = Column(Boolean, default=True, nullable=False)
+    require_customer = Column(Boolean, default=True, nullable=False)
+    allow_serialized = Column(Boolean, default=True, nullable=False)
+    allow_non_serialized = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=get_venezuela_now)
+    updated_at = Column(DateTime, default=get_venezuela_now, onupdate=datetime.datetime.now)
+
+
+class Layaway(Base):
+    __tablename__ = "layaways"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(40), unique=True, nullable=False, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True, index=True)
+    created_by_user_id = Column(Integer, ForeignKey("public.users.id"), nullable=True)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
+    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=True)
+    status = Column(String(24), default="ACTIVE", nullable=False, index=True)
+    total_amount = Column(Numeric(18, 4), default=0.0000, nullable=False)
+    paid_amount = Column(Numeric(18, 4), default=0.0000, nullable=False)
+    balance_amount = Column(Numeric(18, 4), default=0.0000, nullable=False)
+    currency = Column(String(16), default="USD", nullable=False)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    completed_at = Column(DateTime, nullable=True)
+    cancelled_at = Column(DateTime, nullable=True)
+    notes = Column(Text, nullable=True)
+    cancellation_reason = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+    updated_at = Column(DateTime, default=get_venezuela_now, onupdate=datetime.datetime.now)
+
+    customer = relationship("Customer")
+    created_by_user = relationship("User", foreign_keys=[created_by_user_id])
+    warehouse = relationship("Warehouse")
+    sale = relationship("Sale")
+    items = relationship("LayawayItem", back_populates="layaway", cascade="all, delete-orphan")
+    payments = relationship("LayawayPayment", back_populates="layaway", cascade="all, delete-orphan")
+    events = relationship("LayawayEvent", back_populates="layaway", cascade="all, delete-orphan")
+
+
+class LayawayItem(Base):
+    __tablename__ = "layaway_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    layaway_id = Column(Integer, ForeignKey("layaways.id"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
+    product_instance_id = Column(Integer, ForeignKey("product_instances.id"), nullable=True, index=True)
+    quantity = Column(Numeric(12, 3), default=1.000, nullable=False)
+    unit_price = Column(Numeric(18, 4), default=0.0000, nullable=False)
+    subtotal = Column(Numeric(18, 4), default=0.0000, nullable=False)
+    status = Column(String(24), default="ACTIVE", nullable=False, index=True)
+    product_name_snapshot = Column(Text, nullable=True)
+    serial_number_snapshot = Column(String(255), nullable=True)
+    color_name = Column(String(60), nullable=True)
+    color_hex = Column(String(16), nullable=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    layaway = relationship("Layaway", back_populates="items")
+    product = relationship("Product")
+    warehouse = relationship("Warehouse")
+    product_instance = relationship("ProductInstance")
+
+
+class LayawayPayment(Base):
+    __tablename__ = "layaway_payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    layaway_id = Column(Integer, ForeignKey("layaways.id"), nullable=False, index=True)
+    amount = Column(Numeric(18, 4), nullable=False)
+    currency = Column(String(16), default="USD", nullable=False)
+    exchange_rate = Column(Numeric(14, 4), default=1.0000, nullable=False)
+    payment_method = Column(String(120), default="Efectivo", nullable=False)
+    reference = Column(String(255), nullable=True)
+    session_id = Column(Integer, ForeignKey("cash_sessions.id"), nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("public.users.id"), nullable=True)
+    status = Column(String(24), default="APPLIED", nullable=False)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    layaway = relationship("Layaway", back_populates="payments")
+    session = relationship("CashSession")
+    created_by_user = relationship("User", foreign_keys=[created_by_user_id])
+
+
+class LayawayEvent(Base):
+    __tablename__ = "layaway_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    layaway_id = Column(Integer, ForeignKey("layaways.id"), nullable=False, index=True)
+    event_type = Column(String(40), nullable=False)
+    user_id = Column(Integer, ForeignKey("public.users.id"), nullable=True)
+    description = Column(Text, nullable=True)
+    payload = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    layaway = relationship("Layaway", back_populates="events")
+    user = relationship("User", foreign_keys=[user_id])
 
 class UserRole(str, enum.Enum):
     ADMIN = "ADMIN"

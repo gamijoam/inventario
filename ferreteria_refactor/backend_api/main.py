@@ -57,6 +57,7 @@ from .routers.employees import router as employees_router
 from .routers.warehouses import router as warehouses_router
 from .routers.transfers import router as transfers_router
 from .routers.warranties import router as warranties_router # NEW: Warranty System
+from .routers.layaways import router as layaways_router
 from .routers.pharmacy import router as pharmacy_router  # NEW: Pharmacy Module
 from .routers.admin import router as admin_router  # NEW: Admin panel
 from .routers.support_client import router as support_client_router
@@ -268,6 +269,7 @@ v1_router.include_router(employees_router, tags=["Barbería y Empleados"])
 v1_router.include_router(cloud_router, tags=["Cloud Configuration"])
 v1_router.include_router(chatbot_router, tags=["ChatBot WhatsApp"])
 v1_router.include_router(warranties_router, tags=["Garantías"])
+v1_router.include_router(layaways_router, tags=["Apartados"])
 v1_router.include_router(pharmacy_router, tags=["Farmacia"])
 from .routers.admin_tasks import router as admin_tasks_router # NEW: Admin Tasks
 from .routers.desktop_licenses import router as desktop_licenses_router  # Desktop license management
