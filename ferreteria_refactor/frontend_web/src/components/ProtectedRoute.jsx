@@ -11,8 +11,8 @@ import { useAuth } from '../context/AuthContext';
  * @param {ReactNode} children - The component to render if authorized
  * @param {string} redirectTo - Where to redirect if unauthorized (default: '/unauthorized')
  */
-const ProtectedRoute = ({ roles, children, redirectTo = '/unauthorized' }) => {
-    const { user, isAuthenticated, hasRole, loading } = useAuth();
+const ProtectedRoute = ({ roles, permissions, children, redirectTo = '/unauthorized' }) => {
+    const { user, isAuthenticated, hasRole, hasAnyPermission, loading } = useAuth();
 
     // Wait for auth to load
     if (loading) {
@@ -35,6 +35,12 @@ const ProtectedRoute = ({ roles, children, redirectTo = '/unauthorized' }) => {
     // If roles are specified, check if user has required role
     if (roles && !hasRole(roles)) {
         console.warn(`Access denied: User ${user.username} (${user.role}) attempted to access route requiring ${roles}`);
+        return <Navigate to={redirectTo} replace />;
+    }
+
+    // If permissions are specified, check fine-grained access.
+    if (permissions && !hasAnyPermission(permissions)) {
+        console.warn(`Access denied: User ${user.username} (${user.role}) attempted to access route requiring permissions ${permissions}`);
         return <Navigate to={redirectTo} replace />;
     }
 

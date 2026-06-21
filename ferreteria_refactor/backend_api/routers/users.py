@@ -18,12 +18,36 @@ class PinVerifyRequest(BaseModel):
     pin: str
 
 
+class PermissionOverridesRequest(BaseModel):
+    allow: List[str] = []
+    deny: List[str] = []
+
+
 router = APIRouter(
     prefix="/users",
     tags=["users"]
 )
 
 security = HTTPBasic()
+
+def _resolve_target_tenant_id(db: Session, current_user: models.User):
+    target_tenant_id = current_user.tenant_id
+    if target_tenant_id is None:
+        from ..tenant_context import get_tenant_schema
+        from ..models.tenant import Tenant
+        current_schema = get_tenant_schema()
+        if current_schema != "public":
+            tenant = db.query(Tenant).filter(Tenant.schema_name == current_schema).first()
+            if tenant:
+                target_tenant_id = tenant.id
+    return target_tenant_id
+
+
+def _can_manage_permissions(db: Session, current_user: models.User) -> bool:
+    if current_user.is_superuser or current_user.role == models.UserRole.ADMIN:
+        return True
+    from ..services.permissions_service import user_has_permission
+    return user_has_permission(db, current_user, "config.permissions.manage")
 
 # Deleted local hash_password and verify_password in favor of imported ones
 
@@ -193,6 +217,23 @@ def get_current_user_permissions(
         "tree": build_permission_tree(catalog),
     }
 
+@router.get("/permissions/catalog")
+def get_permissions_catalog(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    if not _can_manage_permissions(db, current_user):
+        raise HTTPException(status_code=403, detail="No tienes permisos para administrar accesos")
+
+    from ..services.permissions_service import build_permission_tree, list_permission_catalog
+
+    catalog = list_permission_catalog(db)
+    return {
+        "permissions": catalog,
+        "tree": build_permission_tree(catalog),
+    }
+
+
 @router.post("/me/onboarding-completed")
 def complete_onboarding(
     db: Session = Depends(get_db),
@@ -222,6 +263,65 @@ def get_all_users(
 
     # Filter by tenant_id to prevent data leakage
     return db.query(models.User).filter(models.User.tenant_id == target_tenant_id).all()
+
+@router.get("/{user_id}/permissions")
+def get_user_permissions_detail(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    if not _can_manage_permissions(db, current_user):
+        raise HTTPException(status_code=403, detail="No tienes permisos para administrar accesos")
+
+    target_tenant_id = _resolve_target_tenant_id(db, current_user)
+    user = db.query(models.User).filter(
+        models.User.id == user_id,
+        models.User.tenant_id == target_tenant_id
+    ).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado en tu empresa")
+
+    from ..services.permissions_service import build_permission_tree, get_user_permission_details, list_permission_catalog
+
+    details = get_user_permission_details(db, user, target_tenant_id)
+    details["tree"] = build_permission_tree(list_permission_catalog(db))
+    return details
+
+
+@router.put("/{user_id}/permissions")
+def update_user_permissions_detail(
+    user_id: int,
+    payload: PermissionOverridesRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    if not _can_manage_permissions(db, current_user):
+        raise HTTPException(status_code=403, detail="No tienes permisos para administrar accesos")
+
+    target_tenant_id = _resolve_target_tenant_id(db, current_user)
+    user = db.query(models.User).filter(
+        models.User.id == user_id,
+        models.User.tenant_id == target_tenant_id
+    ).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado en tu empresa")
+
+    try:
+        from ..services.permissions_service import set_user_permission_overrides
+        updated = set_user_permission_overrides(
+            db,
+            user,
+            target_tenant_id,
+            payload.allow,
+            payload.deny,
+            actor_user_id=current_user.id,
+        )
+        log_action(db, user_id=current_user.id, action="UPDATE_PERMISSIONS", table_name="users", record_id=user_id)
+        db.commit()
+        return updated
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
 
 @router.get("/{user_id}", response_model=schemas.UserRead)
 def get_user(

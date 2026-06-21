@@ -275,3 +275,134 @@ def user_has_all_permissions(db: Session, user: User, permission_codes: Sequence
     permissions = get_user_permissions(db, user, tenant_id)
     return all(code in permissions for code in permission_codes)
 
+
+def role_base_permissions(db: Session, role: str, tenant_id: Optional[int] = None) -> Set[str]:
+    fallback = set(DEFAULT_ROLE_PERMISSIONS.get(role, set()))
+    try:
+        if not permissions_tables_available(db):
+            return fallback
+        if tenant_id is None:
+            return fallback
+        rows = db.execute(text("""
+            SELECT DISTINCT rpp.permission_code
+            FROM public.role_profiles rp
+            JOIN public.role_profile_permissions rpp
+              ON rpp.role_profile_id = rp.id
+             AND rpp.allowed = TRUE
+            JOIN public.permissions p
+              ON p.code = rpp.permission_code
+             AND p.is_active = TRUE
+            WHERE rp.tenant_id = :tenant_id
+              AND rp.code = :role
+              AND rp.is_active = TRUE
+        """), {"tenant_id": tenant_id, "role": role}).scalars().all()
+        return set(rows) if rows else fallback
+    except SQLAlchemyError:
+        db.rollback()
+        return fallback
+
+
+def get_user_permission_details(db: Session, user: User, tenant_id: Optional[int] = None) -> dict:
+    resolved_tenant_id = resolve_tenant_id(db, user, tenant_id)
+    role = normalize_role(user.role)
+    base_permissions = role_base_permissions(db, role, resolved_tenant_id)
+    effective_permissions = get_user_permissions(db, user, resolved_tenant_id)
+    overrides = []
+
+    try:
+        if permissions_tables_available(db) and resolved_tenant_id is not None:
+            rows = db.execute(text("""
+                SELECT permission_code, effect, reason, updated_at, created_at
+                FROM public.user_permission_overrides
+                WHERE user_id = :user_id
+                  AND tenant_id = :tenant_id
+                ORDER BY permission_code
+            """), {"user_id": user.id, "tenant_id": resolved_tenant_id}).mappings().all()
+            overrides = [dict(row) for row in rows]
+    except SQLAlchemyError:
+        db.rollback()
+
+    return {
+        "user_id": user.id,
+        "tenant_id": resolved_tenant_id,
+        "role": role,
+        "base_permissions": sorted(base_permissions),
+        "permissions": sorted(effective_permissions),
+        "overrides": overrides,
+    }
+
+
+def set_user_permission_overrides(
+    db: Session,
+    user: User,
+    tenant_id: int,
+    allow: Sequence[str],
+    deny: Sequence[str],
+    actor_user_id: Optional[int] = None,
+) -> dict:
+    allow_set = {code for code in allow if code in ALL_PERMISSION_CODES}
+    deny_set = {code for code in deny if code in ALL_PERMISSION_CODES}
+    overlap = allow_set & deny_set
+    if overlap:
+        raise ValueError(f"Permisos repetidos en allow y deny: {', '.join(sorted(overlap))}")
+
+    try:
+        if not permissions_tables_available(db):
+            raise ValueError("La migracion de permisos no esta aplicada")
+
+        existing = db.execute(text("""
+            SELECT permission_code, effect
+            FROM public.user_permission_overrides
+            WHERE user_id = :user_id
+              AND tenant_id = :tenant_id
+        """), {"user_id": user.id, "tenant_id": tenant_id}).mappings().all()
+        old_value = {row["permission_code"]: row["effect"] for row in existing}
+
+        db.execute(text("""
+            DELETE FROM public.user_permission_overrides
+            WHERE user_id = :user_id
+              AND tenant_id = :tenant_id
+        """), {"user_id": user.id, "tenant_id": tenant_id})
+
+        for permission_code in sorted(allow_set):
+            db.execute(text("""
+                INSERT INTO public.user_permission_overrides
+                    (user_id, tenant_id, permission_code, effect, created_by_user_id, updated_at)
+                VALUES (:user_id, :tenant_id, :permission_code, 'allow', :actor_user_id, NOW())
+            """), {
+                "user_id": user.id,
+                "tenant_id": tenant_id,
+                "permission_code": permission_code,
+                "actor_user_id": actor_user_id,
+            })
+
+        for permission_code in sorted(deny_set):
+            db.execute(text("""
+                INSERT INTO public.user_permission_overrides
+                    (user_id, tenant_id, permission_code, effect, created_by_user_id, updated_at)
+                VALUES (:user_id, :tenant_id, :permission_code, 'deny', :actor_user_id, NOW())
+            """), {
+                "user_id": user.id,
+                "tenant_id": tenant_id,
+                "permission_code": permission_code,
+                "actor_user_id": actor_user_id,
+            })
+
+        new_value = {code: "allow" for code in allow_set} | {code: "deny" for code in deny_set}
+        db.execute(text("""
+            INSERT INTO public.permission_audit_log
+                (tenant_id, actor_user_id, target_user_id, action, old_value, new_value)
+            VALUES (:tenant_id, :actor_user_id, :target_user_id, 'USER_PERMISSION_OVERRIDES_UPDATED', CAST(:old_value AS jsonb), CAST(:new_value AS jsonb))
+        """), {
+            "tenant_id": tenant_id,
+            "actor_user_id": actor_user_id,
+            "target_user_id": user.id,
+            "old_value": __import__('json').dumps(old_value),
+            "new_value": __import__('json').dumps(new_value),
+        })
+
+        db.commit()
+        return get_user_permission_details(db, user, tenant_id)
+    except SQLAlchemyError:
+        db.rollback()
+        raise

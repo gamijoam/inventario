@@ -12,6 +12,22 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [permissions, setPermissions] = useState([]);
+    const [permissionTree, setPermissionTree] = useState([]);
+
+    const fetchUserPermissions = async () => {
+        try {
+            const response = await apiClient.get('/users/me/permissions');
+            setPermissions(response.data.permissions || []);
+            setPermissionTree(response.data.tree || []);
+            return response.data;
+        } catch (error) {
+            console.warn('No se pudieron cargar permisos modulares, usando rol base', error);
+            setPermissions([]);
+            setPermissionTree([]);
+            return null;
+        }
+    };
 
     // Fetch current user profile from backend
     // This endpoint will use the HttpOnly cookie automatically
@@ -41,6 +57,7 @@ export const AuthProvider = ({ children }) => {
 
             setUser(userData);
             setIsAuthenticated(true);
+            await fetchUserPermissions();
             console.log('✅ User authenticated:', userData.username);
 
             return userData;
@@ -50,6 +67,8 @@ export const AuthProvider = ({ children }) => {
             // If 401, user is not authenticated
             if (error.response?.status === 401) {
                 setUser(null);
+                setPermissions([]);
+                setPermissionTree([]);
                 setIsAuthenticated(false);
             }
 
@@ -84,6 +103,8 @@ export const AuthProvider = ({ children }) => {
                 // If fetch fails (401), user needs to login
                 console.log('No active session found');
                 setUser(null);
+                setPermissions([]);
+                setPermissionTree([]);
                 setIsAuthenticated(false);
             } finally {
                 setLoading(false);
@@ -131,6 +152,8 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             console.error("❌ Login failed", error);
             setUser(null);
+            setPermissions([]);
+            setPermissionTree([]);
             setIsAuthenticated(false);
             throw error;
         }
@@ -150,6 +173,8 @@ export const AuthProvider = ({ children }) => {
         } finally {
             // Clear local state
             setUser(null);
+            setPermissions([]);
+            setPermissionTree([]);
             setIsAuthenticated(false);
 
             // 🧹 PURGE STORAGE (preserve API URL, tenant, and notification seen-flags)
@@ -198,6 +223,19 @@ export const AuthProvider = ({ children }) => {
         return rolesArray.includes(user.role);
     };
 
+    const hasPermission = (permissionCode) => {
+        if (!permissionCode) return true;
+        if (user?.is_superuser || user?.role === 'ADMIN') return true;
+        return permissions.includes(permissionCode);
+    };
+
+    const hasAnyPermission = (permissionCodes = []) => {
+        const codesArray = Array.isArray(permissionCodes) ? permissionCodes : [permissionCodes];
+        if (!codesArray.length) return true;
+        if (user?.is_superuser || user?.role === 'ADMIN') return true;
+        return codesArray.some((code) => permissions.includes(code));
+    };
+
     // Update user preferences
     const updateUserPreferences = async (newPreferences) => {
         if (!user) return;
@@ -229,6 +267,11 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         hasRole,
+        hasPermission,
+        hasAnyPermission,
+        permissions,
+        permissionTree,
+        refreshPermissions: fetchUserPermissions,
         updateUserPreferences,
         refreshUser: fetchUserProfile
     };

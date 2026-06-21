@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, Edit, Trash2, Key, Shield, X, Check, Lock } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Key, Shield, X, Check, Lock, SlidersHorizontal, Search, ShieldCheck } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { useAuth } from '../../../context/AuthContext';
 import SetPinModal from '../../../components/users/SetPinModal';
@@ -16,6 +16,12 @@ const UsuariosTab = () => {
     const [showModal, setShowModal] = useState(false);
     const [modalMode, setModalMode] = useState('create'); // 'create', 'edit', 'password'
     const [selectedUser, setSelectedUser] = useState(null);
+    const [showPermissionsModal, setShowPermissionsModal] = useState(false);
+    const [permissionsUser, setPermissionsUser] = useState(null);
+    const [permissionDetails, setPermissionDetails] = useState(null);
+    const [permissionDraft, setPermissionDraft] = useState({ allow: [], deny: [] });
+    const [permissionSearch, setPermissionSearch] = useState('');
+    const [permissionsLoading, setPermissionsLoading] = useState(false);
 
     // PIN Modal state
     const [showPinModal, setShowPinModal] = useState(false);
@@ -187,6 +193,102 @@ const UsuariosTab = () => {
         }
     };
 
+
+    const handleOpenPermissionsModal = async (user) => {
+        setPermissionsUser(user);
+        setShowPermissionsModal(true);
+        setPermissionSearch('');
+        setPermissionsLoading(true);
+        try {
+            const response = await apiClient.get(`/users/${user.id}/permissions`);
+            const details = response.data;
+            const allow = [];
+            const deny = [];
+            (details.overrides || []).forEach((override) => {
+                if (override.effect === 'allow') allow.push(override.permission_code);
+                if (override.effect === 'deny') deny.push(override.permission_code);
+            });
+            setPermissionDetails(details);
+            setPermissionDraft({ allow, deny });
+        } catch (error) {
+            console.error('Error loading permissions:', error);
+            toast.error(getApiErrorMessage(error, 'No se pudieron cargar los permisos'));
+            setShowPermissionsModal(false);
+        } finally {
+            setPermissionsLoading(false);
+        }
+    };
+
+    const closePermissionsModal = () => {
+        setShowPermissionsModal(false);
+        setPermissionsUser(null);
+        setPermissionDetails(null);
+        setPermissionDraft({ allow: [], deny: [] });
+        setPermissionSearch('');
+    };
+
+    const getPermissionState = (permissionCode) => {
+        const base = new Set(permissionDetails?.base_permissions || []);
+        const allow = new Set(permissionDraft.allow || []);
+        const deny = new Set(permissionDraft.deny || []);
+        const isBase = base.has(permissionCode);
+        const isAllowed = allow.has(permissionCode) || (isBase && !deny.has(permissionCode));
+        return { isBase, isAllowed, isDenied: deny.has(permissionCode), isCustomAllow: allow.has(permissionCode) };
+    };
+
+    const togglePermission = (permissionCode) => {
+        if (!permissionDetails) return;
+        const state = getPermissionState(permissionCode);
+        setPermissionDraft((current) => {
+            const allow = new Set(current.allow || []);
+            const deny = new Set(current.deny || []);
+
+            if (state.isAllowed) {
+                allow.delete(permissionCode);
+                if (state.isBase) deny.add(permissionCode);
+            } else {
+                deny.delete(permissionCode);
+                if (!state.isBase) allow.add(permissionCode);
+            }
+
+            return { allow: Array.from(allow).sort(), deny: Array.from(deny).sort() };
+        });
+    };
+
+    const resetPermissionOverrides = () => {
+        setPermissionDraft({ allow: [], deny: [] });
+    };
+
+    const savePermissionOverrides = async () => {
+        if (!permissionsUser) return;
+        setPermissionsLoading(true);
+        try {
+            const response = await apiClient.put(`/users/${permissionsUser.id}/permissions`, permissionDraft);
+            const details = response.data;
+            setPermissionDetails({ ...details, tree: permissionDetails?.tree || [] });
+            toast.success('Permisos actualizados');
+            closePermissionsModal();
+        } catch (error) {
+            console.error('Error saving permissions:', error);
+            toast.error(getApiErrorMessage(error, 'No se pudieron guardar los permisos'));
+        } finally {
+            setPermissionsLoading(false);
+        }
+    };
+
+    const filteredPermissionTree = (permissionDetails?.tree || [])
+        .map((group) => ({
+            ...group,
+            permissions: (group.permissions || []).filter((permission) => {
+                const query = permissionSearch.trim().toLowerCase();
+                if (!query) return true;
+                return [permission.code, permission.label, permission.description, group.label]
+                    .filter(Boolean)
+                    .some((value) => String(value).toLowerCase().includes(query));
+            })
+        }))
+        .filter((group) => group.permissions.length > 0);
+
     return (
         <div className="space-y-5">
             {/* Header */}
@@ -242,7 +344,7 @@ const UsuariosTab = () => {
                                     </div>
                                 </div>
 
-                                <div className="relative z-10 mt-4 grid grid-cols-4 gap-2 border-t border-slate-100 pt-4">
+                                <div className="relative z-10 mt-4 grid grid-cols-5 gap-2 border-t border-slate-100 pt-4">
                                     <button
                                         onClick={() => handleOpenModal('edit', user)}
                                         className="flex flex-col items-center gap-1.5 p-2.5 rounded-md bg-slate-50 text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
@@ -256,6 +358,13 @@ const UsuariosTab = () => {
                                     >
                                         <Lock size={18} />
                                         <span className="text-[10px] font-black uppercase">PIN</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleOpenPermissionsModal(user)}
+                                        className="flex flex-col items-center gap-1.5 p-2.5 rounded-md bg-slate-50 text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                                    >
+                                        <SlidersHorizontal size={18} />
+                                        <span className="text-[10px] font-black uppercase">Permisos</span>
                                     </button>
                                     <button
                                         onClick={() => handleOpenModal('password', user)}
@@ -350,6 +459,13 @@ const UsuariosTab = () => {
                                                 title="Configurar PIN"
                                             >
                                                 <Lock size={20} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleOpenPermissionsModal(user)}
+                                                className="rounded-md p-2 text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                                                title="Permisos avanzados"
+                                            >
+                                                <SlidersHorizontal size={20} />
                                             </button>
                                             <button
                                                 onClick={() => handleOpenModal('password', user)}
@@ -574,6 +690,144 @@ const UsuariosTab = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {showPermissionsModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="flex max-h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="flex flex-col gap-4 border-b border-slate-200 bg-white p-5 md:flex-row md:items-center md:justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-md bg-indigo-600 text-white shadow-sm">
+                                    <ShieldCheck size={23} />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Permisos avanzados</p>
+                                    <h3 className="text-xl font-black text-slate-950">{permissionsUser?.username}</h3>
+                                    <p className="text-sm font-semibold text-slate-500">Rol base: {permissionsUser && getRoleBadge(permissionsUser.role)}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={resetPermissionOverrides}
+                                    className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50"
+                                >
+                                    Restaurar rol base
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={closePermissionsModal}
+                                    className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={savePermissionOverrides}
+                                    disabled={permissionsLoading}
+                                    className="inline-flex h-10 items-center gap-2 rounded-md bg-indigo-600 px-4 text-sm font-black text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-60"
+                                >
+                                    <Check size={17} />
+                                    Guardar permisos
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="grid min-h-0 flex-1 grid-cols-1 bg-slate-50 lg:grid-cols-[300px_1fr]">
+                            <aside className="border-b border-slate-200 bg-white p-5 lg:border-b-0 lg:border-r">
+                                <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
+                                    <p className="text-xs font-black uppercase tracking-widest text-indigo-500">Resumen</p>
+                                    <div className="mt-3 grid grid-cols-2 gap-3">
+                                        <div className="rounded-md bg-white p-3 shadow-sm">
+                                            <p className="text-2xl font-black text-slate-950">{permissionDetails?.permissions?.length || 0}</p>
+                                            <p className="text-[11px] font-bold text-slate-500">Activos</p>
+                                        </div>
+                                        <div className="rounded-md bg-white p-3 shadow-sm">
+                                            <p className="text-2xl font-black text-indigo-600">{(permissionDraft.allow?.length || 0) + (permissionDraft.deny?.length || 0)}</p>
+                                            <p className="text-[11px] font-bold text-slate-500">Cambios</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="mt-4 space-y-2 text-sm font-semibold text-slate-600">
+                                    <div className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2">
+                                        <span>Permitidos extra</span>
+                                        <strong className="text-emerald-600">{permissionDraft.allow?.length || 0}</strong>
+                                    </div>
+                                    <div className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2">
+                                        <span>Bloqueados</span>
+                                        <strong className="text-rose-600">{permissionDraft.deny?.length || 0}</strong>
+                                    </div>
+                                </div>
+                                <p className="mt-4 text-xs font-medium leading-relaxed text-slate-500">
+                                    El rol base sigue siendo la referencia. Aqui solo se guardan excepciones para abrir o cerrar acciones puntuales.
+                                </p>
+                            </aside>
+
+                            <section className="min-h-0 overflow-y-auto p-5">
+                                <div className="sticky top-0 z-10 mb-4 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-3 text-slate-400" size={18} />
+                                        <input
+                                            value={permissionSearch}
+                                            onChange={(event) => setPermissionSearch(event.target.value)}
+                                            className="h-11 w-full rounded-md border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm font-semibold outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                                            placeholder="Buscar por modulo, accion o codigo..."
+                                        />
+                                    </div>
+                                </div>
+
+                                {permissionsLoading && !permissionDetails ? (
+                                    <div className="rounded-lg border border-slate-200 bg-white p-10 text-center font-bold text-slate-400">Cargando permisos...</div>
+                                ) : (
+                                    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                                        {filteredPermissionTree.map((group) => (
+                                            <div key={group.module} className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                                                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-3">
+                                                    <div>
+                                                        <p className="text-sm font-black text-slate-900">{group.label}</p>
+                                                        <p className="text-xs font-bold text-slate-400">{group.permissions.length} permisos</p>
+                                                    </div>
+                                                    <Shield size={18} className="text-indigo-500" />
+                                                </div>
+                                                <div className="divide-y divide-slate-100">
+                                                    {group.permissions.map((permission) => {
+                                                        const state = getPermissionState(permission.code);
+                                                        return (
+                                                            <button
+                                                                key={permission.code}
+                                                                type="button"
+                                                                onClick={() => togglePermission(permission.code)}
+                                                                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-indigo-50/60"
+                                                            >
+                                                                <div className="min-w-0">
+                                                                    <div className="flex flex-wrap items-center gap-2">
+                                                                        <p className="text-sm font-black text-slate-800">{permission.label}</p>
+                                                                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-black uppercase ${permission.risk_level === 'critical' ? 'bg-rose-50 text-rose-700' : permission.risk_level === 'sensitive' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                                            {permission.risk_level === 'critical' ? 'Critico' : permission.risk_level === 'sensitive' ? 'Sensible' : 'Basico'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <p className="mt-1 truncate font-mono text-[11px] font-bold text-slate-400">{permission.code}</p>
+                                                                </div>
+                                                                <div className="flex shrink-0 items-center gap-2">
+                                                                    {state.isCustomAllow && <span className="rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700">Extra</span>}
+                                                                    {state.isDenied && <span className="rounded-md bg-rose-50 px-2 py-1 text-[10px] font-black text-rose-700">Bloqueado</span>}
+                                                                    {state.isBase && !state.isDenied && !state.isCustomAllow && <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-500">Base</span>}
+                                                                    <span className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${state.isAllowed ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+                                                                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${state.isAllowed ? 'translate-x-5' : 'translate-x-1'}`} />
+                                                                    </span>
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </section>
+                        </div>
                     </div>
                 </div>
             )}
