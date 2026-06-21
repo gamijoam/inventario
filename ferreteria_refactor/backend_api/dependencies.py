@@ -185,6 +185,75 @@ class RoleChecker:
 def has_role(allowed_roles: List[UserRole]):
     return RoleChecker(allowed_roles)
 
+
+class PermissionChecker:
+    def __init__(self, permission_code: str):
+        self.permission_code = permission_code
+
+    def __call__(
+        self,
+        user: Annotated[User, Depends(get_current_active_user)],
+        db: Session = Depends(get_db),
+    ):
+        from .services.permissions_service import user_has_permission
+
+        if not user_has_permission(db, user, self.permission_code):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permiso para realizar esta accion",
+            )
+        return user
+
+
+class AnyPermissionChecker:
+    def __init__(self, permission_codes: List[str]):
+        self.permission_codes = permission_codes
+
+    def __call__(
+        self,
+        user: Annotated[User, Depends(get_current_active_user)],
+        db: Session = Depends(get_db),
+    ):
+        from .services.permissions_service import user_has_any_permission
+
+        if not user_has_any_permission(db, user, self.permission_codes):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permiso para realizar esta accion",
+            )
+        return user
+
+
+class AllPermissionsChecker:
+    def __init__(self, permission_codes: List[str]):
+        self.permission_codes = permission_codes
+
+    def __call__(
+        self,
+        user: Annotated[User, Depends(get_current_active_user)],
+        db: Session = Depends(get_db),
+    ):
+        from .services.permissions_service import user_has_all_permissions
+
+        if not user_has_all_permissions(db, user, self.permission_codes):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permiso para realizar esta accion",
+            )
+        return user
+
+
+def require_permission(permission_code: str):
+    return PermissionChecker(permission_code)
+
+
+def require_any_permission(permission_codes: List[str]):
+    return AnyPermissionChecker(permission_codes)
+
+
+def require_all_permissions(permission_codes: List[str]):
+    return AllPermissionsChecker(permission_codes)
+
 # ========================================
 # RBAC Convenience Aliases
 # ========================================

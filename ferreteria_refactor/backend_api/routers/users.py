@@ -161,6 +161,38 @@ def get_current_user_profile(
         "is_org_owner": is_org_owner
     }
 
+
+@router.get("/me/permissions")
+def get_current_user_permissions(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """
+    Return the effective permission tree for the current user.
+
+    This is read-only and keeps legacy role fallback if the modular permissions
+    migration is not present yet.
+    """
+    from ..services.permissions_service import (
+        build_permission_tree,
+        get_user_permissions,
+        list_permission_catalog,
+        resolve_tenant_id,
+    )
+
+    tenant_id = resolve_tenant_id(db, current_user)
+    catalog = list_permission_catalog(db)
+    effective_permissions = get_user_permissions(db, current_user, tenant_id)
+
+    return {
+        "user_id": current_user.id,
+        "tenant_id": tenant_id,
+        "role": current_user.role.value if hasattr(current_user.role, "value") else current_user.role,
+        "is_superuser": current_user.is_superuser,
+        "permissions": sorted(effective_permissions),
+        "tree": build_permission_tree(catalog),
+    }
+
 @router.post("/me/onboarding-completed")
 def complete_onboarding(
     db: Session = Depends(get_db),
