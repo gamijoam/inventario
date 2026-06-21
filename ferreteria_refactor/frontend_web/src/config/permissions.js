@@ -4,11 +4,16 @@ export const PERMISSIONS = {
 
   POS_ACCESS: 'pos.access',
   POS_SELL: 'pos.sell',
+  POS_DISCOUNT_APPLY: 'pos.discount.apply',
+  POS_DISCOUNT_AUTHORIZE: 'pos.discount.authorize',
+  POS_PRICE_OVERRIDE: 'pos.price.override',
   POS_REPRINT_TICKET: 'pos.reprint.ticket',
   POS_REPRINT_WARRANTY: 'pos.reprint.warranty',
+  POS_VOID_SALE: 'pos.void_sale',
 
   CASH_VIEW: 'cash.view',
   CASH_OPEN: 'cash.open',
+  CASH_MOVEMENTS_CREATE: 'cash.movements.create',
   CASH_CLOSE_BLIND: 'cash.close.blind',
   CASH_AUDIT_VIEW: 'cash.audit.view',
   CASH_FORCE_CLOSE: 'cash.force_close',
@@ -66,7 +71,14 @@ export const PERMISSIONS = {
 };
 
 export const PERMISSION_GROUPS = {
-  POS: [PERMISSIONS.POS_ACCESS, PERMISSIONS.POS_SELL],
+  POS: [
+    PERMISSIONS.POS_ACCESS,
+    PERMISSIONS.POS_SELL,
+    PERMISSIONS.POS_DISCOUNT_APPLY,
+    PERMISSIONS.POS_PRICE_OVERRIDE,
+    PERMISSIONS.POS_REPRINT_TICKET,
+    PERMISSIONS.POS_REPRINT_WARRANTY,
+  ],
   INVENTORY: [
     PERMISSIONS.INVENTORY_PRODUCTS_VIEW,
     PERMISSIONS.INVENTORY_SERIALS_VIEW,

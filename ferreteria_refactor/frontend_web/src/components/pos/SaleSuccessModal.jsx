@@ -8,7 +8,7 @@ import { printFacturaA4 } from "./FacturaA4";
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { getApiErrorMessage, getApiErrorMessageAsync } from '../../utils/apiErrors';
 
-const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
+const SaleSuccessModal = ({ isOpen, onClose, saleData, canReprintWarranty = true }) => {
     const [printing, setPrinting] = useState(false);
     const [printingWarranty, setPrintingWarranty] = useState(false);
     const [sendingWarrantyWa, setSendingWarrantyWa] = useState(false);
@@ -69,6 +69,7 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
     };
 
     const handlePrintWarranty = async () => {
+        if (!canReprintWarranty) { toast.error('No tienes permiso para imprimir garantias'); return; }
         if (!saleId) { toast.error("No se encontró ID de venta"); return; }
         setPrintingWarranty(true);
         try {
@@ -157,10 +158,10 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
                             <ShieldCheck size={28} className="text-amber-600" />
                             <div>
                                 <p className="font-black text-amber-900 uppercase text-xs">Venta con Serial / IMEI detectada</p>
-                                <p className="text-[10px] text-amber-700 font-bold mt-1">Imprime o envía la garantía al cliente</p>
+                                <p className="text-[10px] text-amber-700 font-bold mt-1">{canReprintWarranty ? 'Imprime o envia la garantia al cliente' : 'La garantia queda disponible para un usuario autorizado'}</p>
                             </div>
                             <div className="flex gap-2 w-full">
-                                <button onClick={handlePrintWarranty} disabled={printingWarranty}
+                                <button onClick={handlePrintWarranty} disabled={printingWarranty || !canReprintWarranty}
                                     className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-black uppercase text-[10px] shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform disabled:opacity-50">
                                     <Printer size={14} /> {printingWarranty ? 'Generando...' : 'Imprimir Garantía'}
                                 </button>

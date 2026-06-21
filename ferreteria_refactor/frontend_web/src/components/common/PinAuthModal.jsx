@@ -3,7 +3,14 @@ import { X, ShieldCheck, User, Delete } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 
-const PinAuthModal = ({ isOpen, onClose, onSuccess, title = "Autorización Requerida", message = "Ingrese PIN de Supervisor" }) => {
+const PinAuthModal = ({
+    isOpen,
+    onClose,
+    onSuccess,
+    title = "Autorizacion Requerida",
+    message = "Ingrese PIN de Supervisor",
+    requiredPermission = null
+}) => {
     const [pin, setPin] = useState('');
     const [users, setUsers] = useState([]);
     const [selectedUser, setSelectedUser] = useState(null);
@@ -98,10 +105,16 @@ const PinAuthModal = ({ isOpen, onClose, onSuccess, title = "Autorización Reque
         if (!targetUser) { setError("No user selected"); return; }
 
         try {
-            const response = await apiClient.post('/auth/validate-pin', {
+            const payload = {
                 user_id: targetUser,
                 pin: pin
-            });
+            };
+            if (requiredPermission) {
+                payload.permission_code = requiredPermission;
+                payload.required_permission = requiredPermission;
+            }
+
+            const response = await apiClient.post('/auth/validate-pin', payload);
 
             if (response.data.valid) {
                 toast.success(`Autorizado: ${response.data.username}`);

@@ -15,6 +15,7 @@ import { toast } from 'react-hot-toast';
 import { useConfig } from '../../context/ConfigContext';
 import { useCart } from '../../context/CartContext';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import { PERMISSIONS } from '../../config/permissions';
 
 const formatLocalCurrency = (amount) => {
     try {
@@ -48,12 +49,14 @@ const POSCart = ({
     convertPrice,
     totalsByCurrency = {},
     priceLists = [],
-    getFromCache = null
+    getFromCache = null,
+    canApplyDiscount = true,
+    canOverridePrice = true
 }) => {
 
     const { business, currencies } = useConfig();
     const { cartDiscount, setCartDiscount, discountUSD, discountBs, rawTotalUSD, rawBs, updateCartItem } = useCart();
-    const precioLibre = useFeatureFlag('precio_libre_pos');
+    const precioLibre = useFeatureFlag('precio_libre_pos') && canOverridePrice;
 
     // Discount Panel state
     const [showDiscountPanel, setShowDiscountPanel] = useState(false);
@@ -74,6 +77,10 @@ const POSCart = ({
 
     const handleStartPriceEdit = (e, item) => {
         e.stopPropagation();
+        if (!canOverridePrice) {
+            toast.error('No tienes permiso para cambiar precios manualmente');
+            return;
+        }
         setEditingPriceItemId(item.id);
         setPriceInputValue(String(item.unit_price_usd));
     };
@@ -92,6 +99,10 @@ const POSCart = ({
     };
 
     const handleConfirmTotalEdit = () => {
+        if (!canOverridePrice) {
+            toast.error('No tienes permiso para cambiar el total final');
+            return;
+        }
         const val = parseFloat(totalEditInput);
         if (isNaN(val) || val <= 0) { toast.error('Ingresa un monto válido'); return; }
         if (val >= rawTotalUSD) { toast.error('El total debe ser menor al subtotal actual'); return; }
@@ -106,6 +117,10 @@ const POSCart = ({
     const taxAmountUSD = totals.totalUSD - subtotalUSD;
 
     const handleApplyDiscount = () => {
+        if (!canApplyDiscount) {
+            toast.error('No tienes permiso para aplicar descuentos');
+            return;
+        }
         const val = parseFloat(discountInput);
         if (isNaN(val) || val <= 0) return;
         if (discountType === 'percent' && val > 100) return;
@@ -155,6 +170,7 @@ const POSCart = ({
                 onSuccess={confirmApplyDiscount}
                 title="Autorizar Descuento"
                 message="Este descuento modificará el total de la factura. Requiere autorización de un administrador."
+                requiredPermission={PERMISSIONS.POS_DISCOUNT_AUTHORIZE}
             />
 
             {/* Header */}
@@ -173,15 +189,21 @@ const POSCart = ({
                     <Button
                         variant="secondary"
                         size="icon"
-                        onClick={() => setShowDiscountPanel(v => !v)}
+                        onClick={() => {
+                            if (!canApplyDiscount) {
+                                toast.error('No tienes permiso para aplicar descuentos');
+                                return;
+                            }
+                            setShowDiscountPanel(v => !v);
+                        }}
                         className={cn(
                             "h-7 w-7 rounded-md transition-all font-bold border",
                             cartDiscount?.active
                                 ? "bg-rose-500 text-white border-rose-600 hover:bg-rose-600 shadow-md shadow-rose-200"
                                 : "bg-white text-slate-600 border-slate-200 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 shadow-sm"
                         )}
-                        title={cartDiscount?.active ? `Descuento: ${cartDiscount.type === 'percent' ? cartDiscount.value + '%' : (cartDiscount.type === 'fixed_bs' ? 'Bs' : cartDiscount.type?.startsWith('fixed_') ? cartDiscount.type.replace('fixed_', '') : '$') + cartDiscount.value}` : "Aplicar Descuento"}
-                        disabled={cartItems.length === 0}
+                        title={!canApplyDiscount ? 'No tienes permiso para aplicar descuentos' : (cartDiscount?.active ? `Descuento: ${cartDiscount.type === 'percent' ? cartDiscount.value + '%' : (cartDiscount.type === 'fixed_bs' ? 'Bs' : cartDiscount.type?.startsWith('fixed_') ? cartDiscount.type.replace('fixed_', '') : '$') + cartDiscount.value}` : "Aplicar Descuento")}
+                        disabled={cartItems.length === 0 || !canApplyDiscount}
                     >
                         <Tag size={16} />
                     </Button>
@@ -199,7 +221,7 @@ const POSCart = ({
             </div>
 
             {/* Discount Panel - Inline Dropdown */}
-            {showDiscountPanel && (
+            {showDiscountPanel && canApplyDiscount && (
                 <div className="border-b border-rose-100 bg-rose-50/60 px-3 py-2 space-y-2 animate-in slide-in-from-top-2 duration-200">
                     <div className="flex items-center justify-between">
                         <p className="text-[11px] font-black text-rose-700 uppercase tracking-widest flex items-center gap-1.5">

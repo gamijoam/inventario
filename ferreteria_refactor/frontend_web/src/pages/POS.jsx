@@ -41,6 +41,7 @@ import ReprintSalesSheet from '../components/pos/ReprintSalesSheet';
 import PinAuthModal from '../components/common/PinAuthModal';
 import EmployeeSelectionModal from '../components/pos/EmployeeSelectionModal';
 import { DEFAULT_THEME, POS_THEMES } from '../constants/posThemes';
+import { PERMISSIONS } from '../config/permissions';
 
 import apiClient from '../config/axios';
 import { toast } from 'react-hot-toast';
@@ -54,7 +55,7 @@ const formatStock = (stock) => {
 };
 
 const POS = () => {
-    const { user, updateUserPreferences } = useAuth();
+    const { user, updateUserPreferences, hasPermission } = useAuth();
     const { cart, addToCart, canAddToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart, overwriteCart } = useCart();
     const { isSessionOpen, openSession, loading: isCashLoading, session, activeRegister, registers, selectStationRegister, fetchRegisters } = useCash();
     const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency, posSettings, priceLists, posCategories, posWarehouses, refreshConfig } = useConfig();
@@ -160,6 +161,12 @@ const POS = () => {
         setTimeout(() => window.location.reload(), 1500);
     };
     const showCajeroRestringido = useFeatureFlag('cajero_restringido_pos');
+    const canApplyDiscount = hasPermission(PERMISSIONS.POS_DISCOUNT_APPLY);
+    const canOverridePrice = hasPermission(PERMISSIONS.POS_PRICE_OVERRIDE);
+    const canReprintTicket = hasPermission(PERMISSIONS.POS_REPRINT_TICKET);
+    const canReprintWarranty = hasPermission(PERMISSIONS.POS_REPRINT_WARRANTY);
+    const canCreateCashMovement = hasPermission(PERMISSIONS.CASH_MOVEMENTS_CREATE);
+    const canCloseCash = hasPermission(PERMISSIONS.CASH_CLOSE_BLIND);
     const handleToggleExpressMode = () => {
         updateUserPreferences({ pos_mode: isExpressMode ? 'full' : 'express' });
     };
@@ -1070,7 +1077,7 @@ const POS = () => {
                                     <DropdownMenuSeparator />
                                 </>
                             )}
-                            {!(isCashier && showCajeroRestringido) && (
+                            {canCreateCashMovement && (
                                 <>
                                     <DropdownMenuItem
                                         id="tour-pos-cash-movement"
@@ -1103,7 +1110,7 @@ const POS = () => {
                                     <span className="ml-auto text-[10px] text-amber-400">F6</span>
                                 </DropdownMenuItem>
                             )}
-                            {!(isCashier && showCajeroRestringido) && (
+                            {canCloseCash && (
                                 <>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
@@ -1123,6 +1130,7 @@ const POS = () => {
                         </DropdownMenuContent>
                     </DropdownMenu>
 
+                    {(canReprintTicket || canReprintWarranty) && (
                     <Button
                         id="tour-pos-reprint"
                         variant="outline"
@@ -1142,6 +1150,8 @@ const POS = () => {
                             </span>
                         )}
                     </Button>
+
+                    )}
 
                     {/* Buscador rapido F1 - siempre visible */}
                     <button
@@ -1214,6 +1224,8 @@ const POS = () => {
                 }}
                 currentRegister={currentRegister}
                 onRemoteSale={() => setNewReprintCount((count) => Math.min(count + 1, 99))}
+                canReprintTicket={canReprintTicket}
+                canReprintWarranty={canReprintWarranty}
             />
 
             {isSessionOpen && currentRegister?.hardware_client_id && currentRegister?.print_connected === false && (
@@ -1297,6 +1309,8 @@ const POS = () => {
                                 convertPrice={convertPrice}
                                 priceLists={priceLists}
                                 getFromCache={getFromCache}
+                                canApplyDiscount={canApplyDiscount}
+                                canOverridePrice={canOverridePrice}
                             />
                         </div>
                     </>
@@ -1350,6 +1364,8 @@ const POS = () => {
                                 convertPrice={convertPrice}
                                 priceLists={priceLists}
                                 getFromCache={getFromCache}
+                                canApplyDiscount={canApplyDiscount}
+                                canOverridePrice={canOverridePrice}
                             />
                         </div>
                     </>
@@ -1395,6 +1411,8 @@ const POS = () => {
                                 convertPrice={convertPrice}
                                 priceLists={priceLists}
                                 getFromCache={getFromCache}
+                                canApplyDiscount={canApplyDiscount}
+                                canOverridePrice={canOverridePrice}
                             />
                         </div>
                     </SheetContent>
@@ -1417,6 +1435,7 @@ const POS = () => {
                     onDelete={removeFromCart}
                     priceLists={priceLists}
                     onPriceListSelect={handlePriceListSelect}
+                    canOverridePrice={canOverridePrice}
                 />
 
                 <EmployeeSelectionModal
@@ -1459,7 +1478,7 @@ const POS = () => {
                 <ServiceImportModal isOpen={isServiceImportOpen} onClose={() => setIsServiceImportOpen(false)} onSelect={handleServiceOrderSelect} />
                 <CashMovementModal isOpen={isMovementOpen} onClose={() => { setIsMovementOpen(false); focusSearch(); }} />
                 <CashAdvanceModal isOpen={isAdvanceOpen} onClose={() => setIsAdvanceOpen(false)} />
-                <SaleSuccessModal isOpen={!!lastSaleData} saleData={lastSaleData} onClose={handleSuccessClose} />
+                <SaleSuccessModal isOpen={!!lastSaleData} saleData={lastSaleData} onClose={handleSuccessClose} canReprintWarranty={canReprintWarranty} />
                 <ProductLookupModal isOpen={isLookupOpen} onClose={() => setIsLookupOpen(false)} />
                 {!isLoading && !isCashLoading && !isSessionOpen && (<CashOpeningModal onOpen={openSession} />)}
                 <SplitCartModal 

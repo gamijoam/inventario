@@ -18,7 +18,7 @@ const formatLocalCurrency = (amount, decimals = 2) => {
     }
 };
 
-const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists = [], onPriceListSelect }) => {
+const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists = [], onPriceListSelect, canOverridePrice = true }) => {
     const [quantity, setQuantity] = useState(1);
     const [quantityInput, setQuantityInput] = useState('1');
     const [saleMode, setSaleMode] = useState('quantity');
@@ -28,7 +28,7 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
     const [price, setPrice] = useState(0);
     const [priceInput, setPriceInput] = useState('');
 
-    const precioLibre = useFeatureFlag('precio_libre_pos');
+    const precioLibre = useFeatureFlag('precio_libre_pos') && canOverridePrice;
 
     // NEW: Employee (Barber/Stylist) Selection
     const [employees, setEmployees] = useState([]);

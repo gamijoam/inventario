@@ -29,7 +29,14 @@ const formatDate = (value) => {
     }
 };
 
-const ReprintSalesSheet = ({ open, onOpenChange, currentRegister, onRemoteSale }) => {
+const ReprintSalesSheet = ({
+    open,
+    onOpenChange,
+    currentRegister,
+    onRemoteSale,
+    canReprintTicket = true,
+    canReprintWarranty = true
+}) => {
     const [sales, setSales] = useState([]);
     const [query, setQuery] = useState('');
     const [loading, setLoading] = useState(false);
@@ -86,6 +93,10 @@ const ReprintSalesSheet = ({ open, onOpenChange, currentRegister, onRemoteSale }
     }, [subscribe, loadSales, onRemoteSale]);
 
     const handleTicket = async (sale) => {
+        if (!canReprintTicket) {
+            toast.error('No tienes permiso para reimprimir tickets');
+            return;
+        }
         setBusySaleId(sale.id);
         try {
             await printerService.printTicket(sale.id);
@@ -98,6 +109,10 @@ const ReprintSalesSheet = ({ open, onOpenChange, currentRegister, onRemoteSale }
     };
 
     const handleWarranty = async (sale) => {
+        if (!canReprintWarranty) {
+            toast.error('No tienes permiso para reimprimir garantias');
+            return;
+        }
         setBusySaleId(sale.id);
         try {
             const response = await apiClient.get(`/warranties/print/${sale.id}`, { responseType: 'blob' });
@@ -188,25 +203,29 @@ const ReprintSalesSheet = ({ open, onOpenChange, currentRegister, onRemoteSale }
                                             <p className="text-xs font-bold text-slate-400">{sale.register_code || sale.register_name || 'Caja'}</p>
                                         </div>
                                     </div>
-                                    <div className="mt-4 grid grid-cols-2 gap-2">
-                                        <Button
-                                            type="button"
-                                            onClick={() => handleTicket(sale)}
-                                            disabled={busySaleId === sale.id}
-                                            className="h-10 gap-2 rounded-xl bg-indigo-600 font-black hover:bg-indigo-700"
-                                        >
-                                            <Printer size={16} /> Ticket
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() => handleWarranty(sale)}
-                                            disabled={busySaleId === sale.id || !sale.has_warranty}
-                                            className="h-10 gap-2 rounded-xl border-emerald-200 font-black text-emerald-700 hover:bg-emerald-50 disabled:border-slate-200 disabled:text-slate-300"
-                                            title={sale.has_warranty ? 'Abrir garantia PDF' : 'La venta no tiene garantia'}
-                                        >
-                                            {sale.has_warranty ? <ShieldCheck size={16} /> : <FileText size={16} />} Garantia
-                                        </Button>
+                                    <div className={`mt-4 grid gap-2 ${canReprintTicket && canReprintWarranty ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                                        {canReprintTicket && (
+                                            <Button
+                                                type="button"
+                                                onClick={() => handleTicket(sale)}
+                                                disabled={busySaleId === sale.id}
+                                                className="h-10 gap-2 rounded-xl bg-indigo-600 font-black hover:bg-indigo-700"
+                                            >
+                                                <Printer size={16} /> Ticket
+                                            </Button>
+                                        )}
+                                        {canReprintWarranty && (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => handleWarranty(sale)}
+                                                disabled={busySaleId === sale.id || !sale.has_warranty}
+                                                className="h-10 gap-2 rounded-xl border-emerald-200 font-black text-emerald-700 hover:bg-emerald-50 disabled:border-slate-200 disabled:text-slate-300"
+                                                title={sale.has_warranty ? 'Abrir garantia PDF' : 'La venta no tiene garantia'}
+                                            >
+                                                {sale.has_warranty ? <ShieldCheck size={16} /> : <FileText size={16} />} Garantia
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
                             ))}
