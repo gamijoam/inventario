@@ -211,9 +211,9 @@ export default function PreciosMasivosTab() {
           <Calculator className="text-white" size={22} />
         </div>
         <div>
-          <h2 className="text-xl font-black text-slate-900">Cambio masivo de precios</h2>
+          <h2 className="text-xl font-black text-slate-900">Precios y listas</h2>
           <p className="text-sm text-slate-500">
-            Aplica un margen porcentual a todos los productos a la vez
+            Administra listas de precio, moneda de cobro y ajustes masivos
           </p>
         </div>
       </div>
@@ -222,11 +222,11 @@ export default function PreciosMasivosTab() {
       <div className="flex items-start gap-3 rounded-lg border border-indigo-100 bg-indigo-50 p-4">
         <Info size={18} className="mt-0.5 flex-shrink-0 text-indigo-600" />
         <div className="text-xs leading-relaxed text-indigo-900">
-          <p className="font-bold mb-1">¿Qué hace cada opción de "A qué actualizar"?</p>
+          <p className="font-bold mb-1">Relación entre precio base, listas y POS</p>
           <ul className="space-y-0.5 ml-4 list-disc">
-            <li><strong>Lista de precios</strong> — actualiza el precio que el cliente paga en el POS (table <code className="rounded bg-indigo-100 px-1">product_prices</code>). El precio en el formulario del producto NO cambia.</li>
-            <li><strong>Precio base</strong> — actualiza el campo "PRECIO DE VENTA" que ves en el formulario del producto (<code className="rounded bg-indigo-100 px-1">products.price</code>).</li>
-            <li><strong>Ambos (recomendado)</strong> — actualiza los dos a la vez. Lo que ves en el formulario y lo que paga el cliente quedan iguales.</li>
+            <li><strong>Lista de precios</strong> ajusta el precio que se selecciona o aplica en el POS.</li>
+            <li><strong>Precio base</strong> ajusta el precio principal del producto.</li>
+            <li><strong>Ambos</strong> mantiene alineado el precio principal y la lista seleccionada.</li>
           </ul>
         </div>
       </div>
@@ -338,9 +338,14 @@ export default function PreciosMasivosTab() {
       {/* Gestión de listas de precios existentes */}
       {priceLists.length > 0 && (
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="font-black text-slate-800 text-sm flex items-center gap-2 mb-3">
-            <DollarSign size={14} className="text-slate-500" /> Listas de precios existentes
-          </h3>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
+              <DollarSign size={14} className="text-slate-500" /> Listas de precios
+            </h3>
+            <span className="rounded-md bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-500">
+              Moneda y cobro por lista
+            </span>
+          </div>
           <div className="space-y-2">
             {priceLists.map(l => (
               <div key={l.id}

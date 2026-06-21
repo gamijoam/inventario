@@ -32,31 +32,41 @@ const GROUPS = [
     {
         label: 'Negocio',
         items: [
-            { id: 'general',    label: 'General',           icon: Building2,    desc: 'Datos del negocio, logo, dirección' },
+            { id: 'general',    label: 'General',           icon: Building2,    desc: 'Datos del negocio, logo y dirección' },
             { id: 'usuarios',   label: 'Usuarios',          icon: Users,        desc: 'Cuentas de acceso y permisos' },
             { id: 'comisiones', label: 'Comisiones',        icon: DollarSign,   desc: 'Reglas y tasas de comisión' },
-        ],
-    },
-    {
-        label: 'Finanzas',
-        items: [
-            { id: 'monedas',    label: 'Monedas',           icon: DollarSign,   desc: 'Tasas de cambio y monedas' },
-            { id: 'impuestos',  label: 'Impuestos',         icon: Percent,      desc: 'IVA, IGTF y tasas especiales' },
-            { id: 'pagos',      label: 'Métodos de Pago',   icon: CreditCard,   desc: 'Formas de cobro disponibles' },
-            { id: 'precios',    label: 'Precios masivos',   icon: Calculator,   desc: 'Aplicar margen a todos los productos' },
-            { id: 'financiadoras', label: 'Financiadoras',      icon: Building2,    desc: 'Cashea, Krece y empresas de crédito externo' },
-        ],
-    },
-    {
-        label: 'Sistema',
-        items: [
-            { id: 'impresoras', label: 'Impresoras',        icon: Printer,      desc: 'Impresoras térmicas ESC/POS' },
-            { id: 'garantias',  label: 'Garantías',         icon: ShieldCheck,  desc: 'Políticas de garantía' },
-            { id: 'pos',        label: 'Estación POS',      icon: Monitor,      desc: 'Opciones avanzadas del POS' },
             { id: 'auditoria',  label: 'Auditoría',         icon: ClipboardList, desc: 'Registro de actividad' },
+        ],
+    },
+    {
+        label: 'Ventas y POS',
+        items: [
+            { id: 'pos',        label: 'Punto de Venta',    icon: Monitor,      desc: 'Precio base, lista predeterminada y estación de caja' },
+        ],
+    },
+    {
+        label: 'Cobros y Precios',
+        items: [
+            { id: 'monedas',    label: 'Monedas y Tasas',   icon: DollarSign,   desc: 'Tasas de cambio y monedas activas' },
+            { id: 'pagos',      label: 'Métodos de Pago',   icon: CreditCard,   desc: 'Formas de cobro y moneda permitida' },
+            { id: 'precios',    label: 'Precios y Listas',  icon: Calculator,   desc: 'Listas, moneda de cobro y cambios masivos' },
+            { id: 'impuestos',  label: 'Impuestos',         icon: Percent,      desc: 'IVA, IGTF y tasas especiales' },
+            { id: 'financiadoras', label: 'Financiadoras',  icon: Building2,    desc: 'Cashea, Krece y crédito externo' },
+        ],
+    },
+    {
+        label: 'Impresión y Documentos',
+        items: [
+            { id: 'impresoras', label: 'Tickets e Impresoras', icon: Printer,      desc: 'Plantillas térmicas y hardware bridge' },
+            { id: 'garantias',  label: 'Garantías',            icon: ShieldCheck,  desc: 'Políticas y documentos de garantía' },
+        ],
+    },
+    {
+        label: 'Canales e Integraciones',
+        items: [
             { id: 'catalogo',   label: 'Catálogo Público',  icon: ShoppingBag,  desc: 'Link, QR, carrito y opciones del catálogo' },
             { id: 'whatsapp',   label: 'WhatsApp',          icon: MessageCircle, desc: 'Notificaciones y mensajes' },
-            { id: 'integraciones', label: 'Integraciones',   icon: Lock,         desc: 'BloqueCelular y otros sistemas externos' },
+            { id: 'integraciones', label: 'Integraciones',  icon: Lock,         desc: 'BloqueCelular y sistemas externos' },
         ],
     },
 ];
@@ -186,7 +196,7 @@ const ConfigCenter = () => {
         <div id="tour-config-tabs" className="hidden border-b border-slate-200 bg-white md:block">
             <div className="space-y-3 px-5 py-4">
                 {visibleGroups.map(group => (
-                    <div key={group.label} className="grid gap-2 lg:grid-cols-[96px_minmax(0,1fr)] lg:items-center">
+                    <div key={group.label} className="grid gap-2 lg:grid-cols-[150px_minmax(0,1fr)] lg:items-center">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                             {group.label}
                         </p>
@@ -206,7 +216,7 @@ const ConfigCenter = () => {
                                         }`}
                                     >
                                         <Icon size={15} className={active ? 'text-white' : 'text-slate-400 group-hover:text-indigo-600'} />
-                                        <span>{item.label}</span>
+                                        <span className="whitespace-nowrap">{item.label}</span>
                                     </button>
                                 );
                             })}
@@ -236,7 +246,7 @@ const ConfigCenter = () => {
                         <p className="hidden text-[10px] font-black uppercase tracking-widest text-slate-400 sm:block">Panel administrativo</p>
                         <h1 className="truncate text-xl font-black leading-tight text-slate-900">Configuración</h1>
                         <p className="hidden truncate text-xs text-slate-500 sm:block">
-                            Ajustes del negocio, finanzas, POS e integraciones
+                            Ajustes organizados por negocio, ventas, cobros, documentos e integraciones
                         </p>
                     </div>
 
