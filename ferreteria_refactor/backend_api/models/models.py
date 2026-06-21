@@ -108,6 +108,8 @@ class PriceList(Base):
     name = Column(String, unique=True, nullable=False)  # "Retail", "Wholesale", "VIP"
     requires_auth = Column(Boolean, default=False)  # If True, requires Supervisor PIN
     is_active = Column(Boolean, default=True)
+    currency_code = Column(String(16), default="FLEX")  # FLEX, USD, VES, etc.
+    payment_policy = Column(String(32), default="flexible")  # flexible or strict
     created_at = Column(DateTime, default=get_venezuela_now)
 
     product_prices = relationship("ProductPrice", back_populates="price_list", cascade="all, delete-orphan")
@@ -852,6 +854,8 @@ class PaymentMethod(Base):
     requires_reference = Column(Boolean, default=False) # New: Require reference for this method (e.g. Zelle, Transfer)
     is_external_financer = Column(Boolean, default=False) # Is this an external financing company (Cashea, Krece, etc.)
     is_system = Column(Boolean, default=False) # Prevent deletion of core methods
+    currency_code = Column(String(16), default="FLEX") # Currency gate for POS payments: FLEX, USD, VES, etc.
+    allows_change = Column(Boolean, default=True) # Whether this method can receive change/vuelto
 
     def __repr__(self):
         return f"<PaymentMethod(name='{self.name}')>"

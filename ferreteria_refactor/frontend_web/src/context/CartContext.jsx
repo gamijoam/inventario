@@ -172,7 +172,7 @@ export const CartProvider = ({ children }) => {
         // ── Lista de precio predeterminada del POS (por tenant) ──
         // Si hay una lista configurada y el producto tiene precio en ella, se aplica
         // automáticamente (solo a la unidad base; las unidades especiales mantienen su precio).
-        let _defaultListId = null, _defaultListName = null;
+        let _defaultListId = null, _defaultListName = null, _defaultListCurrencyCode = 'FLEX', _defaultListPaymentPolicy = 'flexible';
         try {
             const cfgListId = localStorage.getItem('pos_default_price_list_id');
             if (cfgListId && unit?.is_base && Array.isArray(product?.prices) && product.prices.length) {
@@ -180,7 +180,9 @@ export const CartProvider = ({ children }) => {
                 if (entry && entry.price != null) {
                     unit = { ...unit, price_usd: parseFloat(entry.price) };
                     _defaultListId = parseInt(cfgListId);
-                    _defaultListName = entry.price_list?.name || null;
+                    _defaultListName = entry.price_list?.name || localStorage.getItem('pos_default_price_list_name') || null;
+                    _defaultListCurrencyCode = entry.price_list?.currency_code || localStorage.getItem('pos_default_price_list_currency_code') || 'FLEX';
+                    _defaultListPaymentPolicy = entry.price_list?.payment_policy || localStorage.getItem('pos_default_price_list_payment_policy') || 'flexible';
                 }
             }
         } catch {}
@@ -275,6 +277,8 @@ export const CartProvider = ({ children }) => {
                     // Lista de precio predeterminada aplicada (si la hay)
                     price_list_id: _defaultListId,
                     price_list_name: _defaultListName,
+                    price_list_currency_code: _defaultListCurrencyCode,
+                    price_list_payment_policy: _defaultListPaymentPolicy,
                 };
 
                 return [...prevCart, newItem];

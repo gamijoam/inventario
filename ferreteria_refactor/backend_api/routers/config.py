@@ -500,12 +500,18 @@ def get_pos_init(db: Session = Depends(get_db)):
         "payment_methods": [
             {"id": m.id, "name": m.name, "is_active": m.is_active,
              "is_system": m.is_system, "is_external_financer": getattr(m, 'is_external_financer', False),
-             "requires_reference": getattr(m, 'requires_reference', False)}
+             "requires_reference": getattr(m, 'requires_reference', False),
+             "currency_code": getattr(m, 'currency_code', 'FLEX') or 'FLEX',
+             "currency": getattr(m, 'currency_code', 'FLEX') or 'FLEX',
+             "allows_change": getattr(m, 'allows_change', True)}
             for m in payment_methods
         ],
         "price_lists": [
             {"id": pl.id, "name": pl.name, "requires_auth": pl.requires_auth,
-             "is_active": pl.is_active, "created_at": pl.created_at.isoformat() if pl.created_at else None}
+             "is_active": pl.is_active,
+             "currency_code": getattr(pl, 'currency_code', 'FLEX') or 'FLEX',
+             "payment_policy": getattr(pl, 'payment_policy', 'flexible') or 'flexible',
+             "created_at": pl.created_at.isoformat() if pl.created_at else None}
             for pl in price_lists
         ],
         "categories": [

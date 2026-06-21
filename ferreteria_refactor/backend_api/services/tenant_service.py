@@ -304,11 +304,11 @@ class TenantService:
                 return
 
             methods = [
-                PaymentMethod(name="Efectivo", is_active=True, is_system=True),
-                PaymentMethod(name="Pago Móvil", is_active=True, is_system=True),
-                PaymentMethod(name="Zelle", is_active=True, is_system=True),
-                PaymentMethod(name="Punto de Venta", is_active=True, is_system=True),
-                PaymentMethod(name="Transferencia", is_active=True, is_system=True),
+                PaymentMethod(name="Efectivo", is_active=True, is_system=True, currency_code="FLEX"),
+                PaymentMethod(name="Pago Móvil", is_active=True, is_system=True, currency_code="VES", requires_reference=True),
+                PaymentMethod(name="Zelle", is_active=True, is_system=True, currency_code="USD", requires_reference=True),
+                PaymentMethod(name="Punto de Venta", is_active=True, is_system=True, currency_code="VES", requires_reference=True),
+                PaymentMethod(name="Transferencia", is_active=True, is_system=True, currency_code="VES", requires_reference=True),
             ]
             for m in methods:
                 db.add(m)

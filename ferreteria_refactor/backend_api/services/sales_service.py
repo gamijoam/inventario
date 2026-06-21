@@ -35,6 +35,16 @@ def run_broadcast(event: str, data: dict):
     finally:
         loop.close()
 
+
+def _normalize_payment_currency(value) -> str:
+    raw = str(value or "USD").strip().upper()
+    if raw in {"", "$", "DOLLAR", "DOLAR", "DÓLAR"}:
+        return "USD"
+    if raw in {"BS", "BSS", "VEF", "VES", "BOLIVAR", "BOLÍVAR"}:
+        return "VES"
+    return raw
+
+
 class SalesService:
     @staticmethod
     def calculate_expiration_date(duration: int, unit: str) -> datetime:
@@ -177,6 +187,37 @@ class SalesService:
             
             if not warehouse_id and not is_service_only:
                  raise HTTPException(status_code=500, detail="No active warehouse found to deduct stock")
+
+            # 0.6. Currency policy validation for price lists.
+            # Existing lists are flexible by default; strict lists force payments in their configured currency.
+            price_list_ids = {item.price_list_id for item in sale_data.items if getattr(item, "price_list_id", None)}
+            if price_list_ids and not sale_data.is_credit:
+                price_lists = db.query(models.PriceList).filter(models.PriceList.id.in_(price_list_ids)).all()
+                strict_currencies = {
+                    _normalize_payment_currency(getattr(pl, "currency_code", "FLEX"))
+                    for pl in price_lists
+                    if (getattr(pl, "payment_policy", "flexible") or "flexible").lower() == "strict"
+                    and _normalize_payment_currency(getattr(pl, "currency_code", "FLEX")) != "FLEX"
+                }
+                if len(strict_currencies) > 1:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="El carrito mezcla listas de precio con monedas de cobro incompatibles. Separa la venta por moneda."
+                    )
+                if strict_currencies:
+                    expected_currency = next(iter(strict_currencies))
+                    submitted_currencies = [
+                        _normalize_payment_currency(p.currency) for p in (sale_data.payments or [])
+                    ] or [_normalize_payment_currency(sale_data.currency)]
+                    invalid_currencies = sorted({c for c in submitted_currencies if c != expected_currency})
+                    if invalid_currencies:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=(
+                                f"Esta lista de precios solo permite cobrar en {expected_currency}. "
+                                f"Monedas recibidas: {', '.join(invalid_currencies)}"
+                            )
+                        )
 
             # 1. Create Sale Header
             # CRITICAL FIX: Respect Frontend's VES calculation (preserves anchoring)

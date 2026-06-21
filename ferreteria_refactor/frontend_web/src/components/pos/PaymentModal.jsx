@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import FinancingStep from './FinancingStep';
 import { createPortal } from 'react-dom';
 import { DollarSign, CreditCard, Banknote, CheckCircle, Calculator, Users, X, UserPlus, User, Receipt, Layers, Trash2, Tag, Calendar, FileText } from 'lucide-react';
@@ -31,6 +31,16 @@ const formatLocalCurrency = (amount) => {
     }
 };
 
+const normalizeCurrencyCode = (value) => {
+    const raw = String(value || 'FLEX').trim().toUpperCase();
+    if (!raw || ['ALL', 'ANY', '*', 'FLEXIBLE'].includes(raw)) return 'FLEX';
+    if (['$', 'DOLLAR', 'DOLAR', 'DÓLAR'].includes(raw)) return 'USD';
+    if (['BS', 'BSS', 'VEF', 'VES', 'BOLIVAR', 'BOLÍVAR'].includes(raw)) return 'VES';
+    return raw;
+};
+
+const getMethodCurrencyCode = (method) => normalizeCurrencyCode(method?.currency_code || method?.currency || 'FLEX');
+
 const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, cart, onConfirm, warehouseId, initialCustomer, quoteId, customSubmit = null, discountUSD = 0, cartDiscount = null }) => {
     const { getActiveCurrencies, convertPrice, getExchangeRate, paymentMethods, formatCurrency, featureFlags, business} = useConfig();
     const { subscribe } = useWebSocket();
@@ -41,6 +51,69 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     const currencies = allCurrencies.filter((curr, index, self) =>
         index === self.findIndex((c) => c.symbol === curr.symbol)
     );
+
+    const currencySymbolForCode = (code) => {
+        const normalized = normalizeCurrencyCode(code);
+        if (normalized === 'USD') return 'USD';
+        const match = currencies.find(c =>
+            normalizeCurrencyCode(c.currency_code || c.symbol) === normalized ||
+            normalizeCurrencyCode(c.symbol) === normalized
+        );
+        return match?.symbol || normalized;
+    };
+
+    const cartCurrencyPolicy = useMemo(() => {
+        const strictItems = (cart || [])
+            .map(item => ({
+                name: item.name || item.product?.name || 'Producto',
+                listName: item.price_list_name || 'lista de precios',
+                policy: String(item.price_list_payment_policy || item.payment_policy || 'flexible').toLowerCase(),
+                currency: normalizeCurrencyCode(item.price_list_currency_code || item.currency_code || 'FLEX'),
+            }))
+            .filter(item => item.policy === 'strict' && item.currency !== 'FLEX');
+
+        const currenciesSet = [...new Set(strictItems.map(item => item.currency))];
+        return {
+            conflict: currenciesSet.length > 1,
+            strictCurrency: currenciesSet.length === 1 ? currenciesSet[0] : null,
+            strictItems,
+        };
+    }, [cart]);
+
+    const isCurrencyAllowed = (symbol) => {
+        if (cartCurrencyPolicy.conflict) return false;
+        if (!cartCurrencyPolicy.strictCurrency) return true;
+        return normalizeCurrencyCode(symbol) === cartCurrencyPolicy.strictCurrency;
+    };
+
+    const getAllowedPaymentMethods = (symbol) => {
+        const currencyCode = normalizeCurrencyCode(symbol);
+        return paymentMethods.filter(method => {
+            if (!method?.is_active) return false;
+            if (!isCurrencyAllowed(symbol)) return false;
+            const methodCurrency = getMethodCurrencyCode(method);
+            return methodCurrency === 'FLEX' || methodCurrency === currencyCode;
+        });
+    };
+
+    const pickDefaultCurrency = () => {
+        if (cartCurrencyPolicy.strictCurrency) return currencySymbolForCode(cartCurrencyPolicy.strictCurrency);
+        const activeCurrencies = getActiveCurrencies();
+        const primaryLocal = activeCurrencies.find(c => c.symbol !== 'USD' && !c.is_anchor);
+        return primaryLocal ? primaryLocal.symbol : 'USD';
+    };
+
+    const pickDefaultMethod = (currencySymbol) => {
+        const allowedMethods = getAllowedPaymentMethods(currencySymbol);
+        const targetCode = normalizeCurrencyCode(currencySymbol);
+        const exact = allowedMethods.find(m => getMethodCurrencyCode(m) === targetCode);
+        if (exact) return exact.name;
+        return allowedMethods[0]?.name || '';
+    };
+
+    const visibleCurrencies = currencies.filter(c => isCurrencyAllowed(c.symbol));
+    const hasPaymentPolicyConflict = cartCurrencyPolicy.conflict;
+    const hasNoAllowedMethods = !hasPaymentPolicyConflict && visibleCurrencies.length > 0 && visibleCurrencies.every(c => getAllowedPaymentMethods(c.symbol).length === 0);
 
     // State for multiple payments
     const [payments, setPayments] = useState([]);
@@ -93,33 +166,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
     useEffect(() => {
         if (isOpen) {
-            // Default to first non-USD active currency (e.g. COP, Bs), fallback to USD
-            const activeCurrencies = getActiveCurrencies();
-            const primaryLocal = activeCurrencies.find(c => c.symbol !== 'USD' && !c.is_anchor);
-            const defaultCurrency = primaryLocal ? primaryLocal.symbol : 'USD';
-            const activeMethods = paymentMethods.filter(m => m.is_active);
-            const isDefaultUSD = !primaryLocal;
-
-            // Buscar el método por defecto que coincida con la moneda inicial
-            let defaultMethod;
-            if (isDefaultUSD) {
-                defaultMethod = activeMethods.find(m =>
-                    m.name.toLowerCase().includes('usd') ||
-                    m.name.toLowerCase().includes('dólar') ||
-                    m.name.toLowerCase().includes('dollar')
-                )?.name || activeMethods[0]?.name || 'Efectivo USD';
-            } else {
-                // Moneda local (Bs, VES, etc.) — buscar método que NO sea USD
-                defaultMethod = activeMethods.find(m =>
-                    m.name.toLowerCase().includes('ves') ||
-                    m.name.toLowerCase().includes('bs') ||
-                    m.name.toLowerCase().includes('bolívar') ||
-                    m.name.toLowerCase().includes('bolivar') ||
-                    (m.name.toLowerCase().includes('efectivo') && !m.name.toLowerCase().includes('usd'))
-                )?.name || activeMethods.find(m =>
-                    !m.name.toLowerCase().includes('usd')
-                )?.name || activeMethods[0]?.name || `Efectivo ${defaultCurrency}`;
-            }
+            const defaultCurrency = pickDefaultCurrency();
+            const defaultMethod = pickDefaultMethod(defaultCurrency);
 
             setPayments([{ amount: '', currency: defaultCurrency, method: defaultMethod, payment_date: new Date().toISOString().split('T')[0] }]);
             setIsCreditSale(false);
@@ -133,7 +181,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
             setCustomers(initialCustomer ? [initialCustomer] : []);
         }
-    }, [isOpen, initialCustomer]);
+    }, [isOpen, initialCustomer, cartCurrencyPolicy.strictCurrency, cartCurrencyPolicy.conflict, paymentMethods.length]);
 
     // WebSocket subscriptions for real-time customer updates
     useEffect(() => {
@@ -234,12 +282,12 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     const showBloqueCelularAlert = isCreditSale && phoneItemsTotalUSD > 0 && featureFlags?.bloqueocelular_split_logic;
 
     const addPaymentRow = () => {
-        const activeCurrencies = getActiveCurrencies();
-        const primaryLocal = activeCurrencies.find(c => c.symbol !== "USD" && !c.is_anchor);
-        const defaultCurrency = primaryLocal ? primaryLocal.symbol : "USD";
-        const defaultMethod = primaryLocal
-            ? (paymentMethods.find(m => m.is_active && m.name.toLowerCase().includes(defaultCurrency.toLowerCase()))?.name || paymentMethods.find(m => m.is_active)?.name || "Efectivo " + defaultCurrency)
-            : "Efectivo USD";
+        const defaultCurrency = pickDefaultCurrency();
+        const defaultMethod = pickDefaultMethod(defaultCurrency);
+        if (!defaultMethod) {
+            toast.error('No hay métodos de pago disponibles para esta moneda');
+            return;
+        }
         setPayments([...payments, { amount: "", currency: defaultCurrency, method: defaultMethod, payment_date: new Date().toISOString().split("T")[0] }]);
     };
 
@@ -253,38 +301,21 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         const newPayments = [...payments];
         newPayments[index][field] = value;
 
-        // Si cambia la moneda → buscar automáticamente el método más apropiado
+        // Si cambia la moneda -> buscar automaticamente un metodo permitido para esa moneda
         if (field === 'currency') {
-            const isUSD = value === 'USD' || value === '$';
-            const activeMethods = paymentMethods.filter(m => m.is_active);
-
-            // Buscar método que coincida con la moneda seleccionada
-            let bestMethod = null;
-            if (isUSD) {
-                // Para USD: buscar "Efectivo (USD)" o similar
-                bestMethod = activeMethods.find(m =>
-                    m.name.toLowerCase().includes('usd') ||
-                    m.name.toLowerCase().includes('dólar') ||
-                    m.name.toLowerCase().includes('dollar')
-                );
-            } else {
-                // Para Bs u otra moneda local: buscar "Efectivo (VES)" o similar
-                bestMethod = activeMethods.find(m =>
-                    m.name.toLowerCase().includes('ves') ||
-                    m.name.toLowerCase().includes('bs') ||
-                    m.name.toLowerCase().includes('bolívar') ||
-                    m.name.toLowerCase().includes('bolivar') ||
-                    m.name.toLowerCase().includes('efectivo') && !m.name.toLowerCase().includes('usd')
-                );
+            if (!isCurrencyAllowed(value)) {
+                toast.error('La lista de precio seleccionada no permite cobrar en esa moneda');
+                return;
             }
+            const bestMethodName = pickDefaultMethod(value);
+            if (bestMethodName) newPayments[index]['method'] = bestMethodName;
+        }
 
-            // Si no encontró método específico, usar el primer método activo
-            if (!bestMethod && activeMethods.length > 0) {
-                bestMethod = activeMethods[0];
-            }
-
-            if (bestMethod) {
-                newPayments[index]['method'] = bestMethod.name;
+        if (field === 'method') {
+            const method = paymentMethods.find(m => m.name === value);
+            const methodCurrency = getMethodCurrencyCode(method);
+            if (methodCurrency !== 'FLEX' && normalizeCurrencyCode(newPayments[index].currency) !== methodCurrency) {
+                newPayments[index].currency = currencySymbolForCode(methodCurrency);
             }
         }
 
@@ -373,7 +404,9 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     salesperson_id: item.salesperson_id || null,
                     employee_id: item.employee_id || null,
                     serial_numbers: item.serial_numbers || [],
-                    combo_serials: item.combo_serials || null
+                    combo_serials: item.combo_serials || null,
+                    price_list_id: item.price_list_id || null,
+                    auth_user_id: item.auth_user_id || null
                 })),
                 is_credit: isCreditSale,
                 customer_id: selectedCustomer ? selectedCustomer.id : null,
@@ -449,7 +482,9 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     discount: item.is_discount_active ? item.discount_percentage : 0,
                     discount_type: item.is_discount_active ? "PERCENT" : "NONE",
                     serial_numbers: item.serial_numbers || [],
-                    combo_serials: item.combo_serials || null
+                    combo_serials: item.combo_serials || null,
+                    price_list_id: item.price_list_id || null,
+                    auth_user_id: item.auth_user_id || null
                 })),
                 is_credit: false,
                 customer_id: selectedCustomer ? selectedCustomer.id : null,
@@ -517,6 +552,15 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
             return;
         }
 
+        if (!isCreditSale && hasPaymentPolicyConflict) {
+            toast.error('El carrito mezcla listas de precio con monedas incompatibles. Separa la venta.');
+            return;
+        }
+        if (!isCreditSale && hasNoAllowedMethods) {
+            toast.error('No hay métodos de pago activos para la moneda requerida por la lista.');
+            return;
+        }
+
         // Validate Amounts & References
         if (!isCreditSale) {
             for (let i = 0; i < payments.length; i++) {
@@ -528,7 +572,17 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     return;
                 }
 
+                if (!isCurrencyAllowed(p.currency)) {
+                    toast.error(`La moneda ${p.currency} no esta permitida para esta lista de precio.`);
+                    return;
+                }
+
                 const method = paymentMethods.find(m => m.name === p.method);
+                const methodCurrency = getMethodCurrencyCode(method);
+                if (method && methodCurrency !== 'FLEX' && methodCurrency !== normalizeCurrencyCode(p.currency)) {
+                    toast.error(`El método ${p.method} no corresponde a la moneda ${p.currency}.`);
+                    return;
+                }
                 if (method?.requires_reference && !p.reference?.trim()) {
                     toast.error(`Debe ingresar la referencia para el método: ${p.method}`);
                     return;
@@ -839,6 +893,22 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                 </button>
                             </div>
 
+                            {hasPaymentPolicyConflict && (
+                                <div className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
+                                    El carrito mezcla listas de precio con monedas incompatibles. Separa la venta por moneda.
+                                </div>
+                            )}
+                            {!hasPaymentPolicyConflict && cartCurrencyPolicy.strictCurrency && (
+                                <div className="mb-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700">
+                                    Cobro limitado a {cartCurrencyPolicy.strictCurrency} por la lista de precio seleccionada.
+                                </div>
+                            )}
+                            {hasNoAllowedMethods && (
+                                <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700">
+                                    No hay métodos de pago activos para esta moneda. Configúralos en Finanzas → Métodos de Pago.
+                                </div>
+                            )}
+
                             <div className="space-y-1.5">
                                 {payments.map((payment, index) => {
                                     const selMethod = paymentMethods.find(m => m.name === payment.method);
@@ -857,12 +927,12 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                     value={payment.method}
                                                     onChange={e => updatePayment(index, 'method', e.target.value)}
                                                 >
-                                                    {paymentMethods.filter(m => m.is_active).map(m => (
+                                                    {getAllowedPaymentMethods(payment.currency).map(m => (
                                                         <option key={m.id} value={m.name}>{m.name}</option>
                                                     ))}
                                                 </select>
                                                 <div className="flex items-center gap-1 shrink-0">
-                                                    {currencies.map(c => (
+                                                    {visibleCurrencies.map(c => (
                                                         <button
                                                             key={c.symbol}
                                                             onClick={() => updatePayment(index, 'currency', c.symbol)}
@@ -932,10 +1002,10 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     <button
                         id="tour-payment-confirm"
                         onClick={handleConfirm}
-                        disabled={processing || (!isCreditSale && !isComplete && !isFinancingMode) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))}
+                        disabled={processing || (!isCreditSale && (hasPaymentPolicyConflict || hasNoAllowedMethods || (!isComplete && !isFinancingMode))) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))}
                         className={cn(
                             'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-black text-sm transition-all',
-                            processing || (!isCreditSale && !isComplete && !isFinancingMode) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))
+                            processing || (!isCreditSale && (hasPaymentPolicyConflict || hasNoAllowedMethods || (!isComplete && !isFinancingMode))) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))
                                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                                 : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200/60 hover:-translate-y-0.5 active:scale-[0.98]'
                         )}

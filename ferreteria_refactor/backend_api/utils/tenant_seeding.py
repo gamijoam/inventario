@@ -41,12 +41,12 @@ def seed_tenant_data(db: Session, schema: str):
         if db.query(PaymentMethod).count() == 0:
             methods = [
                 # Name, Active, Requires Reference, Is System
-                PaymentMethod(name="Efectivo (USD)", is_active=True, requires_reference=False, is_system=True),
-                PaymentMethod(name="Efectivo (VES)", is_active=True, requires_reference=False, is_system=True),
-                PaymentMethod(name="Punto de Venta", is_active=True, requires_reference=True, is_system=True),
-                PaymentMethod(name="Pago Móvil", is_active=True, requires_reference=True, is_system=True),
-                PaymentMethod(name="Zelle", is_active=True, requires_reference=True, is_system=True),
-                PaymentMethod(name="Biopago", is_active=True, requires_reference=False, is_system=True)
+                PaymentMethod(name="Efectivo (USD)", is_active=True, requires_reference=False, is_system=True, currency_code="USD"),
+                PaymentMethod(name="Efectivo (VES)", is_active=True, requires_reference=False, is_system=True, currency_code="VES"),
+                PaymentMethod(name="Punto de Venta", is_active=True, requires_reference=True, is_system=True, currency_code="VES"),
+                PaymentMethod(name="Pago Móvil", is_active=True, requires_reference=True, is_system=True, currency_code="VES"),
+                PaymentMethod(name="Zelle", is_active=True, requires_reference=True, is_system=True, currency_code="USD"),
+                PaymentMethod(name="Biopago", is_active=True, requires_reference=False, is_system=True, currency_code="VES")
             ]
             db.add_all(methods)
             print("   ✅ Payment Methods staged")

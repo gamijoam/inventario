@@ -29,6 +29,8 @@ class PriceListOut(BaseModel):
     id: int
     name: str
     is_active: bool
+    currency_code: str = "FLEX"
+    payment_policy: str = "flexible"
 
 
 class BulkMarginRequest(BaseModel):
@@ -136,8 +138,16 @@ def list_price_lists(db: Session = Depends(get_db),
                      _: User = Depends(has_role([UserRole.ADMIN]))):
     """Lista de price lists del tenant actual."""
     s = _schema(db)
-    rows = db.execute(text(f'SELECT id, name, is_active FROM "{s}".price_lists ORDER BY id')).fetchall()
-    return [PriceListOut(id=r.id, name=r.name, is_active=bool(r.is_active)) for r in rows]
+    rows = db.execute(text(
+        f"SELECT id, name, is_active, COALESCE(currency_code, 'FLEX') AS currency_code, "
+        f"COALESCE(payment_policy, 'flexible') AS payment_policy "
+        f"FROM \"{s}\".price_lists ORDER BY id"
+    )).fetchall()
+    return [PriceListOut(
+        id=r.id, name=r.name, is_active=bool(r.is_active),
+        currency_code=r.currency_code or "FLEX",
+        payment_policy=r.payment_policy or "flexible"
+    ) for r in rows]
 
 
 def _compute_preview(db: Session, schema: str, req: BulkMarginRequest):

@@ -199,6 +199,8 @@ class PriceListBase(BaseModel):
     name: str = Field(..., description="Nombre de la lista (ej: Detal)", json_schema_extra={'example': "Detal"})
     requires_auth: bool = Field(False, description="Requiere PIN de supervisor")
     is_active: bool = True
+    currency_code: str = Field("FLEX", description="Moneda asociada: FLEX, USD, VES, etc.")
+    payment_policy: str = Field("flexible", description="Politica de cobro: flexible o strict")
 
 class PriceListCreate(PriceListBase):
     pass

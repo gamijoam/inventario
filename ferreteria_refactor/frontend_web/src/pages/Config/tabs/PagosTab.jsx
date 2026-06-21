@@ -6,6 +6,12 @@ import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
 import { getApiErrorMessage } from '../../../utils/apiErrors';
 
+const CURRENCY_OPTIONS = [
+    { value: 'FLEX', label: 'Flexible' },
+    { value: 'USD', label: 'USD' },
+    { value: 'VES', label: 'Bs / VES' },
+];
+
 const PagosTab = () => {
     const { refreshConfig } = useConfig();
     const [methods, setMethods] = useState([]);
@@ -13,6 +19,7 @@ const PagosTab = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [newMethodName, setNewMethodName] = useState('');
     const [newMethodRequiresReference, setNewMethodRequiresReference] = useState(false);
+    const [newMethodCurrencyCode, setNewMethodCurrencyCode] = useState('FLEX');
     const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
@@ -87,6 +94,18 @@ const PagosTab = () => {
         }
     };
 
+    const handleChangeCurrency = async (method, currencyCode) => {
+        try {
+            setMethods(prev => prev.map(m => m.id === method.id ? { ...m, currency_code: currencyCode, currency: currencyCode } : m));
+            await apiClient.put(`/payment-methods/${method.id}`, { currency_code: currencyCode });
+            refreshConfig();
+            toast.success('Moneda del metodo actualizada');
+        } catch (error) {
+            fetchMethods();
+            toast.error(getApiErrorMessage(error, 'No se pudo actualizar la moneda del metodo'));
+        }
+    };
+
     const handleDelete = async (method) => {
         if (!confirm(`¿Eliminar el método "${method.name}"?`)) return;
         try {
@@ -107,11 +126,13 @@ const PagosTab = () => {
             const response = await apiClient.post('/payment-methods', {
                 name: newMethodName.trim(),
                 is_active: true,
-                requires_reference: newMethodRequiresReference
+                requires_reference: newMethodRequiresReference,
+                currency_code: newMethodCurrencyCode
             });
             setMethods([...methods, response.data]);
             setNewMethodName('');
             setNewMethodRequiresReference(false);
+            setNewMethodCurrencyCode('FLEX');
             setShowAddModal(false);
             refreshConfig();
             toast.success('Método de pago agregado');
@@ -181,7 +202,18 @@ const PagosTab = () => {
                                             )}
                                         </div>
 
-                                        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                                        <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                                            <label className="flex h-9 items-center justify-between gap-2 rounded-md border border-indigo-100 bg-indigo-50/50 px-3">
+                                                <span className="text-xs font-bold text-indigo-700">Moneda POS</span>
+                                                <select
+                                                    value={method.currency_code || method.currency || 'FLEX'}
+                                                    onChange={(e) => handleChangeCurrency(method, e.target.value)}
+                                                    className="max-w-[92px] bg-transparent text-xs font-black text-indigo-700 outline-none"
+                                                >
+                                                    {CURRENCY_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                                                </select>
+                                            </label>
+
                                             <label className="flex h-9 cursor-pointer items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 transition-colors hover:bg-slate-50">
                                                 <span className="text-xs font-bold text-slate-600">Activo</span>
                                                 <span className="relative inline-flex items-center">
@@ -267,6 +299,18 @@ const PagosTab = () => {
                                         onChange={e => setNewMethodName(e.target.value)}
                                         onKeyDown={e => e.key === 'Enter' && handleAddMethod()}
                                     />
+                                </div>
+
+                                <div>
+                                    <label className="mb-1 block text-sm font-bold text-slate-700">Moneda del método</label>
+                                    <select
+                                        value={newMethodCurrencyCode}
+                                        onChange={e => setNewMethodCurrencyCode(e.target.value)}
+                                        className="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                    >
+                                        {CURRENCY_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                                    </select>
+                                    <p className="mt-1 text-xs text-slate-400">Flexible acepta USD y Bs. Usa USD/VES para filtrar en el POS.</p>
                                 </div>
 
                                 <label className="flex cursor-pointer items-center gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 transition-colors hover:border-indigo-200 hover:bg-white">

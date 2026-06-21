@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from ..cache import get_cached, set_cached, invalidate, TTL
+from ..cache import invalidate_resource
 from sqlalchemy.orm import Session
 from ..database.db import get_db
 from ..models import models
@@ -11,11 +11,34 @@ router = APIRouter(
     tags=["payment-methods"]
 )
 
+
+def _normalize_currency_code(value: Optional[str]) -> str:
+    raw = (value or "FLEX").strip().upper()
+    if raw in {"", "ALL", "ANY", "*", "FLEXIBLE"}:
+        return "FLEX"
+    if raw in {"$", "DOLLAR", "DOLAR", "DÓLAR"}:
+        return "USD"
+    if raw in {"BS", "BSS", "VEF", "BOLIVAR", "BOLÍVAR"}:
+        return "VES"
+    return raw
+
+
+def _invalidate_payment_cache():
+    try:
+        from ..tenant_context import get_tenant_schema
+        schema = get_tenant_schema()
+        for resource in ("pos_init", "pos-init", "payment_methods"):
+            invalidate_resource(schema, resource)
+    except Exception:
+        pass
+
 class PaymentMethodBase(BaseModel):
     name: str
     is_active: bool = True
     requires_reference: bool = False
     is_external_financer: bool = False  # Cashea, Krece, etc.
+    currency_code: str = "FLEX"
+    allows_change: bool = True
 
 class PaymentMethodCreate(PaymentMethodBase):
     pass
@@ -25,6 +48,8 @@ class PaymentMethodUpdate(BaseModel):
     is_active: Optional[bool] = None
     requires_reference: Optional[bool] = None
     is_external_financer: Optional[bool] = None
+    currency_code: Optional[str] = None
+    allows_change: Optional[bool] = None
 
 class PaymentMethodResponse(PaymentMethodBase):
     id: int
@@ -32,7 +57,8 @@ class PaymentMethodResponse(PaymentMethodBase):
     requires_reference: Optional[bool] = False
     is_external_financer: Optional[bool] = False
     allows_change: Optional[bool] = True
-    currency: Optional[str] = 'USD'
+    currency_code: Optional[str] = 'FLEX'
+    currency: Optional[str] = 'FLEX'
 
     class Config:
         from_attributes = True
@@ -59,7 +85,9 @@ method: PaymentMethodCreate, db: Session = Depends(get_db)):
         is_active=method.is_active,
         requires_reference=method.requires_reference,
         is_external_financer=method.is_external_financer,
-        is_system=False
+        is_system=False,
+        currency_code=_normalize_currency_code(method.currency_code),
+        allows_change=method.allows_change
     )
     db.add(new_method)
     db.flush()
@@ -70,9 +98,13 @@ method: PaymentMethodCreate, db: Session = Depends(get_db)):
         is_active=new_method.is_active,
         requires_reference=new_method.requires_reference,
         is_external_financer=new_method.is_external_financer,
-        is_system=new_method.is_system
+        is_system=new_method.is_system,
+        currency_code=new_method.currency_code,
+        currency=new_method.currency_code,
+        allows_change=new_method.allows_change
     )
     db.commit()
+    _invalidate_payment_cache()
     return resp_obj
 
 @router.put("/{method_id}", response_model=PaymentMethodResponse)
@@ -97,6 +129,12 @@ method_id: int, method: PaymentMethodUpdate, db: Session = Depends(get_db)):
 
     if method.is_external_financer is not None:
         db_method.is_external_financer = method.is_external_financer
+
+    if method.currency_code is not None:
+        db_method.currency_code = _normalize_currency_code(method.currency_code)
+
+    if method.allows_change is not None:
+        db_method.allows_change = method.allows_change
         
     db.flush()
     
@@ -106,9 +144,13 @@ method_id: int, method: PaymentMethodUpdate, db: Session = Depends(get_db)):
         is_active=db_method.is_active,
         requires_reference=db_method.requires_reference,
         is_external_financer=db_method.is_external_financer,
-        is_system=db_method.is_system
+        is_system=db_method.is_system,
+        currency_code=db_method.currency_code,
+        currency=db_method.currency_code,
+        allows_change=db_method.allows_change
     )
     db.commit()
+    _invalidate_payment_cache()
     return resp_obj
 
 @router.delete("/{method_id}")
@@ -121,4 +163,5 @@ method_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Cannot delete system payment methods")
     db.delete(db_method)
     db.commit()
+    _invalidate_payment_cache()
     return {"message": "Payment method deleted"}

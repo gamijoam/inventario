@@ -26,6 +26,17 @@ const TARGET_LABELS = {
   both:          'Ambos',
 };
 
+const PRICE_LIST_CURRENCY_OPTIONS = [
+  { value: 'FLEX', label: 'Flexible' },
+  { value: 'USD', label: 'USD' },
+  { value: 'VES', label: 'Bs / VES' },
+];
+
+const PRICE_LIST_POLICY_OPTIONS = [
+  { value: 'flexible', label: 'Cobro flexible' },
+  { value: 'strict', label: 'Solo su moneda' },
+];
+
 // FastAPI/Pydantic v2 puede devolver detail como string o como array de validation errors.
 // Si lo renderizamos tal cual, React tira "object is not a valid child" (#31).
 const getApiErrorMessage = (e, fallback) => {
@@ -139,6 +150,23 @@ export default function PreciosMasivosTab() {
     } catch (e) {
       toast.error(getApiErrorMessage(e, 'Error al aplicar'));
     } finally { setApplying(false); }
+  };
+
+  const handleUpdateListPolicy = async (list, patch) => {
+    const next = {
+      name: list.name,
+      requires_auth: !!list.requires_auth,
+      is_active: list.is_active !== false,
+      currency_code: patch.currency_code ?? list.currency_code ?? 'FLEX',
+      payment_policy: patch.payment_policy ?? list.payment_policy ?? 'flexible',
+    };
+    try {
+      await apiClient.put(`/price-lists/${list.id}`, next);
+      toast.success('Lista actualizada');
+      loadLists();
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, 'No se pudo actualizar la lista'));
+    }
   };
 
   const handleDeleteList = async (list) => {
@@ -328,16 +356,30 @@ export default function PreciosMasivosTab() {
                   <div>
                     <p className="font-bold text-sm text-slate-800">{l.name}</p>
                     <p className="text-[10px] text-slate-400">
-                      ID #{l.id} · {l.is_active ? 'Activa' : 'Inactiva'}
+                      ID #{l.id} · {l.is_active ? 'Activa' : 'Inactiva'} · {(l.currency_code || 'FLEX') === 'FLEX' ? 'Flexible' : l.currency_code}
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleDeleteList(l)}
-                  title="Eliminar lista y todos sus precios"
-                  className="flex items-center gap-1.5 rounded-md bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100">
-                  <Trash2 size={12} /> Borrar
-                </button>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <select
+                    value={l.currency_code || 'FLEX'}
+                    onChange={e => handleUpdateListPolicy(l, { currency_code: e.target.value })}
+                    className="h-9 rounded-md border border-indigo-100 bg-indigo-50 px-2 text-xs font-black text-indigo-700 outline-none focus:border-indigo-400">
+                    {PRICE_LIST_CURRENCY_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                  <select
+                    value={l.payment_policy || 'flexible'}
+                    onChange={e => handleUpdateListPolicy(l, { payment_policy: e.target.value })}
+                    className="h-9 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-400">
+                    {PRICE_LIST_POLICY_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                  <button
+                    onClick={() => handleDeleteList(l)}
+                    title="Eliminar lista y todos sus precios"
+                    className="flex h-9 items-center gap-1.5 rounded-md bg-rose-50 px-3 text-xs font-bold text-rose-700 hover:bg-rose-100">
+                    <Trash2 size={12} /> Borrar
+                  </button>
+                </div>
               </div>
             ))}
           </div>

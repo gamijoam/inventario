@@ -88,9 +88,21 @@ const POS = () => {
     const posShowBs = posSettings?.pos_show_bs !== false;
     useEffect(() => {
         const listId = posSettings?.pos_default_price_list_id || '';
-        if (listId) localStorage.setItem('pos_default_price_list_id', listId);
-        else localStorage.removeItem('pos_default_price_list_id');
-    }, [posSettings?.pos_default_price_list_id]);
+        const selectedList = listId ? priceLists.find(l => String(l.id) === String(listId)) : null;
+        if (listId) {
+            localStorage.setItem('pos_default_price_list_id', listId);
+            if (selectedList) {
+                localStorage.setItem('pos_default_price_list_name', selectedList.name || '');
+                localStorage.setItem('pos_default_price_list_currency_code', selectedList.currency_code || 'FLEX');
+                localStorage.setItem('pos_default_price_list_payment_policy', selectedList.payment_policy || 'flexible');
+            }
+        } else {
+            localStorage.removeItem('pos_default_price_list_id');
+            localStorage.removeItem('pos_default_price_list_name');
+            localStorage.removeItem('pos_default_price_list_currency_code');
+            localStorage.removeItem('pos_default_price_list_payment_policy');
+        }
+    }, [posSettings?.pos_default_price_list_id, priceLists]);
     useEffect(() => {
         refreshConfig?.();
         const handleFocus = () => refreshConfig?.();
@@ -879,7 +891,7 @@ const POS = () => {
         if (!list) {
             const itemProduct = getFromCache(item.product_id);
             const basePrice = itemProduct ? parseFloat(itemProduct.price) : item.unit_price_usd;
-            updateCartItem(item.id, { unit_price_usd: basePrice, price_list_id: null, price_list_name: null, auth_user_id: null });
+            updateCartItem(item.id, { unit_price_usd: basePrice, price_list_id: null, price_list_name: null, price_list_currency_code: null, price_list_payment_policy: null, auth_user_id: null });
             toast.success('Precio revertido al precio base');
             return;
         }
@@ -905,10 +917,24 @@ const POS = () => {
         }
 
         if (list.requires_auth) {
-            setPendingPriceUpdate({ itemId: item.id, price: newPrice, listId: list.id, listName: list.name });
+            setPendingPriceUpdate({
+                itemId: item.id,
+                price: newPrice,
+                listId: list.id,
+                listName: list.name,
+                currencyCode: list.currency_code || 'FLEX',
+                paymentPolicy: list.payment_policy || 'flexible'
+            });
             setPinModalOpen(true);
         } else {
-            updateCartItem(item.id, { unit_price_usd: newPrice, price_list_id: list.id, price_list_name: list.name, auth_user_id: null });
+            updateCartItem(item.id, {
+                unit_price_usd: newPrice,
+                price_list_id: list.id,
+                price_list_name: list.name,
+                price_list_currency_code: list.currency_code || 'FLEX',
+                price_list_payment_policy: list.payment_policy || 'flexible',
+                auth_user_id: null
+            });
             setActivePricePopover(null);
             toast.success(`Precio actualizado a lista: ${list.name}`);
         }
@@ -920,6 +946,8 @@ const POS = () => {
                 unit_price_usd: pendingPriceUpdate.price,
                 price_list_id: pendingPriceUpdate.listId,
                 price_list_name: pendingPriceUpdate.listName,
+                price_list_currency_code: pendingPriceUpdate.currencyCode || 'FLEX',
+                price_list_payment_policy: pendingPriceUpdate.paymentPolicy || 'flexible',
                 auth_user_id: userId
             });
             setPendingPriceUpdate(null);

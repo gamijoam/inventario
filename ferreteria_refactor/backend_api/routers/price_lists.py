@@ -17,10 +17,28 @@ router = APIRouter(
 def _invalidate_pos_price_list_cache():
     try:
         schema = get_tenant_schema()
-        invalidate_resource(schema, "pos_init")
-        invalidate_resource(schema, "pos-init")
+        for resource in ("pos_init", "pos-init", "price_lists", "catalog"):
+            invalidate_resource(schema, resource)
     except Exception:
         pass
+
+
+def _normalize_currency_code(value: Optional[str]) -> str:
+    raw = (value or "FLEX").strip().upper()
+    if raw in {"", "ALL", "ANY", "*", "FLEXIBLE"}:
+        return "FLEX"
+    if raw in {"$", "DOLLAR", "DOLAR", "DÓLAR"}:
+        return "USD"
+    if raw in {"BS", "BSS", "VEF", "BOLIVAR", "BOLÍVAR"}:
+        return "VES"
+    return raw
+
+
+def _normalize_payment_policy(value: Optional[str]) -> str:
+    raw = (value or "flexible").strip().lower()
+    if raw in {"strict", "currency_strict", "moneda", "moneda_estricta"}:
+        return "strict"
+    return "flexible"
 
 @router.get("/", response_model=List[schemas.PriceListRead])
 def get_price_lists(
@@ -52,7 +70,9 @@ def create_price_list(
     new_list = models.PriceList(
         name=list_data.name,
         requires_auth=list_data.requires_auth,
-        is_active=list_data.is_active
+        is_active=list_data.is_active,
+        currency_code=_normalize_currency_code(list_data.currency_code),
+        payment_policy=_normalize_payment_policy(list_data.payment_policy)
     )
     db.add(new_list)
     db.commit()
@@ -78,6 +98,8 @@ def update_price_list(
     price_list.name = list_data.name
     price_list.requires_auth = list_data.requires_auth
     price_list.is_active = list_data.is_active
+    price_list.currency_code = _normalize_currency_code(list_data.currency_code)
+    price_list.payment_policy = _normalize_payment_policy(list_data.payment_policy)
     db.commit()
     _invalidate_pos_price_list_cache()
     return price_list
@@ -98,6 +120,10 @@ def patch_price_list(
         price_list.is_active = bool(list_data["is_active"])
     if "name" in list_data:
         price_list.name = list_data["name"]
+    if "currency_code" in list_data:
+        price_list.currency_code = _normalize_currency_code(list_data.get("currency_code"))
+    if "payment_policy" in list_data:
+        price_list.payment_policy = _normalize_payment_policy(list_data.get("payment_policy"))
 
     db.commit()
     _invalidate_pos_price_list_cache()
