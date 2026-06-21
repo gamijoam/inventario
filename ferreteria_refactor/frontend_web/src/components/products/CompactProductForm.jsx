@@ -112,6 +112,25 @@ const formatQtyInput = (value) => {
     return number.toFixed(3).replace(/\.?0+$/, '');
 };
 
+const toFiniteNumber = (value) => {
+    const number = parseFloat(value);
+    return Number.isFinite(number) ? number : null;
+};
+
+const calculatePriceFromMargin = (cost, margin) => {
+    const costNumber = toFiniteNumber(cost);
+    const marginNumber = toFiniteNumber(margin);
+    if (costNumber === null || marginNumber === null || costNumber <= 0) return null;
+    return costNumber * (1 + marginNumber / 100);
+};
+
+const calculateMarginFromPrice = (cost, price) => {
+    const costNumber = toFiniteNumber(cost);
+    const priceNumber = toFiniteNumber(price);
+    if (costNumber === null || priceNumber === null || costNumber <= 0) return null;
+    return ((priceNumber - costNumber) / costNumber) * 100;
+};
+
 const normalizeColorHex = (value) => {
     if (!value) return '#6366f1';
     const raw = String(value).trim();
@@ -315,6 +334,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
     const [formData, setFormData] = useState(defaultForm);
     const [activeTab, setActiveTab] = useState('precios');
     const [saving, setSaving] = useState(false);
+    const [priceCalcMode, setPriceCalcMode] = useState('margin');
     const [priceLists, setPriceLists] = useState([]);
     const [policies, setPolicies] = useState([]);
     const isEditing = !!initialData?.id;
@@ -356,6 +376,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
     useEffect(() => {
         if (!isOpen) return;
         setFormData(mapInitialProduct(initialData));
+        setPriceCalcMode('margin');
         setActiveTab('precios');
         fetchPriceLists();
         fetchPolicies();
@@ -405,6 +426,40 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
             if (idx >= 0) stocks[idx] = { ...stocks[idx], quantity };
             else stocks.push({ warehouse_id: warehouseId, quantity });
             return { ...prev, warehouse_stocks: stocks, stock: stocks.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0) };
+        });
+    };
+
+    const handleCostChange = (value) => {
+        setFormData(prev => {
+            const next = { ...prev, cost: value };
+            if (priceCalcMode === 'price') {
+                const marginFromPrice = calculateMarginFromPrice(value, prev.price);
+                if (marginFromPrice !== null) next.profit_margin = formatPercentInput(marginFromPrice);
+                return next;
+            }
+            const priceFromMargin = calculatePriceFromMargin(value, prev.profit_margin);
+            if (priceFromMargin !== null) next.price = formatMoneyInput(priceFromMargin);
+            return next;
+        });
+    };
+
+    const handlePriceChange = (value) => {
+        setPriceCalcMode('price');
+        setFormData(prev => {
+            const next = { ...prev, price: value };
+            const margin = calculateMarginFromPrice(prev.cost, value);
+            if (margin !== null) next.profit_margin = formatPercentInput(margin);
+            return next;
+        });
+    };
+
+    const handleMarginChange = (value) => {
+        setPriceCalcMode('margin');
+        setFormData(prev => {
+            const next = { ...prev, profit_margin: value };
+            const price = calculatePriceFromMargin(prev.cost, value);
+            if (price !== null) next.price = formatMoneyInput(price);
+            return next;
         });
     };
 
@@ -661,15 +716,15 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                                         <Panel id="tour-product-form-price" title="Precio de venta" eyebrow="POS y catalogo" className="border-emerald-200">
                                             <div className="relative">
                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xl font-black text-emerald-500">$</span>
-                                                <Input type="number" step="0.01" value={formData.price} onChange={e => setFormData(p => ({ ...p, price: e.target.value }))} onBlur={e => setFormData(p => ({ ...p, price: formatMoneyInput(e.target.value) }))} className="h-12 border-2 border-emerald-200 pl-8 text-right text-2xl font-black text-emerald-600" placeholder="0.00" />
+                                                <Input type="number" step="0.01" value={formData.price} onChange={e => handlePriceChange(e.target.value)} onBlur={e => setFormData(p => ({ ...p, price: formatMoneyInput(e.target.value) }))} className="h-12 border-2 border-emerald-200 pl-8 text-right text-2xl font-black text-emerald-600" placeholder="0.00" />
                                             </div>
                                         </Panel>
                                         <Panel title="Costo" eyebrow="Compra">
-                                            <Input type="number" step="0.01" value={formData.cost} onChange={e => setFormData(p => ({ ...p, cost: e.target.value }))} onBlur={e => setFormData(p => ({ ...p, cost: formatMoneyInput(e.target.value) }))} className="h-12 text-right text-lg font-black" placeholder="0.00" />
+                                            <Input type="number" step="0.01" value={formData.cost} onChange={e => handleCostChange(e.target.value)} onBlur={e => setFormData(p => ({ ...p, cost: formatMoneyInput(e.target.value) }))} className="h-12 text-right text-lg font-black" placeholder="0.00" />
                                         </Panel>
                                         <Panel title="Margen" eyebrow="Utilidad">
                                             <div className="grid grid-cols-2 gap-2">
-                                                <Input type="number" step="0.01" value={formData.profit_margin} onChange={e => setFormData(p => ({ ...p, profit_margin: e.target.value }))} onBlur={e => setFormData(p => ({ ...p, profit_margin: formatPercentInput(e.target.value) }))} className="h-12 text-center text-lg font-black text-indigo-600" placeholder="0" />
+                                                <Input type="number" step="0.01" value={formData.profit_margin} onChange={e => handleMarginChange(e.target.value)} onBlur={e => setFormData(p => ({ ...p, profit_margin: formatPercentInput(e.target.value) }))} className="h-12 text-center text-lg font-black text-indigo-600" placeholder="0" />
                                                 <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
                                                     <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Utilidad</p>
                                                     <p className={cn('text-lg font-black', profitValue < 0 ? 'text-rose-600' : 'text-slate-900')}>${profitValue.toFixed(2)}</p>
