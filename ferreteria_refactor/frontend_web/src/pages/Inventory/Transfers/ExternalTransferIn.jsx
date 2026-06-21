@@ -4,7 +4,8 @@ import { API_ROOT_URL } from '../../../config/constants';
 import { toast } from 'react-hot-toast';
 import {
   Upload, Search, Check, AlertTriangle, Package,
-  ArrowRight, X, FileJson, RefreshCw, Warehouse, Camera, Image as ImageIcon
+  ArrowRight, X, FileJson, RefreshCw, Warehouse, Camera,
+  ClipboardList, Route, BadgeCheck
 } from 'lucide-react';
 
 /* Product search modal */
@@ -132,6 +133,9 @@ const ExternalTransferIn = () => {
   const [sourceCompany, setSourceCompany] = useState('');
   const [sourceSchema, setSourceSchema] = useState('');
   const [sourceWarehouseName, setSourceWarehouseName] = useState('');
+  const [destinationCompany, setDestinationCompany] = useState('');
+  const [dispatchNotes, setDispatchNotes] = useState('');
+  const [dispatchGuideNumber, setDispatchGuideNumber] = useState('');
   const [packageStats, setPackageStats] = useState({ models: 0, units: 0, imeis: 0, photos: 0 });
 
   const [warehouses, setWarehouses] = useState([]);
@@ -183,6 +187,9 @@ const ExternalTransferIn = () => {
       setSourceCompany(data.source_company || '');
       setSourceSchema(data.source_schema || '');
       setSourceWarehouseName(data.source_warehouse_name || '');
+      setDestinationCompany(data.destination_company || '');
+      setDispatchNotes(data.dispatch_notes || '');
+      setDispatchGuideNumber(data.dispatch_guide_number || '');
       setPhotoUrls(data.photo_urls || []);
       const items = (data.items || []).map((item) => ({
         sku: item.sku,
@@ -302,6 +309,9 @@ const ExternalTransferIn = () => {
     setSourceCompany('');
     setSourceSchema('');
     setSourceWarehouseName('');
+    setDestinationCompany('');
+    setDispatchNotes('');
+    setDispatchGuideNumber('');
     setPackageStats({ models: 0, units: 0, imeis: 0, photos: 0 });
     setPhotoUrls([]);
     setShowPhotoModal(false);
@@ -317,51 +327,55 @@ const ExternalTransferIn = () => {
   // Step 1: Upload
   if (step === 'upload') {
     return (
-      <div className="flex h-full bg-slate-50 items-center justify-center p-6">
-        <div className="bg-white w-full max-w-lg rounded-lg shadow-xl p-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-indigo-100 p-2 rounded-lg">
-              <Upload size={22} className="text-indigo-600" />
+      <div className="bg-slate-50 p-4 md:p-6">
+        <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[1fr_360px]">
+          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-start gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm shadow-indigo-100">
+                <Upload size={24} />
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">Recepcion externa</p>
+                <h2 className="text-2xl font-black text-slate-900">Importar paquete de traslado</h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Carga el JSON recibido. Primero revisas origen, guia, productos e IMEIs; despues confirmas la entrada al almacen.
+                </p>
+              </div>
             </div>
-            <h2 className="text-2xl font-bold text-slate-800">Importar Inventario</h2>
-          </div>
-          <p className="text-slate-500 mb-8 text-sm">
-            Carga el archivo JSON generado por la otra sucursal. Podrás revisar y mapear los productos antes de confirmar.
-          </p>
 
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all py-12 ${
-              file ? 'border-emerald-400 bg-emerald-50' : 'border-slate-300 hover:border-indigo-400 hover:bg-slate-50'
-            }`}
-          >
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept=".json"
-              className="hidden"
-            />
-            {file ? (
-              <div className="text-center">
-                <FileJson size={48} className="text-emerald-500 mx-auto mb-3" />
-                <p className="font-bold text-slate-700 break-all">{file.name}</p>
-                <p className="text-xs text-slate-500 mt-1">Listo para previsualizar</p>
-              </div>
-            ) : (
-              <div className="text-center">
-                <FileJson size={48} className="text-slate-300 mx-auto mb-3" />
-                <p className="font-bold text-slate-600">Click para seleccionar archivo</p>
-                <p className="text-xs text-slate-400 mt-1">Solo archivos .json</p>
-              </div>
-            )}
-          </div>
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className={`group flex min-h-[240px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 text-center transition-all ${
+                file ? 'border-emerald-400 bg-emerald-50' : 'border-slate-300 bg-slate-50/60 hover:border-indigo-400 hover:bg-indigo-50/50'
+              }`}
+            >
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".json"
+                className="hidden"
+              />
+              {file ? (
+                <>
+                  <FileJson size={54} className="mx-auto mb-3 text-emerald-500" />
+                  <p className="max-w-full break-all text-lg font-black text-slate-800">{file.name}</p>
+                  <p className="mt-1 text-xs font-bold uppercase text-emerald-700">Listo para previsualizar</p>
+                </>
+              ) : (
+                <>
+                  <FileJson size={54} className="mx-auto mb-3 text-slate-300 group-hover:text-indigo-400" />
+                  <p className="text-lg font-black text-slate-700">Selecciona el archivo JSON</p>
+                  <p className="mt-1 text-sm text-slate-400">Tambien puedes tocar aqui para cambiar el archivo.</p>
+                </>
+              )}
+            </div>
 
-          <button
-            onClick={handlePreview}
-            disabled={!file || uploading}
-            className="mt-6 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-sm shadow-indigo-100 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-          >
+            <button
+              onClick={handlePreview}
+              disabled={!file || uploading}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-3.5 font-black text-white shadow-sm shadow-indigo-100 transition-all hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
             {uploading ? (
               <>
                 <RefreshCw size={18} className="animate-spin" />
@@ -374,6 +388,28 @@ const ExternalTransferIn = () => {
               </>
             )}
           </button>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="flex items-center gap-2 text-sm font-black uppercase text-slate-500">
+              <ClipboardList size={16} className="text-indigo-600" />
+              Checklist antes de aceptar
+            </h3>
+            <div className="mt-4 space-y-3 text-sm text-slate-600">
+              <div className="flex gap-3 rounded-lg bg-slate-50 p-3">
+                <BadgeCheck size={18} className="mt-0.5 shrink-0 text-emerald-600" />
+                <span>Valida que el archivo corresponda a la empresa que envia.</span>
+              </div>
+              <div className="flex gap-3 rounded-lg bg-slate-50 p-3">
+                <Package size={18} className="mt-0.5 shrink-0 text-indigo-600" />
+                <span>Revisa modelos, unidades y seriales antes de sumar stock.</span>
+              </div>
+              <div className="flex gap-3 rounded-lg bg-slate-50 p-3">
+                <Warehouse size={18} className="mt-0.5 shrink-0 text-amber-600" />
+                <span>Define el almacen destino correcto para todo el paquete o por linea.</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -392,22 +428,42 @@ const ExternalTransferIn = () => {
 
         {/* Header */}
         <div className="border-b border-slate-200 bg-white px-6 py-4">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">Revision de traslado entrante</h2>
-              <p className="text-sm text-slate-500">
-                Origen: <span className="font-semibold text-slate-700">{sourceCompany || 'Sin origen'}</span>
-                {sourceWarehouseName && <span> / {sourceWarehouseName}</span>}
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-400">
+                <Route size={15} />
+                Paquete recibido
               </p>
-              {packageId && <p className="mt-0.5 font-mono text-[11px] text-slate-400">{packageId}</p>}
+              <h2 className="mt-1 text-xl font-black text-slate-900">Revision de traslado entrante</h2>
+              <div className="mt-3 grid gap-2 text-sm text-slate-600 md:grid-cols-2">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <span className="block text-[10px] font-black uppercase text-slate-400">Origen</span>
+                  <span className="font-bold text-slate-800">{sourceCompany || 'Sin origen'}</span>
+                  {sourceWarehouseName && <span className="block text-xs text-slate-500">{sourceWarehouseName}</span>}
+                </div>
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
+                  <span className="block text-[10px] font-black uppercase text-indigo-500">Destino indicado</span>
+                  <span className="font-bold text-indigo-800">{destinationCompany || 'No especificado'}</span>
+                  {dispatchGuideNumber && <span className="block font-mono text-xs text-indigo-600">{dispatchGuideNumber}</span>}
+                </div>
+              </div>
+              {dispatchNotes && (
+                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                  Nota: {dispatchNotes}
+                </div>
+              )}
+              {packageId && <p className="mt-2 truncate font-mono text-[11px] text-slate-400">{packageId}</p>}
             </div>
-            <div className="min-w-0 flex-1 xl:max-w-md">
+            <div className="w-full min-w-0 xl:max-w-md">
               <div className="mb-1 flex items-center justify-between text-xs font-bold text-slate-500">
                 <span>{mappedCount} de {totalCount} modelos mapeados</span>
                 <span>{mappedPct}%</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-slate-200">
                 <div className="h-full rounded-full bg-emerald-500 transition-all duration-300" style={{ width: `${mappedPct}%` }} />
+              </div>
+              <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
+                No se suma inventario hasta confirmar todos los productos mapeados.
               </div>
             </div>
           </div>

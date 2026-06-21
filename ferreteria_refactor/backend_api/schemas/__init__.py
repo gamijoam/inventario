@@ -1352,6 +1352,9 @@ class TransferPreviewResult(BaseModel):
     source_schema: Optional[str] = None
     source_warehouse_id: Optional[int] = None
     source_warehouse_name: Optional[str] = None
+    destination_company: Optional[str] = None
+    dispatch_notes: Optional[str] = None
+    dispatch_guide_number: Optional[str] = None
     items_count: Optional[int] = None
     models_count: Optional[int] = None
     units_count: Optional[float] = None
