@@ -167,6 +167,7 @@ class AccountingLedgerService:
             initial = AccountingLedgerService.decimal(row.get("initial"))
             reported_value = row.get("reported")
             reported = None if reported_value is None else AccountingLedgerService.decimal(reported_value)
+            reported_for_ledger = None if reported is None else max(reported, ZERO)
             difference = AccountingLedgerService.decimal(row.get("difference"))
 
             if initial > 0:
@@ -200,9 +201,9 @@ class AccountingLedgerService:
                     source_ref=f"Cierre caja #{session_id}",
                     direction="neutral",
                     currency=currency,
-                    amount=reported,
+                    amount=reported_for_ledger,
                     affects_cash=False,
-                    metadata={"cash_row": row},
+                    metadata={"cash_row": row, "reported_original": AccountingLedgerService.json_safe(reported)},
                 ))
 
             if difference != 0:
