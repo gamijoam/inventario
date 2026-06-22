@@ -586,6 +586,62 @@ class CashMovement(Base):
         return f"<CashMovement(type='{self.type}', amount={self.amount})>"
 
 
+
+class AccountingLedgerEntry(Base):
+    __tablename__ = "accounting_ledger_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    idempotency_key = Column(String(255), unique=True, nullable=False, index=True)
+    occurred_at = Column(DateTime, nullable=False, index=True)
+    posted_at = Column(DateTime, default=get_venezuela_now, nullable=False)
+    source_type = Column(String(64), nullable=False, index=True)
+    source_id = Column(Integer, nullable=True, index=True)
+    source_line_id = Column(Integer, nullable=True)
+    source_ref = Column(String(160), nullable=True)
+    event_type = Column(String(64), nullable=False, index=True)
+    direction = Column(String(16), default="neutral", nullable=False)
+    account_code = Column(String(80), nullable=False, index=True)
+    account_name = Column(String(160), nullable=True)
+    currency = Column(String(16), default="USD", nullable=False, index=True)
+    amount = Column(Numeric(18, 4), default=0.0000, nullable=False)
+    exchange_rate = Column(Numeric(14, 4), default=1.0000, nullable=False)
+    anchor_currency = Column(String(16), default="USD", nullable=False)
+    amount_anchor = Column(Numeric(18, 4), default=0.0000, nullable=False)
+    payment_method = Column(String(160), nullable=True)
+    payment_method_id = Column(Integer, nullable=True)
+    session_id = Column(Integer, ForeignKey("cash_sessions.id"), nullable=True, index=True)
+    register_id = Column(Integer, ForeignKey("cash_registers.id"), nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("public.users.id"), nullable=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True, index=True)
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True, index=True)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True, index=True)
+    affects_cash = Column(Boolean, default=False, nullable=False)
+    affects_bank = Column(Boolean, default=False, nullable=False)
+    affects_accounts_receivable = Column(Boolean, default=False, nullable=False)
+    affects_accounts_payable = Column(Boolean, default=False, nullable=False)
+    is_voided = Column(Boolean, default=False, nullable=False)
+    voided_at = Column(DateTime, nullable=True)
+    payload = Column("metadata", JSON, default=dict, nullable=False)
+    created_at = Column(DateTime, default=get_venezuela_now, nullable=False)
+    updated_at = Column(DateTime, default=get_venezuela_now, onupdate=datetime.datetime.now, nullable=False)
+
+    session = relationship("CashSession")
+    register = relationship("CashRegister")
+    user = relationship("User", foreign_keys=[user_id])
+    customer = relationship("Customer")
+    supplier = relationship("Supplier")
+    warehouse = relationship("Warehouse")
+
+    __table_args__ = (
+        Index("idx_accounting_ledger_session_currency", "session_id", "currency", "affects_cash"),
+        Index("idx_accounting_ledger_source", "source_type", "source_id"),
+        Index("idx_accounting_ledger_account_currency", "account_code", "currency"),
+    )
+
+    def __repr__(self):
+        return f"<AccountingLedgerEntry(source='{self.source_type}:{self.source_id}', amount={self.amount} {self.currency})>"
+
+
 class LayawaySetting(Base):
     __tablename__ = "layaway_settings"
 
