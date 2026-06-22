@@ -97,6 +97,26 @@ def _normalize_currency(value: Any) -> str:
     return raw
 
 
+def _payment_tolerance() -> Decimal:
+    return Decimal("0.0001")
+
+
+def _ensure_layaway_payment_currency(payment_currency: Any, layaway_currency: Any, label: str = "El abono") -> None:
+    if _normalize_currency(payment_currency) != _normalize_currency(layaway_currency):
+        raise HTTPException(status_code=400, detail=f"{label} debe estar en la misma moneda del apartado")
+
+
+def _ensure_layaway_payment_not_over_balance(amount: Decimal, balance: Decimal, label: str = "El abono") -> None:
+    tolerance = _payment_tolerance()
+    if balance <= tolerance:
+        raise HTTPException(status_code=400, detail="El apartado ya esta pagado")
+    if amount > balance + tolerance:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{label} supera el saldo pendiente de {_money(balance)}",
+        )
+
+
 def _default_exchange_rate(db: Session) -> Decimal:
     rate = db.query(models.ExchangeRate).filter(
         models.ExchangeRate.is_active == True,
@@ -484,6 +504,13 @@ def create_layaway(
     initial_amount = _decimal(payload.initial_payment.amount if payload.initial_payment else 0)
     if initial_amount < min_payment:
         raise HTTPException(status_code=400, detail=f"La inicial minima para este apartado es {_money(min_payment)} {payload.currency}")
+    if payload.initial_payment and initial_amount > 0:
+        _ensure_layaway_payment_currency(payload.initial_payment.currency, layaway.currency, "La inicial")
+        if initial_amount > total + _payment_tolerance():
+            raise HTTPException(
+                status_code=400,
+                detail=f"La inicial supera el total del apartado de {_money(total)} {layaway.currency}",
+            )
 
     layaway.total_amount = total
     layaway.paid_amount = Decimal("0")
@@ -534,6 +561,9 @@ def add_layaway_payment(
         raise HTTPException(status_code=400, detail="Solo puedes abonar apartados activos")
 
     amount = _decimal(payload.amount)
+    balance = _decimal(layaway.balance_amount)
+    _ensure_layaway_payment_currency(payload.currency, layaway.currency)
+    _ensure_layaway_payment_not_over_balance(amount, balance)
     payment = models.LayawayPayment(
         layaway_id=layaway.id,
         amount=amount,
@@ -580,10 +610,10 @@ def complete_layaway(
         if not final_payment:
             raise HTTPException(status_code=400, detail=f"El apartado tiene saldo pendiente de {_money(balance)} {layaway.currency}")
         amount = _decimal(final_payment.amount)
-        if amount + Decimal("0.0001") < balance:
+        if amount + _payment_tolerance() < balance:
             raise HTTPException(status_code=400, detail=f"El pago final no cubre el saldo pendiente de {_money(balance)} {layaway.currency}")
-        if _normalize_currency(final_payment.currency) != _normalize_currency(layaway.currency):
-            raise HTTPException(status_code=400, detail="El pago final debe estar en la misma moneda del apartado")
+        _ensure_layaway_payment_currency(final_payment.currency, layaway.currency, "El pago final")
+        _ensure_layaway_payment_not_over_balance(amount, balance, "El pago final")
         payment = models.LayawayPayment(
             layaway_id=layaway.id,
             amount=amount,
