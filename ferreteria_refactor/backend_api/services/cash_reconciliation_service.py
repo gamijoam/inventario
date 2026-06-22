@@ -108,6 +108,7 @@ class CashReconciliationService:
         )
 
         credit_summary = CashReconciliationService._credit_summary(db, session, end_time)
+        external_financing_summary = CashReconciliationService._external_financing_summary(db, session, end_time)
         purchase_risk = CashReconciliationService._purchase_payment_risk(db, session, end_time)
         service_risk = CashReconciliationService._service_payment_risk(db, session, end_time)
         if purchase_risk["count"]:
@@ -141,11 +142,12 @@ class CashReconciliationService:
         return {
             "schema_version": "cash-audit-v1",
             "session": CashReconciliationService._session_payload(session),
-            "summary": CashReconciliationService._summary(cash_flow, payment_breakdown, transactions, credit_summary, alerts),
+            "summary": CashReconciliationService._summary(cash_flow, payment_breakdown, transactions, credit_summary, external_financing_summary, alerts),
             "cash_by_currency": list(cash_flow.values()),
             "payment_methods": CashReconciliationService._payment_breakdown_list(payment_breakdown),
             "transactions": [CashReconciliationService._json_ready(row) for row in transactions],
             "credits": credit_summary,
+            "external_financing": external_financing_summary,
             "purchase_payment_risk": purchase_risk,
             "service_payment_risk": service_risk,
             "alerts": alerts,
@@ -594,6 +596,49 @@ class CashReconciliationService:
         }
 
     @staticmethod
+    def _external_financing_summary(db: Session, session: models.CashSession, end_time: datetime) -> Dict[str, Any]:
+        records = db.query(models.ExternalFinancing).join(models.Sale).filter(
+            or_(
+                models.Sale.session_id == session.id,
+                and_(
+                    models.Sale.session_id.is_(None),
+                    models.Sale.date >= session.start_time,
+                    models.Sale.date <= end_time,
+                ),
+            )
+        ).order_by(models.ExternalFinancing.id.asc()).all()
+
+        total_price = sum((CashReconciliationService._decimal(r.total_price) for r in records), ZERO)
+        total_initial = sum((CashReconciliationService._decimal(r.initial_payment) for r in records), ZERO)
+        total_financed = sum((CashReconciliationService._decimal(r.financed_amount) for r in records), ZERO)
+        total_paid = sum((CashReconciliationService._decimal(r.financer_paid_amount) for r in records), ZERO)
+        total_pending = max(ZERO, total_financed - total_paid)
+
+        return {
+            "count": len(records),
+            "total_price": float(total_price),
+            "initial_collected_usd": float(total_initial),
+            "financed_amount_usd": float(total_financed),
+            "received_from_financer_usd": float(total_paid),
+            "pending_from_financer_usd": float(total_pending),
+            "records": [
+                {
+                    "id": r.id,
+                    "sale_id": r.sale_id,
+                    "financer_name": r.financer_name,
+                    "status": r.financer_payment_status,
+                    "total_price": float(CashReconciliationService._decimal(r.total_price)),
+                    "initial_payment_usd": float(CashReconciliationService._decimal(r.initial_payment)),
+                    "financed_amount_usd": float(CashReconciliationService._decimal(r.financed_amount)),
+                    "paid_amount_usd": float(CashReconciliationService._decimal(r.financer_paid_amount)),
+                    "pending_amount_usd": float(max(ZERO, CashReconciliationService._decimal(r.financed_amount) - CashReconciliationService._decimal(r.financer_paid_amount))),
+                    "notes": r.notes,
+                }
+                for r in records
+            ],
+        }
+
+    @staticmethod
     def _purchase_payment_risk(db: Session, session: models.CashSession, end_time: datetime) -> Dict[str, Any]:
         payments = db.query(models.PurchasePayment).filter(
             models.PurchasePayment.session_id.is_(None),
@@ -708,6 +753,7 @@ class CashReconciliationService:
         payment_breakdown: Dict[Tuple[str, str], Dict[str, Any]],
         transactions: List[Dict[str, Any]],
         credit_summary: Dict[str, Any],
+        external_financing_summary: Dict[str, Any],
         alerts: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
         expected_total = sum(Decimal(str(row.get("expected", 0))) for row in cash_flow.values())
@@ -720,6 +766,9 @@ class CashReconciliationService:
             "cash_difference_total_display_only": float(reported_total - expected_total),
             "credit_pending_amount": credit_summary.get("pending_amount", 0),
             "credit_pending_count": credit_summary.get("pending_count", 0),
+            "external_financing_count": external_financing_summary.get("count", 0),
+            "external_financing_pending_usd": external_financing_summary.get("pending_from_financer_usd", 0),
+            "external_financing_total_usd": external_financing_summary.get("financed_amount_usd", 0),
             "alert_count": len(alerts),
         }
 
@@ -786,7 +835,7 @@ class CashReconciliationService:
     @staticmethod
     def _is_cash_method(method: str, external_financers: set) -> bool:
         method_key = (method or "").strip().lower()
-        if method_key in external_financers:
+        if method_key in external_financers or any(name and name in method_key for name in external_financers):
             return False
         return any(token in method_key for token in CASH_METHOD_TOKENS)
 

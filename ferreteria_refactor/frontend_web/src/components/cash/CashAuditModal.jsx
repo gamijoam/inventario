@@ -4,6 +4,7 @@ import {
     ArrowDownLeft,
     ArrowUpRight,
     Banknote,
+    Building2,
     ClipboardList,
     CreditCard,
     FileWarning,
@@ -157,6 +158,8 @@ const CashAuditModal = ({ session, isOpen, onClose }) => {
     const alerts = report?.alerts || [];
     const cashRows = report?.cash_by_currency || [];
     const credits = report?.credits || {};
+    const externalFinancing = report?.external_financing || {};
+    const externalRecords = externalFinancing.records || [];
 
     return (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm" role="dialog" aria-modal="true">
@@ -228,12 +231,44 @@ const CashAuditModal = ({ session, isOpen, onClose }) => {
                             </div>
                         </section>
 
-                        <section className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        <section className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
                             <MetricCard icon={ClipboardList} label="Transacciones" value={summary.transaction_count || 0} tone="indigo" />
                             <MetricCard icon={CreditCard} label="Metodos" value={summary.payment_method_count || 0} tone="blue" />
                             <MetricCard icon={Wallet} label="Creditos pendientes" value={`${credits.pending_count || 0} / ${money(credits.pending_amount || 0)}`} tone="amber" />
+                            <MetricCard icon={Building2} label="Financiamiento externo" value={`${externalFinancing.count || 0} / ${money(externalFinancing.pending_from_financer_usd || 0)}`} tone="violet" />
                             <MetricCard icon={Banknote} label="Efectivo reportado" value={moneyByCurrency(cashRows, 'reported')} tone="emerald" />
                         </section>
+
+                        {Number(externalFinancing.count || 0) > 0 && (
+                            <section className="mt-4 rounded-xl border border-violet-200 bg-violet-50/70 shadow-sm">
+                                <div className="flex flex-col gap-3 border-b border-violet-100 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+                                    <div>
+                                        <h4 className="text-sm font-black text-violet-950">Financiamiento externo</h4>
+                                        <p className="text-xs font-semibold text-violet-700">No suma a efectivo de caja; solo el inicial aparece en cobros reales.</p>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2 text-right">
+                                        <DiagnosticPill label="Vendido" value={money(externalFinancing.total_price || 0)} />
+                                        <DiagnosticPill label="Inicial USD" value={money(externalFinancing.initial_collected_usd || 0)} />
+                                        <DiagnosticPill label="Pendiente" value={money(externalFinancing.pending_from_financer_usd || 0)} danger={Number(externalFinancing.pending_from_financer_usd || 0) > 0} />
+                                    </div>
+                                </div>
+                                <div className="grid gap-2 p-4 md:grid-cols-2 xl:grid-cols-3">
+                                    {externalRecords.slice(0, 6).map((record) => (
+                                        <div key={record.id} className="rounded-xl border border-violet-100 bg-white px-3 py-2 shadow-sm">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-sm font-black text-slate-900">Venta #{record.sale_id} · {record.financer_name}</p>
+                                                    <p className="text-xs font-semibold text-slate-500">{record.status || 'PENDING'} · {record.notes || 'Sin nota'}</p>
+                                                </div>
+                                                <span className="shrink-0 rounded-lg bg-violet-100 px-2 py-1 text-xs font-black text-violet-700">
+                                                    {money(record.pending_amount_usd || 0)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
 
                         {alerts.length > 0 && (
                             <section className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -481,7 +516,8 @@ const MetricCard = ({ icon: Icon, label, value, tone }) => {
         blue: 'bg-blue-50 text-blue-700 border-blue-100',
         emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
         amber: 'bg-amber-50 text-amber-700 border-amber-100',
-        rose: 'bg-rose-50 text-rose-700 border-rose-100'
+        rose: 'bg-rose-50 text-rose-700 border-rose-100',
+        violet: 'bg-violet-50 text-violet-700 border-violet-100'
     };
 
     return (

@@ -291,6 +291,8 @@ const CashAuditReportPDF = ({ report, business }) => {
     const transactions = report.transactions || [];
     const alerts = report.alerts || [];
     const credits = report.credits || {};
+    const externalFinancing = report.external_financing || {};
+    const externalRecords = externalFinancing.records || [];
     const generatedAt = fmtDate(new Date().toISOString());
     const diagnostic = buildDiagnostic(summary, cashRows);
 
@@ -404,6 +406,26 @@ const CashAuditReportPDF = ({ report, business }) => {
                         <InfoRow label="Creditos pagados" value={credits.paid_count || 0} last />
                     </View>
                 </View>
+
+                {Number(externalFinancing.count || 0) > 0 && (
+                    <View style={styles.section} wrap={false}>
+                        <Text style={styles.sectionTitle}>Financiamiento externo</Text>
+                        <View style={styles.sectionBody}>
+                            <InfoRow label="Ventas financiadas" value={externalFinancing.count || 0} />
+                            <InfoRow label="Total vendido" value={fmtCurrency(externalFinancing.total_price || 0, 'USD')} />
+                            <InfoRow label="Inicial cobrado equivalente" value={fmtCurrency(externalFinancing.initial_collected_usd || 0, 'USD')} />
+                            <InfoRow label="Pendiente por financiadora" value={fmtCurrency(externalFinancing.pending_from_financer_usd || 0, 'USD')} />
+                            {externalRecords.slice(0, 5).map((record, index) => (
+                                <InfoRow
+                                    key={record.id}
+                                    label={`Venta #${record.sale_id} ${record.financer_name}`}
+                                    value={`${fmtCurrency(record.pending_amount_usd || 0, 'USD')} pendiente`}
+                                    last={index === Math.min(externalRecords.length, 5) - 1}
+                                />
+                            ))}
+                        </View>
+                    </View>
+                )}
 
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Metodos de pago</Text>

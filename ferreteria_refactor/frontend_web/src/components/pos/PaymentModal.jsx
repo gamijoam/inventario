@@ -460,6 +460,22 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     const processFinancingSale = async (fData) => {
         setProcessing(true);
         try {
+            const initialAmount = Number(fData.initial_payment_amount || 0);
+            const initialCurrency = fData.initial_currency || 'USD';
+            const initialMethod = fData.initial_payment_method || '';
+            const initialExchangeRate = Number(fData.initial_exchange_rate || (initialCurrency === 'VES' ? defaultBsRate : 1));
+            const initialPaymentRows = initialAmount > 0 ? [{
+                amount: initialAmount,
+                currency: initialCurrency,
+                payment_method: initialMethod,
+                reference: fData.initial_payment_reference || null,
+                payment_date: new Date().toISOString().split('T')[0],
+                exchange_rate: initialExchangeRate,
+            }] : [];
+            const initialLabel = initialAmount > 0
+                ? `${initialAmount} ${fData.initial_currency_label || initialCurrency} via ${initialMethod}`
+                : 'sin inicial';
+
             const saleData = {
                 total_amount: totalUSD,
                 total_amount_bs: totalBs || (totalUSD * defaultBsRate),
@@ -468,19 +484,18 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 currency: "USD",
                 exchange_rate: defaultBsRate,
                 payment_method: fData.financer_name,
-                payments: fData.initial_payment > 0 ? [{
-                    amount: fData.initial_payment,
-                    currency: "USD",
-                    payment_method: fData.financer_name + " (Inicial)",
-                    exchange_rate: 1
-                }] : [],
+                payments: initialPaymentRows,
                 items: cart.map(item => ({
                     product_id: item.product_id,
                     quantity: item.quantity,
-                    unit_price: item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_usd),
-                    subtotal: (item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_usd)) * item.quantity,
+                    unit_price: item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_unit_usd || item.price_usd),
+                    subtotal: (item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_unit_usd || item.price_usd)) * item.quantity,
+                    conversion_factor: item.conversion_factor || 1,
+                    unit_id: item.unit_id || null,
                     discount: item.is_discount_active ? item.discount_percentage : 0,
                     discount_type: item.is_discount_active ? "PERCENT" : "NONE",
+                    salesperson_id: item.salesperson_id || null,
+                    employee_id: item.employee_id || null,
                     serial_numbers: item.serial_numbers || [],
                     combo_serials: item.combo_serials || null,
                     price_list_id: item.price_list_id || null,
@@ -489,40 +504,43 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 is_credit: false,
                 customer_id: selectedCustomer ? selectedCustomer.id : null,
                 warehouse_id: (!warehouseId || warehouseId === 'all') ? null : warehouseId,
-                notes: "Financiamiento: " + fData.financer_name,
+                notes: `Financiamiento: ${fData.financer_name}. Inicial: ${initialLabel}. Financiado: $${Number(fData.financed_amount || 0).toFixed(2)}`,
                 total_discount_usd: discountUSD || 0,
+                cart_discount_type: cartDiscount?.type || null,
+                cart_discount_value: cartDiscount?.value || 0,
+                discount_auth_user_id: cartDiscount?.auth_user_id || null,
+                session_id: session?.id || null,
             };
             const response = await apiClient.post('/products/sales/', saleData);
-            // El backend devuelve { status: "success", sale_id: N }
             const responseData = response?.data || response;
             const saleId = responseData?.sale_id || responseData?.id;
 
-            // Registrar el financiamiento (no bloquear la venta si falla)
             if (saleId) {
                 try {
                     await apiClient.post('/external-financing/', {
                         sale_id: saleId,
                         customer_id: selectedCustomer ? selectedCustomer.id : null,
                         financer_name: fData.financer_name,
+                        financer_payment_method_id: fData.financer_payment_method_id || null,
                         total_price: fData.total_price,
                         initial_payment: fData.initial_payment,
                         initial_currency: "USD",
                         financed_amount: fData.financed_amount,
+                        notes: `Inicial real: ${initialLabel}${fData.initial_payment_reference ? ` Ref: ${fData.initial_payment_reference}` : ''}`,
                     });
                 } catch (finErr) {
-                    // El financiamiento falló pero la venta ya se creó
                     console.warn('Financiamiento no registrado:', finErr?.response?.data?.detail || finErr?.message);
                     toast('Venta creada. El registro de financiamiento falló, verifica en Reportes.', { icon: '⚠️' });
                 }
             }
 
-            // Enviar estructura completa que espera el POS
             onConfirm?.({
-                payments: fData.initial_payment > 0 ? [{
-                    amount: fData.initial_payment,
-                    currency: 'USD',
-                    payment_method: fData.financer_name + ' (Inicial)',
-                }] : [],
+                payments: initialPaymentRows.map(p => ({
+                    amount: p.amount,
+                    currency: p.currency,
+                    payment_method: p.payment_method,
+                    reference: p.reference,
+                })),
                 totalPaidUSD: fData.initial_payment,
                 changeUSD: 0,
                 isCreditSale: false,
@@ -791,6 +809,13 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     {isFinancingMode ? (
                         <FinancingStep
                             totalUSD={totalUSD}
+                            totalsByCurrency={totalsByCurrency}
+                            paymentMethods={paymentMethods}
+                            currencies={visibleCurrencies}
+                            getAllowedPaymentMethods={getAllowedPaymentMethods}
+                            getExchangeRate={getExchangeRate}
+                            defaultBsRate={defaultBsRate}
+                            formatAmount={formatLocalCurrency}
                             onConfirm={(fData) => { setFinancingData(fData); processFinancingSale(fData); }}
                             onCancel={() => setIsFinancingMode(false)}
                         />
