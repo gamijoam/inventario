@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, Package, AlertCircle, CheckCircle, XCircle, DollarSign, ArrowLeft, RefreshCw, Plus, Trash2, Repeat2 } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { useConfig } from '../../../context/ConfigContext';
@@ -11,6 +12,8 @@ import SerializedItemModal from '../../../components/pos/SerializedItemModal';
 const DevolucionesTab = () => {
     const { user } = useAuth();
     const { currencies, paymentMethods = [] } = useConfig();
+    const [searchParams] = useSearchParams();
+    const autoLoadedSaleRef = useRef(null);
     const [step, setStep] = useState(1); // 1: Search, 2: Select Items
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
@@ -76,9 +79,21 @@ const DevolucionesTab = () => {
         setLoading(true);
         try {
             const response = await apiClient.get(`/returns/sales/${sale.id}`);
-            setSelectedSale(sale);
+            const fullSale = response.data;
+            setSelectedSale(fullSale);
 
-            const items = response.data.details.map(detail => ({
+            const saleCurrency = String(fullSale.currency || '').toUpperCase();
+            const paidInVes = saleCurrency === 'BS' || saleCurrency === 'VES' || /VES|BS|BOLIVAR/i.test(fullSale.payment_method || '');
+            if (paidInVes) {
+                const ves = currencies.find(c => c.currency_code === 'VES' || c.symbol === 'Bs' || c.symbol === 'VES');
+                setRefundCurrency(ves?.symbol || 'Bs');
+                setExchangeRate(Number(fullSale.exchange_rate_used || ves?.rate || 1));
+            } else {
+                setRefundCurrency('USD');
+                setExchangeRate(1);
+            }
+
+            const items = fullSale.details.map(detail => ({
                 product_id: detail.product_id,
                 product_name: detail.product?.name || 'N/A',
                 quantity_sold: detail.quantity,
@@ -96,6 +111,14 @@ const DevolucionesTab = () => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        const saleId = searchParams.get('sale');
+        if (!saleId || autoLoadedSaleRef.current === saleId) return;
+        autoLoadedSaleRef.current = saleId;
+        setSearchQuery(saleId);
+        handleSelectSale({ id: saleId });
+    }, [searchParams]);
 
     const handleQuantityChange = (index, value) => {
         const newItems = [...returnItems];

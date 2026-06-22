@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Search, Trash2, Eye, Printer, AlertTriangle, X, FileText,
-    Filter, FileDown, MoreHorizontal, ScanBarcode, Shield
+    Filter, FileDown, MoreHorizontal, ScanBarcode, Shield, CornerDownLeft
 } from 'lucide-react';
 import { Wallet, Users, Package, MessageCircle } from 'lucide-react';
 import apiClient from '../../../config/axios';
@@ -62,6 +63,7 @@ const fmtVES = (amount) =>
 // ---------------------------------------------------------------------------
 const SalesTab = ({ dateRange }) => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const { business, paymentMethods: configPaymentMethods, formatCurrency } = useConfig();
     const warrantyPdfActive = useFeatureFlag('impresion_garantia_pdf');
 
@@ -197,6 +199,12 @@ const SalesTab = ({ dateRange }) => {
         }
     };
 
+    const handleOpenPartialReturn = (sale = selectedSale) => {
+        if (!sale?.id) return;
+        setShowDetailModal(false);
+        navigate(`/sales-center?tab=devoluciones&sale=${sale.id}`);
+    };
+
     const handleVoidClick = (sale) => {
         if (sale.status === 'VOIDED') {
             toast.error('Esta venta ya esta anulada');
@@ -223,18 +231,33 @@ const SalesTab = ({ dateRange }) => {
                 return;
             }
 
-            const items = saleToVoid.details?.map(detail => ({
-                product_id: detail.product_id,
-                quantity: detail.quantity,
-                condition: 'GOOD',
-            })) || [];
+            const detailResponse = await apiClient.get(`/returns/sales/${saleToVoid.id}`);
+            const saleForVoid = detailResponse.data;
+            const items = (saleForVoid.details || [])
+                .filter(detail => detail.product_id && Number(detail.quantity || 0) > 0)
+                .map(detail => ({
+                    product_id: detail.product_id,
+                    quantity: detail.quantity,
+                    condition: 'GOOD',
+                    serial_numbers: (detail.instances || [])
+                        .map(inst => inst.product_instance?.serial_number)
+                        .filter(Boolean),
+                }));
+
+            if (!items.length) {
+                setPinError('Esta venta no tiene productos disponibles para anular');
+                return;
+            }
+
+            const saleCurrency = String(saleForVoid.currency || '').toUpperCase();
+            const paidInVes = saleCurrency === 'BS' || saleCurrency === 'VES' || /VES|BS|BOLIVAR/i.test(saleForVoid.payment_method || '');
 
             await apiClient.post('/returns', {
-                sale_id: saleToVoid.id,
+                sale_id: saleForVoid.id,
                 items,
                 reason: 'ANULACION DE VENTA - ERROR OPERATIVO',
-                refund_currency: 'USD',
-                exchange_rate: 1.0,
+                refund_currency: paidInVes ? 'Bs' : 'USD',
+                exchange_rate: paidInVes ? Number(saleForVoid.exchange_rate_used || 1) : 1.0,
             });
 
             const updatedSales = sales.map(s =>
@@ -901,7 +924,7 @@ const SalesTab = ({ dateRange }) => {
             {/* ----------------------------------------------------------- */}
             {showDetailModal && selectedSale && (
                 <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1180px] max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                         {/* Header */}
                         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                             <div>
@@ -1102,6 +1125,9 @@ const SalesTab = ({ dateRange }) => {
 
                         {/* Footer */}
                         <div className="p-4 border-t border-slate-100 bg-slate-50 flex flex-col gap-3">
+                            <Button variant="outline" className="w-full border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" onClick={() => handleOpenPartialReturn(selectedSale)}>
+                                <CornerDownLeft className="mr-2 h-4 w-4" /> Devolucion / Canje
+                            </Button>
                             <div className="flex gap-3">
                                 <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700" onClick={() => handlePrintPDF(selectedSale)}>
                                     <FileText className="mr-2 h-4 w-4" /> Generar PDF
