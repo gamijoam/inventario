@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import OwnerProtectedRoute from './components/OwnerProtectedRoute';
 import { CartProvider } from './context/CartContext';
@@ -16,6 +16,7 @@ import { Capacitor } from '@capacitor/core';
 import AndroidBackButton from './components/common/AndroidBackButton';
 import ChunkReloadGuard from './components/ChunkReloadGuard';
 import { PERMISSIONS, PERMISSION_GROUPS } from './config/permissions';
+import { canAccessAny, getDefaultRouteForUser } from './utils/defaultRoute';
 
 // Eager imports — critical path only
 import OnboardingWizard from './components/onboarding/OnboardingWizard';
@@ -160,6 +161,18 @@ class LazyErrorBoundary extends React.Component {
 
 // ── Onboarding Gate ─────────────────────────────────────────
 // Muestra el wizard de configuración inicial si el tenant no lo completó
+
+function HomeRoute() {
+  const { user, permissions } = useAuth();
+
+  if (canAccessAny(user, permissions, [PERMISSIONS.DASHBOARD_VIEW])) {
+    return <OnboardingGate><Dashboard /></OnboardingGate>;
+  }
+
+  const fallbackRoute = getDefaultRouteForUser(user, permissions, { preferDashboard: false });
+  return <Navigate to={fallbackRoute === '/' ? '/pos' : fallbackRoute} replace />;
+}
+
 function OnboardingGate({ children }) {
   const { completed, loading, refresh } = useOnboarding();
   const [dismissed, setDismissed] = React.useState(false);
@@ -348,11 +361,7 @@ function App() {
                           {/* Dashboard Layout Routes */}
                           <Route element={<ProtectedRoute />}>
                             <Route element={<DashboardLayout />}>
-                              <Route path="/" element={
-                                <ProtectedRoute permissions={[PERMISSIONS.DASHBOARD_VIEW]}>
-                                  <OnboardingGate><Dashboard /></OnboardingGate>
-                                </ProtectedRoute>
-                              } />
+                              <Route path="/" element={<HomeRoute />} />
                               {/* Panel Multi-Empresa con layout propio */}
                               <Route path="/org" element={
                                 <OwnerProtectedRoute>

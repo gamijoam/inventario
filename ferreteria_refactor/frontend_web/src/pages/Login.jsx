@@ -11,6 +11,7 @@ import authService from '../services/authService';
 import toast from 'react-hot-toast';
 import { Capacitor } from '@capacitor/core';
 import apiClient from '../config/axios';
+import { getDefaultRouteForUser } from '../utils/defaultRoute';
 
 import OrgSelector from './Org/OrgSelector';
 
@@ -25,7 +26,7 @@ const Login = ({ ownerMode = false }) => {
     const [contactForm, setContactForm] = useState({ full_name: '', email: '', phone: '', message: '' });
     const [contactLoading, setContactLoading] = useState(false);
 
-    const { login, user, isAuthenticated, refreshUser, logout } = useAuth();
+    const { login, user, isAuthenticated, refreshUser, logout, permissions } = useAuth();
     const [showOrgSelector, setShowOrgSelector] = useState(false);
     const [orgCompanies, setOrgCompanies]       = useState([]);
     const { business } = useConfig();
@@ -38,9 +39,9 @@ const Login = ({ ownerMode = false }) => {
 
     useEffect(() => {
         if (!loading && isAuthenticated && user) {
-            navigate(ownerLogin ? '/owner/dashboard' : '/');
+            navigate(ownerLogin ? '/owner/dashboard' : getDefaultRouteForUser(user, permissions));
         }
-    }, [isAuthenticated, user, loading, ownerLogin]);
+    }, [isAuthenticated, user, loading, ownerLogin, permissions, navigate]);
 
     useEffect(() => {
         const handleImpersonation = async () => {
