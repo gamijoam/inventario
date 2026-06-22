@@ -353,3 +353,62 @@ def rebuild_cash_session_ledger(
     if not result.get("ok"):
         raise HTTPException(status_code=404, detail="Sesion de caja no encontrada")
     return result
+
+
+@router.post("/sessions/backfill", dependencies=[Depends(require_permission("accounting.ledger.rebuild"))])
+def backfill_cash_sessions_ledger(
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    register_id: Optional[int] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    dry_run: bool = Query(True),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    query = db.query(models.CashSession).filter(models.CashSession.status == "CLOSED")
+    start_dt = _date_start(start_date)
+    end_dt = _date_end(end_date)
+    if start_dt:
+        query = query.filter(models.CashSession.end_time >= start_dt)
+    if end_dt:
+        query = query.filter(models.CashSession.end_time < end_dt)
+    if register_id is not None:
+        query = query.filter(models.CashSession.register_id == register_id)
+
+    sessions = query.order_by(models.CashSession.end_time.desc(), models.CashSession.id.desc()).limit(limit).all()
+    session_ids = [session.id for session in sessions]
+    if dry_run:
+        return {
+            "ok": True,
+            "dry_run": True,
+            "count": len(session_ids),
+            "session_ids": session_ids,
+            "message": "Simulacion: no se modifico el libro contable.",
+        }
+
+    rebuilt = []
+    errors = []
+    totals = {"created": 0, "updated": 0, "entries": 0}
+    for session in sessions:
+        try:
+            result = AccountingLedgerService.rebuild_cash_session(db, session.id, commit=True)
+            if not result.get("ok"):
+                errors.append({"session_id": session.id, "reason": result.get("reason") or "unknown"})
+                continue
+            rebuilt.append(result)
+            totals["created"] += int(result.get("created") or 0)
+            totals["updated"] += int(result.get("updated") or 0)
+            totals["entries"] += int(result.get("entries") or 0)
+        except Exception as exc:
+            db.rollback()
+            errors.append({"session_id": session.id, "reason": str(exc)})
+
+    return {
+        "ok": len(errors) == 0,
+        "dry_run": False,
+        "requested": len(session_ids),
+        "rebuilt": len(rebuilt),
+        "errors": errors,
+        "totals": totals,
+        "sessions": rebuilt,
+    }

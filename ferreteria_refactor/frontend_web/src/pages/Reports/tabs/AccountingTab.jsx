@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
     AlertTriangle,
     ArrowDownLeft,
@@ -187,6 +188,9 @@ const buildParams = (filters) => {
 };
 
 const AccountingTab = ({ dateRange }) => {
+    const [searchParams] = useSearchParams();
+    const urlSessionId = searchParams.get('session_id') || searchParams.get('sessionId') || '';
+    const urlRegisterId = searchParams.get('register_id') || searchParams.get('registerId') || '';
     const { user, hasPermission } = useAuth();
     const isAdmin = user?.role === 'ADMIN';
     const canViewLedger = isAdmin || hasPermission(PERMISSIONS.ACCOUNTING_LEDGER_VIEW);
@@ -195,8 +199,8 @@ const AccountingTab = ({ dateRange }) => {
     const [filters, setFilters] = useState({
         startDate: dateRange?.start || todayInput(),
         endDate: dateRange?.end || todayInput(),
-        sessionId: '',
-        registerId: '',
+        sessionId: urlSessionId,
+        registerId: urlRegisterId,
         accountCode: '',
         currency: 'all',
         sourceType: 'all',
@@ -217,6 +221,17 @@ const AccountingTab = ({ dateRange }) => {
             endDate: dateRange?.end || prev.endDate,
         }));
     }, [dateRange?.start, dateRange?.end]);
+
+    useEffect(() => {
+        setFilters((prev) => {
+            if (prev.sessionId === urlSessionId && prev.registerId === urlRegisterId) return prev;
+            return {
+                ...prev,
+                sessionId: urlSessionId,
+                registerId: urlRegisterId,
+            };
+        });
+    }, [urlSessionId, urlRegisterId]);
 
     const params = useMemo(() => buildParams(filters), [filters]);
 

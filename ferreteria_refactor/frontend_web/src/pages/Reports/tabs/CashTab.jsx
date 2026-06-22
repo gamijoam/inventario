@@ -1,12 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     TrendingUp, TrendingDown, AlertTriangle, DollarSign, Clock,
-    User, CheckCircle, ChevronDown, Download, Printer, FileText, ShieldCheck
+    User, CheckCircle, ChevronDown, Download, Printer, FileText, ShieldCheck,
+    BookOpenCheck, RotateCw
 } from 'lucide-react';
 import cashService from '../../../services/cashService';
 import reportService from '../../../services/reportService';
 import printerService from '../../../services/printerService';
 import { useConfig } from '../../../context/ConfigContext';
+import { useAuth } from '../../../context/AuthContext';
+import { PERMISSIONS } from '../../../config/permissions';
 import { toast } from 'react-hot-toast';
 import { getApiErrorMessage } from '../../../utils/apiErrors';
 import { pdf } from '@react-pdf/renderer';
@@ -19,12 +23,17 @@ import clsx from 'clsx';
 // CashTab - Migrated from CashHistory.jsx
 // ============================================================
 const CashTab = ({ dateRange }) => {
+    const navigate = useNavigate();
     const { formatCurrency, business } = useConfig();
+    const { user, hasPermission } = useAuth();
+    const isAdmin = user?.role === 'ADMIN';
+    const canRebuildLedger = isAdmin || hasPermission(PERMISSIONS.ACCOUNTING_LEDGER_REBUILD);
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(false);
     const [expandedId, setExpandedId] = useState(null);
     const [downloading, setDownloading] = useState(false);
     const [auditSession, setAuditSession] = useState(null);
+    const [rebuildingSessionId, setRebuildingSessionId] = useState(null);
 
     // Local date state synced from parent dateRange
     const [startDate, setStartDate] = useState(dateRange?.start || '');
@@ -211,6 +220,27 @@ const CashTab = ({ dateRange }) => {
         } catch (error) {
             console.error('Error generating audit PDF:', error);
             toast.error(getApiErrorMessage(error, 'Error al generar auditoria PDF'), { id: toastId });
+        }
+    };
+
+    const handleOpenLedger = (session) => {
+        navigate(`/reports?tab=contabilidad&session_id=${session.id}`);
+    };
+
+    const handleRebuildLedger = async (session) => {
+        if (!canRebuildLedger) {
+            toast.error('No tienes permiso para reconstruir el libro contable.');
+            return;
+        }
+        setRebuildingSessionId(session.id);
+        const toastId = toast.loading(`Reconstruyendo libro de sesion #${session.id}...`);
+        try {
+            const response = await apiClient.post(`/accounting/sessions/${session.id}/rebuild`);
+            toast.success(`Libro actualizado: ${response.data.entries || 0} asientos`, { id: toastId });
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, 'No se pudo reconstruir el libro de esta sesion'), { id: toastId });
+        } finally {
+            setRebuildingSessionId(null);
         }
     };
 
@@ -487,13 +517,13 @@ const CashTab = ({ dateRange }) => {
 
                                         {/* Action buttons for closed sessions */}
                                         {isClosed && (
-                                            <div className="mt-4 flex flex-col sm:flex-row gap-2.5 border-t border-slate-200 pt-3">
+                                            <div className="mt-4 grid grid-cols-1 gap-2.5 border-t border-slate-200 pt-3 sm:grid-cols-2 xl:grid-cols-5">
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setAuditSession(session);
                                                     }}
-                                                    className="flex-1 h-10 px-3 bg-slate-900 text-white rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors shadow-sm active:scale-95"
+                                                    className="h-10 px-3 bg-slate-900 text-white rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors shadow-sm active:scale-95"
                                                 >
                                                     <ShieldCheck size={15} />
                                                     Ver Auditoria
@@ -501,22 +531,45 @@ const CashTab = ({ dateRange }) => {
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
+                                                        handleOpenLedger(session);
+                                                    }}
+                                                    className="h-10 px-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-emerald-100 transition-colors active:scale-95"
+                                                >
+                                                    <BookOpenCheck size={15} />
+                                                    Libro contable
+                                                </button>
+                                                {canRebuildLedger && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleRebuildLedger(session);
+                                                        }}
+                                                        disabled={rebuildingSessionId === session.id}
+                                                        className="h-10 px-3 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-indigo-100 transition-colors active:scale-95 disabled:opacity-60"
+                                                    >
+                                                        <RotateCw size={15} className={rebuildingSessionId === session.id ? 'animate-spin' : ''} />
+                                                        Reconstruir
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
                                                         handleReprintZReport(session.id);
                                                     }}
-                                                    className="flex-1 h-10 px-3 bg-indigo-600 text-white rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-sm active:scale-95"
+                                                    className="h-10 px-3 bg-indigo-600 text-white rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-sm active:scale-95"
                                                 >
                                                     <Printer size={15} />
-                                                    Reimprimir Reporte Z
+                                                    Reimprimir Z
                                                 </button>
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleDownloadAuditPDF(session);
                                                     }}
-                                                    className="flex-1 h-10 px-3 bg-white border border-indigo-200 text-indigo-600 rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:border-indigo-300 transition-colors active:scale-95"
+                                                    className="h-10 px-3 bg-white border border-indigo-200 text-indigo-600 rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:border-indigo-300 transition-colors active:scale-95"
                                                 >
                                                     <FileText size={15} />
-                                                    Descargar Auditoria
+                                                    Descargar PDF
                                                 </button>
                                             </div>
                                         )}

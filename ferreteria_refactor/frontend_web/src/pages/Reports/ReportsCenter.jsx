@@ -212,7 +212,7 @@ const ReportsCenter = () => {
     const isAdmin = user?.role === 'ADMIN';
 
     // --- State ---
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'resumen');
     const help = useHelp();
     const [activePreset, setActivePreset] = useState('month');
@@ -221,6 +221,11 @@ const ReportsCenter = () => {
         start: toDateStr(getFirstOfMonth()),
         end: toDateStr(getToday()),
     });
+
+    useEffect(() => {
+        const tabFromUrl = searchParams.get('tab') || 'resumen';
+        if (tabFromUrl !== activeTab) setActiveTab(tabFromUrl);
+    }, [searchParams, activeTab]);
 
     // Resumen data
     const [salesSummary, setSalesSummary] = useState(null);
@@ -885,7 +890,14 @@ const ReportsCenter = () => {
                                 <button
                                     key={tab.id}
                                     id={`tour-reports-tab-${tab.id}`}
-                                    onClick={() => setActiveTab(tab.id)}
+                                    onClick={() => {
+                                        const nextParams = new URLSearchParams(searchParams);
+                                        nextParams.set('tab', tab.id);
+                                        nextParams.delete('session_id');
+                                        nextParams.delete('sessionId');
+                                        setSearchParams(nextParams);
+                                        setActiveTab(tab.id);
+                                    }}
                                     className={`flex items-center gap-2 px-3 py-2.5 text-xs font-black whitespace-nowrap border-b-2 rounded-t-lg transition-all ${
                                         isActive
                                             ? 'bg-emerald-50 text-emerald-700 border-emerald-600'
