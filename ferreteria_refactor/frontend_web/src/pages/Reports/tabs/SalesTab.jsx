@@ -924,17 +924,17 @@ const SalesTab = ({ dateRange }) => {
             {/* ----------------------------------------------------------- */}
             {showDetailModal && selectedSale && (
                 <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1180px] max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1240px] max-h-[96vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                         {/* Header */}
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                             <div>
-                                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                                     <Badge variant="outline" className="bg-indigo-50 text-indigo-600 border-indigo-100 px-2 py-1 h-auto text-xs">
                                         VENTA
                                     </Badge>
                                     #{selectedSale.id}
                                 </h3>
-                                <p className="text-sm text-slate-500 mt-1">
+                                <p className="text-xs text-slate-500 mt-0.5">
                                     {new Date(selectedSale.date).toLocaleString()}
                                 </p>
                             </div>
@@ -944,7 +944,7 @@ const SalesTab = ({ dateRange }) => {
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 flex flex-col p-6 overflow-hidden">
+                        <div className="flex-1 flex flex-col p-5 overflow-y-auto custom-scrollbar">
                             {selectedSale.is_credit && selectedSale.bloqueo_codigo_activacion && (
                                 <div className="col-span-full mb-2 p-4 bg-indigo-50 border-2 border-indigo-200 rounded-2xl flex items-center justify-between">
                                     <div className="flex items-center gap-2">
@@ -964,18 +964,18 @@ const SalesTab = ({ dateRange }) => {
                                     </div>
                                 </div>
                             )}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 flex-shrink-0">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 flex-shrink-0">
                                 <Card className="shadow-sm">
-                                    <CardContent className="p-4">
+                                    <CardContent className="p-3">
                                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Cliente</p>
-                                        <p className="font-bold text-slate-800 text-lg">{selectedSale.customer?.name || 'Cliente General'}</p>
+                                        <p className="font-bold text-slate-800 text-base">{selectedSale.customer?.name || 'Cliente General'}</p>
                                         {selectedSale.customer?.id_number && (
                                             <p className="text-sm text-slate-500 font-medium">{selectedSale.customer.id_number}</p>
                                         )}
                                     </CardContent>
                                 </Card>
                                 <Card className="shadow-sm">
-                                    <CardContent className="p-4">
+                                    <CardContent className="p-3">
                                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Estado</p>
                                         <div className="mt-1">
                                             {selectedSale.status === 'VOIDED' ? (
@@ -992,21 +992,21 @@ const SalesTab = ({ dateRange }) => {
                                 </Card>
                             </div>
 
-                            <div className="flex-1 shadow-none border border-slate-200 overflow-hidden flex flex-col min-h-0 bg-white rounded-xl">
+                            <div className="h-[390px] min-h-[320px] shadow-none border border-slate-200 overflow-hidden flex flex-col bg-white rounded-xl">
                                 <div className="flex-1 overflow-y-auto custom-scrollbar relative">
                                     <Table>
                                         <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
                                             <TableRow>
-                                                <TableHead className="py-3">Producto</TableHead>
-                                                <TableHead className="text-center py-3">Cant.</TableHead>
-                                                <TableHead className="text-right py-3">Precio</TableHead>
-                                                <TableHead className="text-right py-3">Total</TableHead>
+                                                <TableHead className="py-2.5">Producto</TableHead>
+                                                <TableHead className="text-center py-2.5">Cant.</TableHead>
+                                                <TableHead className="text-right py-2.5">Precio</TableHead>
+                                                <TableHead className="text-right py-2.5">Total</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {selectedSale.details?.map((detail, index) => (
                                                 <TableRow key={index} className="group/row">
-                                                    <TableCell className="font-medium py-4">
+                                                    <TableCell className="font-medium py-3">
                                                         <div className="flex flex-col gap-1">
                                                             <div className="text-sm font-bold text-slate-700 group-hover/row:text-indigo-600 transition-colors">
                                                                 {detail.product?.name || 'Producto Desconocido'}
@@ -1047,7 +1047,7 @@ const SalesTab = ({ dateRange }) => {
                                         </TableBody>
                                     </Table>
                                 </div>
-                                <div className="bg-slate-50 p-4 border-t border-slate-200 flex flex-col items-end gap-2 flex-shrink-0">
+                                <div className="bg-slate-50 px-4 py-3 border-t border-slate-200 flex flex-col items-end gap-2 flex-shrink-0">
                                     {selectedSale?.total_discount_usd > 0 && (
                                         <div className="flex justify-between items-center w-full max-w-[200px] text-rose-500">
                                             <div className="flex flex-col">
@@ -1067,7 +1067,7 @@ const SalesTab = ({ dateRange }) => {
                                     )}
                                     <div className="flex justify-between items-center w-full max-w-[200px]">
                                         <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Total Venta</span>
-                                        <span className="font-black text-3xl text-indigo-600 tracking-tight">
+                                        <span className="font-black text-2xl text-indigo-600 tracking-tight">
                                             ${fmtUSD(selectedSale.total_amount)}
                                         </span>
                                     </div>
@@ -1077,7 +1077,7 @@ const SalesTab = ({ dateRange }) => {
 
                         {/* Panel de Control de Bloqueo */}
                         {selectedSale.is_credit && (
-                            <div className="px-6 pb-6">
+                            <div className="px-5 pb-4">
                                 <BloqueoCelular 
                                     saleId={selectedSale.id} 
                                     isCredit={selectedSale.is_credit} 
@@ -1086,7 +1086,7 @@ const SalesTab = ({ dateRange }) => {
                         )}
                         {/* Sección de Pagos — visible solo si hay pagos registrados */}
                         {selectedSale?.payments?.length > 0 && (
-                            <div className="px-6 pb-4 flex-shrink-0">
+                            <div className="px-5 pb-3 flex-shrink-0">
                                 <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                                     <span>💳</span> Detalle de pagos
                                 </p>
@@ -1124,7 +1124,7 @@ const SalesTab = ({ dateRange }) => {
                         )}
 
                         {/* Footer */}
-                        <div className="p-4 border-t border-slate-100 bg-slate-50 flex flex-col gap-3">
+                        <div className="p-3 border-t border-slate-100 bg-slate-50 flex flex-col gap-2">
                             <Button variant="outline" className="w-full border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" onClick={() => handleOpenPartialReturn(selectedSale)}>
                                 <CornerDownLeft className="mr-2 h-4 w-4" /> Devolucion / Canje
                             </Button>
