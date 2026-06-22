@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session, joinedload
 from ..database.db import get_db
 from ..dependencies import require_any_permission, require_permission
 from ..models import models
+from .. import schemas
+from ..services.sales_service import SalesService
 from ..utils.time_utils import get_venezuela_now
 
 router = APIRouter(prefix="/layaways", tags=["layaways"])
@@ -70,6 +72,12 @@ class LayawayCancelRequest(BaseModel):
     reason: Optional[str] = None
 
 
+class LayawayCompleteRequest(BaseModel):
+    final_payment: Optional[LayawayPaymentCreate] = None
+    session_id: Optional[int] = None
+    notes: Optional[str] = None
+
+
 def _decimal(value: Any) -> Decimal:
     if value is None:
         return Decimal("0")
@@ -78,6 +86,29 @@ def _decimal(value: Any) -> Decimal:
 
 def _money(value: Any) -> float:
     return float(_decimal(value).quantize(Decimal("0.0001")))
+
+
+def _normalize_currency(value: Any) -> str:
+    raw = str(value or "USD").strip().upper()
+    if raw in {"", "$", "DOLLAR", "DOLAR", "DÓLAR"}:
+        return "USD"
+    if raw in {"BS", "BSS", "VEF", "VES", "BOLIVAR", "BOLÍVAR", "BOLIVARES"}:
+        return "VES"
+    return raw
+
+
+def _default_exchange_rate(db: Session) -> Decimal:
+    rate = db.query(models.ExchangeRate).filter(
+        models.ExchangeRate.is_active == True,
+        models.ExchangeRate.currency_code.in_(["VES", "BS", "VEF"]),
+        models.ExchangeRate.is_default == True,
+    ).order_by(models.ExchangeRate.updated_at.desc().nullslast()).first()
+    if not rate:
+        rate = db.query(models.ExchangeRate).filter(
+            models.ExchangeRate.is_active == True,
+            models.ExchangeRate.currency_code.in_(["VES", "BS", "VEF"]),
+        ).order_by(models.ExchangeRate.updated_at.desc().nullslast()).first()
+    return _decimal(rate.rate if rate else 1) or Decimal("1")
 
 
 def _get_or_create_settings(db: Session) -> models.LayawaySetting:
@@ -521,6 +552,135 @@ def add_layaway_payment(
         layaway.status = "PAID"
     layaway.updated_at = get_venezuela_now()
     _add_event(db, layaway.id, current_user.id, "PAYMENT_ADDED", "Abono registrado", {"amount": str(amount), "currency": payload.currency})
+    db.commit()
+    return read_layaway(layaway.id, db)
+
+
+@router.post("/{layaway_id}/complete", dependencies=[Depends(require_permission("layaways.complete"))])
+def complete_layaway(
+    layaway_id: int,
+    payload: LayawayCompleteRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_permission("layaways.complete")),
+):
+    layaway = db.query(models.Layaway).filter(models.Layaway.id == layaway_id).with_for_update().first()
+    if not layaway:
+        raise HTTPException(status_code=404, detail="Apartado no encontrado")
+    if layaway.status == "COMPLETED":
+        raise HTTPException(status_code=400, detail="Este apartado ya fue entregado")
+    if layaway.status in {"CANCELLED", "EXPIRED"}:
+        raise HTTPException(status_code=400, detail="Este apartado no se puede entregar")
+    if layaway.sale_id:
+        raise HTTPException(status_code=400, detail="Este apartado ya tiene una venta asociada")
+
+    balance = _decimal(layaway.balance_amount)
+    final_payment = payload.final_payment
+    if balance > Decimal("0.0001"):
+        if not final_payment:
+            raise HTTPException(status_code=400, detail=f"El apartado tiene saldo pendiente de {_money(balance)} {layaway.currency}")
+        amount = _decimal(final_payment.amount)
+        if amount + Decimal("0.0001") < balance:
+            raise HTTPException(status_code=400, detail=f"El pago final no cubre el saldo pendiente de {_money(balance)} {layaway.currency}")
+        if _normalize_currency(final_payment.currency) != _normalize_currency(layaway.currency):
+            raise HTTPException(status_code=400, detail="El pago final debe estar en la misma moneda del apartado")
+        payment = models.LayawayPayment(
+            layaway_id=layaway.id,
+            amount=amount,
+            currency=final_payment.currency,
+            exchange_rate=final_payment.exchange_rate,
+            payment_method=final_payment.payment_method,
+            reference=final_payment.reference,
+            session_id=final_payment.session_id or payload.session_id,
+            notes=final_payment.notes,
+            created_by_user_id=current_user.id,
+        )
+        db.add(payment)
+        layaway.paid_amount = _decimal(layaway.paid_amount) + amount
+        layaway.balance_amount = max(_decimal(layaway.total_amount) - _decimal(layaway.paid_amount), Decimal("0"))
+        balance = _decimal(layaway.balance_amount)
+
+    if balance > Decimal("0.0001"):
+        raise HTTPException(status_code=400, detail=f"El apartado aun tiene saldo pendiente de {_money(balance)} {layaway.currency}")
+
+    active_items = db.query(models.LayawayItem).options(
+        joinedload(models.LayawayItem.product),
+        joinedload(models.LayawayItem.product_instance),
+    ).filter(
+        models.LayawayItem.layaway_id == layaway.id,
+        models.LayawayItem.status == "ACTIVE",
+    ).all()
+    if not active_items:
+        raise HTTPException(status_code=400, detail="El apartado no tiene productos activos para entregar")
+
+    sale_items = []
+    sale_warehouse_id = layaway.warehouse_id or active_items[0].warehouse_id
+    for item in active_items:
+        product = item.product or db.query(models.Product).filter(models.Product.id == item.product_id).first()
+        if not product:
+            raise HTTPException(status_code=404, detail=f"Producto {item.product_id} no encontrado")
+        if not item.warehouse_id:
+            raise HTTPException(status_code=400, detail=f"El producto {item.product_name_snapshot or product.name} no tiene almacen de entrega")
+
+        serials = None
+        allow_reserved_serials = False
+        if product.has_imei:
+            instance = item.product_instance
+            if not instance:
+                raise HTTPException(status_code=400, detail=f"El producto {product.name} no tiene IMEI reservado")
+            if instance.status not in {models.ProductInstanceStatus.RESERVED, models.ProductInstanceStatus.AVAILABLE}:
+                raise HTTPException(status_code=400, detail=f"El IMEI {instance.serial_number} ya no esta disponible para entrega")
+            serials = [instance.serial_number]
+            allow_reserved_serials = True
+
+        sale_items.append(schemas.SaleDetailCreate(
+            product_id=item.product_id,
+            quantity=_decimal(item.quantity),
+            unit_price=_decimal(item.unit_price),
+            subtotal=_decimal(item.subtotal),
+            serial_numbers=serials,
+            allow_reserved_serials=allow_reserved_serials,
+        ))
+
+    exchange_rate = _default_exchange_rate(db)
+    total_amount = _decimal(layaway.total_amount)
+    total_amount_bs = (total_amount * exchange_rate).quantize(Decimal("0.0001"))
+    sale_notes = f"Entrega de apartado {layaway.code}"
+    if payload.notes:
+        sale_notes = f"{sale_notes}. {payload.notes}"
+
+    sale_payload = schemas.SaleCreate(
+        customer_id=layaway.customer_id,
+        payment_method="Apartado aplicado",
+        payments=[schemas.SalePaymentCreate(
+            amount=total_amount,
+            currency="USD",
+            payment_method="Apartado aplicado",
+            exchange_rate=Decimal("1"),
+            reference=layaway.code,
+        )],
+        items=sale_items,
+        total_amount=total_amount,
+        total_amount_bs=total_amount_bs,
+        currency="USD",
+        exchange_rate=exchange_rate,
+        notes=sale_notes,
+        is_credit=False,
+        warehouse_id=sale_warehouse_id,
+    )
+
+    sale_result = SalesService.create_sale(db, sale_payload, user_id=current_user.id, background_tasks=background_tasks)
+    sale_id = sale_result.get("sale_id")
+
+    layaway = db.query(models.Layaway).filter(models.Layaway.id == layaway_id).with_for_update().first()
+    items = db.query(models.LayawayItem).filter(models.LayawayItem.layaway_id == layaway_id, models.LayawayItem.status == "ACTIVE").all()
+    for item in items:
+        item.status = "DELIVERED"
+    layaway.status = "COMPLETED"
+    layaway.sale_id = sale_id
+    layaway.completed_at = get_venezuela_now()
+    layaway.updated_at = get_venezuela_now()
+    _add_event(db, layaway.id, current_user.id, "COMPLETED", "Apartado entregado y convertido en venta", {"sale_id": sale_id})
     db.commit()
     return read_layaway(layaway.id, db)
 

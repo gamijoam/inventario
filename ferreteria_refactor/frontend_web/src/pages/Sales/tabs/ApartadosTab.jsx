@@ -4,6 +4,7 @@ import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
 import { getApiErrorMessage } from '../../../utils/apiErrors';
 import { useAuth } from '../../../context/AuthContext';
+import { useCash } from '../../../context/CashContext';
 import { PERMISSIONS } from '../../../config/permissions';
 
 const STATUS_META = {
@@ -47,9 +48,11 @@ const StatusBadge = ({ status }) => {
 
 const ApartadosTab = () => {
     const { hasPermission } = useAuth();
+    const { session } = useCash();
     const canAddPayment = hasPermission(PERMISSIONS.LAYAWAYS_PAYMENTS_ADD);
     const canCancel = hasPermission(PERMISSIONS.LAYAWAYS_CANCEL);
     const canExtend = hasPermission(PERMISSIONS.LAYAWAYS_EXTEND);
+    const canComplete = hasPermission(PERMISSIONS.LAYAWAYS_COMPLETE);
 
     const [layaways, setLayaways] = useState([]);
     const [total, setTotal] = useState(0);
@@ -59,6 +62,7 @@ const ApartadosTab = () => {
     const [selected, setSelected] = useState(null);
     const [detailLoading, setDetailLoading] = useState(false);
     const [paymentForm, setPaymentForm] = useState({ amount: '', currency: 'USD', payment_method: 'Efectivo', reference: '' });
+    const [completeForm, setCompleteForm] = useState({ payment_method: 'Efectivo', reference: '', notes: '' });
     const [extendDate, setExtendDate] = useState('');
     const [processing, setProcessing] = useState(false);
 
@@ -130,6 +134,7 @@ const ApartadosTab = () => {
                 exchange_rate: 1,
                 payment_method: paymentForm.payment_method,
                 reference: paymentForm.reference || null,
+                session_id: session?.id || null,
             });
             setSelected(response.data);
             setPaymentForm({ amount: '', currency: 'USD', payment_method: 'Efectivo', reference: '' });
@@ -170,6 +175,39 @@ const ApartadosTab = () => {
             toast.success('Apartado cancelado y productos liberados');
         } catch (error) {
             toast.error(getApiErrorMessage(error, 'No se pudo cancelar el apartado'));
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleComplete = async () => {
+        if (!selected) return;
+        const balance = Number(selected.balance_amount || 0);
+        const needsPayment = balance > 0.0001;
+        if (!window.confirm(needsPayment ? 'Se registrara el pago final y se entregara el apartado. ¿Continuar?' : 'Se entregara el apartado y se generara la venta final. ¿Continuar?')) return;
+        setProcessing(true);
+        try {
+            const payload = {
+                session_id: session?.id || null,
+                notes: completeForm.notes || null,
+            };
+            if (needsPayment) {
+                payload.final_payment = {
+                    amount: balance,
+                    currency: selected.currency || 'USD',
+                    exchange_rate: 1,
+                    payment_method: completeForm.payment_method,
+                    reference: completeForm.reference || null,
+                    session_id: session?.id || null,
+                };
+            }
+            const response = await apiClient.post(`/layaways/${selected.id}/complete`, payload);
+            setSelected(response.data);
+            setCompleteForm({ payment_method: 'Efectivo', reference: '', notes: '' });
+            await fetchLayaways();
+            toast.success(`Apartado entregado${response.data?.sale_id ? ` · Venta #${response.data.sale_id}` : ''}`);
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, 'No se pudo entregar el apartado'));
         } finally {
             setProcessing(false);
         }
@@ -357,9 +395,34 @@ const ApartadosTab = () => {
                                         </div>
                                     </section>
                                 )}
+
+                                {canComplete && ['ACTIVE', 'PAID'].includes(selected.status) && (
+                                    <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                            <div>
+                                                <h4 className="text-xs font-black uppercase tracking-widest text-emerald-700">Entrega final</h4>
+                                                <p className="text-xs font-bold text-emerald-700/80">{Number(selected.balance_amount || 0) > 0.0001 ? 'Liquida el saldo y genera la venta.' : 'Genera la venta y descuenta inventario.'}</p>
+                                            </div>
+                                            <ShieldCheck size={18} className="text-emerald-700" />
+                                        </div>
+                                        {Number(selected.balance_amount || 0) > 0.0001 && (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <input value={money(selected.balance_amount, selected.currency)} disabled className="h-10 rounded-md border border-emerald-100 bg-white px-3 text-sm font-black text-emerald-800" />
+                                                <select value={completeForm.payment_method} onChange={(event) => setCompleteForm({ ...completeForm, payment_method: event.target.value })} className="h-10 rounded-md border border-emerald-100 bg-white px-3 text-sm font-bold outline-none">
+                                                    <option>Efectivo</option><option>Punto de Venta</option><option>Pago Movil</option><option>Zelle</option><option>Transferencia</option>
+                                                </select>
+                                                <input value={completeForm.reference} onChange={(event) => setCompleteForm({ ...completeForm, reference: event.target.value })} placeholder="Referencia del pago final" className="col-span-2 h-10 rounded-md border border-emerald-100 bg-white px-3 text-sm font-bold outline-none" />
+                                            </div>
+                                        )}
+                                        <textarea value={completeForm.notes} onChange={(event) => setCompleteForm({ ...completeForm, notes: event.target.value })} placeholder="Nota de entrega" rows={2} className="mt-2 w-full resize-none rounded-md border border-emerald-100 bg-white px-3 py-2 text-sm font-bold outline-none" />
+                                        <button onClick={handleComplete} disabled={processing} className="mt-2 h-10 w-full rounded-md bg-emerald-600 text-sm font-black text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50">
+                                            {Number(selected.balance_amount || 0) > 0.0001 ? 'Liquidar y entregar' : 'Entregar apartado'}
+                                        </button>
+                                    </section>
+                                )}
                             </div>
 
-                            {canCancel && !['CANCELLED', 'COMPLETED'].includes(selected.status) && (
+                            {(canCancel && !['CANCELLED', 'COMPLETED'].includes(selected.status)) && (
                                 <div className="border-t border-slate-100 p-4">
                                     <button onClick={handleCancel} disabled={processing} className="h-10 w-full rounded-md border border-rose-200 bg-rose-50 text-sm font-black text-rose-700 hover:bg-rose-100 disabled:opacity-50">Cancelar y liberar productos</button>
                                 </div>

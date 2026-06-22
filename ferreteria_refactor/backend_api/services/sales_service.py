@@ -657,11 +657,14 @@ class SalesService:
                             sold_instances = []
 
                             if item.serial_numbers:
+                                allowed_serial_statuses = [models.ProductInstanceStatus.AVAILABLE]
+                                if getattr(item, "allow_reserved_serials", False):
+                                    allowed_serial_statuses.append(models.ProductInstanceStatus.RESERVED)
                                 sold_instances = db.query(models.ProductInstance).filter(
                                     models.ProductInstance.product_id == product.id,
                                     models.ProductInstance.warehouse_id == warehouse_id,
                                     models.ProductInstance.serial_number.in_(item.serial_numbers),
-                                    models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE
+                                    models.ProductInstance.status.in_(allowed_serial_statuses)
                                 ).with_for_update().all()
 
                                 if len(sold_instances) != len(item.serial_numbers):

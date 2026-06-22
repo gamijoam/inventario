@@ -379,6 +379,7 @@ class SaleDetailCreate(BaseModel):
     recipe_factor: Decimal = Decimal("1.0")
     modifier_option_ids: Optional[List[int]] = [] # NEW: IDs of selected modifier options
     skip_stock_deduction: bool = False # New: avoid double deduction in restaurant flow
+    allow_reserved_serials: bool = False # Internal: allow completing layaway items reserved by IMEI
 
     model_config = ConfigDict(from_attributes=True)
 
