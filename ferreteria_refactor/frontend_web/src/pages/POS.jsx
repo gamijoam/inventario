@@ -508,7 +508,41 @@ const POS = () => {
 
     const focusSearch = focusAndSelectSearch;
 
-    const baseSaleUnit = (product, extra = {}) => ({
+    const getDefaultPriceListPatch = (product, unit = {}) => {
+        const baseCurrencyCode = posSettings?.pos_base_currency_code || 'FLEX';
+        const basePaymentPolicy = posSettings?.pos_base_payment_policy || 'flexible';
+        const patch = {
+            price_list_id: null,
+            price_list_name: basePaymentPolicy === 'strict' && baseCurrencyCode !== 'FLEX' ? `Base ${baseCurrencyCode}` : null,
+            price_list_currency_code: baseCurrencyCode,
+            price_list_payment_policy: basePaymentPolicy,
+        };
+
+        const listId = posSettings?.pos_default_price_list_id || '';
+        const selectedList = listId ? priceLists.find(l => String(l.id) === String(listId)) : null;
+        if (!listId || !selectedList || !unit?.is_base || !Array.isArray(product?.prices)) {
+            return patch;
+        }
+
+        const entry = product.prices.find(p => String(p.price_list_id) === String(listId));
+        if (!entry || entry.price == null) return patch;
+
+        return {
+            ...patch,
+            price_usd: parseFloat(entry.price),
+            price_list_id: Number(listId),
+            price_list_name: selectedList.name || entry.price_list?.name || null,
+            price_list_currency_code: selectedList.currency_code || entry.price_list?.currency_code || 'FLEX',
+            price_list_payment_policy: selectedList.payment_policy || entry.price_list?.payment_policy || 'flexible',
+        };
+    };
+
+    const withDefaultPricePolicy = (product, unit = {}) => ({
+        ...unit,
+        ...getDefaultPriceListPatch(product, unit),
+    });
+
+    const baseSaleUnit = (product, extra = {}) => withDefaultPricePolicy(product, {
         name: 'Unidad',
         price_usd: parseFloat(product?.price || 0),
         factor: 1,
@@ -600,14 +634,14 @@ const POS = () => {
         const product = selectedProductForEmployee;
 
         // Add to cart with the selected employee
-        addToCart(product, {
+        addToCart(product, withDefaultPricePolicy(product, {
             name: 'Servicio',
             price_usd: parseFloat(product.price),
             factor: 1,
             is_base: true,
             employee_id: employee.id,
             salesperson_id: selectedSalespersonId || null
-        });
+        }));
 
         setSelectedProductForEmployee(null);
         setIsEmployeeModalOpen(false);
@@ -622,7 +656,7 @@ const POS = () => {
     };
 
     const handleUnitSelect = (unit) => {
-        const selectedUnit = { ...unit, salesperson_id: selectedSalespersonId || null };
+        const selectedUnit = withDefaultPricePolicy(selectedProductForUnits, { ...unit, salesperson_id: selectedSalespersonId || null });
         if (!ensureCanAddProduct(selectedProductForUnits, selectedUnit)) return;
         addToCart(selectedProductForUnits, selectedUnit);
         setSelectedProductForUnits(null);
@@ -652,7 +686,7 @@ const POS = () => {
             setComboImeiQueue([]);
             setComboImeiCollected({});
             if (pendingComboProduct) {
-                addToCart(pendingComboProduct, {
+                addToCart(pendingComboProduct, withDefaultPricePolicy(pendingComboProduct, {
                     name: 'Unidad',
                     price_usd: parseFloat(pendingComboProduct.price),
                     factor: 1,
@@ -660,7 +694,7 @@ const POS = () => {
                     combo_serials: newCollected,
                     combo_serial_details: comboSerialDetails,
                     salesperson_id: selectedSalespersonId || null
-                });
+                }));
                 setPendingComboProduct(null);
                 focusSearch();
             }
@@ -678,7 +712,7 @@ const POS = () => {
 
         serials.forEach(accSerial => {
             const detail = serialDetails.find(item => item.serial_number === accSerial) || {};
-            const singleUnit = {
+            const singleUnit = withDefaultPricePolicy(selectedProductForSerialized, {
                 name: 'Unidad',
                 price_usd: parseFloat(selectedProductForSerialized.price),
                 factor: 1,
@@ -690,7 +724,7 @@ const POS = () => {
                 color_name: detail.color_name || null,
                 color_hex: detail.color_hex || null,
                 salesperson_id: selectedSalespersonId || null
-            };
+            });
             addToCart(selectedProductForSerialized, singleUnit);
         });
 

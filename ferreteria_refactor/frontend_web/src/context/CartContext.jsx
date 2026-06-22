@@ -172,15 +172,16 @@ export const CartProvider = ({ children }) => {
         // ── Lista de precio predeterminada del POS (por tenant) ──
         // Si hay una lista configurada y el producto tiene precio en ella, se aplica
         // automáticamente (solo a la unidad base; las unidades especiales mantienen su precio).
-        let _defaultListId = null, _defaultListName = null;
-        let _defaultListCurrencyCode = localStorage.getItem('pos_base_currency_code') || 'FLEX';
-        let _defaultListPaymentPolicy = localStorage.getItem('pos_base_payment_policy') || 'flexible';
+        let _defaultListId = unit?.price_list_id ?? null;
+        let _defaultListName = unit?.price_list_name ?? null;
+        let _defaultListCurrencyCode = unit?.price_list_currency_code || localStorage.getItem('pos_base_currency_code') || 'FLEX';
+        let _defaultListPaymentPolicy = unit?.price_list_payment_policy || localStorage.getItem('pos_base_payment_policy') || 'flexible';
         if (_defaultListPaymentPolicy === 'strict' && _defaultListCurrencyCode !== 'FLEX') {
             _defaultListName = `Base ${_defaultListCurrencyCode}`;
         }
         try {
             const cfgListId = localStorage.getItem('pos_default_price_list_id');
-            if (cfgListId && unit?.is_base && Array.isArray(product?.prices) && product.prices.length) {
+            if (!_defaultListId && cfgListId && unit?.is_base && Array.isArray(product?.prices) && product.prices.length) {
                 const entry = product.prices.find(p => String(p.price_list_id) === String(cfgListId));
                 if (entry && entry.price != null) {
                     unit = { ...unit, price_usd: parseFloat(entry.price) };
