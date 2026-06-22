@@ -25,6 +25,7 @@ from ...tenant_context import get_tenant_schema
 from ... import schemas
 from ...audit_utils import log_action
 from ...services.cash_reconciliation_service import CashReconciliationService
+from ...services.accounting_ledger_service import AccountingLedgerService
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +198,32 @@ def force_close_register_session(
     open_session.difference_bs = open_session.final_cash_reported_bs - expected_bs
     open_session.status = "CLOSED"
     open_session.end_time = get_venezuela_now()
+
+    currency_records = db.query(models.CashSessionCurrency).filter(
+        models.CashSessionCurrency.session_id == open_session.id
+    ).all()
+    currency_records_by_symbol = {
+        (record.currency_symbol or "USD").strip().upper(): record
+        for record in currency_records
+    }
+    for symbol, expected in (("USD", expected_usd), ("BS", expected_bs)):
+        curr_record = currency_records_by_symbol.get(symbol)
+        if curr_record is None:
+            curr_record = models.CashSessionCurrency(
+                session_id=open_session.id,
+                currency_symbol="Bs" if symbol == "BS" else "USD",
+                initial_amount=Decimal("0.00"),
+            )
+            db.add(curr_record)
+            currency_records_by_symbol[symbol] = curr_record
+        curr_record.final_expected = expected
+        curr_record.final_reported = expected
+        curr_record.difference = Decimal("0.00")
+
+    # Materialize the accounting ledger inside the same close transaction.
+    # This keeps forced closes aligned with the cash audit/report engine.
+    db.flush()
+    AccountingLedgerService.rebuild_cash_session(db, open_session.id, commit=False)
     db.commit()
 
     return {
@@ -673,6 +700,11 @@ async def close_cash_session(
     broadcast_final_reported_bs = float(session.final_cash_reported_bs or 0)
     broadcast_difference = float(session.difference or 0)
     broadcast_difference_bs = float(session.difference_bs or 0)
+
+    # Materialize the accounting ledger before the close commit so the
+    # session, currency counts and ledger remain atomic and idempotent.
+    db.flush()
+    AccountingLedgerService.rebuild_cash_session(db, session.id, commit=False)
 
     db.commit()
     # NO db.refresh(session) calls!
