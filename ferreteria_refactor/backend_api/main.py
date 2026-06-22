@@ -59,6 +59,7 @@ from .routers.transfers import router as transfers_router
 from .routers.warranties import router as warranties_router # NEW: Warranty System
 from .routers.layaways import router as layaways_router
 from .routers.pharmacy import router as pharmacy_router  # NEW: Pharmacy Module
+from .routers.accounting import router as accounting_router
 from .routers.admin import router as admin_router  # NEW: Admin panel
 from .routers.support_client import router as support_client_router
 from .routers.support_admin import router as support_admin_router
@@ -271,6 +272,7 @@ v1_router.include_router(chatbot_router, tags=["ChatBot WhatsApp"])
 v1_router.include_router(warranties_router, tags=["Garantías"])
 v1_router.include_router(layaways_router, tags=["Apartados"])
 v1_router.include_router(pharmacy_router, tags=["Farmacia"])
+v1_router.include_router(accounting_router, tags=["Contabilidad"])
 from .routers.admin_tasks import router as admin_tasks_router # NEW: Admin Tasks
 from .routers.desktop_licenses import router as desktop_licenses_router  # Desktop license management
 
