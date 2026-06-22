@@ -36,7 +36,8 @@ const SOURCE_LABELS = {
     cash_advance_incoming: 'Avance',
     sale_change: 'Vuelto',
     purchase_payment: 'Proveedor',
-    service_payment: 'Servicio'
+    service_payment: 'Servicio',
+    layaway_payment: 'Apartado'
 };
 
 const BUCKET_LABELS = {
@@ -44,6 +45,7 @@ const BUCKET_LABELS = {
     digital_sales: 'Venta no efectivo',
     debt_cash: 'Abono CxC / servicio',
     service_cash: 'Servicio efectivo',
+    layaway_cash: 'Abono apartado',
     manual_in: 'Entrada manual',
     manual_out: 'Salida manual',
     returns: 'Devolucion',
@@ -53,7 +55,8 @@ const BUCKET_LABELS = {
     digital_advance_incoming: 'Contraparte digital',
     digital_or_movement_backed_debt: 'CxC conciliado',
     non_cash_purchase_payment: 'Pago proveedor no efectivo',
-    non_cash_service_payment: 'Servicio no efectivo'
+    non_cash_service_payment: 'Servicio no efectivo',
+    non_cash_layaway_payment: 'Apartado no efectivo'
 };
 
 const CashAuditModal = ({ session, isOpen, onClose }) => {
@@ -136,7 +139,7 @@ const CashAuditModal = ({ session, isOpen, onClose }) => {
     const criticalRows = useMemo(() => {
         return (report?.transactions || [])
             .filter((row) => row.affects_cash)
-            .filter((row) => Number(row.outflow || 0) > 0 || ['manual_in', 'debt_cash', 'service_cash'].includes(row.cash_bucket))
+            .filter((row) => Number(row.outflow || 0) > 0 || ['manual_in', 'debt_cash', 'service_cash', 'layaway_cash'].includes(row.cash_bucket))
             .slice(0, 8);
     }, [report?.transactions]);
 
@@ -477,7 +480,7 @@ const MetricCard = ({ icon: Icon, label, value, tone }) => {
 
 const CashCurrencyCard = ({ row, money }) => {
     const diff = Number(row.difference || 0);
-    const inflows = Number(row.cash_sales || 0) + Number(row.debt_cash || 0) + Number(row.manual_in || 0);
+    const inflows = Number(row.cash_sales || 0) + Number(row.debt_cash || 0) + Number(row.layaway_cash || 0) + Number(row.manual_in || 0);
     const outflows = Number(row.manual_out || 0) + Number(row.purchase_cash || 0) + Number(row.returns || 0) + Number(row.cash_advances || 0) + Number(row.change_given || 0);
 
     return (
@@ -494,6 +497,7 @@ const CashCurrencyCard = ({ row, money }) => {
             <MoneyLine label="Inicial" value={row.initial} currency={row.currency} money={money} />
             <MoneyLine label="Cobros efectivo" value={row.cash_sales} currency={row.currency} money={money} positive />
             <MoneyLine label="CxC / servicios" value={row.debt_cash} currency={row.currency} money={money} positive />
+            <MoneyLine label="Apartados" value={row.layaway_cash} currency={row.currency} money={money} positive />
             <MoneyLine label="Entradas manuales" value={row.manual_in} currency={row.currency} money={money} positive />
             <MoneyLine label="Salidas manuales" value={row.manual_out} currency={row.currency} money={money} negative />
             <MoneyLine label="Pagos proveedor" value={row.purchase_cash} currency={row.currency} money={money} negative />

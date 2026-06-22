@@ -351,6 +351,25 @@ def get_daily_close(
             if not matching_deposit:
                 deposits[currency_key] = deposits.get(currency_key, Decimal("0.00")) + amount
 
+        layaway_payments = db.query(models.LayawayPayment).filter(
+            models.LayawayPayment.session_id.in_(session_ids),
+            models.LayawayPayment.status == "APPLIED",
+        ).all()
+        for payment in layaway_payments:
+            method = f"{normalize_payment_method(payment.payment_method or 'Sin metodo')} (Apartado)"
+            currency_key = _currency_key(payment.currency)
+            amount = Decimal(str(payment.amount or 0))
+            symbol = get_currency_symbol(payment.currency or "USD")
+            payment_breakdown.append({
+                "method": method,
+                "currency": currency_key,
+                "symbol": symbol,
+                "amount": float(amount),
+                "count": 1,
+            })
+            if _is_cash_method(payment.payment_method):
+                cash_by_currency[currency_key] = cash_by_currency.get(currency_key, Decimal("0.00")) + amount
+
     change = {"USD": Decimal("0.00"), "VES": Decimal("0.00")}
     change_rows = db.query(models.Sale.change_currency, func.sum(models.Sale.change_amount)).filter(
         models.Sale.date >= start_dt,

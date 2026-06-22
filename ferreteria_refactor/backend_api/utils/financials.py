@@ -82,7 +82,24 @@ def get_session_payment_breakdown(db: Session, session: models.CashSession):
             
         breakdown[method][curr] += amt
         
-    # 3. Fetch Cash Advance Dual Transactions (Digital Inflows)
+    # 3. Fetch Layaway Payments (Apartados) linked to Session.
+    layaway_payments = db.query(models.LayawayPayment).filter(
+        models.LayawayPayment.session_id == session.id,
+        models.LayawayPayment.status == "APPLIED",
+    ).all()
+
+    for p in layaway_payments:
+        method = f"{p.payment_method or 'Sin metodo'} (Apartado)"
+        curr = p.currency or "USD"
+        amt = p.amount or Decimal("0.00")
+
+        if method not in breakdown:
+            breakdown[method] = {}
+        if curr not in breakdown[method]:
+            breakdown[method][curr] = Decimal("0.00")
+        breakdown[method][curr] += amt
+
+    # 4. Fetch Cash Advance Dual Transactions (Digital Inflows)
     advances = db.query(models.CashMovement).filter(
         models.CashMovement.session_id == session.id,
         models.CashMovement.type == 'CASH_ADVANCE',

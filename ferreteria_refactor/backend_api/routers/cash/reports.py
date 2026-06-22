@@ -268,6 +268,33 @@ def get_session_details(
             debt_payments_total_usd += amt
             sales_total_usd += amt
 
+    # 1.6 Get Layaway Payments (Apartados) linked to this session.
+    layaway_payments = db.query(models.LayawayPayment).filter(
+        models.LayawayPayment.session_id == session.id,
+        models.LayawayPayment.status == "APPLIED",
+    ).all()
+    layaway_payments_total_usd = Decimal("0.00")
+    layaway_payments_total_bs = Decimal("0.00")
+
+    for lp in layaway_payments:
+        curr = lp.currency
+        method = lp.payment_method or "Sin metodo"
+        amt = lp.amount or Decimal("0.00")
+        method_key = f"{method} (Apartado)"
+
+        if method_key not in sales_by_method:
+            sales_by_method[method_key] = {}
+        if curr not in sales_by_method[method_key]:
+            sales_by_method[method_key][curr] = Decimal("0.00")
+        sales_by_method[method_key][curr] += amt
+
+        if curr and curr.upper() in ["BS", "VES", "VEF"]:
+            layaway_payments_total_bs += amt
+            sales_total_bs += amt
+        else:
+            layaway_payments_total_usd += amt
+            sales_total_usd += amt
+
     # Calculate Movements
     # Separate Expenses from Cash Advances and Returns
     expenses_usd = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and (m.currency or "USD") == "USD"), Decimal("0.00"))
@@ -444,6 +471,8 @@ def get_session_details(
             "cash_advances_bs": cash_advances_bs,
             "deposits_usd": deposits_usd,
             "deposits_bs": deposits_bs,
+            "layaway_payments_usd": layaway_payments_total_usd,
+            "layaway_payments_bs": layaway_payments_total_bs,
             "cash_by_currency": cash_by_currency_response,
             "credit_pending": total_credit_pending,  # NEW: Total unpaid credits
             "credit_count": credit_count  # NEW: Number of unpaid credit sales

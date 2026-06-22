@@ -67,6 +67,15 @@ class CashReconciliationService:
             transactions=transactions,
             alerts=alerts,
         )
+        CashReconciliationService._append_layaway_payment_transactions(
+            db=db,
+            session=session,
+            external_financers=external_financers,
+            cash_flow=cash_flow,
+            payment_breakdown=payment_breakdown,
+            transactions=transactions,
+            alerts=alerts,
+        )
         CashReconciliationService._append_movement_transactions(
             movements=movements,
             cash_flow=cash_flow,
@@ -254,6 +263,63 @@ class CashReconciliationService:
                 "cash_bucket": "debt_cash" if counted_in_cash else "digital_or_movement_backed_debt",
                 "matched_cash_movement_id": matched_movement_id,
                 "customer_id": payment.customer_id,
+            })
+
+    @staticmethod
+    def _append_layaway_payment_transactions(
+        db: Session,
+        session: models.CashSession,
+        external_financers: set,
+        cash_flow: Dict[str, Dict[str, Any]],
+        payment_breakdown: Dict[Tuple[str, str], Dict[str, Any]],
+        transactions: List[Dict[str, Any]],
+        alerts: List[Dict[str, Any]],
+    ) -> None:
+        payments = db.query(models.LayawayPayment).options(
+            joinedload(models.LayawayPayment.layaway).joinedload(models.Layaway.customer)
+        ).filter(
+            models.LayawayPayment.session_id == session.id,
+            models.LayawayPayment.status == "APPLIED",
+        ).order_by(models.LayawayPayment.created_at.asc(), models.LayawayPayment.id.asc()).all()
+
+        for payment in payments:
+            layaway = payment.layaway
+            method = payment.payment_method or "Sin metodo"
+            method_label = f"{method} (Apartado)"
+            currency = CashReconciliationService._currency_key(payment.currency)
+            amount = CashReconciliationService._decimal(payment.amount)
+            is_cash = CashReconciliationService._is_cash_method(method, external_financers)
+
+            CashReconciliationService._add_payment_breakdown(
+                payment_breakdown, method_label, currency, amount, "layaway_payment"
+            )
+            if is_cash:
+                CashReconciliationService._add_cash_part(cash_flow, currency, "layaway_cash", amount)
+
+            if not payment.reference and not is_cash:
+                alerts.append({
+                    "level": "info",
+                    "code": "layaway_payment_without_reference",
+                    "message": f"Abono de apartado sin referencia en {layaway.code if layaway else '#' + str(payment.layaway_id)}.",
+                    "source_type": "layaway_payment",
+                    "source_id": payment.id,
+                })
+
+            transactions.append({
+                "id": f"layaway_payment:{payment.id}",
+                "occurred_at": payment.created_at,
+                "source_type": "layaway_payment",
+                "source_id": payment.id,
+                "reference": f"Apartado {layaway.code}" if layaway else f"Apartado #{payment.layaway_id}",
+                "description": "Abono de apartado",
+                "method": method,
+                "currency": currency,
+                "inflow": amount,
+                "outflow": ZERO,
+                "affects_cash": is_cash,
+                "cash_bucket": "layaway_cash" if is_cash else "non_cash_layaway_payment",
+                "layaway_id": payment.layaway_id,
+                "customer_id": layaway.customer_id if layaway else None,
             })
 
     @staticmethod
@@ -577,6 +643,7 @@ class CashReconciliationService:
             "initial": ZERO,
             "cash_sales": ZERO,
             "debt_cash": ZERO,
+            "layaway_cash": ZERO,
             "manual_in": ZERO,
             "manual_out": ZERO,
             "purchase_cash": ZERO,
@@ -608,6 +675,7 @@ class CashReconciliationService:
                 row["initial"]
                 + row["cash_sales"]
                 + row["debt_cash"]
+                + row["layaway_cash"]
                 + row["manual_in"]
                 - row["manual_out"]
                 - row["purchase_cash"]
