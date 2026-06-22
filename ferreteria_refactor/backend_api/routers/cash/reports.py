@@ -76,6 +76,34 @@ def get_sessions_history(
     # For now, we do it in loop (30 queries max usually). Optimize later if needed.
     from ...utils.financials import get_session_payment_breakdown
 
+    def _to_float(value):
+        return float(value) if value is not None else 0.0
+
+    def _currency_key(value):
+        curr = (value or "USD").strip()
+        if curr.upper() in {"BS", "VES", "VEF"}:
+            return "Bs"
+        if curr in {"$", ""}:
+            return "USD"
+        return curr
+
+    def _has_incomplete_close(session):
+        if session.status != "CLOSED":
+            return False
+        legacy_missing = (
+            session.final_cash_expected is None
+            or session.final_cash_reported is None
+            or session.difference is None
+            or session.final_cash_expected_bs is None
+            or session.final_cash_reported_bs is None
+            or session.difference_bs is None
+        )
+        currency_missing = any(
+            curr.final_expected is None or curr.final_reported is None or curr.difference is None
+            for curr in (session.currencies or [])
+        )
+        return legacy_missing or currency_missing
+
     for session in sessions:
         # Calculate Breakdown
         breakdown_raw = get_session_payment_breakdown(db, session)
@@ -91,6 +119,18 @@ def get_sessions_history(
                         "amount": float(amt)
                     })
 
+        audit_cash_by_currency = {}
+        if _has_incomplete_close(session):
+            audit_report = CashReconciliationService.build_session_audit(db, session.id)
+            audit_cash_by_currency = {
+                row.get("currency"): row
+                for row in (audit_report or {}).get("cash_by_currency", [])
+                if row.get("currency")
+            }
+
+        usd_audit = audit_cash_by_currency.get("USD") or {}
+        bs_audit = audit_cash_by_currency.get("Bs") or {}
+
         session_dict = {
             "id": session.id,
             "user_id": session.user_id,
@@ -99,14 +139,14 @@ def get_sessions_history(
             "opened_at": session.start_time.isoformat() if session.start_time else None,  # Alias
             "closed_at": session.end_time.isoformat() if session.end_time else None,  # Alias
             "status": session.status,
-            "initial_cash": float(session.initial_cash) if session.initial_cash else 0.0,
-            "initial_cash_bs": float(session.initial_cash_bs) if session.initial_cash_bs else 0.0,
-            "final_cash_reported": float(session.final_cash_reported) if session.final_cash_reported else 0.0,
-            "final_cash_reported_bs": float(session.final_cash_reported_bs) if session.final_cash_reported_bs else 0.0,
-            "final_cash_expected": float(session.final_cash_expected) if session.final_cash_expected else 0.0,
-            "final_cash_expected_bs": float(session.final_cash_expected_bs) if session.final_cash_expected_bs else 0.0,
-            "difference": float(session.difference) if session.difference else 0.0,
-            "difference_bs": float(session.difference_bs) if session.difference_bs else 0.0,
+            "initial_cash": _to_float(session.initial_cash),
+            "initial_cash_bs": _to_float(session.initial_cash_bs),
+            "final_cash_reported": _to_float(session.final_cash_reported) if session.final_cash_reported is not None else _to_float(usd_audit.get("reported")),
+            "final_cash_reported_bs": _to_float(session.final_cash_reported_bs) if session.final_cash_reported_bs is not None else _to_float(bs_audit.get("reported")),
+            "final_cash_expected": _to_float(session.final_cash_expected) if session.final_cash_expected is not None else _to_float(usd_audit.get("expected")),
+            "final_cash_expected_bs": _to_float(session.final_cash_expected_bs) if session.final_cash_expected_bs is not None else _to_float(bs_audit.get("expected")),
+            "difference": _to_float(session.difference) if session.difference is not None else _to_float(usd_audit.get("difference")),
+            "difference_bs": _to_float(session.difference_bs) if session.difference_bs is not None else _to_float(bs_audit.get("difference")),
             "user": {
                 "id": session.user.id,
                 "username": session.user.username,
@@ -121,14 +161,27 @@ def get_sessions_history(
                 {
                     "id": curr.id,
                     "currency_symbol": curr.currency_symbol,
+                    "currency_code": _currency_key(curr.currency_symbol),
                     "is_anchor": curr.currency_symbol == anchor_symbol,
-                    "initial_amount": float(curr.initial_amount) if curr.initial_amount else 0.0,
-                    "final_reported": float(curr.final_reported) if curr.final_reported else 0.0,
-                    "final_expected": float(curr.final_expected) if curr.final_expected else 0.0,
-                    "difference": float(curr.difference) if curr.difference else 0.0
+                    "initial_amount": _to_float(curr.initial_amount),
+                    "final_reported": _to_float(curr.final_reported) if curr.final_reported is not None else _to_float(audit_cash_by_currency.get(_currency_key(curr.currency_symbol), {}).get("reported")),
+                    "final_expected": _to_float(curr.final_expected) if curr.final_expected is not None else _to_float(audit_cash_by_currency.get(_currency_key(curr.currency_symbol), {}).get("expected")),
+                    "difference": _to_float(curr.difference) if curr.difference is not None else _to_float(audit_cash_by_currency.get(_currency_key(curr.currency_symbol), {}).get("difference"))
                 }
                 for curr in session.currencies
-            ] if session.currencies else [],
+            ] if session.currencies else [
+                {
+                    "id": f"audit-{currency}",
+                    "currency_symbol": currency,
+                    "currency_code": currency,
+                    "is_anchor": currency == anchor_symbol,
+                    "initial_amount": _to_float(row.get("initial")),
+                    "final_reported": _to_float(row.get("reported")),
+                    "final_expected": _to_float(row.get("expected")),
+                    "difference": _to_float(row.get("difference"))
+                }
+                for currency, row in audit_cash_by_currency.items()
+            ],
 
             # THE NEW FIELD
             "payment_breakdown": breakdown_formatted
