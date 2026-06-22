@@ -61,6 +61,10 @@ class AccountingLedgerService:
         session_payload = report.get("session") or {}
         register_payload = session_payload.get("register") or {}
         user_payload = session_payload.get("user") or {}
+        existing_deleted = db.query(models.AccountingLedgerEntry).filter(
+            models.AccountingLedgerEntry.session_id == session_id
+        ).delete(synchronize_session=False)
+
         created = 0
         updated = 0
         entries = []
@@ -102,6 +106,7 @@ class AccountingLedgerService:
             "session_id": session_id,
             "created": created,
             "updated": updated,
+            "deleted": existing_deleted,
             "entries": len(entries),
         }
 
