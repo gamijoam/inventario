@@ -6,6 +6,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 DO $$
 DECLARE
     tenant_record RECORD;
+    index_prefix TEXT;
 BEGIN
     FOR tenant_record IN
         SELECT schema_name
@@ -25,6 +26,8 @@ BEGIN
                 AND table_name = 'cash_registers'
           )
     LOOP
+        index_prefix := 'ix_pj_' || substr(md5(tenant_record.schema_name), 1, 12);
+
         EXECUTE format($sql$
             CREATE TABLE IF NOT EXISTS %I.print_jobs (
                 id SERIAL PRIMARY KEY,
@@ -50,28 +53,28 @@ BEGIN
         $sql$, tenant_record.schema_name, tenant_record.schema_name, tenant_record.schema_name);
 
         EXECUTE format(
-            'CREATE UNIQUE INDEX IF NOT EXISTS ix_%s_print_jobs_job_uuid ON %I.print_jobs(job_uuid)',
-            tenant_record.schema_name,
+            'CREATE UNIQUE INDEX IF NOT EXISTS %I ON %I.print_jobs(job_uuid)',
+            index_prefix || '_uuid',
             tenant_record.schema_name
         );
         EXECUTE format(
-            'CREATE INDEX IF NOT EXISTS ix_%s_print_jobs_status_created ON %I.print_jobs(status, created_at DESC)',
-            tenant_record.schema_name,
+            'CREATE INDEX IF NOT EXISTS %I ON %I.print_jobs(status, created_at DESC)',
+            index_prefix || '_status_created',
             tenant_record.schema_name
         );
         EXECUTE format(
-            'CREATE INDEX IF NOT EXISTS ix_%s_print_jobs_sale_id ON %I.print_jobs(sale_id)',
-            tenant_record.schema_name,
+            'CREATE INDEX IF NOT EXISTS %I ON %I.print_jobs(sale_id)',
+            index_prefix || '_sale_id',
             tenant_record.schema_name
         );
         EXECUTE format(
-            'CREATE INDEX IF NOT EXISTS ix_%s_print_jobs_register_id ON %I.print_jobs(register_id)',
-            tenant_record.schema_name,
+            'CREATE INDEX IF NOT EXISTS %I ON %I.print_jobs(register_id)',
+            index_prefix || '_register_id',
             tenant_record.schema_name
         );
         EXECUTE format(
-            'CREATE INDEX IF NOT EXISTS ix_%s_print_jobs_client_id ON %I.print_jobs(resolved_client_id)',
-            tenant_record.schema_name,
+            'CREATE INDEX IF NOT EXISTS %I ON %I.print_jobs(resolved_client_id)',
+            index_prefix || '_client_id',
             tenant_record.schema_name
         );
     END LOOP;
