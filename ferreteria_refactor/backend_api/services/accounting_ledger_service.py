@@ -32,6 +32,8 @@ ACCOUNT_BY_BUCKET = {
     "change_given": ("cash.change_given", "Vuelto entregado"),
     "purchase_cash": ("cash.purchase_payment", "Pagos a proveedores en efectivo"),
     "service_cash": ("cash.service_payment", "Cobros de servicios en efectivo"),
+    "external_financing_cash": ("cash.external_financing_payment", "Pagos recibidos de financiadoras"),
+    "non_cash_external_financing_payment": ("receivable.external_financing_payment", "Pagos de financiadoras no ingresados a caja"),
 }
 
 EVENT_BY_SOURCE = {
@@ -43,6 +45,7 @@ EVENT_BY_SOURCE = {
     "sale_change": "sale.change_given",
     "purchase_payment": "purchase.payment_made",
     "service_payment": "service.payment_collected",
+    "external_financing_payment": "external_financing.payment_received",
 }
 
 
@@ -337,7 +340,7 @@ class AccountingLedgerService:
             "supplier_id": transaction.get("supplier_id"),
             "warehouse_id": transaction.get("warehouse_id"),
             "affects_cash": bool(transaction.get("affects_cash")),
-            "affects_accounts_receivable": source_type == "debt_payment",
+            "affects_accounts_receivable": source_type in {"debt_payment", "external_financing_payment"},
             "affects_accounts_payable": source_type == "purchase_payment",
             "metadata": AccountingLedgerService.json_safe(transaction),
         }
