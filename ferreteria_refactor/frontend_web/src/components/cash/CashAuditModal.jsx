@@ -109,6 +109,14 @@ const CashAuditModal = ({ session, isOpen, onClose }) => {
         }
     };
 
+    const moneyByCurrency = (rows = [], field) => {
+        const visibleRows = rows.filter((row) => row?.currency);
+        if (visibleRows.length === 0) return money(0);
+        return visibleRows.map((row) => money(row[field], row.currency)).join(' / ');
+    };
+
+    const hasCashDifference = (rows = []) => rows.some((row) => Math.abs(Number(row?.difference || 0)) > 0.01);
+
     const transactionRows = useMemo(() => {
         const rows = report?.transactions || [];
         const needle = query.trim().toLowerCase();
@@ -212,9 +220,9 @@ const CashAuditModal = ({ session, isOpen, onClose }) => {
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:w-[560px]">
-                                    <DiagnosticPill label="Esperado" value={money(summary.cash_expected_total_display_only)} />
-                                    <DiagnosticPill label="Declarado" value={money(summary.cash_reported_total_display_only)} />
-                                    <DiagnosticPill label="Diferencia" value={money(summary.cash_difference_total_display_only)} danger={diagnostic.hasDifference} />
+                                    <DiagnosticPill label="Esperado" value={moneyByCurrency(cashRows, 'expected')} />
+                                    <DiagnosticPill label="Declarado" value={moneyByCurrency(cashRows, 'reported')} />
+                                    <DiagnosticPill label="Diferencia" value={moneyByCurrency(cashRows, 'difference')} danger={hasCashDifference(cashRows)} />
                                     <DiagnosticPill label="Alertas" value={summary.alert_count || 0} danger={Number(summary.alert_count || 0) > 0} />
                                 </div>
                             </div>
@@ -224,7 +232,7 @@ const CashAuditModal = ({ session, isOpen, onClose }) => {
                             <MetricCard icon={ClipboardList} label="Transacciones" value={summary.transaction_count || 0} tone="indigo" />
                             <MetricCard icon={CreditCard} label="Metodos" value={summary.payment_method_count || 0} tone="blue" />
                             <MetricCard icon={Wallet} label="Creditos pendientes" value={`${credits.pending_count || 0} / ${money(credits.pending_amount || 0)}`} tone="amber" />
-                            <MetricCard icon={Banknote} label="Efectivo reportado" value={money(summary.cash_reported_total_display_only)} tone="emerald" />
+                            <MetricCard icon={Banknote} label="Efectivo reportado" value={moneyByCurrency(cashRows, 'reported')} tone="emerald" />
                         </section>
 
                         {alerts.length > 0 && (
@@ -397,11 +405,13 @@ const CashAuditModal = ({ session, isOpen, onClose }) => {
 };
 
 const buildDiagnostic = (report) => {
-    const diff = Number(report?.summary?.cash_difference_total_display_only || 0);
+    const cashRows = report?.cash_by_currency || [];
     const alertCount = Number(report?.summary?.alert_count || 0);
-    const absDiff = Math.abs(diff);
+    const differences = cashRows.map((row) => Number(row?.difference || 0)).filter((value) => Math.abs(value) > 0.01);
+    const hasShortage = differences.some((value) => value < 0);
+    const hasOverage = differences.some((value) => value > 0);
 
-    if (absDiff <= 0.01 && alertCount === 0) {
+    if (differences.length === 0 && alertCount === 0) {
         return {
             title: 'Caja cuadrada sin alertas',
             description: 'El efectivo declarado coincide con el calculo del sistema y no hay advertencias operativas en la sesion.',
@@ -412,16 +422,27 @@ const buildDiagnostic = (report) => {
         };
     }
 
-    if (absDiff > 0.01) {
+    if (differences.length > 0) {
+        if (hasShortage && hasOverage) {
+            return {
+                title: 'Diferencias por moneda',
+                description: 'Hay monedas con faltante y otras con sobrante. Revisa la tabla Caja por moneda; no se suman monedas distintas en un solo total.',
+                hasDifference: true,
+                headerClass: 'bg-amber-500',
+                panelClass: 'border-amber-200 bg-amber-50',
+                iconClass: 'bg-amber-100 text-amber-700'
+            };
+        }
+
         return {
-            title: diff < 0 ? 'Faltante detectado' : 'Sobrante detectado',
-            description: diff < 0
+            title: hasShortage ? 'Faltante detectado' : 'Sobrante detectado',
+            description: hasShortage
                 ? 'El cajero declaro menos efectivo que el esperado. Revisa salidas, devoluciones, avances y pagos en efectivo.'
                 : 'El cajero declaro mas efectivo que el esperado. Revisa entradas manuales, abonos CxC y cobros que pudieron quedar sin registrar.',
             hasDifference: true,
-            headerClass: diff < 0 ? 'bg-rose-600' : 'bg-blue-600',
-            panelClass: diff < 0 ? 'border-rose-200 bg-rose-50' : 'border-blue-200 bg-blue-50',
-            iconClass: diff < 0 ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-blue-700'
+            headerClass: hasShortage ? 'bg-rose-600' : 'bg-blue-600',
+            panelClass: hasShortage ? 'border-rose-200 bg-rose-50' : 'border-blue-200 bg-blue-50',
+            iconClass: hasShortage ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-blue-700'
         };
     }
 
@@ -450,7 +471,7 @@ const groupPaymentMethods = (methods) => {
 const DiagnosticPill = ({ label, value, danger }) => (
     <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-2 shadow-sm">
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-        <p className={clsx('mt-1 truncate text-sm font-black', danger ? 'text-rose-700' : 'text-slate-950')}>{value}</p>
+        <p className={clsx('mt-1 break-words text-xs font-black leading-snug', danger ? 'text-rose-700' : 'text-slate-950')}>{value}</p>
     </div>
 );
 
@@ -468,7 +489,7 @@ const MetricCard = ({ icon: Icon, label, value, tone }) => {
             <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                     <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">{label}</p>
-                    <p className="mt-1 truncate text-xl font-black text-slate-900">{value}</p>
+                    <p className="mt-1 break-words text-base font-black leading-snug text-slate-900">{value}</p>
                 </div>
                 <div className={clsx('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border', toneClasses[tone])}>
                     <Icon size={21} />

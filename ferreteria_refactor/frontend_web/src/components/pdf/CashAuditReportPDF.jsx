@@ -13,6 +13,14 @@ const fmtCurrency = (value, currency = 'USD') => {
     return `${symbol} ${fmtNum(value)}`;
 };
 
+const fmtCashRows = (rows = [], field) => {
+    const visibleRows = rows.filter((row) => row?.currency);
+    if (visibleRows.length === 0) return fmtCurrency(0, 'USD');
+    return visibleRows.map((row) => fmtCurrency(row[field], row.currency)).join(' / ');
+};
+
+const hasCashDifference = (rows = []) => rows.some((row) => Math.abs(Number(row?.difference || 0)) > 0.01);
+
 const pad2 = (value) => String(value).padStart(2, '0');
 
 const fmtDate = (value) => {
@@ -284,7 +292,7 @@ const CashAuditReportPDF = ({ report, business }) => {
     const alerts = report.alerts || [];
     const credits = report.credits || {};
     const generatedAt = fmtDate(new Date().toISOString());
-    const diagnostic = buildDiagnostic(summary);
+    const diagnostic = buildDiagnostic(summary, cashRows);
 
     return (
         <Document>
@@ -316,16 +324,16 @@ const CashAuditReportPDF = ({ report, business }) => {
                 <View style={styles.grid4}>
                     <View style={styles.card}>
                         <Text style={styles.cardLabel}>Esperado</Text>
-                        <Text style={styles.cardValue}>{fmtCurrency(summary.cash_expected_total_display_only, 'USD')}</Text>
+                        <Text style={styles.cardValue}>{fmtCashRows(cashRows, 'expected')}</Text>
                     </View>
                     <View style={styles.card}>
                         <Text style={styles.cardLabel}>Declarado</Text>
-                        <Text style={styles.cardValue}>{fmtCurrency(summary.cash_reported_total_display_only, 'USD')}</Text>
+                        <Text style={styles.cardValue}>{fmtCashRows(cashRows, 'reported')}</Text>
                     </View>
                     <View style={styles.card}>
                         <Text style={styles.cardLabel}>Diferencia</Text>
-                        <Text style={[styles.cardValue, Math.abs(Number(summary.cash_difference_total_display_only || 0)) > 0.01 ? styles.red : styles.green]}>
-                            {fmtCurrency(summary.cash_difference_total_display_only, 'USD')}
+                        <Text style={[styles.cardValue, hasCashDifference(cashRows) ? styles.red : styles.green]}>
+                            {fmtCashRows(cashRows, 'difference')}
                         </Text>
                     </View>
                     <View style={styles.card}>
@@ -456,10 +464,13 @@ const CashAuditReportPDF = ({ report, business }) => {
     );
 };
 
-const buildDiagnostic = (summary) => {
-    const diff = Number(summary.cash_difference_total_display_only || 0);
+const buildDiagnostic = (summary, cashRows = []) => {
     const alertCount = Number(summary.alert_count || 0);
-    if (Math.abs(diff) <= 0.01 && alertCount === 0) {
+    const differences = cashRows.map((row) => Number(row?.difference || 0)).filter((value) => Math.abs(value) > 0.01);
+    const hasShortage = differences.some((value) => value < 0);
+    const hasOverage = differences.some((value) => value > 0);
+
+    if (differences.length === 0 && alertCount === 0) {
         return {
             title: 'Caja cuadrada sin alertas',
             description: 'El efectivo declarado coincide con el calculo del sistema y no hay advertencias operativas en esta sesion.',
@@ -467,14 +478,22 @@ const buildDiagnostic = (summary) => {
             textStyle: { color: C.green }
         };
     }
-    if (Math.abs(diff) > 0.01) {
+    if (differences.length > 0) {
+        if (hasShortage && hasOverage) {
+            return {
+                title: 'Diferencias por moneda',
+                description: 'Hay monedas con faltante y otras con sobrante. Revisa la tabla Caja por moneda; no se suman monedas distintas en un solo total.',
+                style: { borderColor: '#FCD34D', backgroundColor: C.amberBg },
+                textStyle: { color: C.amber }
+            };
+        }
         return {
-            title: diff < 0 ? 'Faltante detectado' : 'Sobrante detectado',
-            description: diff < 0
+            title: hasShortage ? 'Faltante detectado' : 'Sobrante detectado',
+            description: hasShortage
                 ? 'El cajero declaro menos efectivo que el esperado. Revisar salidas, devoluciones, avances, vuelto y pagos en efectivo.'
                 : 'El cajero declaro mas efectivo que el esperado. Revisar entradas manuales, abonos CxC y cobros que pudieron quedar sin registrar.',
-            style: { borderColor: diff < 0 ? '#FDA4AF' : '#93C5FD', backgroundColor: diff < 0 ? C.redBg : '#EFF6FF' },
-            textStyle: { color: diff < 0 ? C.red : C.blue }
+            style: { borderColor: hasShortage ? '#FDA4AF' : '#93C5FD', backgroundColor: hasShortage ? C.redBg : '#EFF6FF' },
+            textStyle: { color: hasShortage ? C.red : C.blue }
         };
     }
     return {
