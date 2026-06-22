@@ -9,7 +9,9 @@ Servicio de eliminación de fondo de imágenes usando rembg (u2netp).
 """
 import io
 import logging
+import os
 import threading
+from pathlib import Path
 from typing import Optional
 
 from fastapi import HTTPException
@@ -21,6 +23,24 @@ _session = None
 _session_lock = threading.Lock()
 _session_load_failed = False
 _DEFAULT_MODEL = "u2netp"
+
+
+def _prepare_runtime_dirs():
+    """Prepara caches escribibles para rembg/numba en contenedores sin HOME real."""
+    base_dir = Path(os.environ.get("BG_REMOVER_RUNTIME_DIR", "/tmp/mi-inventario-bgremove"))
+    home_dir = base_dir / "home"
+    numba_cache_dir = base_dir / "numba-cache"
+    xdg_cache_dir = base_dir / "xdg-cache"
+
+    for directory in (home_dir, numba_cache_dir, xdg_cache_dir):
+        directory.mkdir(parents=True, exist_ok=True)
+
+    current_home = os.environ.get("HOME")
+    if not current_home or not os.path.isdir(current_home) or not os.access(current_home, os.W_OK):
+        os.environ["HOME"] = str(home_dir)
+
+    os.environ.setdefault("NUMBA_CACHE_DIR", str(numba_cache_dir))
+    os.environ.setdefault("XDG_CACHE_HOME", str(xdg_cache_dir))
 
 
 def _get_session():
@@ -36,6 +56,7 @@ def _get_session():
         if _session is not None:
             return _session
         try:
+            _prepare_runtime_dirs()
             from rembg import new_session  # type: ignore
             logger.info(f"[bg_remover] Cargando modelo {_DEFAULT_MODEL}…")
             _session = new_session(_DEFAULT_MODEL)
