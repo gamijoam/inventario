@@ -85,28 +85,83 @@ class ExternalFinancingSummary(BaseModel):
     total_received_from_financers: Decimal
     estimated_profit: Decimal
 
+
+def _apply_financing_filters(query, financer_name=None, status=None, date_from=None, date_to=None):
+    if financer_name:
+        query = query.filter(models.ExternalFinancing.financer_name.ilike(f"%{financer_name}%"))
+    if status:
+        query = query.filter(models.ExternalFinancing.financer_payment_status == status)
+    if date_from:
+        try:
+            dt_from = datetime.strptime(date_from, "%Y-%m-%d")
+            query = query.filter(models.ExternalFinancing.created_at >= dt_from)
+        except Exception:
+            pass
+    if date_to:
+        try:
+            from datetime import timedelta
+            dt_to = datetime.strptime(date_to, "%Y-%m-%d")
+            query = query.filter(models.ExternalFinancing.created_at < dt_to + timedelta(days=1))
+        except Exception:
+            pass
+    return query
+
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 @router.get("/summary", dependencies=[any_authenticated])
-def get_summary(db: Session = Depends(get_db)):
-    """Resumen financiero de todas las ventas financiadas."""
-    records = db.query(models.ExternalFinancing).all()
+def get_summary(
+    financer_name: Optional[str] = None,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Resumen de ventas financiadas por terceros.
 
-    total_financed   = sum(r.financed_amount or 0 for r in records)
-    total_initial    = sum(r.initial_payment or 0 for r in records)
-    total_received   = sum(r.financer_paid_amount or 0 for r in records)
+    Mantiene separados los conceptos contables: la inicial es dinero que entra a
+    caja y el monto financiado es una cuenta por cobrar a la financiadora.
+    """
+    query = _apply_financing_filters(
+        db.query(models.ExternalFinancing),
+        financer_name=financer_name,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    records = query.all()
+
+    total_price      = sum((r.total_price or Decimal("0")) for r in records)
+    total_financed   = sum((r.financed_amount or Decimal("0")) for r in records)
+    total_initial    = sum((r.initial_payment or Decimal("0")) for r in records)
+    total_received   = sum((r.financer_paid_amount or Decimal("0")) for r in records)
     total_pending    = total_financed - total_received
 
-    # Ganancia estimada = suma de (precio_total - costo del equipo)
-    # Por ahora: precio_total - financed_amount (lo que ya es tuyo = inicial)
-    estimated_profit = total_initial  # el inicial ya es ganancia parcial real
+    status_counts = {"PENDING": 0, "PARTIAL": 0, "COMPLETED": 0}
+    initial_by_currency = {}
+    for record in records:
+        key = record.financer_payment_status or "PENDING"
+        status_counts[key] = status_counts.get(key, 0) + 1
+        currency = (record.initial_currency or "USD").upper()
+        initial_by_currency[currency] = initial_by_currency.get(currency, Decimal("0")) + (record.initial_payment or Decimal("0"))
+
+    estimated_profit = total_initial
 
     return {
         "total_records": len(records),
+        "total_count": len(records),
+        "total_amount": float(total_price),
+        "total_price": float(total_price),
         "total_financed": float(total_financed),
         "total_initial_collected": float(total_initial),
         "total_pending_from_financers": float(total_pending),
         "total_received_from_financers": float(total_received),
+        "total_paid": float(total_received),
+        "total_pending": float(total_pending),
+        "pending_count": status_counts.get("PENDING", 0),
+        "partial_count": status_counts.get("PARTIAL", 0),
+        "completed_count": status_counts.get("COMPLETED", 0),
+        "by_status": status_counts,
+        "initial_by_currency": {k: float(v) for k, v in initial_by_currency.items()},
         "estimated_profit": float(estimated_profit),
     }
 
@@ -127,22 +182,13 @@ def list_external_financings(
         joinedload(models.ExternalFinancing.sale),
     ).order_by(desc(models.ExternalFinancing.created_at))
 
-    if financer_name:
-        query = query.filter(models.ExternalFinancing.financer_name.ilike(f"%{financer_name}%"))
-    if status:
-        query = query.filter(models.ExternalFinancing.financer_payment_status == status)
-    if date_from:
-        try:
-            dt_from = datetime.strptime(date_from, "%Y-%m-%d")
-            query = query.filter(models.ExternalFinancing.created_at >= dt_from)
-        except: pass
-    if date_to:
-        try:
-            dt_to = datetime.strptime(date_to, "%Y-%m-%d")
-            # Incluir todo el día hasta las 23:59:59
-            from datetime import timedelta
-            query = query.filter(models.ExternalFinancing.created_at < dt_to + timedelta(days=1))
-        except: pass
+    query = _apply_financing_filters(
+        query,
+        financer_name=financer_name,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+    )
 
     return query.offset(skip).limit(limit).all()
 

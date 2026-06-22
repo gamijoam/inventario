@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Building2, RefreshCw, CheckCircle2, Clock, AlertTriangle, Plus, Trash2, ChevronDown, ChevronUp, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
+import { Building2, RefreshCw, CheckCircle2, Clock, Trash2, ChevronDown, ChevronUp, TrendingUp } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
 import { getApiErrorMessage } from '../../../utils/apiErrors';
@@ -38,7 +38,7 @@ const UpdatePaymentModal = ({ record, onClose, onSuccess }) => {
             toast.success('Pago actualizado');
             onSuccess(updated.data);
             onClose();
-        } catch {
+        } catch (error) {
             toast.error(getApiErrorMessage(error, 'Error al actualizar'));
         } finally {
             setSaving(false);
@@ -117,14 +117,24 @@ const FinancingCard = ({ record, onUpdate, onDelete }) => {
                 <span className="text-xs text-slate-400">{fmtDate(record.created_at)}</span>
             </div>
             <div className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between gap-3">
                     <div>
                         <p className="font-black text-slate-900">{record.financer_name}</p>
                         <p className="text-xs text-slate-400">Venta #{record.sale_id} {record.customer?.name ? `· ${record.customer.name}` : ''}</p>
                     </div>
                     <div className="text-right">
-                        <p className="font-black text-slate-900">{fmt(record.financed_amount)}</p>
-                        <p className="text-xs text-slate-400">financiado</p>
+                        <p className="font-black text-slate-900">{fmt(record.total_price)}</p>
+                        <p className="text-xs text-slate-400">venta total</p>
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2">
+                        <p className="text-[10px] font-black uppercase tracking-wide text-emerald-600">Inicial tienda</p>
+                        <p className="font-black text-emerald-700">{fmt(record.initial_payment)}</p>
+                    </div>
+                    <div className="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 text-right">
+                        <p className="text-[10px] font-black uppercase tracking-wide text-amber-600">Por financiadora</p>
+                        <p className="font-black text-amber-700">{fmt(record.financed_amount)}</p>
                     </div>
                 </div>
                 {/* Barra de progreso */}
@@ -183,14 +193,18 @@ const FinancerSummaryCard = ({ name, data, isExpanded, onToggle }) => {
             </button>
             {isExpanded && (
                 <div className="px-5 pb-5 border-t border-slate-100 pt-4 space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                         <div className="bg-slate-50 rounded-xl p-3 text-center">
-                            <p className="text-xs text-slate-400 font-bold uppercase">Total ventas</p>
+                            <p className="text-xs text-slate-400 font-bold uppercase">Ventas</p>
                             <p className="font-black text-slate-900">{fmt(data.total_amount)}</p>
                         </div>
                         <div className="bg-emerald-50 rounded-xl p-3 text-center">
-                            <p className="text-xs text-emerald-600 font-bold uppercase">Cobrado</p>
-                            <p className="font-black text-emerald-700">{fmt(data.total_paid)}</p>
+                            <p className="text-xs text-emerald-600 font-bold uppercase">Iniciales</p>
+                            <p className="font-black text-emerald-700">{fmt(data.total_initial)}</p>
+                        </div>
+                        <div className="bg-blue-50 rounded-xl p-3 text-center">
+                            <p className="text-xs text-blue-600 font-bold uppercase">Recibido</p>
+                            <p className="font-black text-blue-700">{fmt(data.total_paid)}</p>
                         </div>
                         <div className="bg-amber-50 rounded-xl p-3 text-center">
                             <p className="text-xs text-amber-600 font-bold uppercase">Pendiente</p>
@@ -232,13 +246,13 @@ export default function FinanciadoresTab() {
         try {
             const [recRes, sumRes, finRes] = await Promise.all([
                 apiClient.get('/external-financing/', { params: { status: filterStatus || undefined, financer_name: filterFinancer || undefined, date_from: filterDateFrom || undefined, date_to: filterDateTo || undefined } }),
-                apiClient.get('/external-financing/summary'),
+                apiClient.get('/external-financing/summary', { params: { status: filterStatus || undefined, financer_name: filterFinancer || undefined, date_from: filterDateFrom || undefined, date_to: filterDateTo || undefined } }),
                 apiClient.get('/external-financing/financers/list'),
             ]);
             setRecords(Array.isArray(recRes.data) ? recRes.data : []);
             setSummary(sumRes.data);
             setFinancers(Array.isArray(finRes.data) ? finRes.data : []);
-        } catch {
+        } catch (error) {
             toast.error(getApiErrorMessage(error, 'Error cargando datos'));
         } finally {
             setIsLoading(false);
@@ -260,26 +274,33 @@ export default function FinanciadoresTab() {
             toast.success('Registro eliminado');
             setRecords(prev => prev.filter(r => r.id !== record.id));
             apiClient.get('/external-financing/summary').then(res => setSummary(res.data)).catch(() => {});
-        } catch {
+        } catch (error) {
             toast.error(getApiErrorMessage(error, 'Error al eliminar'));
         }
     };
 
-    // Agrupar por financiadora
-    const byFinancer = financers.reduce((acc, item) => {
-        const name = item?.name || item;
-        const recs = records.filter(r => r.financer_name === name);
-        if (!recs.length) return acc;
-        acc[name] = {
-            count: recs.length,
-            total_amount: recs.reduce((s, r) => s + Number(r.total_price || 0), 0),
-            total_financed: recs.reduce((s, r) => s + Number(r.financed_amount || 0), 0),
-            total_paid: recs.reduce((s, r) => s + Number(r.financer_paid_amount || 0), 0),
-        };
+    // Agrupar por financiadora. Se deriva de los registros para no ocultar historicos
+    // si una financiadora fue desactivada en configuracion.
+    const byFinancer = records.reduce((acc, record) => {
+        const name = record.financer_name || 'Sin financiadora';
+        if (!acc[name]) {
+            acc[name] = {
+                count: 0,
+                total_amount: 0,
+                total_initial: 0,
+                total_financed: 0,
+                total_paid: 0,
+            };
+        }
+        acc[name].count += 1;
+        acc[name].total_amount += Number(record.total_price || 0);
+        acc[name].total_initial += Number(record.initial_payment || 0);
+        acc[name].total_financed += Number(record.financed_amount || 0);
+        acc[name].total_paid += Number(record.financer_paid_amount || 0);
         return acc;
     }, {});
 
-    const totalPendiente = Object.values(byFinancer).reduce((s, d) => s + (d.total_financed - d.total_paid), 0);
+    const totalPendiente = Number(summary?.total_pending_from_financers ?? Object.values(byFinancer).reduce((s, d) => s + (d.total_financed - d.total_paid), 0));
 
     if (isLoading) {
         return (
@@ -294,24 +315,24 @@ export default function FinanciadoresTab() {
             {/* Header con resumen */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-wide">Total ventas</p>
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-wide">Ventas financiadas</p>
                     <p className="text-xl font-black text-slate-900 mt-1">{fmt(summary?.total_amount)}</p>
                     <p className="text-xs text-slate-400 mt-1">{summary?.total_count || 0} operaciones</p>
                 </div>
                 <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-4 shadow-sm">
-                    <p className="text-[11px] font-black text-emerald-600 uppercase tracking-wide">Cobrado</p>
-                    <p className="text-xl font-black text-emerald-700 mt-1">{fmt(summary?.total_paid)}</p>
-                    <p className="text-xs text-emerald-600 mt-1">{summary?.completed_count || 0} pagados</p>
+                    <p className="text-[11px] font-black text-emerald-600 uppercase tracking-wide">Iniciales en caja</p>
+                    <p className="text-xl font-black text-emerald-700 mt-1">{fmt(summary?.total_initial_collected)}</p>
+                    <p className="text-xs text-emerald-600 mt-1">No es deuda de financiera</p>
                 </div>
                 <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 shadow-sm">
                     <p className="text-[11px] font-black text-amber-600 uppercase tracking-wide">Por cobrar</p>
                     <p className="text-xl font-black text-amber-700 mt-1">{fmt(totalPendiente)}</p>
-                    <p className="text-xs text-amber-600 mt-1">{summary?.pending_count || 0} pendientes</p>
+                    <p className="text-xs text-amber-600 mt-1">{summary?.pending_count || 0} pendientes · {summary?.partial_count || 0} parciales</p>
                 </div>
                 <div className="bg-blue-50 rounded-xl border border-blue-200 p-4 shadow-sm">
-                    <p className="text-[11px] font-black text-blue-600 uppercase tracking-wide">Financiadoras</p>
-                    <p className="text-xl font-black text-blue-700 mt-1">{financers.length}</p>
-                    <p className="text-xs text-blue-600 mt-1">activas</p>
+                    <p className="text-[11px] font-black text-blue-600 uppercase tracking-wide">Recibido de financieras</p>
+                    <p className="text-xl font-black text-blue-700 mt-1">{fmt(summary?.total_received_from_financers)}</p>
+                    <p className="text-xs text-blue-600 mt-1">{financers.length} configuradas</p>
                 </div>
             </div>
 
