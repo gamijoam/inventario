@@ -19,6 +19,8 @@ import {
 import { toast } from 'react-hot-toast';
 import apiClient from '../../../config/axios';
 import { getApiErrorMessage } from '../../../utils/apiErrors';
+import { useAuth } from '../../../context/AuthContext';
+import { PERMISSIONS } from '../../../config/permissions';
 
 const CURRENCY_SYMBOLS = {
     USD: '$',
@@ -150,6 +152,11 @@ const buildParams = (filters) => {
 };
 
 const AccountingTab = ({ dateRange }) => {
+    const { user, hasPermission } = useAuth();
+    const isAdmin = user?.role === 'ADMIN';
+    const canViewLedger = isAdmin || hasPermission(PERMISSIONS.ACCOUNTING_LEDGER_VIEW);
+    const canExportLedger = isAdmin || hasPermission(PERMISSIONS.ACCOUNTING_LEDGER_EXPORT);
+    const canRebuildLedger = isAdmin || hasPermission(PERMISSIONS.ACCOUNTING_LEDGER_REBUILD);
     const [filters, setFilters] = useState({
         startDate: dateRange?.start || todayInput(),
         endDate: dateRange?.end || todayInput(),
@@ -179,6 +186,7 @@ const AccountingTab = ({ dateRange }) => {
     const params = useMemo(() => buildParams(filters), [filters]);
 
     const fetchLedger = useCallback(async () => {
+        if (!canViewLedger) return;
         setLoading(true);
         try {
             const [summaryRes, ledgerRes, auditRes, sessionLedgerRes] = await Promise.all([
@@ -205,7 +213,7 @@ const AccountingTab = ({ dateRange }) => {
         } finally {
             setLoading(false);
         }
-    }, [params]);
+    }, [params, canViewLedger]);
 
     useEffect(() => {
         fetchLedger();
@@ -230,6 +238,10 @@ const AccountingTab = ({ dateRange }) => {
 
 
     const exportCsv = async () => {
+        if (!canExportLedger) {
+            toast.error('No tienes permiso para exportar el libro contable.');
+            return;
+        }
         setExporting(true);
         const toastId = toast.loading('Preparando exportacion contable...');
         try {
@@ -248,6 +260,10 @@ const AccountingTab = ({ dateRange }) => {
     };
 
     const rebuildSession = async () => {
+        if (!canRebuildLedger) {
+            toast.error('No tienes permiso para reconstruir el libro contable.');
+            return;
+        }
         if (!filters.sessionId) {
             toast.error('Indica una sesion de caja para reconstruir el libro.');
             return;
@@ -302,6 +318,14 @@ const AccountingTab = ({ dateRange }) => {
     const accounts = summary?.accounts || [];
     const items = ledger?.items || [];
 
+    if (!canViewLedger) {
+        return (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm font-bold text-amber-800">
+                No tienes permiso para ver el libro contable. Pide a un administrador activar el permiso de Contabilidad.
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-4">
             <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -323,7 +347,7 @@ const AccountingTab = ({ dateRange }) => {
                         <button
                             type="button"
                             onClick={exportCsv}
-                            disabled={exporting}
+                            disabled={exporting || !canExportLedger}
                             className="inline-flex h-10 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-sm font-black text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             <Download size={16} />
@@ -332,7 +356,7 @@ const AccountingTab = ({ dateRange }) => {
                         <button
                             type="button"
                             onClick={rebuildSession}
-                            disabled={rebuilding || !filters.sessionId}
+                            disabled={rebuilding || !filters.sessionId || !canRebuildLedger}
                             className="inline-flex h-10 items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 text-sm font-black text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             <RotateCw size={16} className={rebuilding ? 'animate-spin' : ''} />

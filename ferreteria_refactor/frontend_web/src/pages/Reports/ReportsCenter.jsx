@@ -17,6 +17,8 @@ import { getApiErrorMessage } from '../../utils/apiErrors';
 import unifiedReportService from '../../services/unifiedReportService';
 import reportService from '../../services/reportService';
 import { useConfig } from '../../context/ConfigContext';
+import { useAuth } from '../../context/AuthContext';
+import { PERMISSIONS } from '../../config/permissions';
 
 const SalesTab = lazy(() => import('./tabs/SalesTab'));
 const CashTab = lazy(() => import('./tabs/CashTab'));
@@ -34,7 +36,7 @@ const TABS = [
     { id: 'resumen', label: 'Resumen', icon: BarChart3 },
     { id: 'ventas', label: 'Ventas', icon: ShoppingCart },
     { id: 'caja', label: 'Caja', icon: Landmark },
-    { id: 'contabilidad', label: 'Contabilidad', icon: BookOpenCheck },
+    { id: 'contabilidad', label: 'Contabilidad', icon: BookOpenCheck, permissions: [PERMISSIONS.ACCOUNTING_LEDGER_VIEW] },
     { id: 'creditos', label: 'Créditos', icon: CreditCard },
     { id: 'proveedores', label: 'Proveedores', icon: Truck },
     { id: 'inventario', label: 'Inventario', icon: Package },
@@ -206,6 +208,8 @@ const renderPieLabel = ({ name, percent }) => {
 // ============================================================
 const ReportsCenter = () => {
     const { modules, business } = useConfig();
+    const { user, hasAnyPermission } = useAuth();
+    const isAdmin = user?.role === 'ADMIN';
 
     // --- State ---
     const [searchParams] = useSearchParams();
@@ -373,13 +377,20 @@ const ReportsCenter = () => {
     // --- Filtered tabs (hide module-specific tabs if module not active) ---
     const visibleTabs = useMemo(() => {
         return TABS.filter(tab => {
+            if (tab.permissions && !isAdmin && !hasAnyPermission(tab.permissions)) return false;
             if (!tab.moduleRequired) return true;
             if (tab.moduleRequired === 'external_financing') {
                 return business?.external_financing_enabled === true || business?.external_financing_enabled === 'true';
             }
             return modules?.[tab.moduleRequired];
         });
-    }, [modules]);
+    }, [modules, business?.external_financing_enabled, isAdmin, hasAnyPermission]);
+
+    useEffect(() => {
+        if (visibleTabs.length > 0 && !visibleTabs.some((tab) => tab.id === activeTab)) {
+            setActiveTab(visibleTabs[0].id);
+        }
+    }, [activeTab, visibleTabs]);
 
     // --- Chart data for daily sales ---
     const chartData = useMemo(() => {
