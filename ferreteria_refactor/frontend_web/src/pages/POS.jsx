@@ -14,7 +14,7 @@ import { useCart } from '../context/CartContext';
 import { useCash } from '../context/CashContext';
 import { useConfig } from '../context/ConfigContext';
 import { useWebSocket } from '../context/WebSocketContext';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '../lib/utils';
 
 // New Components
@@ -38,6 +38,7 @@ import ServiceImportModal from './POS/ServiceImportModal';
 import SerializedItemModal from '../components/pos/SerializedItemModal';
 import POSSettingsModal from '../components/pos/POSSettingsModal';
 import ReprintSalesSheet from '../components/pos/ReprintSalesSheet';
+import LayawayCheckoutModal from '../components/pos/LayawayCheckoutModal';
 import PinAuthModal from '../components/common/PinAuthModal';
 import EmployeeSelectionModal from '../components/pos/EmployeeSelectionModal';
 import { DEFAULT_THEME, POS_THEMES } from '../constants/posThemes';
@@ -167,10 +168,12 @@ const POS = () => {
     const canReprintWarranty = hasPermission(PERMISSIONS.POS_REPRINT_WARRANTY);
     const canCreateCashMovement = hasPermission(PERMISSIONS.CASH_MOVEMENTS_CREATE);
     const canCloseCash = hasPermission(PERMISSIONS.CASH_CLOSE_BLIND);
+    const canCreateLayaway = hasPermission(PERMISSIONS.LAYAWAYS_CREATE);
     const handleToggleExpressMode = () => {
         updateUserPreferences({ pos_mode: isExpressMode ? 'full' : 'express' });
     };
     const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
     const quoteIdParam = searchParams.get('quote_id');
 
     useEffect(() => {
@@ -182,6 +185,7 @@ const POS = () => {
     const [selectedProductForUnits, setSelectedProductForUnits] = useState(null);
     const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
     const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+    const [isLayawayOpen, setIsLayawayOpen] = useState(false);
     const [isSplitCartModalOpen, setIsSplitCartModalOpen] = useState(false);
     const [pendingCreditItems, setPendingCreditItems] = useState(null);
     const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
@@ -257,6 +261,8 @@ const POS = () => {
         // Priority cascade
         if (isPaymentOpen) {
             setIsPaymentOpen(false);
+        } else if (isLayawayOpen) {
+            setIsLayawayOpen(false);
         } else if (isMovementOpen) {
             setIsMovementOpen(false);
         } else if (isAdvanceOpen) {
@@ -871,6 +877,16 @@ const POS = () => {
         setIsPaymentOpen(false);
     };
 
+    const handleLayawayCreated = (layaway) => {
+        const reservedProductIds = [...new Set(cart.map(item => item.product_id).filter(Boolean))];
+        reservedProductIds.forEach(productId => refreshProduct(productId));
+        clearCart();
+        setIsLayawayOpen(false);
+        setIsMobileCartOpen(false);
+        focusSearch();
+        navigate('/sales-center?tab=apartados');
+    };
+
     const handleSuccessClose = () => {
         // Refrescar stock de los productos vendidos antes de limpiar el carrito
         if (lastSaleData?.cart?.length > 0) {
@@ -1304,6 +1320,8 @@ const POS = () => {
                                 totalsByCurrency={totalsByCurrency}
                                 anchorCurrency={anchorCurrency}
                                 onCheckout={() => handleCheckoutClick()}
+                                onCreateLayaway={() => setIsLayawayOpen(true)}
+                                canCreateLayaway={canCreateLayaway}
                                 onItemClick={(item) => setSelectedItemForEdit(item)}
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
@@ -1359,6 +1377,8 @@ const POS = () => {
                                 totalsByCurrency={totalsByCurrency}
                                 anchorCurrency={anchorCurrency}
                                 onCheckout={() => handleCheckoutClick()}
+                                onCreateLayaway={() => setIsLayawayOpen(true)}
+                                canCreateLayaway={canCreateLayaway}
                                 onItemClick={(item) => setSelectedItemForEdit(item)}
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
@@ -1406,6 +1426,8 @@ const POS = () => {
                                 totalsByCurrency={totalsByCurrency}
                                 anchorCurrency={anchorCurrency}
                                 onCheckout={() => { setIsMobileCartOpen(false); handleCheckoutClick(); }}
+                                onCreateLayaway={() => { setIsMobileCartOpen(false); setIsLayawayOpen(true); }}
+                                canCreateLayaway={canCreateLayaway}
                                 onItemClick={(item) => { setIsMobileCartOpen(false); setSelectedItemForEdit(item); }}
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
@@ -1460,6 +1482,17 @@ const POS = () => {
                     customSubmit={activeServiceOrderId ? handleServiceCheckoutSubmit : null}
                     discountUSD={discountUSD || 0}
                     cartDiscount={cartDiscount}
+                />
+
+                <LayawayCheckoutModal
+                    isOpen={isLayawayOpen}
+                    onClose={() => { setIsLayawayOpen(false); focusSearch(); }}
+                    cart={cart}
+                    totalUSD={totalUSD}
+                    warehouseId={selectedWarehouseId}
+                    warehouses={warehouses}
+                    cartDiscount={cartDiscount}
+                    onCreated={handleLayawayCreated}
                 />
 
                 <PinAuthModal isOpen={pinModalOpen} onClose={() => { setPinModalOpen(false); setPendingPriceUpdate(null); setActivePricePopover(null); }} onSuccess={handlePinSuccess} title="Autorización Requerida" message="Ingrese PIN de supervisor." />

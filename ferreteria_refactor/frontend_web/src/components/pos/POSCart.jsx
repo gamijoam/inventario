@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Trash2, ShoppingCart, CreditCard, Minus, Plus, MapPin, Tag, X, Percent, DollarSign, ShieldCheck, Users, Pencil, Check } from 'lucide-react';
+import { Trash2, ShoppingCart, CreditCard, Minus, Plus, MapPin, Tag, X, Percent, DollarSign, ShieldCheck, Users, Pencil, Check, Archive } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
@@ -44,6 +44,8 @@ const POSCart = ({
     totals = { totalUSD: 0, totalBs: 0 },
     anchorCurrency = { symbol: '$' },
     onCheckout,
+    onCreateLayaway,
+    canCreateLayaway = false,
     onItemClick,
     secondaryCurrency,
     convertPrice,
@@ -673,6 +675,20 @@ const POSCart = ({
                         </div>
                     )}
 
+                    {canCreateLayaway && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="lg"
+                            className="mb-2 w-full h-9 text-sm font-black border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800 rounded-lg transition-all active:scale-[0.98]"
+                            onClick={onCreateLayaway}
+                            disabled={cartItems.length === 0}
+                            title="Reservar productos con inicial"
+                        >
+                            <Archive className="mr-2" size={18} />
+                            APARTAR
+                        </Button>
+                    )}
                     <Button
                         id="tour-pos-pay-btn"
                         size="lg"
