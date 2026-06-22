@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Vault, ArrowRight, CheckCircle2, Lock, AlertCircle } from 'lucide-react';
+import { Vault, ArrowRight, CheckCircle2, Lock, AlertCircle, LogOut } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import { useCash } from '../../context/CashContext';
 import { useAuth } from '../../context/AuthContext';
@@ -11,7 +11,7 @@ const CashOpeningModal = ({ onOpen }) => {
     const navigate = useNavigate();
     const { getActiveCurrencies } = useConfig();
     const { selectStationRegister } = useCash();
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const roleValue = String(user?.role || '').toUpperCase();
     const isAdmin = user?.is_superuser || roleValue === 'ADMIN' || roleValue === 'USERROLE.ADMIN';
 
@@ -89,6 +89,15 @@ const CashOpeningModal = ({ onOpen }) => {
         }
 
         setStep('amounts');
+    };
+
+    const handleExit = async () => {
+        if (isAdmin) {
+            navigate('/');
+            return;
+        }
+        await logout();
+        navigate('/login', { replace: true });
     };
 
     const handleSubmit = async (e) => {
@@ -208,10 +217,10 @@ const CashOpeningModal = ({ onOpen }) => {
                             <Button
                                 type="button"
                                 variant="ghost"
-                                onClick={() => navigate('/')}
+                                onClick={handleExit}
                                 className="w-full text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 rounded-xl"
                             >
-                                Cancelar
+                                {isAdmin ? 'Cancelar' : (<><LogOut className="mr-2 h-4 w-4" /> Cerrar sesión</>)}
                             </Button>
                         </div>
                     </div>
