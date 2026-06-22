@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Archive, CalendarClock, CreditCard, Loader2, ShieldCheck, X } from 'lucide-react';
 import apiClient from '../../config/axios';
@@ -86,7 +86,7 @@ const LayawayCheckoutModal = ({ isOpen, onClose, cart = [], totalUSD = 0, wareho
             .catch((error) => toast.error(getApiErrorMessage(error, 'No se pudo cargar la configuracion de apartados')));
     }, [isOpen, defaultWarehouseId]);
 
-    const fetchCustomers = async (q = '') => {
+    const fetchCustomers = useCallback(async (q = '') => {
         setLoadingCustomers(true);
         try {
             const { data } = await apiClient.get('/customers', { params: { q, limit: 20 } });
@@ -96,7 +96,7 @@ const LayawayCheckoutModal = ({ isOpen, onClose, cart = [], totalUSD = 0, wareho
         } finally {
             setLoadingCustomers(false);
         }
-    };
+    }, []);
 
     const handleSubmit = async () => {
         if (!settings?.enabled) {

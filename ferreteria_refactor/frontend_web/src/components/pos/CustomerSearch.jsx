@@ -9,15 +9,20 @@ const CustomerSearch = ({ customers = [], selectedCustomer, onSelect, disabled =
     const inputRef = useRef(null);
     const dropdownRef = useRef(null);
     const debounceRef = useRef(null);
+    const onSearchRef = useRef(onSearch);
 
     useEffect(() => {
-        if (!onSearch || selectedCustomer) return;
+        onSearchRef.current = onSearch;
+    }, [onSearch]);
+
+    useEffect(() => {
+        if (!onSearchRef.current || selectedCustomer) return;
         if (debounceRef.current) clearTimeout(debounceRef.current);
-        debounceRef.current = setTimeout(() => onSearch(searchTerm.trim()), 250);
+        debounceRef.current = setTimeout(() => onSearchRef.current?.(searchTerm.trim()), 250);
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [searchTerm, onSearch, selectedCustomer]);
+    }, [searchTerm, selectedCustomer]);
 
     // Filter customers based on search term (exclude inactive customers)
     const filteredCustomers = customers.filter(c => {
