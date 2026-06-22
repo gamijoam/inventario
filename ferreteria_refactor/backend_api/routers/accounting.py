@@ -1,8 +1,11 @@
+import csv
 from datetime import date, datetime, time, timedelta
+from io import StringIO
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
@@ -71,23 +74,18 @@ def _base_query(db: Session):
     )
 
 
-@router.get("/ledger", dependencies=[Depends(require_permission("accounting.ledger.view"))])
-def list_ledger_entries(
-    start_date: Optional[date] = Query(None),
-    end_date: Optional[date] = Query(None),
-    session_id: Optional[int] = Query(None),
-    register_id: Optional[int] = Query(None),
-    account_code: Optional[str] = Query(None),
-    currency: Optional[str] = Query(None),
-    source_type: Optional[str] = Query(None),
-    affects_cash: Optional[bool] = Query(None),
-    limit: int = Query(200, ge=1, le=1000),
-    offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user),
+def _apply_ledger_filters(
+    query,
+    *,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    session_id: Optional[int] = None,
+    register_id: Optional[int] = None,
+    account_code: Optional[str] = None,
+    currency: Optional[str] = None,
+    source_type: Optional[str] = None,
+    affects_cash: Optional[bool] = None,
 ):
-    query = _base_query(db)
-
     start_dt = _date_start(start_date)
     end_dt = _date_end(end_date)
     if start_dt:
@@ -106,6 +104,35 @@ def list_ledger_entries(
         query = query.filter(models.AccountingLedgerEntry.source_type == source_type)
     if affects_cash is not None:
         query = query.filter(models.AccountingLedgerEntry.affects_cash == affects_cash)
+    return query
+
+
+@router.get("/ledger", dependencies=[Depends(require_permission("accounting.ledger.view"))])
+def list_ledger_entries(
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    session_id: Optional[int] = Query(None),
+    register_id: Optional[int] = Query(None),
+    account_code: Optional[str] = Query(None),
+    currency: Optional[str] = Query(None),
+    source_type: Optional[str] = Query(None),
+    affects_cash: Optional[bool] = Query(None),
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    query = _apply_ledger_filters(
+        _base_query(db),
+        start_date=start_date,
+        end_date=end_date,
+        session_id=session_id,
+        register_id=register_id,
+        account_code=account_code,
+        currency=currency,
+        source_type=source_type,
+        affects_cash=affects_cash,
+    )
 
     total = query.count()
     rows = query.order_by(
@@ -131,19 +158,14 @@ def get_ledger_summary(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    query = _base_query(db)
-    start_dt = _date_start(start_date)
-    end_dt = _date_end(end_date)
-    if start_dt:
-        query = query.filter(models.AccountingLedgerEntry.occurred_at >= start_dt)
-    if end_dt:
-        query = query.filter(models.AccountingLedgerEntry.occurred_at < end_dt)
-    if session_id is not None:
-        query = query.filter(models.AccountingLedgerEntry.session_id == session_id)
-    if register_id is not None:
-        query = query.filter(models.AccountingLedgerEntry.register_id == register_id)
-    if affects_cash is not None:
-        query = query.filter(models.AccountingLedgerEntry.affects_cash == affects_cash)
+    query = _apply_ledger_filters(
+        _base_query(db),
+        start_date=start_date,
+        end_date=end_date,
+        session_id=session_id,
+        register_id=register_id,
+        affects_cash=affects_cash,
+    )
 
     movement_amount = func.sum(
         case(
@@ -211,6 +233,102 @@ def get_ledger_summary(
         "by_currency": by_currency,
         "accounts": accounts,
     }
+
+
+@router.get("/export.csv", dependencies=[Depends(require_permission("accounting.ledger.export"))])
+def export_ledger_csv(
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    session_id: Optional[int] = Query(None),
+    register_id: Optional[int] = Query(None),
+    account_code: Optional[str] = Query(None),
+    currency: Optional[str] = Query(None),
+    source_type: Optional[str] = Query(None),
+    affects_cash: Optional[bool] = Query(None),
+    limit: int = Query(10000, ge=1, le=50000),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    query = _apply_ledger_filters(
+        _base_query(db),
+        start_date=start_date,
+        end_date=end_date,
+        session_id=session_id,
+        register_id=register_id,
+        account_code=account_code,
+        currency=currency,
+        source_type=source_type,
+        affects_cash=affects_cash,
+    ).order_by(models.AccountingLedgerEntry.occurred_at.asc(), models.AccountingLedgerEntry.id.asc()).limit(limit)
+
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "id",
+        "fecha",
+        "origen",
+        "origen_id",
+        "referencia",
+        "evento",
+        "direccion",
+        "cuenta_codigo",
+        "cuenta_nombre",
+        "moneda",
+        "monto",
+        "tasa",
+        "moneda_base",
+        "monto_base",
+        "metodo_pago",
+        "sesion_id",
+        "caja_id",
+        "usuario_id",
+        "cliente_id",
+        "proveedor_id",
+        "afecta_caja",
+        "afecta_cxc",
+        "afecta_cxp",
+    ])
+    for row in query.all():
+        writer.writerow([
+            row.id,
+            row.occurred_at.isoformat() if row.occurred_at else "",
+            row.source_type,
+            row.source_id or "",
+            row.source_ref or "",
+            row.event_type,
+            row.direction,
+            row.account_code,
+            row.account_name or "",
+            row.currency,
+            row.amount,
+            row.exchange_rate,
+            row.anchor_currency,
+            row.amount_anchor,
+            row.payment_method or "",
+            row.session_id or "",
+            row.register_id or "",
+            row.user_id or "",
+            row.customer_id or "",
+            row.supplier_id or "",
+            "si" if row.affects_cash else "no",
+            "si" if row.affects_accounts_receivable else "no",
+            "si" if row.affects_accounts_payable else "no",
+        ])
+
+    filename_parts = ["libro-contable"]
+    if start_date:
+        filename_parts.append(start_date.isoformat())
+    if end_date:
+        filename_parts.append(end_date.isoformat())
+    if session_id:
+        filename_parts.append(f"sesion-{session_id}")
+    filename = "-".join(filename_parts) + ".csv"
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/sessions/{session_id}/summary", dependencies=[Depends(require_permission("accounting.ledger.view"))])

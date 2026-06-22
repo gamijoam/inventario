@@ -5,6 +5,7 @@ import {
     BookOpenCheck,
     Calendar,
     Database,
+    Download,
     Filter,
     Hash,
     Landmark,
@@ -115,6 +116,24 @@ const formatDate = (value) => {
 
 const compactNumber = (value) => new Intl.NumberFormat('es-VE').format(Number(value) || 0);
 
+const normalizeCurrency = (value) => {
+    const key = String(value || 'USD').trim();
+    if (['BS', 'VES', 'VEF'].includes(key.toUpperCase())) return 'Bs';
+    if (key === '$' || key === '') return 'USD';
+    return key;
+};
+
+const downloadBlob = (blob, filename) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+};
+
 const buildParams = (filters) => {
     const params = {
         start_date: filters.startDate || undefined,
@@ -144,8 +163,10 @@ const AccountingTab = ({ dateRange }) => {
     });
     const [summary, setSummary] = useState(null);
     const [ledger, setLedger] = useState({ total: 0, items: [] });
+    const [reconciliation, setReconciliation] = useState(null);
     const [loading, setLoading] = useState(false);
     const [rebuilding, setRebuilding] = useState(false);
+    const [exporting, setExporting] = useState(false);
 
     useEffect(() => {
         setFilters((prev) => ({
@@ -160,16 +181,27 @@ const AccountingTab = ({ dateRange }) => {
     const fetchLedger = useCallback(async () => {
         setLoading(true);
         try {
-            const [summaryRes, ledgerRes] = await Promise.all([
+            const [summaryRes, ledgerRes, auditRes, sessionLedgerRes] = await Promise.all([
                 apiClient.get('/accounting/summary', { params }),
                 apiClient.get('/accounting/ledger', { params }),
+                filters.sessionId
+                    ? apiClient.get(`/cash/sessions/${filters.sessionId}/audit-report`).catch(() => null)
+                    : Promise.resolve(null),
+                filters.sessionId
+                    ? apiClient.get(`/accounting/sessions/${filters.sessionId}/summary`).catch(() => null)
+                    : Promise.resolve(null),
             ]);
             setSummary(summaryRes.data || null);
             setLedger(ledgerRes.data || { total: 0, items: [] });
+            setReconciliation(filters.sessionId ? {
+                audit: auditRes?.data || null,
+                ledger: sessionLedgerRes?.data || null,
+            } : null);
         } catch (error) {
             toast.error(getApiErrorMessage(error, 'No se pudo cargar el libro contable'));
             setSummary(null);
             setLedger({ total: 0, items: [] });
+            setReconciliation(null);
         } finally {
             setLoading(false);
         }
@@ -194,6 +226,25 @@ const AccountingTab = ({ dateRange }) => {
             affectsCash: 'all',
             limit: 200,
         }));
+    };
+
+
+    const exportCsv = async () => {
+        setExporting(true);
+        const toastId = toast.loading('Preparando exportacion contable...');
+        try {
+            const response = await apiClient.get('/accounting/export.csv', {
+                params: { ...params, limit: Math.max(Number(filters.limit) || 200, 10000) },
+                responseType: 'blob',
+            });
+            const suffix = filters.sessionId ? `sesion-${filters.sessionId}` : `${filters.startDate || 'inicio'}-${filters.endDate || 'fin'}`;
+            downloadBlob(response.data, `libro-contable-${suffix}.csv`);
+            toast.success('CSV contable descargado', { id: toastId });
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, 'No se pudo exportar el libro contable'), { id: toastId });
+        } finally {
+            setExporting(false);
+        }
     };
 
     const rebuildSession = async () => {
@@ -225,6 +276,29 @@ const AccountingTab = ({ dateRange }) => {
         }));
     }, [summary]);
 
+
+    const reconciliationRows = useMemo(() => {
+        if (!reconciliation?.audit?.cash_by_currency || !reconciliation?.ledger) return [];
+        return reconciliation.audit.cash_by_currency.map((row) => {
+            const currency = normalizeCurrency(row.currency);
+            const ledgerRow = reconciliation.ledger[currency] || reconciliation.ledger[row.currency] || {};
+            const expected = Number(row.expected || 0);
+            const reported = Number(row.reported || 0);
+            const difference = Number(row.difference || 0);
+            const ledgerNet = Number(ledgerRow.net || 0);
+            const delta = ledgerNet - expected;
+            return {
+                currency,
+                expected,
+                reported,
+                difference,
+                ledgerNet,
+                delta,
+                ok: Math.abs(delta) < 0.01,
+            };
+        });
+    }, [reconciliation]);
+
     const accounts = summary?.accounts || [];
     const items = ledger?.items || [];
 
@@ -246,6 +320,15 @@ const AccountingTab = ({ dateRange }) => {
                         </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={exportCsv}
+                            disabled={exporting}
+                            className="inline-flex h-10 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-sm font-black text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <Download size={16} />
+                            Exportar CSV
+                        </button>
                         <button
                             type="button"
                             onClick={rebuildSession}
@@ -330,6 +413,48 @@ const AccountingTab = ({ dateRange }) => {
                     </div>
                 </div>
             </section>
+
+
+            {filters.sessionId && (
+                <section className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 shadow-sm">
+                    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <ShieldCheck size={18} className="text-indigo-700" />
+                                <h3 className="text-base font-black text-slate-950">Conciliacion de sesion #{filters.sessionId}</h3>
+                            </div>
+                            <p className="text-sm font-semibold text-slate-500">Compara arqueo esperado contra el neto reconstruido del libro contable.</p>
+                        </div>
+                        {reconciliationRows.length > 0 && (
+                            <span className={`w-fit rounded-full border px-3 py-1 text-xs font-black ${reconciliationRows.every((row) => row.ok) ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
+                                {reconciliationRows.every((row) => row.ok) ? 'Cuadra con libro' : 'Revisar diferencias'}
+                            </span>
+                        )}
+                    </div>
+                    {reconciliationRows.length > 0 ? (
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                            {reconciliationRows.map((row) => (
+                                <div key={row.currency} className="rounded-xl border border-white/80 bg-white p-3 shadow-sm">
+                                    <div className="mb-3 flex items-center justify-between">
+                                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">{row.currency}</span>
+                                        <span className={`rounded-lg px-2 py-1 text-xs font-black ${row.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{row.ok ? 'OK' : 'Diferencia'}</span>
+                                    </div>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between gap-3"><span className="font-bold text-slate-500">Arqueo esperado</span><strong className="text-slate-950">{formatMoney(row.expected, row.currency)}</strong></div>
+                                        <div className="flex justify-between gap-3"><span className="font-bold text-slate-500">Libro contable</span><strong className="text-indigo-700">{formatMoney(row.ledgerNet, row.currency)}</strong></div>
+                                        <div className="flex justify-between gap-3"><span className="font-bold text-slate-500">Declarado</span><strong className="text-slate-950">{formatMoney(row.reported, row.currency)}</strong></div>
+                                        <div className="flex justify-between gap-3 border-t border-slate-100 pt-2"><span className="font-bold text-slate-500">Delta libro</span><strong className={row.ok ? 'text-emerald-700' : 'text-rose-700'}>{formatMoney(row.delta, row.currency)}</strong></div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="rounded-xl border border-dashed border-indigo-200 bg-white/70 p-4 text-sm font-bold text-slate-500">
+                            No pude cargar el arqueo de esta sesion o aun no hay asientos reconstruidos. Usa Reconstruir sesion y vuelve a actualizar.
+                        </div>
+                    )}
+                </section>
+            )}
 
             <section className="grid gap-3 md:grid-cols-3">
                 {currencyCards.length ? currencyCards.map((card) => (
