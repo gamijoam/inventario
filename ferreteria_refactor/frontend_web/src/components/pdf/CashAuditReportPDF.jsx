@@ -38,7 +38,8 @@ const sourceLabel = {
     sale_change: 'Vuelto',
     purchase_payment: 'Proveedor',
     service_payment: 'Servicio',
-    layaway_payment: 'Apartado'
+    layaway_payment: 'Apartado',
+    external_financing_payment: 'Financiadora'
 };
 
 const bucketLabel = {
@@ -57,7 +58,9 @@ const bucketLabel = {
     digital_or_movement_backed_debt: 'CxC conciliado',
     non_cash_purchase_payment: 'Pago proveedor no efectivo',
     non_cash_service_payment: 'Servicio no efectivo',
-    non_cash_layaway_payment: 'Apartado no efectivo'
+    non_cash_layaway_payment: 'Apartado no efectivo',
+    external_financing_cash: 'Pago financiadora',
+    non_cash_external_financing_payment: 'Financiadora no caja'
 };
 
 const C = {
@@ -380,7 +383,7 @@ const CashAuditReportPDF = ({ report, business }) => {
                         <Text style={[styles.th, styles.right, { flex: 1 }]}>Dif.</Text>
                     </View>
                     {cashRows.map((row) => {
-                        const inflows = Number(row.cash_sales || 0) + Number(row.debt_cash || 0) + Number(row.layaway_cash || 0) + Number(row.manual_in || 0);
+                        const inflows = Number(row.cash_sales || 0) + Number(row.debt_cash || 0) + Number(row.layaway_cash || 0) + Number(row.external_financing_cash || 0) + Number(row.manual_in || 0);
                         const outflows = Number(row.manual_out || 0) + Number(row.purchase_cash || 0) + Number(row.returns || 0) + Number(row.cash_advances || 0) + Number(row.change_given || 0);
                         const diff = Number(row.difference || 0);
                         return (
@@ -407,7 +410,7 @@ const CashAuditReportPDF = ({ report, business }) => {
                     </View>
                 </View>
 
-                {Number(externalFinancing.count || 0) > 0 && (
+                {(Number(externalFinancing.count || 0) > 0 || Number(externalFinancing.payment_count || 0) > 0) && (
                     <View style={styles.section} wrap={false}>
                         <Text style={styles.sectionTitle}>Financiamiento externo</Text>
                         <View style={styles.sectionBody}>
@@ -415,6 +418,7 @@ const CashAuditReportPDF = ({ report, business }) => {
                             <InfoRow label="Total vendido" value={fmtCurrency(externalFinancing.total_price || 0, 'USD')} />
                             <InfoRow label="Inicial cobrado equivalente" value={fmtCurrency(externalFinancing.initial_collected_usd || 0, 'USD')} />
                             <InfoRow label="Pendiente por financiadora" value={fmtCurrency(externalFinancing.pending_from_financer_usd || 0, 'USD')} />
+                            <InfoRow label="Recibido de financiadoras en esta caja" value={fmtCurrency(externalFinancing.received_in_session_usd || 0, 'USD')} />
                             {externalRecords.slice(0, 5).map((record, index) => (
                                 <InfoRow
                                     key={record.id}

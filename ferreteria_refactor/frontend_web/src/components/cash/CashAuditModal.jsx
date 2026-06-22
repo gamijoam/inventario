@@ -38,7 +38,8 @@ const SOURCE_LABELS = {
     sale_change: 'Vuelto',
     purchase_payment: 'Proveedor',
     service_payment: 'Servicio',
-    layaway_payment: 'Apartado'
+    layaway_payment: 'Apartado',
+    external_financing_payment: 'Financiadora'
 };
 
 const BUCKET_LABELS = {
@@ -57,7 +58,9 @@ const BUCKET_LABELS = {
     digital_or_movement_backed_debt: 'CxC conciliado',
     non_cash_purchase_payment: 'Pago proveedor no efectivo',
     non_cash_service_payment: 'Servicio no efectivo',
-    non_cash_layaway_payment: 'Apartado no efectivo'
+    non_cash_layaway_payment: 'Apartado no efectivo',
+    external_financing_cash: 'Pago financiadora',
+    non_cash_external_financing_payment: 'Financiadora no caja'
 };
 
 const CashAuditModal = ({ session, isOpen, onClose }) => {
@@ -148,7 +151,7 @@ const CashAuditModal = ({ session, isOpen, onClose }) => {
     const criticalRows = useMemo(() => {
         return (report?.transactions || [])
             .filter((row) => row.affects_cash)
-            .filter((row) => Number(row.outflow || 0) > 0 || ['manual_in', 'debt_cash', 'service_cash', 'layaway_cash'].includes(row.cash_bucket))
+            .filter((row) => Number(row.outflow || 0) > 0 || ['manual_in', 'debt_cash', 'service_cash', 'layaway_cash', 'external_financing_cash'].includes(row.cash_bucket))
             .slice(0, 8);
     }, [report?.transactions]);
 
@@ -239,20 +242,34 @@ const CashAuditModal = ({ session, isOpen, onClose }) => {
                             <MetricCard icon={Banknote} label="Efectivo reportado" value={moneyByCurrency(cashRows, 'reported')} tone="emerald" />
                         </section>
 
-                        {Number(externalFinancing.count || 0) > 0 && (
+                        {(Number(externalFinancing.count || 0) > 0 || Number(externalFinancing.payment_count || 0) > 0) && (
                             <section className="mt-4 rounded-xl border border-violet-200 bg-violet-50/70 shadow-sm">
                                 <div className="flex flex-col gap-3 border-b border-violet-100 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
                                     <div>
                                         <h4 className="text-sm font-black text-violet-950">Financiamiento externo</h4>
                                         <p className="text-xs font-semibold text-violet-700">No suma a efectivo de caja; solo el inicial aparece en cobros reales.</p>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-2 text-right">
+                                    <div className="grid grid-cols-2 gap-2 text-right lg:grid-cols-4">
                                         <DiagnosticPill label="Vendido" value={money(externalFinancing.total_price || 0)} />
                                         <DiagnosticPill label="Inicial USD" value={money(externalFinancing.initial_collected_usd || 0)} />
                                         <DiagnosticPill label="Pendiente" value={money(externalFinancing.pending_from_financer_usd || 0)} danger={Number(externalFinancing.pending_from_financer_usd || 0) > 0} />
+                                        <DiagnosticPill label="Recibido caja" value={money(externalFinancing.received_in_session_usd || 0)} />
                                     </div>
                                 </div>
                                 <div className="grid gap-2 p-4 md:grid-cols-2 xl:grid-cols-3">
+                                    {(externalFinancing.payments || []).slice(0, 6).map((payment) => (
+                                        <div key={`payment-${payment.id}`} className="rounded-xl border border-emerald-100 bg-white px-3 py-2 shadow-sm">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-sm font-black text-slate-900">Pago {payment.financer_name || 'Financiadora'} · Venta #{payment.sale_id || '-'}</p>
+                                                    <p className="text-xs font-semibold text-slate-500">{payment.reference || 'Sin referencia'} · {payment.affects_cash ? 'entra a caja' : 'solo informativo'}</p>
+                                                </div>
+                                                <span className="shrink-0 rounded-lg bg-emerald-100 px-2 py-1 text-xs font-black text-emerald-700">
+                                                    {money(payment.amount || 0, payment.currency || 'USD')}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
                                     {externalRecords.slice(0, 6).map((record) => (
                                         <div key={record.id} className="rounded-xl border border-violet-100 bg-white px-3 py-2 shadow-sm">
                                             <div className="flex items-start justify-between gap-3">
@@ -537,7 +554,7 @@ const MetricCard = ({ icon: Icon, label, value, tone }) => {
 
 const CashCurrencyCard = ({ row, money }) => {
     const diff = Number(row.difference || 0);
-    const inflows = Number(row.cash_sales || 0) + Number(row.debt_cash || 0) + Number(row.layaway_cash || 0) + Number(row.manual_in || 0);
+    const inflows = Number(row.cash_sales || 0) + Number(row.debt_cash || 0) + Number(row.layaway_cash || 0) + Number(row.external_financing_cash || 0) + Number(row.manual_in || 0);
     const outflows = Number(row.manual_out || 0) + Number(row.purchase_cash || 0) + Number(row.returns || 0) + Number(row.cash_advances || 0) + Number(row.change_given || 0);
 
     return (
@@ -555,6 +572,7 @@ const CashCurrencyCard = ({ row, money }) => {
             <MoneyLine label="Cobros efectivo" value={row.cash_sales} currency={row.currency} money={money} positive />
             <MoneyLine label="CxC / servicios" value={row.debt_cash} currency={row.currency} money={money} positive />
             <MoneyLine label="Apartados" value={row.layaway_cash} currency={row.currency} money={money} positive />
+            <MoneyLine label="Financiadoras" value={row.external_financing_cash} currency={row.currency} money={money} positive />
             <MoneyLine label="Entradas manuales" value={row.manual_in} currency={row.currency} money={money} positive />
             <MoneyLine label="Salidas manuales" value={row.manual_out} currency={row.currency} money={money} negative />
             <MoneyLine label="Pagos proveedor" value={row.purchase_cash} currency={row.currency} money={money} negative />

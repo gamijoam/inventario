@@ -46,7 +46,13 @@ class CashReconciliationService:
 
         movements = CashReconciliationService._load_movements(db, session.id)
         debt_payments = CashReconciliationService._load_debt_payments(db, session.id)
+        external_financing_payments = CashReconciliationService._load_external_financing_payments(db, session.id)
         debt_deposit_matches = CashReconciliationService._match_debt_deposits(debt_payments, movements)
+        external_financing_movement_ids = {
+            payment.cash_movement_id
+            for payment in external_financing_payments
+            if payment.cash_movement_id
+        }
 
         CashReconciliationService._append_sale_payment_transactions(
             db=db,
@@ -76,12 +82,19 @@ class CashReconciliationService:
             transactions=transactions,
             alerts=alerts,
         )
+        CashReconciliationService._append_external_financing_payment_transactions(
+            payments=external_financing_payments,
+            cash_flow=cash_flow,
+            payment_breakdown=payment_breakdown,
+            transactions=transactions,
+        )
         CashReconciliationService._append_movement_transactions(
             movements=movements,
             cash_flow=cash_flow,
             payment_breakdown=payment_breakdown,
             transactions=transactions,
             alerts=alerts,
+            ignored_movement_ids=external_financing_movement_ids,
         )
         CashReconciliationService._append_change_transactions(
             db=db,
@@ -328,14 +341,62 @@ class CashReconciliationService:
             })
 
     @staticmethod
+    def _append_external_financing_payment_transactions(
+        payments: Iterable[models.ExternalFinancingPayment],
+        cash_flow: Dict[str, Dict[str, Any]],
+        payment_breakdown: Dict[Tuple[str, str], Dict[str, Any]],
+        transactions: List[Dict[str, Any]],
+    ) -> None:
+        for payment in payments:
+            record = payment.external_financing
+            sale = record.sale if record else None
+            method = payment.payment_method or (record.financer_name if record else None) or "Financiadora"
+            method_label = f"{method} (Financiadora)"
+            currency = CashReconciliationService._currency_key(payment.currency)
+            amount = CashReconciliationService._decimal(payment.amount)
+            affects_cash = bool(payment.cash_movement_id)
+
+            CashReconciliationService._add_payment_breakdown(
+                payment_breakdown, method_label, currency, amount, "external_financing_payment"
+            )
+            if affects_cash:
+                CashReconciliationService._add_cash_part(cash_flow, currency, "external_financing_cash", amount)
+
+            sale_id = record.sale_id if record else None
+            financer_name = record.financer_name if record else method
+            transactions.append({
+                "id": f"external_financing_payment:{payment.id}",
+                "occurred_at": payment.received_at,
+                "source_type": "external_financing_payment",
+                "source_id": payment.id,
+                "reference": payment.reference or f"Pago financiadora #{payment.id}",
+                "description": f"Pago recibido de {financer_name}" + (f" por venta #{sale_id}" if sale_id else ""),
+                "method": method,
+                "currency": currency,
+                "exchange_rate": payment.exchange_rate,
+                "inflow": amount,
+                "outflow": ZERO,
+                "affects_cash": affects_cash,
+                "cash_bucket": "external_financing_cash" if affects_cash else "non_cash_external_financing_payment",
+                "external_financing_id": payment.external_financing_id,
+                "sale_id": sale_id,
+                "customer_id": record.customer_id if record else (sale.customer_id if sale else None),
+                "linked_cash_movement_id": payment.cash_movement_id,
+            })
+
+    @staticmethod
     def _append_movement_transactions(
         movements: Iterable[models.CashMovement],
         cash_flow: Dict[str, Dict[str, Any]],
         payment_breakdown: Dict[Tuple[str, str], Dict[str, Any]],
         transactions: List[Dict[str, Any]],
         alerts: List[Dict[str, Any]],
+        ignored_movement_ids: Optional[set] = None,
     ) -> None:
+        ignored_movement_ids = ignored_movement_ids or set()
         for movement in movements:
+            if movement.id in ignored_movement_ids:
+                continue
             currency = CashReconciliationService._currency_key(movement.currency)
             amount = CashReconciliationService._decimal(movement.amount)
             movement_type = (movement.type or "").upper()
@@ -538,6 +599,14 @@ class CashReconciliationService:
         ).order_by(models.Payment.date.asc(), models.Payment.id.asc()).all()
 
     @staticmethod
+    def _load_external_financing_payments(db: Session, session_id: int) -> List[models.ExternalFinancingPayment]:
+        return db.query(models.ExternalFinancingPayment).options(
+            joinedload(models.ExternalFinancingPayment.external_financing).joinedload(models.ExternalFinancing.sale)
+        ).filter(
+            models.ExternalFinancingPayment.session_id == session_id
+        ).order_by(models.ExternalFinancingPayment.received_at.asc(), models.ExternalFinancingPayment.id.asc()).all()
+
+    @staticmethod
     def _match_debt_deposits(debt_payments: Iterable[models.Payment], movements: Iterable[models.CashMovement]) -> Dict[int, str]:
         matches: Dict[int, str] = {}
         deposits = [m for m in movements if (m.type or "").upper() in {"DEPOSIT", "IN"}]
@@ -597,7 +666,9 @@ class CashReconciliationService:
 
     @staticmethod
     def _external_financing_summary(db: Session, session: models.CashSession, end_time: datetime) -> Dict[str, Any]:
-        records = db.query(models.ExternalFinancing).join(models.Sale).filter(
+        records = db.query(models.ExternalFinancing).options(
+            joinedload(models.ExternalFinancing.payments),
+        ).join(models.Sale).filter(
             or_(
                 models.Sale.session_id == session.id,
                 and_(
@@ -608,18 +679,27 @@ class CashReconciliationService:
             )
         ).order_by(models.ExternalFinancing.id.asc()).all()
 
+        payments = CashReconciliationService._load_external_financing_payments(db, session.id)
+        payments_by_currency = defaultdict(Decimal)
+        for payment in payments:
+            payments_by_currency[CashReconciliationService._currency_key(payment.currency)] += CashReconciliationService._decimal(payment.amount)
+
         total_price = sum((CashReconciliationService._decimal(r.total_price) for r in records), ZERO)
         total_initial = sum((CashReconciliationService._decimal(r.initial_payment) for r in records), ZERO)
         total_financed = sum((CashReconciliationService._decimal(r.financed_amount) for r in records), ZERO)
         total_paid = sum((CashReconciliationService._decimal(r.financer_paid_amount) for r in records), ZERO)
         total_pending = max(ZERO, total_financed - total_paid)
+        received_in_session_usd = sum((CashReconciliationService._decimal(p.amount_usd) for p in payments), ZERO)
 
         return {
             "count": len(records),
+            "payment_count": len(payments),
             "total_price": float(total_price),
             "initial_collected_usd": float(total_initial),
             "financed_amount_usd": float(total_financed),
             "received_from_financer_usd": float(total_paid),
+            "received_in_session_usd": float(received_in_session_usd),
+            "received_in_session_by_currency": {currency: float(amount) for currency, amount in payments_by_currency.items()},
             "pending_from_financer_usd": float(total_pending),
             "records": [
                 {
@@ -635,6 +715,23 @@ class CashReconciliationService:
                     "notes": r.notes,
                 }
                 for r in records
+            ],
+            "payments": [
+                {
+                    "id": p.id,
+                    "external_financing_id": p.external_financing_id,
+                    "sale_id": p.external_financing.sale_id if p.external_financing else None,
+                    "financer_name": p.external_financing.financer_name if p.external_financing else p.payment_method,
+                    "amount": float(CashReconciliationService._decimal(p.amount)),
+                    "currency": CashReconciliationService._currency_key(p.currency),
+                    "amount_usd": float(CashReconciliationService._decimal(p.amount_usd)),
+                    "payment_method": p.payment_method,
+                    "reference": p.reference,
+                    "received_at": p.received_at.isoformat() if p.received_at else None,
+                    "affects_cash": bool(p.cash_movement_id),
+                    "cash_movement_id": p.cash_movement_id,
+                }
+                for p in payments
             ],
         }
 
@@ -698,6 +795,7 @@ class CashReconciliationService:
             "debt_cash": ZERO,
             "layaway_cash": ZERO,
             "service_cash": ZERO,
+            "external_financing_cash": ZERO,
             "manual_in": ZERO,
             "manual_out": ZERO,
             "purchase_cash": ZERO,
@@ -731,6 +829,7 @@ class CashReconciliationService:
                 + row["debt_cash"]
                 + row["layaway_cash"]
                 + row["service_cash"]
+                + row["external_financing_cash"]
                 + row["manual_in"]
                 - row["manual_out"]
                 - row["purchase_cash"]
@@ -769,6 +868,7 @@ class CashReconciliationService:
             "external_financing_count": external_financing_summary.get("count", 0),
             "external_financing_pending_usd": external_financing_summary.get("pending_from_financer_usd", 0),
             "external_financing_total_usd": external_financing_summary.get("financed_amount_usd", 0),
+            "external_financing_received_in_session_usd": external_financing_summary.get("received_in_session_usd", 0),
             "alert_count": len(alerts),
         }
 
