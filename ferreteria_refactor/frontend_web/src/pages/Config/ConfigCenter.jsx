@@ -7,7 +7,7 @@ import MessageCircle from 'lucide-react/dist/esm/icons/message-circle';
 import ShoppingBag from 'lucide-react/dist/esm/icons/shopping-bag';
 import {
     Building2, Users, DollarSign, Percent, CreditCard, Printer,
-    ShieldCheck, ClipboardList, Monitor, ChevronRight, Menu, X, Lock, Calculator, Megaphone
+    ShieldCheck, ClipboardList, Monitor, ChevronRight, Menu, X, Lock, Calculator, Archive
 } from 'lucide-react';
 
 const GeneralTab        = React.lazy(() => import('./tabs/GeneralTab'));
@@ -26,6 +26,7 @@ const CatalogTab        = React.lazy(() => import('./tabs/CatalogTab'));
 const IntegracionesTab      = React.lazy(() => import('./tabs/IntegracionesTab'));
 const FinanciadoresConfigTab = React.lazy(() => import('./tabs/FinanciadoresConfigTab'));
 const PreciosMasivosTab     = React.lazy(() => import('./tabs/PreciosMasivosTab'));
+const ApartadosConfigTab   = React.lazy(() => import('./tabs/ApartadosConfigTab'));
 
 // ── Grupos del menú lateral ──────────────────────────────────────────────────
 const GROUPS = [
@@ -42,6 +43,7 @@ const GROUPS = [
         label: 'Ventas y POS',
         items: [
             { id: 'pos',        label: 'Punto de Venta',    icon: Monitor,      desc: 'Precio base, lista predeterminada y estación de caja' },
+            { id: 'apartados',  label: 'Apartados',         icon: Archive,      desc: 'Reservas, iniciales, vencimientos y entrega' },
         ],
     },
     {
@@ -85,6 +87,7 @@ const renderTabContent = (activeTab) => {
     );
     switch (activeTab) {
         case 'precios':    return wrap(PreciosMasivosTab);
+        case 'apartados':  return wrap(ApartadosConfigTab);
         case 'general':    return wrap(GeneralTab);
         case 'usuarios':   return wrap(UsuariosTab);
         case 'monedas':    return wrap(MonedasTab);
