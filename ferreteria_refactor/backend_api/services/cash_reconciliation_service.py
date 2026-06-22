@@ -206,6 +206,7 @@ class CashReconciliationService:
                 "description": "Cobro de venta",
                 "method": method,
                 "currency": currency,
+                "exchange_rate": payment.exchange_rate,
                 "inflow": amount,
                 "outflow": ZERO,
                 "affects_cash": is_cash,
@@ -257,6 +258,7 @@ class CashReconciliationService:
                 "description": "Abono a cuenta por cobrar",
                 "method": method,
                 "currency": currency,
+                "exchange_rate": payment.exchange_rate_used,
                 "inflow": amount,
                 "outflow": ZERO,
                 "affects_cash": counted_in_cash,
@@ -314,6 +316,7 @@ class CashReconciliationService:
                 "description": "Abono de apartado",
                 "method": method,
                 "currency": currency,
+                "exchange_rate": payment.exchange_rate,
                 "inflow": amount,
                 "outflow": ZERO,
                 "affects_cash": is_cash,
@@ -351,6 +354,7 @@ class CashReconciliationService:
                 "description": movement.description or CashReconciliationService._movement_label(movement_type),
                 "method": "Caja",
                 "currency": currency,
+                "exchange_rate": movement.exchange_rate,
                 "inflow": inflow,
                 "outflow": outflow,
                 "affects_cash": bool(bucket),
@@ -465,11 +469,14 @@ class CashReconciliationService:
                 "description": "Pago a proveedor",
                 "method": method,
                 "currency": currency,
+                "exchange_rate": payment.exchange_rate,
                 "inflow": ZERO,
                 "outflow": amount,
                 "affects_cash": is_cash,
                 "cash_bucket": "purchase_cash" if is_cash else "non_cash_purchase_payment",
                 "purchase_id": payment.purchase_id,
+                "supplier_id": payment.purchase.supplier_id if payment.purchase else None,
+                "warehouse_id": payment.purchase.warehouse_id if payment.purchase else None,
             })
 
     @staticmethod
@@ -496,7 +503,7 @@ class CashReconciliationService:
                 payment_breakdown, method_label, currency, amount, "service_payment"
             )
             if is_cash:
-                CashReconciliationService._add_cash_part(cash_flow, currency, "debt_cash", amount)
+                CashReconciliationService._add_cash_part(cash_flow, currency, "service_cash", amount)
 
             ticket = getattr(payment.service_order, "ticket_number", None) if payment.service_order else None
             transactions.append({
@@ -513,6 +520,7 @@ class CashReconciliationService:
                 "affects_cash": is_cash,
                 "cash_bucket": "service_cash" if is_cash else "non_cash_service_payment",
                 "service_order_id": payment.service_order_id,
+                "customer_id": payment.service_order.customer_id if payment.service_order else None,
             })
 
     @staticmethod
@@ -644,6 +652,7 @@ class CashReconciliationService:
             "cash_sales": ZERO,
             "debt_cash": ZERO,
             "layaway_cash": ZERO,
+            "service_cash": ZERO,
             "manual_in": ZERO,
             "manual_out": ZERO,
             "purchase_cash": ZERO,
@@ -676,6 +685,7 @@ class CashReconciliationService:
                 + row["cash_sales"]
                 + row["debt_cash"]
                 + row["layaway_cash"]
+                + row["service_cash"]
                 + row["manual_in"]
                 - row["manual_out"]
                 - row["purchase_cash"]

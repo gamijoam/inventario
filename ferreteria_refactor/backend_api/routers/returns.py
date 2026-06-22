@@ -38,6 +38,10 @@ def _estimate_return_total(return_data: schemas.ReturnCreate, db: Session) -> De
     return total
 
 
+def _is_bs_currency(value) -> bool:
+    return str(value or "").strip().upper() in {"BS", "VES", "VEF", "BSS"}
+
+
 def _payments_cover_difference(payments, difference_due: Decimal) -> bool:
     if difference_due <= Decimal("0.05"):
         return True
@@ -540,7 +544,7 @@ def process_return(
     # Buscar sesión abierta; si no hay, usar la sesión original de la venta
     if actual_cash_refund > 0:
         amount_to_record = actual_cash_refund
-        if return_data.refund_currency == "Bs":
+        if _is_bs_currency(return_data.refund_currency):
             amount_to_record = actual_cash_refund * return_data.exchange_rate
 
         session = _resolve_cash_session_for_refund(db, sale, current_user)
