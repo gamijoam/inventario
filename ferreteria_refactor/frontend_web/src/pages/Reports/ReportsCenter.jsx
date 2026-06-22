@@ -6,7 +6,7 @@ import {
     Building2,
     BarChart3, ShoppingCart, Landmark, CreditCard, Truck,
     Package, DollarSign, Calendar, Download, RefreshCw,
-    TrendingUp, ArrowUpRight, ArrowDownRight, Pill
+    TrendingUp, ArrowUpRight, ArrowDownRight, Pill, BookOpenCheck
 } from 'lucide-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -27,12 +27,14 @@ const PharmacyTab = lazy(() => import('./tabs/PharmacyTab'));
 const CommissionsTab = lazy(() => import('./tabs/CommissionsTab'));
 const IntelligenceTab = lazy(() => import('./tabs/IntelligenceTab'));
 const FinanciadoresTab = lazy(() => import('./tabs/FinanciadoresTab'));
+const AccountingTab = lazy(() => import('./tabs/AccountingTab'));
 
 // --- Tab definitions ---
 const TABS = [
     { id: 'resumen', label: 'Resumen', icon: BarChart3 },
     { id: 'ventas', label: 'Ventas', icon: ShoppingCart },
     { id: 'caja', label: 'Caja', icon: Landmark },
+    { id: 'contabilidad', label: 'Contabilidad', icon: BookOpenCheck },
     { id: 'creditos', label: 'Créditos', icon: CreditCard },
     { id: 'proveedores', label: 'Proveedores', icon: Truck },
     { id: 'inventario', label: 'Inventario', icon: Package },
@@ -230,6 +232,7 @@ const ReportsCenter = () => {
         resumen:     'reports/resumen',
         ventas:      'reports/ventas',
         caja:        'reports/caja',
+        contabilidad:'reports/caja',
         creditos:    'reports/creditos',
         proveedores: 'reports/proveedores',
         inventario:  'reports/inventario',
@@ -734,6 +737,12 @@ const ReportsCenter = () => {
                 return (
                     <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400 animate-pulse">Cargando...</div>}>
                         <CreditsTab dateRange={dateRange} />
+                    </Suspense>
+                );
+            case 'contabilidad':
+                return (
+                    <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400 animate-pulse">Cargando...</div>}>
+                        <AccountingTab dateRange={dateRange} />
                     </Suspense>
                 );
             case 'proveedores':
