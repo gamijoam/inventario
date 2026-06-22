@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+    AlertTriangle,
     ArrowDownLeft,
     ArrowUpRight,
     BookOpenCheck,
     Calendar,
+    CheckCircle2,
+    ClipboardList,
+    Coins,
     Database,
     Download,
     Filter,
@@ -67,10 +71,41 @@ const ACCOUNT_BADGES = {
     'cash.advance': 'bg-orange-50 text-orange-700 border-orange-200',
     'cash.change_given': 'bg-pink-50 text-pink-700 border-pink-200',
     'cash.purchase_payment': 'bg-violet-50 text-violet-700 border-violet-200',
+    'cash.service_payment': 'bg-sky-50 text-sky-700 border-sky-200',
     'cash.opening_float': 'bg-blue-50 text-blue-700 border-blue-200',
     'cash.reported_count': 'bg-slate-50 text-slate-700 border-slate-200',
     'cash.over_short': 'bg-red-50 text-red-700 border-red-200',
 };
+
+const ACCOUNT_GROUPS = {
+    'cash.opening_float': { label: 'Saldo inicial', tone: 'blue', order: 1 },
+    'cash.sales': { label: 'Ventas cobradas', tone: 'emerald', order: 2 },
+    'cash.accounts_receivable_payment': { label: 'CxC cobradas', tone: 'cyan', order: 3 },
+    'cash.layaway_payment': { label: 'Apartados abonados', tone: 'indigo', order: 4 },
+    'cash.service_payment': { label: 'Servicios cobrados', tone: 'sky', order: 5 },
+    'cash.manual_in': { label: 'Entradas manuales', tone: 'teal', order: 6 },
+    'cash.purchase_payment': { label: 'Pagos a proveedor', tone: 'violet', order: 7 },
+    'cash.manual_out': { label: 'Salidas manuales', tone: 'amber', order: 8 },
+    'cash.return_refund': { label: 'Devoluciones', tone: 'rose', order: 9 },
+    'cash.advance': { label: 'Avances de efectivo', tone: 'orange', order: 10 },
+    'cash.change_given': { label: 'Vueltos entregados', tone: 'pink', order: 11 },
+    'cash.reported_count': { label: 'Conteo declarado', tone: 'slate', order: 12 },
+    'cash.over_short': { label: 'Diferencias de arqueo', tone: 'red', order: 13 },
+};
+
+const SESSION_BUCKETS = [
+    { key: 'initial', label: 'Saldo inicial', sign: 'in' },
+    { key: 'cash_sales', label: 'Ventas efectivo', sign: 'in' },
+    { key: 'debt_cash', label: 'CxC cobradas', sign: 'in' },
+    { key: 'layaway_cash', label: 'Apartados', sign: 'in' },
+    { key: 'service_cash', label: 'Servicios', sign: 'in' },
+    { key: 'manual_in', label: 'Entradas manuales', sign: 'in' },
+    { key: 'manual_out', label: 'Salidas manuales', sign: 'out' },
+    { key: 'purchase_cash', label: 'Pagos proveedor', sign: 'out' },
+    { key: 'returns', label: 'Devoluciones', sign: 'out' },
+    { key: 'cash_advances', label: 'Avances', sign: 'out' },
+    { key: 'change_given', label: 'Vueltos', sign: 'out' },
+];
 
 const directionStyles = {
     in: {
@@ -318,6 +353,54 @@ const AccountingTab = ({ dateRange }) => {
     const accounts = summary?.accounts || [];
     const items = ledger?.items || [];
 
+    const operationalGroups = useMemo(() => {
+        const map = new Map();
+        for (const account of accounts) {
+            const meta = ACCOUNT_GROUPS[account.account_code] || { label: account.account_name || account.account_code, tone: 'slate', order: 99 };
+            const key = account.account_code;
+            if (!map.has(key)) {
+                map.set(key, {
+                    key,
+                    ...meta,
+                    count: 0,
+                    currencies: {},
+                });
+            }
+            const group = map.get(key);
+            group.count += Number(account.count || 0);
+            group.currencies[account.currency] = (group.currencies[account.currency] || 0) + Number(account.net_amount || 0);
+        }
+        return Array.from(map.values()).sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));
+    }, [accounts]);
+
+    const sourceCoverage = useMemo(() => {
+        const map = new Map();
+        for (const item of items) {
+            const key = item.source_type || 'unknown';
+            map.set(key, (map.get(key) || 0) + 1);
+        }
+        return Array.from(map.entries()).map(([source, count]) => ({
+            source,
+            label: SOURCE_LABELS[source] || source,
+            count,
+        })).sort((a, b) => b.count - a.count);
+    }, [items]);
+
+    const sessionBreakdown = useMemo(() => {
+        return (reconciliation?.audit?.cash_by_currency || []).map((row) => ({
+            currency: normalizeCurrency(row.currency),
+            rows: SESSION_BUCKETS.map((bucket) => ({
+                ...bucket,
+                amount: Number(row[bucket.key] || 0),
+            })).filter((bucket) => Math.abs(bucket.amount) > 0.0001),
+            expected: Number(row.expected || 0),
+            reported: Number(row.reported || 0),
+            difference: Number(row.difference || 0),
+        }));
+    }, [reconciliation]);
+
+    const reconciliationAlerts = reconciliation?.audit?.alerts || [];
+
     if (!canViewLedger) {
         return (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm font-bold text-amber-800">
@@ -447,30 +530,87 @@ const AccountingTab = ({ dateRange }) => {
                                 <ShieldCheck size={18} className="text-indigo-700" />
                                 <h3 className="text-base font-black text-slate-950">Conciliacion de sesion #{filters.sessionId}</h3>
                             </div>
-                            <p className="text-sm font-semibold text-slate-500">Compara arqueo esperado contra el neto reconstruido del libro contable.</p>
+                            <p className="text-sm font-semibold text-slate-500">Explica el esperado de caja y lo compara contra el libro contable reconstruido.</p>
                         </div>
                         {reconciliationRows.length > 0 && (
-                            <span className={`w-fit rounded-full border px-3 py-1 text-xs font-black ${reconciliationRows.every((row) => row.ok) ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
+                            <span className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-xs font-black ${reconciliationRows.every((row) => row.ok) ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
+                                {reconciliationRows.every((row) => row.ok) ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
                                 {reconciliationRows.every((row) => row.ok) ? 'Cuadra con libro' : 'Revisar diferencias'}
                             </span>
                         )}
                     </div>
                     {reconciliationRows.length > 0 ? (
-                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                            {reconciliationRows.map((row) => (
-                                <div key={row.currency} className="rounded-xl border border-white/80 bg-white p-3 shadow-sm">
-                                    <div className="mb-3 flex items-center justify-between">
-                                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">{row.currency}</span>
-                                        <span className={`rounded-lg px-2 py-1 text-xs font-black ${row.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{row.ok ? 'OK' : 'Diferencia'}</span>
+                        <div className="space-y-3">
+                            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                {reconciliationRows.map((row) => (
+                                    <div key={row.currency} className="rounded-xl border border-white/80 bg-white p-3 shadow-sm">
+                                        <div className="mb-3 flex items-center justify-between">
+                                            <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">{row.currency}</span>
+                                            <span className={`rounded-lg px-2 py-1 text-xs font-black ${row.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{row.ok ? 'OK' : 'Diferencia'}</span>
+                                        </div>
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between gap-3"><span className="font-bold text-slate-500">Arqueo esperado</span><strong className="text-slate-950">{formatMoney(row.expected, row.currency)}</strong></div>
+                                            <div className="flex justify-between gap-3"><span className="font-bold text-slate-500">Libro contable</span><strong className="text-indigo-700">{formatMoney(row.ledgerNet, row.currency)}</strong></div>
+                                            <div className="flex justify-between gap-3"><span className="font-bold text-slate-500">Declarado</span><strong className="text-slate-950">{formatMoney(row.reported, row.currency)}</strong></div>
+                                            <div className="flex justify-between gap-3 border-t border-slate-100 pt-2"><span className="font-bold text-slate-500">Delta libro</span><strong className={row.ok ? 'text-emerald-700' : 'text-rose-700'}>{formatMoney(row.delta, row.currency)}</strong></div>
+                                        </div>
                                     </div>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between gap-3"><span className="font-bold text-slate-500">Arqueo esperado</span><strong className="text-slate-950">{formatMoney(row.expected, row.currency)}</strong></div>
-                                        <div className="flex justify-between gap-3"><span className="font-bold text-slate-500">Libro contable</span><strong className="text-indigo-700">{formatMoney(row.ledgerNet, row.currency)}</strong></div>
-                                        <div className="flex justify-between gap-3"><span className="font-bold text-slate-500">Declarado</span><strong className="text-slate-950">{formatMoney(row.reported, row.currency)}</strong></div>
-                                        <div className="flex justify-between gap-3 border-t border-slate-100 pt-2"><span className="font-bold text-slate-500">Delta libro</span><strong className={row.ok ? 'text-emerald-700' : 'text-rose-700'}>{formatMoney(row.delta, row.currency)}</strong></div>
+                                ))}
+                            </div>
+
+                            <div className="grid gap-3 xl:grid-cols-[1.4fr_0.9fr]">
+                                <div className="rounded-xl border border-white/80 bg-white p-3 shadow-sm">
+                                    <div className="mb-3 flex items-center gap-2">
+                                        <ClipboardList size={17} className="text-indigo-600" />
+                                        <h4 className="text-sm font-black text-slate-950">Como se formo el esperado</h4>
+                                    </div>
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                        {sessionBreakdown.map((currencyRow) => (
+                                            <div key={currencyRow.currency} className="rounded-lg border border-slate-100 bg-slate-50/70 p-3">
+                                                <div className="mb-2 flex items-center justify-between">
+                                                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">{currencyRow.currency}</span>
+                                                    <strong className="text-sm font-black text-slate-950">{formatMoney(currencyRow.expected, currencyRow.currency)}</strong>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {currencyRow.rows.map((bucket) => (
+                                                        <div key={bucket.key} className="flex items-center justify-between gap-3 text-xs">
+                                                            <span className="font-bold text-slate-500">{bucket.label}</span>
+                                                            <span className={bucket.sign === 'out' ? 'font-black text-rose-700' : 'font-black text-emerald-700'}>
+                                                                {bucket.sign === 'out' ? '-' : '+'}{formatMoney(bucket.amount, currencyRow.currency)}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                    <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-2 text-xs">
+                                                        <span className="font-black text-slate-500">Declarado</span>
+                                                        <span className="font-black text-slate-950">{formatMoney(currencyRow.reported, currencyRow.currency)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
-                            ))}
+
+                                <div className="rounded-xl border border-white/80 bg-white p-3 shadow-sm">
+                                    <div className="mb-3 flex items-center gap-2">
+                                        <AlertTriangle size={17} className={reconciliationAlerts.length ? 'text-amber-600' : 'text-emerald-600'} />
+                                        <h4 className="text-sm font-black text-slate-950">Alertas de auditoria</h4>
+                                    </div>
+                                    {reconciliationAlerts.length ? (
+                                        <div className="space-y-2">
+                                            {reconciliationAlerts.slice(0, 6).map((alert, index) => (
+                                                <div key={`${alert.code}-${index}`} className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                                                    <p className="font-black uppercase tracking-wide">{alert.code || 'alerta'}</p>
+                                                    <p className="mt-1 leading-relaxed">{alert.message}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-4 text-sm font-black text-emerald-700">
+                                            Sin alertas para esta sesion.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     ) : (
                         <div className="rounded-xl border border-dashed border-indigo-200 bg-white/70 p-4 text-sm font-bold text-slate-500">
@@ -505,6 +645,52 @@ const AccountingTab = ({ dateRange }) => {
                 )) : (
                     <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-sm font-bold text-slate-500 md:col-span-3">
                         No hay asientos contables para los filtros actuales.
+                    </div>
+                )}
+            </section>
+
+            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-2">
+                        <Coins size={18} className="text-indigo-600" />
+                        <div>
+                            <h3 className="text-base font-black text-slate-950">Desglose operativo</h3>
+                            <p className="text-sm font-semibold text-slate-500">Cada modulo que movio dinero dentro de los filtros actuales.</p>
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {sourceCoverage.slice(0, 6).map((source) => (
+                            <span key={source.source} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-black text-slate-600">
+                                {source.label} - {source.count}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+                {operationalGroups.length ? (
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        {operationalGroups.map((group) => (
+                            <div key={group.key} className={`rounded-xl border p-3 ${ACCOUNT_BADGES[group.key] || 'border-slate-200 bg-slate-50 text-slate-700'}`}>
+                                <div className="mb-3 flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-black">{group.label}</p>
+                                        <p className="truncate text-[11px] font-bold opacity-75">{group.key}</p>
+                                    </div>
+                                    <span className="rounded-lg bg-white/70 px-2 py-1 text-[11px] font-black">{compactNumber(group.count)}</span>
+                                </div>
+                                <div className="space-y-1">
+                                    {Object.entries(group.currencies).map(([currency, amount]) => (
+                                        <div key={currency} className="flex items-center justify-between gap-3 text-xs">
+                                            <span className="font-black">{currency}</span>
+                                            <strong>{formatMoney(amount, currency)}</strong>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-500">
+                        No hay movimientos operativos para resumir con estos filtros.
                     </div>
                 )}
             </section>
