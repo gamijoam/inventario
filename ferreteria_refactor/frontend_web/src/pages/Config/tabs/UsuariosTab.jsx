@@ -45,6 +45,7 @@ const MODULE_META = {
     sales: { label: 'Ventas', accent: 'bg-violet-500' },
     purchases: { label: 'Compras', accent: 'bg-teal-500' },
     reports: { label: 'Reportes', accent: 'bg-cyan-500' },
+    accounting: { label: 'Contabilidad', accent: 'bg-indigo-600' },
     config: { label: 'Configuracion', accent: 'bg-slate-600' },
     support: { label: 'Soporte', accent: 'bg-fuchsia-500' },
     organization: { label: 'Organizacion', accent: 'bg-purple-500' },
@@ -72,10 +73,16 @@ const PERMISSION_PRESETS = [
         codes: ['inventory.products.view', 'inventory.products.create', 'inventory.products.edit', 'inventory.stock.adjust', 'inventory.serials.view', 'inventory.serials.receive', 'inventory.kardex.view', 'inventory.categories.manage', 'inventory.warehouses.manage', 'inventory.transfers.export', 'inventory.transfers.import', 'purchases.view', 'purchases.create', 'purchases.suppliers.manage', 'reports.inventory.view', 'support.chat.use'],
     },
     {
+        id: 'accounting_auditor',
+        name: 'Contador / auditor',
+        hint: 'Libro contable, arqueos y exportacion sin operar ventas.',
+        codes: ['reports.view', 'cash.audit.view', 'accounting.ledger.view', 'accounting.ledger.export'],
+    },
+    {
         id: 'manager',
         name: 'Encargado',
         hint: 'Operacion amplia sin configuracion critica.',
-        codes: ['dashboard.view', 'dashboard.financials.view', 'pos.access', 'pos.sell', 'pos.discount.apply', 'pos.reprint.ticket', 'pos.reprint.warranty', 'cash.view', 'cash.open', 'cash.close.blind', 'cash.movements.create', 'cash.audit.view', 'inventory.products.view', 'inventory.products.create', 'inventory.products.edit', 'inventory.stock.adjust', 'inventory.serials.view', 'inventory.serials.receive', 'inventory.kardex.view', 'sales.quotes.view', 'sales.quotes.manage', 'sales.customers.manage', 'sales.returns.create', 'sales.returns.exchange', 'sales.credits.view', 'sales.credits.pay', 'purchases.view', 'purchases.create', 'purchases.pay', 'reports.view', 'reports.sales.view', 'reports.inventory.view', 'support.chat.use'],
+        codes: ['dashboard.view', 'dashboard.financials.view', 'pos.access', 'pos.sell', 'pos.discount.apply', 'pos.reprint.ticket', 'pos.reprint.warranty', 'cash.view', 'cash.open', 'cash.close.blind', 'cash.movements.create', 'cash.audit.view', 'inventory.products.view', 'inventory.products.create', 'inventory.products.edit', 'inventory.stock.adjust', 'inventory.serials.view', 'inventory.serials.receive', 'inventory.kardex.view', 'sales.quotes.view', 'sales.quotes.manage', 'sales.customers.manage', 'sales.returns.create', 'sales.returns.exchange', 'sales.credits.view', 'sales.credits.pay', 'purchases.view', 'purchases.create', 'purchases.pay', 'reports.view', 'reports.sales.view', 'reports.inventory.view', 'accounting.ledger.view', 'accounting.ledger.export', 'support.chat.use'],
     },
 ];
 
