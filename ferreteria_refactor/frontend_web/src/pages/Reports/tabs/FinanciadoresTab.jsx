@@ -18,28 +18,43 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString('es-VE', { day: '2-dig
 const UpdatePaymentModal = ({ record, onClose, onSuccess }) => {
     const totalFinanciado = Number(record.financed_amount || 0);
     const yaPagado        = Number(record.financer_paid_amount || 0);
-    const pendiente       = totalFinanciado - yaPagado;
-    const [abono, setAbono]   = useState('');
+    const pendiente       = Math.max(0, totalFinanciado - yaPagado);
+    const [abono, setAbono] = useState(pendiente > 0 ? pendiente.toFixed(2) : '');
+    const [currency, setCurrency] = useState('USD');
+    const [exchangeRate, setExchangeRate] = useState('1');
+    const [paymentMethod, setPaymentMethod] = useState(record.financer_name || 'Financiadora');
+    const [reference, setReference] = useState('');
+    const [notes, setNotes] = useState('');
+    const [registerInCash, setRegisterInCash] = useState(true);
     const [saving, setSaving] = useState(false);
-    const abonoNum   = parseFloat(abono) || 0;
-    const nuevoPagado = Math.min(yaPagado + abonoNum, totalFinanciado);
+
+    const abonoNum = parseFloat(abono) || 0;
+    const rateNum = parseFloat(exchangeRate) || 1;
+    const abonoUsd = currency === 'VES' ? abonoNum / Math.max(rateNum, 0.0001) : abonoNum;
+    const nuevoPagado = Math.min(yaPagado + abonoUsd, totalFinanciado);
     const nuevoStatus = nuevoPagado >= totalFinanciado ? 'COMPLETED' : nuevoPagado > 0 ? 'PARTIAL' : record.financer_payment_status;
-    const nuevoSt    = STATUS_CONFIG[nuevoStatus] || STATUS_CONFIG.PENDING;
+    const nuevoSt = STATUS_CONFIG[nuevoStatus] || STATUS_CONFIG.PENDING;
 
     const handleSave = async () => {
-        if (!abono || abonoNum <= 0) { toast.error('Ingresa un monto válido'); return; }
-        if (abonoNum > pendiente + 0.01) { toast.error(`El abono no puede superar ${fmt(pendiente)}`); return; }
+        if (!abono || abonoNum <= 0) { toast.error('Ingresa un monto valido'); return; }
+        if (currency === 'VES' && rateNum <= 0) { toast.error('La tasa debe ser mayor a cero'); return; }
+        if (abonoUsd > pendiente + 0.01) { toast.error(`El abono no puede superar ${fmt(pendiente)}`); return; }
         setSaving(true);
         try {
-            const updated = await apiClient.put(`/external-financing/${record.id}`, {
-                financer_paid_amount: nuevoPagado,
-                financer_payment_status: nuevoStatus,
+            await apiClient.post(`/external-financing/${record.id}/payments`, {
+                amount: abonoNum,
+                currency,
+                exchange_rate: rateNum,
+                payment_method: paymentMethod || record.financer_name,
+                reference: reference || undefined,
+                notes: notes || undefined,
+                register_in_cash: registerInCash,
             });
-            toast.success('Pago actualizado');
-            onSuccess(updated.data);
+            toast.success('Pago de financiadora registrado');
+            onSuccess(null);
             onClose();
         } catch (error) {
-            toast.error(getApiErrorMessage(error, 'Error al actualizar'));
+            toast.error(getApiErrorMessage(error, 'Error al registrar pago'));
         } finally {
             setSaving(false);
         }
@@ -47,19 +62,19 @@ const UpdatePaymentModal = ({ record, onClose, onSuccess }) => {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-                <div className="bg-slate-900 px-3 py-2.5">
-                    <h3 className="text-white font-black text-lg">Registrar Pago</h3>
-                    <p className="text-slate-400 text-sm">{record.financer_name} — Venta #{record.sale_id}</p>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+                <div className="bg-slate-900 px-4 py-3">
+                    <h3 className="text-white font-black text-lg">Pago de financiadora</h3>
+                    <p className="text-slate-400 text-sm">{record.financer_name} - Venta #{record.sale_id}</p>
                 </div>
                 <div className="p-4 space-y-4">
                     <div className="grid grid-cols-3 gap-3 text-center">
                         <div className="bg-slate-50 rounded-xl p-3">
-                            <p className="text-xs text-slate-400 font-bold uppercase">Total</p>
+                            <p className="text-xs text-slate-400 font-bold uppercase">Financiado</p>
                             <p className="text-slate-900 font-black">{fmt(totalFinanciado)}</p>
                         </div>
                         <div className="bg-emerald-50 rounded-xl p-3">
-                            <p className="text-xs text-emerald-600 font-bold uppercase">Pagado</p>
+                            <p className="text-xs text-emerald-600 font-bold uppercase">Recibido</p>
                             <p className="text-emerald-700 font-black">{fmt(yaPagado)}</p>
                         </div>
                         <div className="bg-amber-50 rounded-xl p-3">
@@ -67,22 +82,81 @@ const UpdatePaymentModal = ({ record, onClose, onSuccess }) => {
                             <p className="text-amber-700 font-black">{fmt(pendiente)}</p>
                         </div>
                     </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_130px] gap-3">
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1">Monto recibido</label>
+                            <input
+                                type="number" step="0.01" min="0"
+                                value={abono} onChange={e => setAbono(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleSave()}
+                                placeholder={currency === 'VES' ? 'Monto en Bs' : `Max. ${fmt(pendiente)}`}
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                autoFocus
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1">Moneda</label>
+                            <select value={currency} onChange={e => setCurrency(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3 py-3 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                                <option value="USD">USD</option>
+                                <option value="VES">Bs</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {currency === 'VES' && (
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1">Tasa usada</label>
+                            <input
+                                type="number" step="0.0001" min="0"
+                                value={exchangeRate} onChange={e => setExchangeRate(e.target.value)}
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                            />
+                            <p className="text-xs text-slate-400 mt-1">Equivalente: {fmt(abonoUsd)}</p>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1">Metodo / origen</label>
+                            <input
+                                value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}
+                                placeholder="Ej: Cashea, Transferencia, Zelle"
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1">Referencia</label>
+                            <input
+                                value={reference} onChange={e => setReference(e.target.value)}
+                                placeholder="Opcional"
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                            />
+                        </div>
+                    </div>
+
                     <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">Monto del abono (USD)</label>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">Nota</label>
                         <input
-                            type="number" step="0.01" min="0" max={pendiente}
-                            value={abono} onChange={e => setAbono(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleSave()}
-                            placeholder={`Máx. ${fmt(pendiente)}`}
-                            className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                            autoFocus
+                            value={notes} onChange={e => setNotes(e.target.value)}
+                            placeholder="Opcional"
+                            className="w-full border border-slate-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400"
                         />
                     </div>
+
+                    <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 cursor-pointer">
+                        <div>
+                            <p className="text-sm font-black text-slate-800">Registrar entrada en caja</p>
+                            <p className="text-xs text-slate-500">Activalo si ese dinero entra en la caja/sesion actual.</p>
+                        </div>
+                        <input type="checkbox" checked={registerInCash} onChange={e => setRegisterInCash(e.target.checked)} className="h-5 w-5 accent-indigo-600" />
+                    </label>
+
                     {abono && abonoNum > 0 && (
                         <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border ${nuevoSt.bg} ${nuevoSt.border}`}>
                             <div className={`w-2 h-2 rounded-full ${nuevoSt.dot}`} />
                             <span className={`text-sm font-bold ${nuevoSt.color}`}>
-                                Nuevo estado: {nuevoSt.label} — Pagado total: {fmt(nuevoPagado)}
+                                Nuevo estado: {nuevoSt.label} - recibido total: {fmt(nuevoPagado)}
                             </span>
                         </div>
                     )}

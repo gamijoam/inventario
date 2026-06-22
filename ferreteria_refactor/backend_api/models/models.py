@@ -1064,9 +1064,36 @@ class ExternalFinancing(Base):
     sale                  = relationship("Sale", backref="external_financing")
     customer              = relationship("Customer")
     financer_method       = relationship("PaymentMethod")
+    payments              = relationship("ExternalFinancingPayment", back_populates="external_financing", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<ExternalFinancing(sale={self.sale_id}, financer={self.financer_name})>"
+
+
+class ExternalFinancingPayment(Base):
+    """Pagos reales recibidos desde la financiadora hacia la tienda."""
+    __tablename__ = "external_financing_payments"
+
+    id                    = Column(Integer, primary_key=True, index=True)
+    external_financing_id = Column(Integer, ForeignKey("external_financings.id"), nullable=False, index=True)
+    amount                = Column(Numeric(18,4), nullable=False)
+    currency              = Column(String(16), default="USD", nullable=False)
+    exchange_rate         = Column(Numeric(14,4), default=1.0000, nullable=False)
+    amount_usd            = Column(Numeric(18,4), default=0.0000, nullable=False)
+    payment_method        = Column(String(160), nullable=True)
+    reference             = Column(String(160), nullable=True)
+    notes                 = Column(Text, nullable=True)
+    session_id            = Column(Integer, ForeignKey("cash_sessions.id"), nullable=True, index=True)
+    cash_movement_id      = Column(Integer, ForeignKey("cash_movements.id"), nullable=True, index=True)
+    received_at           = Column(DateTime, default=get_venezuela_now, nullable=False)
+    created_at            = Column(DateTime, default=get_venezuela_now, nullable=False)
+
+    external_financing    = relationship("ExternalFinancing", back_populates="payments")
+    session               = relationship("CashSession")
+    cash_movement         = relationship("CashMovement")
+
+    def __repr__(self):
+        return f"<ExternalFinancingPayment(financing={self.external_financing_id}, amount={self.amount} {self.currency})>"
 
 class Currency(Base):
     __tablename__ = "business_currencies"

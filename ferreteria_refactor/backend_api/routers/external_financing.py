@@ -1,14 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import desc
 from typing import List, Optional
 from pydantic import BaseModel
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
 
 from ..database.db import get_db
 from ..models import models
-from ..dependencies import any_authenticated, warehouse_or_admin
+from ..dependencies import any_authenticated, warehouse_or_admin, get_current_active_user
+from ..services.cash_session_resolver import resolve_current_cash_session
+from ..utils.time_utils import get_venezuela_now
 
 router = APIRouter(
     prefix="/external-financing",
@@ -38,6 +40,34 @@ class ExternalFinancingUpdate(BaseModel):
     installment_amount: Optional[Decimal] = None
     installment_frequency: Optional[str] = None
     notes: Optional[str] = None
+
+class ExternalFinancingPaymentCreate(BaseModel):
+    amount: Decimal
+    currency: str = "USD"
+    exchange_rate: Decimal = Decimal("1")
+    payment_method: Optional[str] = None
+    reference: Optional[str] = None
+    notes: Optional[str] = None
+    session_id: Optional[int] = None
+    register_in_cash: bool = True
+    received_at: Optional[datetime] = None
+
+class ExternalFinancingPaymentRead(BaseModel):
+    id: int
+    external_financing_id: int
+    amount: Decimal
+    currency: str
+    exchange_rate: Decimal
+    amount_usd: Decimal
+    payment_method: Optional[str]
+    reference: Optional[str]
+    notes: Optional[str]
+    session_id: Optional[int]
+    cash_movement_id: Optional[int]
+    received_at: datetime
+    created_at: datetime
+    class Config:
+        from_attributes = True
 
 class CustomerBasic(BaseModel):
     id: int
@@ -74,6 +104,7 @@ class ExternalFinancingRead(BaseModel):
     # Nested
     customer: Optional[CustomerBasic] = None
     sale: Optional[SaleBasic] = None
+    payments: List[ExternalFinancingPaymentRead] = []
     class Config:
         from_attributes = True
 
@@ -84,6 +115,50 @@ class ExternalFinancingSummary(BaseModel):
     total_pending_from_financers: Decimal
     total_received_from_financers: Decimal
     estimated_profit: Decimal
+
+
+def _currency_key(value: str) -> str:
+    curr = str(value or "USD").strip()
+    if curr.upper() in {"BS", "VES", "VEF"}:
+        return "VES"
+    if curr in {"$", ""}:
+        return "USD"
+    return curr.upper()
+
+
+def _money(value: Decimal) -> Decimal:
+    return Decimal(str(value or "0")).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+
+
+def _to_usd(amount: Decimal, currency: str, exchange_rate: Decimal) -> Decimal:
+    amount = Decimal(str(amount or "0"))
+    currency = _currency_key(currency)
+    rate = Decimal(str(exchange_rate or "1"))
+    if currency in {"VES", "BS"}:
+        if rate <= 0:
+            raise HTTPException(status_code=400, detail="La tasa debe ser mayor a cero para pagos en bolivares")
+        return _money(amount / rate)
+    return _money(amount)
+
+
+def _payments_total_usd(record: models.ExternalFinancing) -> Decimal:
+    payments = getattr(record, "payments", None) or []
+    if payments:
+        return _money(sum((p.amount_usd or Decimal("0")) for p in payments))
+    return _money(record.financer_paid_amount or Decimal("0"))
+
+
+def _sync_financing_payment_status(record: models.ExternalFinancing) -> None:
+    paid = _payments_total_usd(record)
+    financed = _money(record.financed_amount or Decimal("0"))
+    record.financer_paid_amount = paid
+    if paid <= 0:
+        record.financer_payment_status = "PENDING"
+    elif paid + Decimal("0.0001") >= financed:
+        record.financer_payment_status = "COMPLETED"
+    else:
+        record.financer_payment_status = "PARTIAL"
+    record.updated_at = get_venezuela_now()
 
 
 def _apply_financing_filters(query, financer_name=None, status=None, date_from=None, date_to=None):
@@ -122,7 +197,7 @@ def get_summary(
     caja y el monto financiado es una cuenta por cobrar a la financiadora.
     """
     query = _apply_financing_filters(
-        db.query(models.ExternalFinancing),
+        db.query(models.ExternalFinancing).options(selectinload(models.ExternalFinancing.payments)),
         financer_name=financer_name,
         status=status,
         date_from=date_from,
@@ -133,12 +208,13 @@ def get_summary(
     total_price      = sum((r.total_price or Decimal("0")) for r in records)
     total_financed   = sum((r.financed_amount or Decimal("0")) for r in records)
     total_initial    = sum((r.initial_payment or Decimal("0")) for r in records)
-    total_received   = sum((r.financer_paid_amount or Decimal("0")) for r in records)
+    total_received   = sum(_payments_total_usd(r) for r in records)
     total_pending    = total_financed - total_received
 
     status_counts = {"PENDING": 0, "PARTIAL": 0, "COMPLETED": 0}
     initial_by_currency = {}
     for record in records:
+        _sync_financing_payment_status(record)
         key = record.financer_payment_status or "PENDING"
         status_counts[key] = status_counts.get(key, 0) + 1
         currency = (record.initial_currency or "USD").upper()
@@ -180,6 +256,7 @@ def list_external_financings(
     query = db.query(models.ExternalFinancing).options(
         joinedload(models.ExternalFinancing.customer),
         joinedload(models.ExternalFinancing.sale),
+        selectinload(models.ExternalFinancing.payments),
     ).order_by(desc(models.ExternalFinancing.created_at))
 
     query = _apply_financing_filters(
@@ -195,7 +272,9 @@ def list_external_financings(
 @router.get("/by-sale/{sale_id}", dependencies=[any_authenticated])
 def get_by_sale(sale_id: int, db: Session = Depends(get_db)):
     """Obtener financiamiento externo de una venta específica."""
-    record = db.query(models.ExternalFinancing).filter(
+    record = db.query(models.ExternalFinancing).options(
+        selectinload(models.ExternalFinancing.payments)
+    ).filter(
         models.ExternalFinancing.sale_id == sale_id
     ).first()
     if not record:
@@ -240,6 +319,101 @@ def create_external_financing(data: ExternalFinancingCreate, db: Session = Depen
     db.refresh(record)
     db.commit()
     return record
+
+@router.post("/{record_id}/payments", response_model=ExternalFinancingPaymentRead, dependencies=[Depends(warehouse_or_admin)])
+def create_financing_payment(
+    record_id: int,
+    data: ExternalFinancingPaymentCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Registrar un pago real recibido desde la financiadora.
+
+    Si register_in_cash=true, se crea un movimiento DEPOSIT en la caja resuelta.
+    Si no hay caja clara, el pago queda solo como trazabilidad de la financiera.
+    """
+    record = db.query(models.ExternalFinancing).options(
+        selectinload(models.ExternalFinancing.payments),
+        joinedload(models.ExternalFinancing.sale),
+    ).filter(models.ExternalFinancing.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Registro no encontrado")
+
+    amount = _money(data.amount)
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="El monto debe ser mayor a cero")
+
+    currency = _currency_key(data.currency)
+    exchange_rate = _money(data.exchange_rate or Decimal("1"))
+    amount_usd = _to_usd(amount, currency, exchange_rate)
+    paid_before = _payments_total_usd(record)
+    pending = _money((record.financed_amount or Decimal("0")) - paid_before)
+    if amount_usd > pending + Decimal("0.0100"):
+        raise HTTPException(status_code=400, detail=f"El pago supera el pendiente de la financiadora (${pending})")
+
+    session = None
+    cash_movement = None
+    if data.register_in_cash:
+        if data.session_id:
+            session = db.query(models.CashSession).filter(
+                models.CashSession.id == data.session_id,
+                models.CashSession.status == "OPEN",
+            ).first()
+            if not session:
+                raise HTTPException(status_code=400, detail="La caja seleccionada no esta abierta")
+        else:
+            session = resolve_current_cash_session(db, current_user)
+
+        if not session:
+            raise HTTPException(status_code=400, detail="No hay una caja abierta clara para registrar este cobro. Abre caja o envia session_id.")
+
+        cash_movement = models.CashMovement(
+            session_id=session.id,
+            type="DEPOSIT",
+            amount=amount,
+            currency=currency,
+            exchange_rate=exchange_rate,
+            description=f"Pago financiadora {record.financer_name} - Venta #{record.sale_id}",
+            incoming_amount=amount,
+            incoming_currency=currency,
+            incoming_method=data.payment_method or record.financer_name,
+            incoming_reference=data.reference,
+            date=data.received_at or get_venezuela_now(),
+        )
+        db.add(cash_movement)
+        db.flush()
+
+    payment = models.ExternalFinancingPayment(
+        external_financing_id=record.id,
+        amount=amount,
+        currency=currency,
+        exchange_rate=exchange_rate,
+        amount_usd=amount_usd,
+        payment_method=data.payment_method or record.financer_name,
+        reference=data.reference,
+        notes=data.notes,
+        session_id=session.id if session else None,
+        cash_movement_id=cash_movement.id if cash_movement else None,
+        received_at=data.received_at or get_venezuela_now(),
+    )
+    db.add(payment)
+    db.flush()
+    record.payments.append(payment)
+    _sync_financing_payment_status(record)
+    db.commit()
+    db.refresh(payment)
+    return payment
+
+
+@router.get("/{record_id}/payments", response_model=List[ExternalFinancingPaymentRead], dependencies=[any_authenticated])
+def list_financing_payments(record_id: int, db: Session = Depends(get_db)):
+    record = db.query(models.ExternalFinancing).filter(models.ExternalFinancing.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Registro no encontrado")
+    return db.query(models.ExternalFinancingPayment).filter(
+        models.ExternalFinancingPayment.external_financing_id == record_id
+    ).order_by(models.ExternalFinancingPayment.received_at.desc(), models.ExternalFinancingPayment.id.desc()).all()
+
 
 @router.put("/{record_id}", response_model=ExternalFinancingRead, dependencies=[Depends(warehouse_or_admin)])
 def update_external_financing(record_id: int, data: ExternalFinancingUpdate, db: Session = Depends(get_db)):
@@ -360,7 +534,11 @@ def search_sales_for_financing(
 @router.get("/by-financer", dependencies=[any_authenticated])
 def get_by_financer(db: Session = Depends(get_db)):
     """Resumen agrupado por financiadora con detalle de cada venta."""
-    records = db.query(models.ExternalFinancing).order_by(
+    records = db.query(models.ExternalFinancing).options(
+        selectinload(models.ExternalFinancing.payments),
+        joinedload(models.ExternalFinancing.customer),
+        joinedload(models.ExternalFinancing.sale),
+    ).order_by(
         models.ExternalFinancing.financer_name,
         models.ExternalFinancing.created_at.desc()
     ).all()
@@ -382,8 +560,10 @@ def get_by_financer(db: Session = Depends(get_db)):
         g["total_sales"] += 1
         g["total_financed"] += float(r.financed_amount or 0)
         g["total_initial"]  += float(r.initial_payment or 0)
-        g["total_received"] += float(r.financer_paid_amount or 0)
-        g["total_pending"]  += float(r.financed_amount or 0) - float(r.financer_paid_amount or 0)
+        paid_amount = _payments_total_usd(r)
+        _sync_financing_payment_status(r)
+        g["total_received"] += float(paid_amount)
+        g["total_pending"]  += float(r.financed_amount or 0) - float(paid_amount)
 
         # Info de la venta
         sale = r.sale
@@ -396,8 +576,9 @@ def get_by_financer(db: Session = Depends(get_db)):
             "initial_payment":       float(r.initial_payment or 0),
             "initial_currency":      r.initial_currency or "USD",
             "financed_amount":       float(r.financed_amount or 0),
-            "financer_paid_amount":  float(r.financer_paid_amount or 0),
+            "financer_paid_amount":  float(paid_amount),
             "financer_payment_status": r.financer_payment_status or "PENDING",
+            "payments_count":          len(getattr(r, "payments", []) or []),
             "notes":                 r.notes,
             "created_at":            r.created_at.isoformat() if r.created_at else None,
             "sale_date":             sale.date.isoformat() if (sale and sale.date) else None,
@@ -410,27 +591,44 @@ def get_by_financer(db: Session = Depends(get_db)):
 def mark_financer_paid(
     record_id: int,
     data: dict,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
 ):
-    """Marcar que la financiadora ya pagó a la tienda (parcial o total)."""
-    record = db.query(models.ExternalFinancing).filter(
-        models.ExternalFinancing.id == record_id
-    ).first()
+    """Compatibilidad: registrar pago de financiadora usando el flujo nuevo."""
+    record = db.query(models.ExternalFinancing).options(
+        selectinload(models.ExternalFinancing.payments)
+    ).filter(models.ExternalFinancing.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Registro no encontrado")
 
-    amount = float(data.get("amount", record.financed_amount))
-    record.financer_paid_amount = amount
-    record.financer_payment_status = (
-        "COMPLETED" if amount >= float(record.financed_amount)
-        else "PARTIAL"
-    )
-    record.updated_at = get_venezuela_now()
-    db.commit()
-    db.refresh(record)
+    target_total = Decimal(str(data.get("amount", record.financed_amount or 0)))
+    paid_before = _payments_total_usd(record)
+    delta = _money(target_total - paid_before)
+    if delta <= 0:
+        _sync_financing_payment_status(record)
+        db.commit()
+        return {
+            "id": record.id,
+            "financer_payment_status": record.financer_payment_status,
+            "financer_paid_amount": float(record.financer_paid_amount),
+            "financed_amount": float(record.financed_amount),
+            "message": "Sin cambios: el monto ya estaba registrado",
+        }
 
+    payload = ExternalFinancingPaymentCreate(
+        amount=delta,
+        currency="USD",
+        exchange_rate=Decimal("1"),
+        payment_method=data.get("payment_method") or record.financer_name,
+        reference=data.get("reference"),
+        notes=data.get("notes") or "Registro desde mark-paid legacy",
+        session_id=data.get("session_id"),
+        register_in_cash=bool(data.get("register_in_cash", False)),
+    )
+    payment = create_financing_payment(record_id, payload, db, current_user)
     return {
         "id": record.id,
+        "payment_id": payment.id,
         "financer_payment_status": record.financer_payment_status,
         "financer_paid_amount": float(record.financer_paid_amount),
         "financed_amount": float(record.financed_amount),
