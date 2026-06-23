@@ -8,7 +8,7 @@ from datetime import datetime
 
 from ..database.db import get_db
 from ..models import models
-from ..dependencies import any_authenticated, warehouse_or_admin, get_current_active_user
+from ..dependencies import any_authenticated, cashier_or_admin, warehouse_or_admin, get_current_active_user
 from ..services.cash_session_resolver import resolve_current_cash_session
 from ..utils.time_utils import get_venezuela_now
 
@@ -281,7 +281,7 @@ def get_by_sale(sale_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="No hay financiamiento externo para esta venta")
     return record
 
-@router.post("/", response_model=ExternalFinancingRead, dependencies=[Depends(warehouse_or_admin)])
+@router.post("/", response_model=ExternalFinancingRead, dependencies=[Depends(cashier_or_admin)])
 def create_external_financing(data: ExternalFinancingCreate, db: Session = Depends(get_db)):
     """Registrar una nueva venta financiada por tercero."""
     # Verificar que la venta existe

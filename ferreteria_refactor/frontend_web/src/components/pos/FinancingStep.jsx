@@ -186,6 +186,16 @@ export default function FinancingStep({
             ))}
           </div>
         </div>
+        <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+          <span className="text-xs font-semibold text-slate-500">Promocion sin inicial</span>
+          <button
+            type="button"
+            onClick={() => { setInitial('0'); setReference(''); }}
+            className="rounded-lg bg-white px-3 py-1.5 text-xs font-black text-indigo-600 shadow-sm ring-1 ring-slate-200 hover:bg-indigo-50"
+          >
+            Usar 0 inicial
+          </button>
+        </div>
         {initialUSD > totalUSD + 0.005 && (
           <p className="text-xs text-rose-500 mt-1">El inicial no puede superar el total de la venta</p>
         )}

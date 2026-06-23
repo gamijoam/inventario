@@ -850,6 +850,17 @@ class SalesService:
             # 3. Process Payments (New Multi-Payment Logic)
             total_paid_usd = Decimal("0.00")
             exchange_rate_cache = {}
+            payment_method_label = str(sale_data.payment_method or "").strip()
+            _is_external_financing = bool(
+                sale_data.notes and "Financiamiento:" in str(sale_data.notes)
+            )
+            if not _is_external_financing and payment_method_label:
+                _is_external_financing = db.query(models.PaymentMethod.id).filter(
+                    func.lower(models.PaymentMethod.name) == payment_method_label.lower(),
+                    models.PaymentMethod.is_external_financer == True,
+                    models.PaymentMethod.is_active == True,
+                ).first() is not None
+
             if sale_data.payments:
 
                 for p in sale_data.payments:
@@ -924,17 +935,9 @@ class SalesService:
                     )
                     db.add(new_payment)
 
-                # Validate total coverage (tolerance $0.05 for rounding)
-                # Excepción: ventas con financiamiento externo (Cashea, Krece, etc.)
-                # El inicial no cubre el total — la financiadora paga el resto después
-                _is_external_financing = (
-                    sale_data.notes and "Financiamiento:" in sale_data.notes
-                ) or (
-                    sale_data.payment_method and any(
-                        pm in str(sale_data.payment_method)
-                        for pm in ["Cashea", "Knece", "Krece", "cashea", "krece"]
-                    )
-                )
+                # Validate total coverage (tolerance $0.05 for rounding).
+                # External financing may have only a partial/zero initial payment;
+                # the remainder is tracked as receivable from the financer.
                 if not _is_external_financing and total_paid_usd < (sale_data.total_amount - Decimal("0.05")):
                     faltante = float(sale_data.total_amount - total_paid_usd)
                     raise HTTPException(
@@ -942,10 +945,9 @@ class SalesService:
                         detail=f"Pago insuficiente. Faltan ${faltante:.2f} para cubrir el total de ${float(sale_data.total_amount):.2f}"
                     )
             else:
-                # Fallback for legacy calls or single payment
-                # CRITICAL FIX: Only create auto-payment if it's NOT a credit sale.
-                # Credit sales with no specific down-payment should have NO payments.
-                if not new_sale.is_credit:
+                # Fallback for legacy calls or single payment. Do not auto-create
+                # a full payment for credit or external financing sales with zero initial.
+                if not new_sale.is_credit and not _is_external_financing:
                     fallback_payment = models.SalePayment(
                         sale_id=new_sale_id, # Use captured ID
                         amount=sale_data.total_amount,
