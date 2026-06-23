@@ -206,6 +206,124 @@ function CatalogHealthPanel({ health, loading, syncing, createMissing, onCreateM
     );
 }
 
+function CatalogIssuesPanel({ issuesData, loading, onRefresh, createMissing, onCreateMissingChange, onSync, syncing }) {
+    const issues = issuesData?.issues || [];
+    const totals = issuesData?.totals || {};
+    const issueMeta = {
+        missing_product: { label: 'Falta producto', tone: 'amber' },
+        sku_conflict: { label: 'SKU ocupado', tone: 'rose' },
+        sku_mismatch: { label: 'SKU distinto', tone: 'blue' },
+        product_diff: { label: 'Datos distintos', tone: 'amber' },
+        price_missing: { label: 'Precio faltante', tone: 'indigo' },
+        price_diff: { label: 'Precio distinto', tone: 'indigo' },
+    };
+    const toneClasses = {
+        amber: 'bg-amber-50 text-amber-700 border-amber-100',
+        rose: 'bg-rose-50 text-rose-700 border-rose-100',
+        blue: 'bg-blue-50 text-blue-700 border-blue-100',
+        indigo: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+    };
+    const totalCount = Number(totals.missing || 0) + Number(totals.product_diffs || 0) + Number(totals.price_diffs || 0) + Number(totals.price_missing || 0) + Number(totals.sku_conflicts || 0);
+
+    return (
+        <section className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                    <div className="w-11 h-11 rounded-lg bg-slate-950 text-white flex items-center justify-center shrink-0 shadow-lg shadow-slate-200">
+                        <AlertTriangle size={20} />
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Mesa de decisiones</p>
+                        <h2 className="text-lg font-black text-slate-950">Pendientes del catálogo</h2>
+                        <p className="text-sm text-slate-500">Aqui ves que falta, que precio cambia y que SKU necesita decision manual antes de unificar.</p>
+                    </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <button onClick={onRefresh} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 hover:border-indigo-300 disabled:opacity-60">
+                        <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Ver pendientes
+                    </button>
+                    <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+                        <input type="checkbox" checked={createMissing} onChange={e => onCreateMissingChange(e.target.checked)} className="accent-indigo-600" />
+                        Crear faltantes
+                    </label>
+                    <button onClick={onSync} disabled={syncing || loading || !issuesData} className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-black text-white hover:bg-indigo-700 disabled:opacity-60">
+                        {syncing ? <Loader2 size={15} className="animate-spin" /> : <Wand2 size={15} />} Aplicar a empresas
+                    </button>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-5 border-b border-slate-100">
+                <div className="p-4 border-r border-slate-100"><p className="text-[11px] font-black uppercase text-slate-400">Total</p><p className="text-2xl font-black text-slate-950">{totalCount}</p></div>
+                <div className="p-4 border-r border-slate-100"><p className="text-[11px] font-black uppercase text-slate-400">Faltantes</p><p className="text-2xl font-black text-amber-600">{totals.missing || 0}</p></div>
+                <div className="p-4 border-r border-slate-100"><p className="text-[11px] font-black uppercase text-slate-400">SKU</p><p className="text-2xl font-black text-rose-600">{totals.sku_conflicts || 0}</p></div>
+                <div className="p-4 border-r border-slate-100"><p className="text-[11px] font-black uppercase text-slate-400">Datos</p><p className="text-2xl font-black text-blue-600">{totals.product_diffs || 0}</p></div>
+                <div className="p-4"><p className="text-[11px] font-black uppercase text-slate-400">Precios</p><p className="text-2xl font-black text-indigo-600">{Number(totals.price_diffs || 0) + Number(totals.price_missing || 0)}</p></div>
+            </div>
+
+            {loading ? (
+                <div className="py-12 text-center text-sm font-bold text-slate-400"><Loader2 size={24} className="animate-spin mx-auto mb-2 text-indigo-500" /> Revisando pendientes...</div>
+            ) : issues.length === 0 ? (
+                <div className="p-8 text-center">
+                    <ShieldCheck size={34} className="mx-auto text-emerald-500 mb-3" />
+                    <h3 className="font-black text-slate-900">Sin pendientes visibles</h3>
+                    <p className="text-sm text-slate-500">El catálogo visible ya esta alineado para esta empresa maestra.</p>
+                </div>
+            ) : (
+                <div className="divide-y divide-slate-100 max-h-[520px] overflow-y-auto">
+                    {issues.map((issue, index) => {
+                        const meta = issueMeta[issue.type] || { label: issue.type, tone: 'amber' };
+                        const master = issue.master_product || {};
+                        const target = issue.target_product || {};
+                        return (
+                            <article key={`${issue.tenant_schema}-${issue.type}-${issue.catalog_code}-${index}`} className="p-4 hover:bg-slate-50/70 transition-colors">
+                                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+                                    <div className="min-w-0 space-y-2">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className={`inline-flex rounded-lg border px-2 py-1 text-[11px] font-black ${toneClasses[meta.tone] || toneClasses.amber}`}>{meta.label}</span>
+                                            <span className="text-xs font-black text-slate-500 bg-slate-100 rounded-lg px-2 py-1">{issue.tenant_name}</span>
+                                            {issue.price_list && <span className="text-xs font-black text-indigo-700 bg-indigo-50 rounded-lg px-2 py-1">{issue.price_list}</span>}
+                                            <span className="text-xs font-mono font-bold text-slate-400">{issue.catalog_code}</span>
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-black text-slate-950 line-clamp-2">{master.name || target.name || 'Producto sin nombre'}</h3>
+                                            <p className="text-xs text-slate-500 mt-1">{issue.message}</p>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                            <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+                                                <p className="font-black text-emerald-700 uppercase text-[10px]">Maestra</p>
+                                                <p className="font-bold text-slate-800 line-clamp-1">{master.name || '-'}</p>
+                                                <p className="text-slate-500">SKU: {master.sku || '-'}</p>
+                                                {master.price !== undefined && <p className="font-black text-emerald-700">{fmt(master.price)}</p>}
+                                            </div>
+                                            <div className="rounded-lg border border-slate-200 bg-white p-3">
+                                                <p className="font-black text-slate-500 uppercase text-[10px]">Empresa destino</p>
+                                                <p className="font-bold text-slate-800 line-clamp-1">{target.name || 'No existe'}</p>
+                                                <p className="text-slate-500">SKU: {target.sku || '-'}</p>
+                                                {target.price !== undefined && <p className="font-black text-slate-700">{fmt(target.price)}</p>}
+                                            </div>
+                                        </div>
+                                        {Array.isArray(issue.fields) && issue.fields.length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {issue.fields.slice(0, 4).map(field => (
+                                                    <span key={field.field} className="rounded-md bg-amber-50 border border-amber-100 px-2 py-1 text-[11px] font-bold text-amber-700">{field.field}: {String(field.target)} → {String(field.master)}</span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="lg:w-64 rounded-lg bg-slate-50 border border-slate-200 p-3 shrink-0">
+                                        <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Qué hacer</p>
+                                        <p className="text-xs font-bold text-slate-600 leading-relaxed">{issue.action}</p>
+                                    </div>
+                                </div>
+                            </article>
+                        );
+                    })}
+                </div>
+            )}
+        </section>
+    );
+}
+
 
 function ManualMatchPanel({ orgId, masterSchema, onMatched }) {
     const [query, setQuery] = useState('');
@@ -498,6 +616,8 @@ export default function SharedCatalog() {
     const [importing, setImporting] = useState(false);
     const [health, setHealth] = useState(null);
     const [healthLoading, setHealthLoading] = useState(false);
+    const [issuesData, setIssuesData] = useState(null);
+    const [issuesLoading, setIssuesLoading] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [createMissing, setCreateMissing] = useState(false);
     const [orgId, setOrgId] = useState(null);
@@ -547,6 +667,7 @@ export default function SharedCatalog() {
         setProducts([]);
         setSelected(new Set());
         setHealth(null);
+        setIssuesData(null);
         if (numericOrgId) localStorage.setItem('shared_catalog_org_id', String(numericOrgId));
     };
 
@@ -582,6 +703,23 @@ export default function SharedCatalog() {
 
     useEffect(() => { fetchHealth(); }, [fetchHealth]);
 
+    const fetchIssues = useCallback(async () => {
+        if (!orgId) return;
+        setIssuesLoading(true);
+        try {
+            const res = await apiClient.get(`/organizations/${orgId}/catalog/issues`, {
+                params: { master_schema: masterSchema || undefined, limit: 120 },
+            });
+            setIssuesData(res.data || null);
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Error al cargar pendientes del catalogo');
+        } finally {
+            setIssuesLoading(false);
+        }
+    }, [orgId, masterSchema]);
+
+    useEffect(() => { fetchIssues(); }, [fetchIssues]);
+
     useEffect(() => {
         if (!masterSchema && health?.master?.schema_name) {
             setMasterSchema(health.master.schema_name);
@@ -605,6 +743,7 @@ export default function SharedCatalog() {
             });
             toast.success(res.data?.message || 'Catalogo sincronizado');
             await fetchHealth();
+            await fetchIssues();
             await fetchCatalog();
         } catch (err) {
             toast.error(err.response?.data?.detail || 'Error al sincronizar catalogo');
@@ -713,10 +852,20 @@ export default function SharedCatalog() {
                 onMasterSchemaChange={setMasterSchema}
             />
 
+            <CatalogIssuesPanel
+                issuesData={issuesData}
+                loading={issuesLoading}
+                onRefresh={fetchIssues}
+                createMissing={createMissing}
+                onCreateMissingChange={setCreateMissing}
+                onSync={handleSyncCatalog}
+                syncing={syncing}
+            />
+
             <ManualMatchPanel
                 orgId={orgId}
                 masterSchema={health?.master?.schema_name}
-                onMatched={() => { fetchHealth(); fetchCatalog(); }}
+                onMatched={() => { fetchHealth(); fetchIssues(); fetchCatalog(); }}
             />
 
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">

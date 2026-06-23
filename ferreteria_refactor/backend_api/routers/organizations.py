@@ -1241,6 +1241,165 @@ def catalog_health(
     }
 
 
+@router.get("/{org_id}/catalog/issues", dependencies=[Depends(require_permission("org.panel.view"))])
+def catalog_issues(
+    org_id: int,
+    master_schema: Optional[str] = Query(None),
+    limit: int = Query(80, ge=10, le=300),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    org = _get_org_or_404(db, org_id)
+    _assert_org_access(org, current_user)
+    tenants = _org_active_tenants(db, org_id)
+    master_tenant = _pick_master_tenant(db, org_id, current_user, master_schema)
+    master_maps = _catalog_maps(db, master_tenant.schema_name, org_id)
+    master_skus = set(master_maps["by_sku"].keys())
+    master_lists = set(master_maps["list_by_name"].keys())
+
+    issues = []
+    totals = {"missing": 0, "product_diffs": 0, "price_diffs": 0, "price_missing": 0, "sku_conflicts": 0, "duplicate_skus": 0}
+
+    for tenant in tenants:
+        if tenant.schema_name == master_tenant.schema_name:
+            continue
+        target = _catalog_maps(db, tenant.schema_name, org_id)
+        target_skus = set(target["by_sku"].keys())
+        common = master_skus & target_skus
+        target_sku_owner = {
+            str(product.get("sku") or "").strip(): int(product["id"])
+            for product in target["products"]
+            if str(product.get("sku") or "").strip()
+        }
+        totals["duplicate_skus"] += int(target.get("duplicate_sku_groups") or 0)
+
+        for sku in sorted(master_skus - target_skus):
+            totals["missing"] += 1
+            if len(issues) < limit:
+                mp = master_maps["by_sku"].get(sku) or {}
+                issues.append({
+                    "type": "missing_product",
+                    "severity": "warning",
+                    "tenant_schema": tenant.schema_name,
+                    "tenant_name": tenant.name,
+                    "catalog_code": sku,
+                    "master_product": {"id": mp.get("id"), "name": mp.get("name"), "sku": mp.get("sku"), "price": _money(mp.get("price")), "cost_price": _money(mp.get("cost_price")), "has_imei": bool(mp.get("has_imei") or False)},
+                    "message": "Producto existe en la empresa maestra, pero no en esta empresa.",
+                    "action": "Activa 'Crear faltantes con stock 0' y sincroniza, o empareja manualmente si ya existe con otro nombre.",
+                })
+
+        for sku in sorted(common):
+            mp = master_maps["by_sku"][sku]
+            tp = target["by_sku"][sku]
+            master_actual_sku = str(mp.get("sku") or "").strip()
+            target_actual_sku = str(tp.get("sku") or "").strip()
+            owner = target_sku_owner.get(master_actual_sku) if master_actual_sku else None
+            if owner and int(owner) != int(tp["id"]):
+                totals["sku_conflicts"] += 1
+                if len(issues) < limit:
+                    issues.append({
+                        "type": "sku_conflict",
+                        "severity": "danger",
+                        "tenant_schema": tenant.schema_name,
+                        "tenant_name": tenant.name,
+                        "catalog_code": sku,
+                        "master_product": {"id": mp.get("id"), "name": mp.get("name"), "sku": mp.get("sku"), "price": _money(mp.get("price"))},
+                        "target_product": {"id": tp.get("id"), "name": tp.get("name"), "sku": tp.get("sku"), "price": _money(tp.get("price"))},
+                        "conflicting_product_id": owner,
+                        "message": "El SKU de la maestra ya lo usa otro producto en esta empresa.",
+                        "action": "Revisar y emparejar manualmente; el sistema conserva el SKU local para no romper codigos de barra.",
+                    })
+            elif master_actual_sku and target_actual_sku and master_actual_sku != target_actual_sku:
+                totals["sku_conflicts"] += 1
+                if len(issues) < limit:
+                    issues.append({
+                        "type": "sku_mismatch",
+                        "severity": "info",
+                        "tenant_schema": tenant.schema_name,
+                        "tenant_name": tenant.name,
+                        "catalog_code": sku,
+                        "master_product": {"id": mp.get("id"), "name": mp.get("name"), "sku": mp.get("sku"), "price": _money(mp.get("price"))},
+                        "target_product": {"id": tp.get("id"), "name": tp.get("name"), "sku": tp.get("sku"), "price": _money(tp.get("price"))},
+                        "message": "Estan enlazados al mismo catalogo, pero conservan SKUs distintos.",
+                        "action": "Normal: util cuando cada tienda ya pistolea con su propio codigo. Cambialo solo si deseas un codigo unico.",
+                    })
+
+            product_fields = []
+            comparisons = [
+                ("name", str(mp.get("name") or "").strip(), str(tp.get("name") or "").strip()),
+                ("price", round(_money(mp.get("price")), 4), round(_money(tp.get("price")), 4)),
+                ("cost_price", round(_money(mp.get("cost_price")), 4), round(_money(tp.get("cost_price")), 4)),
+                ("price_mayor_1", round(_money(mp.get("price_mayor_1")), 4), round(_money(tp.get("price_mayor_1")), 4)),
+                ("price_mayor_2", round(_money(mp.get("price_mayor_2")), 4), round(_money(tp.get("price_mayor_2")), 4)),
+            ]
+            for field, master_value, target_value in comparisons:
+                if master_value != target_value:
+                    product_fields.append({"field": field, "master": master_value, "target": target_value})
+            if product_fields:
+                totals["product_diffs"] += 1
+                if len(issues) < limit:
+                    issues.append({
+                        "type": "product_diff",
+                        "severity": "warning",
+                        "tenant_schema": tenant.schema_name,
+                        "tenant_name": tenant.name,
+                        "catalog_code": sku,
+                        "master_product": {"id": mp.get("id"), "name": mp.get("name"), "sku": mp.get("sku"), "price": _money(mp.get("price"))},
+                        "target_product": {"id": tp.get("id"), "name": tp.get("name"), "sku": tp.get("sku"), "price": _money(tp.get("price"))},
+                        "fields": product_fields,
+                        "message": "Hay datos distintos contra la empresa maestra.",
+                        "action": "Sincronizar actualiza nombres, costos y precios sin tocar stock.",
+                    })
+
+            for list_name in sorted(master_lists):
+                mp_price = master_maps["price_by_sku_list"].get((sku, list_name))
+                if not mp_price:
+                    continue
+                tp_price = target["price_by_sku_list"].get((sku, list_name))
+                if not tp_price:
+                    totals["price_missing"] += 1
+                    if len(issues) < limit:
+                        issues.append({
+                            "type": "price_missing",
+                            "severity": "warning",
+                            "tenant_schema": tenant.schema_name,
+                            "tenant_name": tenant.name,
+                            "catalog_code": sku,
+                            "price_list": list_name,
+                            "master_product": {"id": mp.get("id"), "name": mp.get("name"), "sku": mp.get("sku")},
+                            "target_product": {"id": tp.get("id"), "name": tp.get("name"), "sku": tp.get("sku")},
+                            "master_price": _money(mp_price.get("price")),
+                            "message": "La lista de precio existe en la maestra, pero este producto no tiene precio en la empresa.",
+                            "action": "Sincronizar crea/actualiza el precio de lista en la empresa destino.",
+                        })
+                elif round(_money(mp_price.get("price")), 4) != round(_money(tp_price.get("price")), 4):
+                    totals["price_diffs"] += 1
+                    if len(issues) < limit:
+                        issues.append({
+                            "type": "price_diff",
+                            "severity": "warning",
+                            "tenant_schema": tenant.schema_name,
+                            "tenant_name": tenant.name,
+                            "catalog_code": sku,
+                            "price_list": list_name,
+                            "master_product": {"id": mp.get("id"), "name": mp.get("name"), "sku": mp.get("sku")},
+                            "target_product": {"id": tp.get("id"), "name": tp.get("name"), "sku": tp.get("sku")},
+                            "master_price": _money(mp_price.get("price")),
+                            "target_price": _money(tp_price.get("price")),
+                            "message": "Precio de lista distinto contra la maestra.",
+                            "action": "Sincronizar aplica el precio maestro a esta lista.",
+                        })
+
+    return {
+        "organization_id": org.id,
+        "organization_name": org.name,
+        "master": {"tenant_id": master_tenant.id, "tenant_name": master_tenant.name, "schema_name": master_tenant.schema_name},
+        "totals": totals,
+        "issues": issues,
+        "limit": limit,
+    }
+
+
 @router.post("/{org_id}/catalog/sync", dependencies=[Depends(require_permission("org.tenants.manage"))])
 def sync_catalog_between_tenants(
     org_id: int,
