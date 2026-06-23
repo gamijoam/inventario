@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     BookOpen, Plus, Search, Download, Package, Tag, DollarSign,
     X, Check, Loader2, RefreshCw, Layers, Building2, Info,
-    Activity, AlertTriangle, ShieldCheck, Wand2, Database
+    AlertTriangle, ShieldCheck, Wand2, Database, Link2
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
