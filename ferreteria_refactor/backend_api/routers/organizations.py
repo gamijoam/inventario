@@ -19,7 +19,7 @@ from ..models.tenant import Tenant
 from ..schemas.organization import (
     OrganizationCreate, OrganizationUpdate, OrganizationOut,
     InviteMemberRequest, OrganizationMemberOut, OrganizationTenantOut,
-    SharedProductCreate, SharedProductOut, ImportSharedProductRequest, CatalogSyncRequest,
+    SharedProductCreate, SharedProductOut, ImportSharedProductRequest, CatalogSyncRequest, CatalogManualMatchRequest,
     InterCompanyTransferCreate, InterCompanyTransferOut,
     ConsolidatedSummary, TenantDailySummary, OrgCompanyOut,
     OrgPlanConfig, OrgWhatsAppConfig,
@@ -282,19 +282,48 @@ def _tenant_product_prices(db: Session, schema: str) -> list[dict]:
     )
     return [dict(r) for r in db.execute(text(sql)).mappings().all()]
 
+def _catalog_links_available(db: Session) -> bool:
+    return bool(db.execute(text("SELECT to_regclass('public.organization_catalog_links')")).scalar())
 
-def _catalog_maps(db: Session, schema: str) -> dict:
+
+def _catalog_link_map(db: Session, org_id: Optional[int], schema: str) -> dict[int, str]:
+    if not org_id or not _catalog_links_available(db):
+        return {}
+    sql = ("SELECT product_id, catalog_code FROM public.organization_catalog_links "
+           "WHERE organization_id = :org_id AND tenant_schema = :schema")
+    rows = db.execute(text(sql), {"org_id": org_id, "schema": schema}).mappings().all()
+    return {int(r["product_id"]): str(r["catalog_code"]) for r in rows}
+
+
+def _catalog_code_for_product(product: dict, links: dict[int, str]) -> str:
+    linked = links.get(int(product["id"]))
+    return linked or _canonical_catalog_sku(product["id"], product.get("sku"))
+
+
+def _find_tenant_product(db: Session, schema: str, product_id: int) -> Optional[dict]:
+    qschema = _quote_schema(schema)
+    sql = ("SELECT id, name, sku, description, price, price_mayor_1, price_mayor_2, "
+           "cost_price, stock, is_active, has_imei, image_url "
+           f"FROM {qschema}.products "
+           "WHERE id = :product_id AND COALESCE(is_active, true) = true LIMIT 1")
+    row = db.execute(text(sql), {"product_id": product_id}).mappings().first()
+    return dict(row) if row else None
+
+
+def _catalog_maps(db: Session, schema: str, org_id: Optional[int] = None) -> dict:
     products = _tenant_products(db, schema)
     price_lists = _tenant_price_lists(db, schema)
     product_prices = _tenant_product_prices(db, schema)
+    catalog_links = _catalog_link_map(db, org_id, schema)
     by_sku = {}
     duplicates = {}
     blank_sku = 0
     for product in products:
-        sku = _canonical_catalog_sku(product["id"], product.get("sku"))
+        sku = _catalog_code_for_product(product, catalog_links)
         if not str(product.get("sku") or "").strip():
             blank_sku += 1
         product["catalog_sku"] = sku
+        product["catalog_linked"] = int(product["id"]) in catalog_links
         if sku in by_sku:
             duplicates.setdefault(sku, 1)
             duplicates[sku] += 1
@@ -1191,12 +1220,12 @@ def catalog_health(
     _assert_org_access(org, current_user)
     tenants = _org_active_tenants(db, org_id)
     master_tenant = _pick_master_tenant(db, org_id, current_user, master_schema)
-    master_maps = _catalog_maps(db, master_tenant.schema_name)
+    master_maps = _catalog_maps(db, master_tenant.schema_name, org_id)
 
     tenant_summaries = []
     totals = {"products": 0, "missing": 0, "product_diffs": 0, "missing_price_lists": 0, "price_missing": 0, "price_diffs": 0, "duplicate_sku_groups": 0}
     for tenant in tenants:
-        maps = master_maps if tenant.schema_name == master_tenant.schema_name else _catalog_maps(db, tenant.schema_name)
+        maps = master_maps if tenant.schema_name == master_tenant.schema_name else _catalog_maps(db, tenant.schema_name, org_id)
         summary = _catalog_tenant_summary(master_maps, maps)
         summary.update({"tenant_id": tenant.id, "tenant_name": tenant.name, "schema_name": tenant.schema_name, "is_master": tenant.schema_name == master_tenant.schema_name})
         tenant_summaries.append(summary)
@@ -1223,7 +1252,7 @@ def sync_catalog_between_tenants(
     _assert_org_role(org, current_user, {"owner", "manager"}, "Solo owner o manager puede sincronizar catalogos")
     tenants = _org_active_tenants(db, org_id)
     master_tenant = _pick_master_tenant(db, org_id, current_user, data.master_schema)
-    master_maps = _catalog_maps(db, master_tenant.schema_name)
+    master_maps = _catalog_maps(db, master_tenant.schema_name, org_id)
     master_lists = master_maps["price_lists"]
     master_prices = master_maps["price_by_sku_list"]
 
@@ -1232,7 +1261,7 @@ def sync_catalog_between_tenants(
         if tenant.schema_name == master_tenant.schema_name:
             continue
         qschema = _quote_schema(tenant.schema_name)
-        target = _catalog_maps(db, tenant.schema_name)
+        target = _catalog_maps(db, tenant.schema_name, org_id)
         result = {"tenant_id": tenant.id, "tenant_name": tenant.name, "schema_name": tenant.schema_name, "updated": 0, "created": 0, "price_lists_created": 0, "prices_upserted": 0, "skipped_missing": 0}
 
         if data.sync_price_lists:
@@ -1294,6 +1323,107 @@ def sync_catalog_between_tenants(
         db.commit()
 
     return {"ok": True, "dry_run": data.dry_run, "master": {"tenant_id": master_tenant.id, "tenant_name": master_tenant.name, "schema_name": master_tenant.schema_name}, "results": results, "message": "Simulacion completada" if data.dry_run else "Catalogo sincronizado"}
+
+
+
+@router.get("/{org_id}/catalog/match-candidates", dependencies=[Depends(require_permission("org.panel.view"))])
+def catalog_match_candidates(
+    org_id: int,
+    query: str = Query("", min_length=0),
+    master_schema: Optional[str] = Query(None),
+    limit: int = Query(12, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    org = _get_org_or_404(db, org_id)
+    _assert_org_access(org, current_user)
+    tenants = _org_active_tenants(db, org_id)
+    master_tenant = _pick_master_tenant(db, org_id, current_user, master_schema)
+    q = (query or "").lower().strip()
+    response_tenants = []
+    for tenant in tenants:
+        products = _tenant_products(db, tenant.schema_name)
+        links = _catalog_link_map(db, org_id, tenant.schema_name)
+        matches = []
+        for product in products:
+            code = _catalog_code_for_product(product, links)
+            haystack = f"{product.get('name') or ''} {product.get('sku') or ''} {code}".lower()
+            if q and q not in haystack:
+                continue
+            matches.append({
+                "id": product["id"], "name": product.get("name"), "sku": product.get("sku"),
+                "catalog_code": code, "catalog_linked": int(product["id"]) in links,
+                "price": _money(product.get("price")), "stock": _money(product.get("stock")),
+                "has_imei": bool(product.get("has_imei") or False),
+            })
+            if len(matches) >= limit:
+                break
+        response_tenants.append({
+            "tenant_id": tenant.id, "tenant_name": tenant.name, "schema_name": tenant.schema_name,
+            "is_master": tenant.schema_name == master_tenant.schema_name, "products": matches,
+        })
+    return {"organization_id": org.id, "master_schema": master_tenant.schema_name, "tenants": response_tenants}
+
+
+@router.post("/{org_id}/catalog/manual-match", dependencies=[Depends(require_permission("org.tenants.manage"))])
+def manual_match_catalog_products(
+    org_id: int,
+    data: CatalogManualMatchRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    org = _get_org_or_404(db, org_id)
+    _assert_org_role(org, current_user, {"owner", "manager"}, "Solo owner o manager puede enlazar productos del catalogo")
+    if not _catalog_links_available(db):
+        raise HTTPException(status_code=400, detail="Falta aplicar la migracion de enlaces de catalogo")
+    tenants = _org_active_tenants(db, org_id)
+    tenant_schemas = {t.schema_name for t in tenants}
+    raw_links = list(data.links or [])
+    if data.master_schema and data.master_product_id:
+        raw_links.append(type("CatalogLinkItem", (), {"tenant_schema": data.master_schema, "product_id": data.master_product_id, "is_master": True})())
+    if len(raw_links) < 2:
+        raise HTTPException(status_code=400, detail="Selecciona al menos dos productos para emparejar")
+
+    product_refs = []
+    for item in raw_links:
+        schema = (item.tenant_schema or "").strip()
+        if schema not in tenant_schemas:
+            raise HTTPException(status_code=400, detail=f"La empresa {schema} no pertenece a la organizacion")
+        product = _find_tenant_product(db, schema, int(item.product_id))
+        if not product:
+            raise HTTPException(status_code=404, detail=f"Producto {item.product_id} no encontrado en {schema}")
+        product_refs.append({"schema": schema, "product": product, "is_master": bool(getattr(item, "is_master", False))})
+
+    catalog_code = (data.catalog_code or "").strip().upper()
+    if not catalog_code:
+        preferred = next((ref for ref in product_refs if ref["is_master"]), product_refs[0])
+        existing = _catalog_link_map(db, org_id, preferred["schema"]).get(int(preferred["product"]["id"]))
+        catalog_code = existing or _canonical_catalog_sku(preferred["product"]["id"], preferred["product"].get("sku"))
+    if not re.match(r"^[A-Z0-9][A-Z0-9_.-]{1,99}$", catalog_code):
+        raise HTTPException(status_code=400, detail="Codigo de catalogo invalido")
+
+    saved = []
+    for ref in product_refs:
+        schema = ref["schema"]
+        product_id = int(ref["product"]["id"])
+        db.execute(text("""
+            DELETE FROM public.organization_catalog_links
+            WHERE organization_id = :org_id AND tenant_schema = :schema
+              AND catalog_code = :catalog_code AND product_id <> :product_id
+        """), {"org_id": org_id, "schema": schema, "catalog_code": catalog_code, "product_id": product_id})
+        db.execute(text("""
+            INSERT INTO public.organization_catalog_links
+                (organization_id, catalog_code, tenant_schema, product_id, is_master, created_by_email, updated_at)
+            VALUES (:org_id, :catalog_code, :schema, :product_id, :is_master, :email, now())
+            ON CONFLICT (organization_id, tenant_schema, product_id)
+            DO UPDATE SET catalog_code = EXCLUDED.catalog_code,
+                          is_master = EXCLUDED.is_master,
+                          created_by_email = EXCLUDED.created_by_email,
+                          updated_at = now()
+        """), {"org_id": org_id, "catalog_code": catalog_code, "schema": schema, "product_id": product_id, "is_master": bool(ref["is_master"]), "email": (current_user.email or "").lower()})
+        saved.append({"tenant_schema": schema, "product_id": product_id, "name": ref["product"].get("name"), "sku": ref["product"].get("sku")})
+    db.commit()
+    return {"ok": True, "catalog_code": catalog_code, "links": saved, "message": f"{len(saved)} productos emparejados con {catalog_code}"}
 
 
 # ══════════════════════════════════════════════════════════════════════════════

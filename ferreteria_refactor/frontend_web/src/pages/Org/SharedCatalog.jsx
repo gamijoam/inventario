@@ -191,6 +191,164 @@ function CatalogHealthPanel({ health, loading, syncing, createMissing, onCreateM
     );
 }
 
+
+function ManualMatchPanel({ orgId, masterSchema, onMatched }) {
+    const [query, setQuery] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [data, setData] = useState(null);
+    const [selected, setSelected] = useState({});
+    const [saving, setSaving] = useState(false);
+
+    const selectedItems = Object.values(selected).filter(Boolean);
+    const selectedMaster = selectedItems.find(item => item.tenant_schema === masterSchema) || selectedItems[0];
+
+    const searchCandidates = async () => {
+        if (!orgId) return;
+        setLoading(true);
+        try {
+            const res = await apiClient.get(`/organizations/${orgId}/catalog/match-candidates`, {
+                params: { query: query.trim(), master_schema: masterSchema || undefined, limit: 10 },
+            });
+            setData(res.data || null);
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Error buscando candidatos');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const toggleProduct = (tenant, product) => {
+        setSelected(prev => {
+            const current = prev[tenant.schema_name];
+            const next = { ...prev };
+            if (current?.id === product.id) delete next[tenant.schema_name];
+            else next[tenant.schema_name] = { ...product, tenant_schema: tenant.schema_name, tenant_name: tenant.tenant_name };
+            return next;
+        });
+    };
+
+    const saveMatch = async () => {
+        if (selectedItems.length < 2) return toast.error('Selecciona productos de al menos dos empresas');
+        setSaving(true);
+        try {
+            const master = selectedMaster;
+            const links = selectedItems
+                .filter(item => !(item.tenant_schema === master.tenant_schema && item.id === master.id))
+                .map(item => ({ tenant_schema: item.tenant_schema, product_id: item.id, is_master: false }));
+            const res = await apiClient.post(`/organizations/${orgId}/catalog/manual-match`, {
+                master_schema: master.tenant_schema,
+                master_product_id: master.id,
+                links,
+            });
+            toast.success(res.data?.message || 'Productos emparejados');
+            setSelected({});
+            await searchCandidates();
+            onMatched?.();
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Error al emparejar productos');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <section className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                    <div className="w-11 h-11 rounded-lg bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                        <Link2 size={21} />
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Emparejamiento manual</p>
+                        <h2 className="text-lg font-black text-slate-950">Unir productos equivalentes</h2>
+                        <p className="text-sm text-slate-500">Para nombres distintos entre empresas. Conserva SKU/barcode y usa un codigo interno compartido.</p>
+                    </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto">
+                    <div className="relative flex-1 xl:w-80">
+                        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                            value={query}
+                            onChange={e => setQuery(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') searchCandidates(); }}
+                            placeholder="Ej: base moto, A06, vidrio..."
+                            className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                        />
+                    </div>
+                    <button onClick={searchCandidates} disabled={loading} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-bold text-slate-600 hover:border-indigo-300 disabled:opacity-60">
+                        {loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />} Buscar
+                    </button>
+                    <button onClick={saveMatch} disabled={saving || selectedItems.length < 2} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-50">
+                        {saving ? <Loader2 size={15} className="animate-spin" /> : <Link2 size={15} />} Emparejar {selectedItems.length || ''}
+                    </button>
+                </div>
+            </div>
+
+            {selectedItems.length > 0 && (
+                <div className="px-5 py-3 bg-blue-50 border-b border-blue-100 flex flex-wrap gap-2">
+                    {selectedItems.map(item => (
+                        <span key={`${item.tenant_schema}-${item.id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-100 bg-white px-2.5 py-1 text-xs font-black text-blue-700">
+                            {item.tenant_name}: {item.name}
+                        </span>
+                    ))}
+                </div>
+            )}
+
+            <div className="p-4 grid grid-cols-1 xl:grid-cols-3 gap-3">
+                {(data?.tenants || []).map(tenant => (
+                    <div key={tenant.schema_name} className="rounded-lg border border-slate-200 overflow-hidden">
+                        <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                                <p className="text-sm font-black text-slate-900 truncate">{tenant.tenant_name}</p>
+                                <p className="text-[11px] font-bold text-slate-400 truncate">{tenant.schema_name}{tenant.is_master ? ' · Maestra' : ''}</p>
+                            </div>
+                            <span className="text-[11px] font-black text-slate-500 bg-white border border-slate-200 rounded-lg px-2 py-1">{tenant.products.length}</span>
+                        </div>
+                        <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
+                            {tenant.products.length === 0 ? (
+                                <div className="p-4 text-sm font-bold text-slate-400">Sin candidatos</div>
+                            ) : tenant.products.map(product => {
+                                const active = selected[tenant.schema_name]?.id === product.id;
+                                return (
+                                    <button
+                                        key={product.id}
+                                        type="button"
+                                        onClick={() => toggleProduct(tenant, product)}
+                                        className={`w-full text-left p-3 transition-colors ${active ? 'bg-blue-50' : 'hover:bg-slate-50'}`}
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-black text-slate-900 line-clamp-2">{product.name}</p>
+                                                <div className="mt-1 flex flex-wrap gap-1.5">
+                                                    {product.sku && <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">{product.sku}</span>}
+                                                    <span className="rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-black text-indigo-700">{product.catalog_code}</span>
+                                                    {product.catalog_linked && <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black text-emerald-700">Enlazado</span>}
+                                                </div>
+                                            </div>
+                                            <span className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 ${active ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 text-transparent'}`}>
+                                                <Check size={13} strokeWidth={3} />
+                                            </span>
+                                        </div>
+                                        <div className="mt-2 flex items-center justify-between text-[11px] font-bold text-slate-500">
+                                            <span>{fmt(product.price)}</span>
+                                            <span>{Number(product.stock || 0).toFixed(0)} un.</span>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
+                {!data && !loading && (
+                    <div className="xl:col-span-3 p-8 text-center text-sm font-bold text-slate-400 border border-dashed border-slate-200 rounded-lg">
+                        Busca un producto para ver candidatos por empresa.
+                    </div>
+                )}
+            </div>
+        </section>
+    );
+}
+
 function AddToCatalogModal({ orgId, onClose, onSuccess }) {
     const [form, setForm] = useState({
         name: '', sku: '', description: '', cost_price: '', suggested_price: '', category_name: '',
@@ -493,6 +651,12 @@ export default function SharedCatalog() {
                 onCreateMissingChange={setCreateMissing}
                 onRefresh={fetchHealth}
                 onSync={handleSyncCatalog}
+            />
+
+            <ManualMatchPanel
+                orgId={orgId}
+                masterSchema={health?.master?.schema_name}
+                onMatched={() => { fetchHealth(); fetchCatalog(); }}
             />
 
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">

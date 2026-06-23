@@ -135,6 +135,20 @@ class CatalogSyncRequest(BaseModel):
     dry_run          : bool = False
 
 
+class CatalogManualMatchItem(BaseModel):
+    tenant_schema : str
+    product_id    : int
+    is_master     : bool = False
+
+
+class CatalogManualMatchRequest(BaseModel):
+    """Vincular productos equivalentes entre empresas sin tocar su SKU/barcode real."""
+    catalog_code       : Optional[str] = None
+    master_schema      : Optional[str] = None
+    master_product_id  : Optional[int] = None
+    links              : List[CatalogManualMatchItem]
+
+
 # ── Inter-Company Transfers ───────────────────────────────────────────────────
 
 class TransferItemCreate(BaseModel):
