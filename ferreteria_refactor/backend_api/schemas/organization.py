@@ -135,6 +135,28 @@ class CatalogSyncRequest(BaseModel):
     dry_run          : bool = False
 
 
+
+
+class CatalogMasterProductCreate(BaseModel):
+    master_schema : Optional[str] = None
+    name          : str
+    sku           : Optional[str] = None
+    description   : Optional[str] = None
+    category_name : Optional[str] = None
+    cost_price    : float = 0.0
+    price         : float = 0.0
+    price_mayor_1 : float = 0.0
+    price_mayor_2 : float = 0.0
+    has_imei      : bool = False
+    sync_to_all   : bool = False
+
+
+class CatalogArchiveRequest(BaseModel):
+    master_schema : Optional[str] = None
+    catalog_code  : str
+    scope         : str = "master"
+
+
 class CatalogManualMatchItem(BaseModel):
     tenant_schema : str
     product_id    : int

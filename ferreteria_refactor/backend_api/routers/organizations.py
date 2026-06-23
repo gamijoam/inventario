@@ -19,7 +19,7 @@ from ..models.tenant import Tenant
 from ..schemas.organization import (
     OrganizationCreate, OrganizationUpdate, OrganizationOut,
     InviteMemberRequest, OrganizationMemberOut, OrganizationTenantOut,
-    SharedProductCreate, SharedProductOut, ImportSharedProductRequest, CatalogSyncRequest, CatalogManualMatchRequest,
+    SharedProductCreate, SharedProductOut, ImportSharedProductRequest, CatalogSyncRequest, CatalogManualMatchRequest, CatalogMasterProductCreate, CatalogArchiveRequest,
     InterCompanyTransferCreate, InterCompanyTransferOut,
     ConsolidatedSummary, TenantDailySummary, OrgCompanyOut,
     OrgPlanConfig, OrgWhatsAppConfig,
@@ -300,6 +300,66 @@ def _catalog_code_for_product(product: dict, links: dict[int, str]) -> str:
     return linked or _canonical_catalog_sku(product["id"], product.get("sku"))
 
 
+
+def _ensure_catalog_category_id(db: Session, schema: str, category_name: Optional[str]) -> Optional[int]:
+    name = (category_name or "").strip()
+    if not name:
+        return None
+    qschema = _quote_schema(schema)
+    existing = db.execute(
+        text(f"SELECT id FROM {qschema}.categories WHERE lower(name) = lower(:name) LIMIT 1"),
+        {"name": name},
+    ).scalar()
+    if existing:
+        return int(existing)
+    return int(db.execute(
+        text(f"INSERT INTO {qschema}.categories (name, description, parent_id, is_no_kitchen_category) VALUES (:name, NULL, NULL, true) RETURNING id"),
+        {"name": name},
+    ).scalar())
+
+
+def _create_catalog_product_in_schema(db: Session, schema: str, data: CatalogMasterProductCreate, sku: str) -> dict:
+    qschema = _quote_schema(schema)
+    clean_sku = (sku or "").strip() or None
+    if clean_sku:
+        existing = db.execute(
+            text(f"SELECT id, name FROM {qschema}.products WHERE sku = :sku AND COALESCE(is_active, true) = true LIMIT 1"),
+            {"sku": clean_sku},
+        ).mappings().first()
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Ya existe un producto activo con SKU {clean_sku} en {schema}: {existing['name']}")
+    category_id = _ensure_catalog_category_id(db, schema, data.category_name)
+    sql = (
+        f"INSERT INTO {qschema}.products "
+        "(name, sku, description, category_id, price, price_mayor_1, price_mayor_2, cost_price, "
+        "stock, min_stock, is_active, has_imei, is_box, is_combo, is_service, is_discount_active, updated_at) "
+        "VALUES (:name, :sku, :description, :category_id, :price, :price_mayor_1, :price_mayor_2, :cost_price, "
+        "0, 5, true, :has_imei, false, false, false, false, now()) "
+        "RETURNING id, name, sku, price, cost_price, has_imei"
+    )
+    row = db.execute(text(sql), {
+        "name": data.name.strip(),
+        "sku": clean_sku,
+        "description": (data.description or None),
+        "category_id": category_id,
+        "price": _money(data.price),
+        "price_mayor_1": _money(data.price_mayor_1),
+        "price_mayor_2": _money(data.price_mayor_2),
+        "cost_price": _money(data.cost_price),
+        "has_imei": bool(data.has_imei),
+    }).mappings().first()
+    return dict(row)
+
+
+def _archive_catalog_product(db: Session, schema: str, product_id: int) -> bool:
+    qschema = _quote_schema(schema)
+    result = db.execute(
+        text(f"UPDATE {qschema}.products SET is_active = false, updated_at = now() WHERE id = :id AND COALESCE(is_active, true) = true"),
+        {"id": product_id},
+    )
+    return result.rowcount > 0
+
+
 def _find_tenant_product(db: Session, schema: str, product_id: int) -> Optional[dict]:
     qschema = _quote_schema(schema)
     sql = ("SELECT id, name, sku, description, price, price_mayor_1, price_mayor_2, "
@@ -338,6 +398,40 @@ def _catalog_maps(db: Session, schema: str, org_id: Optional[int] = None) -> dic
             continue
         price_by_sku_list[(sku, price["list_name"])] = price
     return {"products": products, "by_sku": by_sku, "price_lists": price_lists, "list_by_name": list_by_name, "prices": product_prices, "price_by_sku_list": price_by_sku_list, "blank_sku": blank_sku, "duplicate_sku_groups": len(duplicates)}
+
+
+
+def _upsert_catalog_link(db: Session, org_id: int, schema: str, product_id: int, catalog_code: str, email: str, is_master: bool = False) -> None:
+    if not _catalog_links_available(db):
+        return
+    sql = (
+        "INSERT INTO public.organization_catalog_links "
+        "(organization_id, catalog_code, tenant_schema, product_id, is_master, created_by_email, updated_at) "
+        "VALUES (:org_id, :catalog_code, :schema, :product_id, :is_master, :email, now()) "
+        "ON CONFLICT (organization_id, tenant_schema, product_id) "
+        "DO UPDATE SET catalog_code = EXCLUDED.catalog_code, "
+        "is_master = EXCLUDED.is_master, updated_at = now()"
+    )
+    db.execute(text(sql), {
+        "org_id": org_id,
+        "catalog_code": catalog_code,
+        "schema": schema,
+        "product_id": product_id,
+        "is_master": is_master,
+        "email": email,
+    })
+
+
+def _find_catalog_product_by_code_or_sku(db: Session, schema: str, org_id: int, catalog_code: str) -> Optional[dict]:
+    maps = _catalog_maps(db, schema, org_id)
+    product = maps["by_sku"].get(catalog_code)
+    if product:
+        return product
+    normalized = str(catalog_code or "").strip().upper()
+    for candidate in maps["products"]:
+        if str(candidate.get("sku") or "").strip().upper() == normalized:
+            return candidate
+    return None
 
 
 def _catalog_tenant_summary(master: dict, target: dict) -> dict:
@@ -1398,6 +1492,83 @@ def catalog_issues(
         "issues": issues,
         "limit": limit,
     }
+
+
+
+@router.post("/{org_id}/catalog/master-product", dependencies=[Depends(require_permission("org.tenants.manage"))])
+def create_master_catalog_product(
+    org_id: int,
+    data: CatalogMasterProductCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    org = _get_org_or_404(db, org_id)
+    _assert_org_role(org, current_user, {"owner", "manager"}, "Solo owner o manager puede crear productos maestros")
+    tenants = _org_active_tenants(db, org_id)
+    master_tenant = _pick_master_tenant(db, org_id, current_user, data.master_schema)
+    if not (data.name or "").strip():
+        raise HTTPException(status_code=400, detail="El nombre del producto es requerido")
+    sku = (data.sku or "").strip().upper()
+    if not sku:
+        sku = f"CAT-{int(db.execute(text('SELECT floor(random() * 900000 + 100000)')).scalar()):06d}"
+
+    created_master = _create_catalog_product_in_schema(db, master_tenant.schema_name, data, sku)
+    _upsert_catalog_link(db, org_id, master_tenant.schema_name, int(created_master["id"]), sku, current_user.email, True)
+    created = [{"tenant_id": master_tenant.id, "tenant_name": master_tenant.name, "schema_name": master_tenant.schema_name, "product": created_master, "is_master": True}]
+    skipped = []
+
+    if data.sync_to_all:
+        for tenant in tenants:
+            if tenant.schema_name == master_tenant.schema_name:
+                continue
+            try:
+                product = _create_catalog_product_in_schema(db, tenant.schema_name, data, sku)
+                _upsert_catalog_link(db, org_id, tenant.schema_name, int(product["id"]), sku, current_user.email, False)
+                created.append({"tenant_id": tenant.id, "tenant_name": tenant.name, "schema_name": tenant.schema_name, "product": product, "is_master": False})
+            except HTTPException as exc:
+                skipped.append({"tenant_id": tenant.id, "tenant_name": tenant.name, "schema_name": tenant.schema_name, "reason": exc.detail})
+
+    db.commit()
+    return {
+        "ok": True,
+        "master": {"tenant_id": master_tenant.id, "tenant_name": master_tenant.name, "schema_name": master_tenant.schema_name},
+        "created": created,
+        "skipped": skipped,
+        "message": f"Producto maestro creado. {len(created) - 1} empresas replicadas, {len(skipped)} omitidas.",
+    }
+
+
+@router.post("/{org_id}/catalog/archive", dependencies=[Depends(require_permission("org.tenants.manage"))])
+def archive_catalog_product(
+    org_id: int,
+    data: CatalogArchiveRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    org = _get_org_or_404(db, org_id)
+    _assert_org_role(org, current_user, {"owner", "manager"}, "Solo owner o manager puede ocultar productos del catalogo")
+    scope = (data.scope or "master").strip().lower()
+    if scope not in {"master", "all"}:
+        raise HTTPException(status_code=400, detail="Alcance invalido. Usa master o all")
+    catalog_code = (data.catalog_code or "").strip()
+    if not catalog_code:
+        raise HTTPException(status_code=400, detail="Codigo de catalogo requerido")
+
+    tenants = _org_active_tenants(db, org_id)
+    master_tenant = _pick_master_tenant(db, org_id, current_user, data.master_schema)
+    target_tenants = tenants if scope == "all" else [master_tenant]
+    archived = []
+    not_found = []
+    for tenant in target_tenants:
+        product = _find_catalog_product_by_code_or_sku(db, tenant.schema_name, org_id, catalog_code)
+        if not product:
+            not_found.append({"tenant_id": tenant.id, "tenant_name": tenant.name, "schema_name": tenant.schema_name})
+            continue
+        if _archive_catalog_product(db, tenant.schema_name, int(product["id"])):
+            archived.append({"tenant_id": tenant.id, "tenant_name": tenant.name, "schema_name": tenant.schema_name, "product_id": int(product["id"]), "name": product.get("name")})
+
+    db.commit()
+    return {"ok": True, "archived": archived, "not_found": not_found, "message": f"{len(archived)} producto(s) ocultados del catalogo"}
 
 
 @router.post("/{org_id}/catalog/sync", dependencies=[Depends(require_permission("org.tenants.manage"))])

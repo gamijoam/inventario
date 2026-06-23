@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     BookOpen, Plus, Search, Download, Package, Tag, DollarSign,
     X, Check, Loader2, RefreshCw, Layers, Building2, Info,
-    AlertTriangle, ShieldCheck, Wand2, Database, Link2
+    AlertTriangle, ShieldCheck, Wand2, Database, Link2, Trash2, Smartphone
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -206,7 +206,7 @@ function CatalogHealthPanel({ health, loading, syncing, createMissing, onCreateM
     );
 }
 
-function CatalogIssuesPanel({ issuesData, loading, onRefresh, createMissing, onCreateMissingChange, onSync, syncing }) {
+function CatalogIssuesPanel({ issuesData, loading, onRefresh, createMissing, onCreateMissingChange, onSync, syncing, onArchive }) {
     const issues = issuesData?.issues || [];
     const totals = issuesData?.totals || {};
     const issueMeta = {
@@ -310,9 +310,16 @@ function CatalogIssuesPanel({ issuesData, loading, onRefresh, createMissing, onC
                                             </div>
                                         )}
                                     </div>
-                                    <div className="lg:w-64 rounded-lg bg-slate-50 border border-slate-200 p-3 shrink-0">
-                                        <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Qué hacer</p>
-                                        <p className="text-xs font-bold text-slate-600 leading-relaxed">{issue.action}</p>
+                                    <div className="lg:w-64 rounded-lg bg-slate-50 border border-slate-200 p-3 shrink-0 space-y-3">
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Qué hacer</p>
+                                            <p className="text-xs font-bold text-slate-600 leading-relaxed">{issue.action}</p>
+                                        </div>
+                                        {master.id && (
+                                            <button type="button" onClick={() => onArchive?.(issue, 'master')} className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-rose-100 bg-white px-3 py-2 text-xs font-black text-rose-600 hover:bg-rose-50">
+                                                <Trash2 size={13} /> Ocultar maestro
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </article>
@@ -482,9 +489,9 @@ function ManualMatchPanel({ orgId, masterSchema, onMatched }) {
     );
 }
 
-function AddToCatalogModal({ orgId, onClose, onSuccess }) {
+function AddToCatalogModal({ orgId, masterSchema, onClose, onSuccess }) {
     const [form, setForm] = useState({
-        name: '', sku: '', description: '', cost_price: '', suggested_price: '', category_name: '',
+        name: '', sku: '', description: '', category_name: '', cost_price: '', price: '', has_imei: false, sync_to_all: true,
     });
     const [saving, setSaving] = useState(false);
     const [errors, setErrors] = useState({});
@@ -500,7 +507,7 @@ function AddToCatalogModal({ orgId, onClose, onSuccess }) {
     const validate = () => {
         const errs = {};
         if (!form.name.trim()) errs.name = 'El nombre es requerido';
-        if (form.suggested_price !== '' && isNaN(Number(form.suggested_price))) errs.suggested_price = 'Precio invalido';
+        if (form.price !== '' && isNaN(Number(form.price))) errs.price = 'Precio invalido';
         if (form.cost_price !== '' && isNaN(Number(form.cost_price))) errs.cost_price = 'Costo invalido';
         setErrors(errs);
         return Object.keys(errs).length === 0;
@@ -510,18 +517,23 @@ function AddToCatalogModal({ orgId, onClose, onSuccess }) {
         if (!validate()) return;
         setSaving(true);
         try {
-            await apiClient.post(`/organizations/${orgId}/catalog`, {
+            const res = await apiClient.post(`/organizations/${orgId}/catalog/master-product`, {
+                master_schema: masterSchema || null,
                 name: form.name.trim(),
                 sku: form.sku.trim() || null,
                 description: form.description.trim() || null,
-                cost_price: Number(form.cost_price) || 0,
-                suggested_price: Number(form.suggested_price) || 0,
                 category_name: form.category_name.trim() || null,
+                cost_price: Number(form.cost_price) || 0,
+                price: Number(form.price) || 0,
+                price_mayor_1: 0,
+                price_mayor_2: 0,
+                has_imei: Boolean(form.has_imei),
+                sync_to_all: Boolean(form.sync_to_all),
             });
-            toast.success('Producto agregado al catalogo compartido');
+            toast.success(res.data?.message || 'Producto maestro creado');
             onSuccess();
         } catch (err) {
-            toast.error(err.response?.data?.detail || 'Error al guardar el producto');
+            toast.error(err.response?.data?.detail || 'Error al crear el producto maestro');
         } finally {
             setSaving(false);
         }
@@ -529,78 +541,58 @@ function AddToCatalogModal({ orgId, onClose, onSuccess }) {
 
     return (
         <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
-            <div className="bg-white rounded-lg w-full max-w-lg shadow-2xl overflow-hidden">
+            <div className="bg-white rounded-lg w-full max-w-2xl shadow-2xl overflow-hidden">
                 <div className="flex items-start justify-between gap-3 p-5 border-b border-slate-100">
                     <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
-                            <BookOpen size={18} className="text-white" />
+                        <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-indigo-100">
+                            <Package size={18} className="text-white" />
                         </div>
                         <div className="min-w-0">
-                            <h2 className="font-black text-slate-900">Agregar al catalogo</h2>
-                            <p className="text-xs text-slate-500">Quedara disponible para importar en las empresas del grupo.</p>
+                            <h2 className="font-black text-slate-900">Crear producto maestro</h2>
+                            <p className="text-xs text-slate-500">Se crea en la empresa maestra y, si quieres, queda replicado con stock 0.</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors">
-                        <X size={18} />
-                    </button>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"><X size={18} /></button>
                 </div>
-
-                <div className="p-5 space-y-4 max-h-[68vh] overflow-y-auto">
-                    <div>
-                        <label className="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1.5">Nombre *</label>
-                        <input
-                            ref={firstInputRef}
-                            type="text"
-                            value={form.name}
-                            onChange={e => set('name', e.target.value)}
-                            placeholder="Ej: Cable HDMI 2.0"
-                            className={`w-full px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors ${errors.name ? 'border-rose-300 focus:border-rose-500' : 'border-slate-200 focus:border-indigo-400'}`}
-                        />
-                        {errors.name && <p className="text-rose-500 text-xs mt-1">{errors.name}</p>}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+                    <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-xs font-bold text-indigo-700">Empresa maestra: <span className="font-black">{masterSchema || 'la seleccionada en auditoria'}</span>. El inventario real se mantiene en cero hasta recibir mercancia.</div>
+                    <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_0.8fr] gap-3">
                         <div>
-                            <label className="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1.5">SKU</label>
-                            <input type="text" value={form.sku} onChange={e => set('sku', e.target.value)} placeholder="HDMI-20-BLK" className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:border-indigo-400 text-sm outline-none font-mono" />
+                            <label className="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1.5">Nombre *</label>
+                            <input ref={firstInputRef} type="text" value={form.name} onChange={e => set('name', e.target.value)} placeholder="Ej: Samsung A06 128GB" className={`w-full px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors ${errors.name ? 'border-rose-300 focus:border-rose-500' : 'border-slate-200 focus:border-indigo-400'}`} />
+                            {errors.name && <p className="text-rose-500 text-xs mt-1">{errors.name}</p>}
                         </div>
+                        <div>
+                            <label className="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1.5">SKU / Codigo</label>
+                            <input type="text" value={form.sku} onChange={e => set('sku', e.target.value)} placeholder="Opcional" className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:border-indigo-400 text-sm outline-none font-mono" />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label className="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1.5">Categoria</label>
-                            <input type="text" value={form.category_name} onChange={e => set('category_name', e.target.value)} placeholder="Accesorios" className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:border-indigo-400 text-sm outline-none" />
+                            <input type="text" value={form.category_name} onChange={e => set('category_name', e.target.value)} placeholder="Telefonos" className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:border-indigo-400 text-sm outline-none" />
                         </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label className="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1.5">Costo USD</label>
-                            <div className="relative">
-                                <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input type="number" min="0" step="0.01" value={form.cost_price} onChange={e => set('cost_price', e.target.value)} placeholder="0.00" className={`w-full pl-8 pr-4 py-2.5 rounded-lg border text-sm outline-none ${errors.cost_price ? 'border-rose-300' : 'border-slate-200 focus:border-indigo-400'}`} />
-                            </div>
-                            {errors.cost_price && <p className="text-rose-500 text-xs mt-1">{errors.cost_price}</p>}
+                            <div className="relative"><DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="number" min="0" step="0.01" value={form.cost_price} onChange={e => set('cost_price', e.target.value)} placeholder="0.00" className={`w-full pl-8 pr-4 py-2.5 rounded-lg border text-sm outline-none ${errors.cost_price ? 'border-rose-300' : 'border-slate-200 focus:border-indigo-400'}`} /></div>
                         </div>
                         <div>
-                            <label className="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1.5">Precio sugerido</label>
-                            <div className="relative">
-                                <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input type="number" min="0" step="0.01" value={form.suggested_price} onChange={e => set('suggested_price', e.target.value)} placeholder="0.00" className={`w-full pl-8 pr-4 py-2.5 rounded-lg border text-sm outline-none ${errors.suggested_price ? 'border-rose-300' : 'border-slate-200 focus:border-indigo-400'}`} />
-                            </div>
-                            {errors.suggested_price && <p className="text-rose-500 text-xs mt-1">{errors.suggested_price}</p>}
+                            <label className="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1.5">Precio venta</label>
+                            <div className="relative"><DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="number" min="0" step="0.01" value={form.price} onChange={e => set('price', e.target.value)} placeholder="0.00" className={`w-full pl-8 pr-4 py-2.5 rounded-lg border text-sm outline-none font-black ${errors.price ? 'border-rose-300' : 'border-slate-200 focus:border-indigo-400'}`} /></div>
                         </div>
                     </div>
-
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button type="button" onClick={() => set('has_imei', !form.has_imei)} className={`rounded-lg border p-3 text-left transition-colors ${form.has_imei ? 'border-indigo-300 bg-indigo-50' : 'border-slate-200 bg-white hover:border-indigo-200'}`}><span className="flex items-center gap-2 text-sm font-black text-slate-900"><Smartphone size={16} className="text-indigo-500" /> Producto serializado</span><span className="mt-1 block text-xs font-bold text-slate-500">Para telefonos/equipos con IMEI.</span></button>
+                        <button type="button" onClick={() => set('sync_to_all', !form.sync_to_all)} className={`rounded-lg border p-3 text-left transition-colors ${form.sync_to_all ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white hover:border-emerald-200'}`}><span className="flex items-center gap-2 text-sm font-black text-slate-900"><Database size={16} className="text-emerald-500" /> Replicar con stock 0</span><span className="mt-1 block text-xs font-bold text-slate-500">Crea el mismo producto en las otras empresas.</span></button>
+                    </div>
                     <div>
                         <label className="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1.5">Descripcion</label>
-                        <textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder="Notas visibles para las otras empresas del grupo..." rows={3} className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:border-indigo-400 text-sm outline-none resize-none" />
+                        <textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder="Notas internas del catalogo maestro..." rows={3} className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:border-indigo-400 text-sm outline-none resize-none" />
                     </div>
                 </div>
-
                 <div className="p-5 border-t border-slate-100 flex gap-3">
                     <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">Cancelar</button>
-                    <button onClick={handleSave} disabled={saving} className="flex-1 py-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                        {saving ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
-                        {saving ? 'Guardando...' : 'Agregar'}
-                    </button>
+                    <button onClick={handleSave} disabled={saving} className="flex-1 py-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-60 flex items-center justify-center gap-2">{saving ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}{saving ? 'Creando...' : 'Crear producto'}</button>
                 </div>
             </div>
         </div>
@@ -786,6 +778,26 @@ export default function SharedCatalog() {
         }
     };
 
+    const handleArchiveCatalogProduct = async (issue, scope = 'master') => {
+        if (!orgId || !issue?.catalog_code) return;
+        const name = issue.master_product?.name || issue.catalog_code;
+        const ok = window.confirm(`Se ocultara "${name}" del catalogo maestro. No se borran ventas, kardex ni IMEIs historicos. ¿Continuar?`);
+        if (!ok) return;
+        try {
+            const res = await apiClient.post(`/organizations/${orgId}/catalog/archive`, {
+                master_schema: masterSchema || health?.master?.schema_name || null,
+                catalog_code: issue.catalog_code,
+                scope,
+            });
+            toast.success(res.data?.message || 'Producto ocultado del catalogo');
+            await fetchHealth();
+            await fetchIssues();
+            await fetchCatalog();
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Error al ocultar el producto');
+        }
+    };
+
     const selectedProducts = products.filter(p => selected.has(p.id));
     const avgPrice = products.length ? products.reduce((sum, p) => sum + Number(p.suggested_price || 0), 0) / products.length : 0;
     const categories = new Set(products.map(p => p.category_name).filter(Boolean));
@@ -811,7 +823,7 @@ export default function SharedCatalog() {
                         <div className="min-w-0">
                             <p className="text-[11px] font-black uppercase tracking-wide text-indigo-500">Operacion empresarial</p>
                             <h1 className="text-2xl font-black text-slate-950 truncate">Catalogo compartido</h1>
-                            <p className="text-sm text-slate-500">Biblioteca central de productos para importar entre empresas.</p>
+                            <p className="text-sm text-slate-500">Crea, empareja y sincroniza productos reales entre empresas sin tocar cantidades.</p>
                         </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -834,7 +846,7 @@ export default function SharedCatalog() {
                             </span>
                         )}
                         <button onClick={() => setShowAddModal(true)} disabled={!orgId} className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-lg shadow-indigo-100 disabled:opacity-50">
-                            <Plus size={16} /> Agregar producto
+                            <Plus size={16} /> Crear producto
                         </button>
                     </div>
                 </div>
@@ -860,6 +872,7 @@ export default function SharedCatalog() {
                 onCreateMissingChange={setCreateMissing}
                 onSync={handleSyncCatalog}
                 syncing={syncing}
+                onArchive={handleArchiveCatalogProduct}
             />
 
             <ManualMatchPanel
@@ -937,7 +950,7 @@ export default function SharedCatalog() {
             </section>
 
             {showAddModal && orgId && (
-                <AddToCatalogModal orgId={orgId} onClose={() => setShowAddModal(false)} onSuccess={() => { setShowAddModal(false); fetchCatalog(); }} />
+                <AddToCatalogModal orgId={orgId} masterSchema={masterSchema || health?.master?.schema_name} onClose={() => setShowAddModal(false)} onSuccess={() => { setShowAddModal(false); fetchCatalog(); fetchHealth(); fetchIssues(); }} />
             )}
         </div>
     );
