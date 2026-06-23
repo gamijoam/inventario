@@ -903,81 +903,142 @@ const POS = () => {
         setQuoteCustomer(null);
     };
 
-    // NEW: Price List Logic
-    const handlePriceListSelect = async (list, item) => {
-        // null list = revert to base price
-        if (!list) {
-            const itemProduct = getFromCache(item.product_id);
-            const basePrice = itemProduct ? parseFloat(itemProduct.price) : item.unit_price_usd;
-            const baseCurrencyCode = posSettings?.pos_base_currency_code || 'FLEX';
-            const basePaymentPolicy = posSettings?.pos_base_payment_policy || 'flexible';
-            updateCartItem(item.id, {
-                unit_price_usd: basePrice,
-                price_list_id: null,
-                price_list_name: basePaymentPolicy === 'strict' && baseCurrencyCode !== 'FLEX' ? `Base ${baseCurrencyCode}` : null,
-                price_list_currency_code: baseCurrencyCode,
-                price_list_payment_policy: basePaymentPolicy,
-                auth_user_id: null
-            });
-            toast.success('Precio revertido al precio base');
-            return;
+    const buildCartItemPricePatch = (cartItem, unitPrice, policyPatch, authUserId = null) => {
+        const price = Number(unitPrice) || 0;
+        const quantity = Number(cartItem.quantity) || 0;
+        const exchangeRate = Number(cartItem.exchange_rate) || 1;
+        const subtotalUsd = price * quantity;
+        return {
+            ...cartItem,
+            ...policyPatch,
+            unit_price_usd: price,
+            subtotal_usd: subtotalUsd,
+            subtotal_bs: subtotalUsd * exchangeRate,
+            auth_user_id: authUserId,
+        };
+    };
+
+    const resolveCartProduct = async (productId) => {
+        let product = getFromCache(productId);
+        if (!product || !Array.isArray(product.prices)) {
+            product = await refreshProduct(productId);
         }
+        return product;
+    };
 
-        let itemProduct = getFromCache(item.product_id);
-        let priceEntry = itemProduct?.prices?.find(p => p.price_list_id === list.id);
+    const buildCartForPriceList = async (list) => {
+        const baseCurrencyCode = posSettings?.pos_base_currency_code || 'FLEX';
+        const basePaymentPolicy = posSettings?.pos_base_payment_policy || 'flexible';
+        const unsupportedItems = [];
+        const missingItems = [];
+        const productCache = new Map();
+        const nextCart = [];
 
-        // Si el cache no tiene precio para esta lista, refrescar del servidor
-        // (evita falsos "no tiene lista" por cache desactualizado)
-        if (!priceEntry) {
-            const fresh = await refreshProduct(item.product_id);
-            if (fresh) {
-                itemProduct = fresh;
-                priceEntry = fresh?.prices?.find(p => p.price_list_id === list.id);
+        for (const cartItem of cart) {
+            if (!cartItem.product_id || cartItem.is_service_mock) {
+                unsupportedItems.push(cartItem.name || 'Item manual');
+                continue;
             }
+
+            if (cartItem.unit_id) {
+                unsupportedItems.push(`${cartItem.name} (${cartItem.unit_name || 'presentacion'})`);
+                continue;
+            }
+
+            let product = productCache.get(cartItem.product_id);
+            if (!product) {
+                product = await resolveCartProduct(cartItem.product_id);
+                productCache.set(cartItem.product_id, product);
+            }
+
+            if (!product) {
+                missingItems.push(cartItem.name || `Producto ${cartItem.product_id}`);
+                continue;
+            }
+
+            if (!list) {
+                const policyPatch = {
+                    price_list_id: null,
+                    price_list_name: basePaymentPolicy === 'strict' && baseCurrencyCode !== 'FLEX' ? `Base ${baseCurrencyCode}` : null,
+                    price_list_currency_code: baseCurrencyCode,
+                    price_list_payment_policy: basePaymentPolicy,
+                };
+                nextCart.push(buildCartItemPricePatch(cartItem, product.price ?? cartItem.unit_price_usd, policyPatch, null));
+                continue;
+            }
+
+            const priceEntry = Array.isArray(product.prices)
+                ? product.prices.find(p => String(p.price_list_id) === String(list.id))
+                : null;
+
+            if (!priceEntry || priceEntry.price == null) {
+                missingItems.push(cartItem.name || product.name || `Producto ${cartItem.product_id}`);
+                continue;
+            }
+
+            const policyPatch = {
+                price_list_id: list.id,
+                price_list_name: list.name,
+                price_list_currency_code: list.currency_code || 'FLEX',
+                price_list_payment_policy: list.payment_policy || 'flexible',
+            };
+            nextCart.push(buildCartItemPricePatch(cartItem, priceEntry.price, policyPatch, null));
         }
 
-        let newPrice = priceEntry ? parseFloat(priceEntry.price) : null;
-
-        if (newPrice === null) {
-            toast.error("Este producto no tiene precio asignado en esta lista");
-            return;
+        if (unsupportedItems.length) {
+            toast.error(`No se puede aplicar una lista global con items manuales o presentaciones: ${unsupportedItems.slice(0, 3).join(', ')}`);
+            return null;
+        }
+        if (missingItems.length) {
+            toast.error(`No se cambio la lista: faltan precios para ${missingItems.slice(0, 4).join(', ')}`);
+            return null;
         }
 
-        if (list.requires_auth) {
+        return nextCart;
+    };
+
+    // Price List Logic: la lista se aplica al carrito completo para no mezclar monedas.
+    const handlePriceListSelect = async (list, item) => {
+        if (!cart.length) return;
+
+        const nextCart = await buildCartForPriceList(list);
+        if (!nextCart) return;
+
+        if (list?.requires_auth) {
             setPendingPriceUpdate({
-                itemId: item.id,
-                price: newPrice,
+                isBulk: true,
+                cart: nextCart,
                 listId: list.id,
                 listName: list.name,
                 currencyCode: list.currency_code || 'FLEX',
                 paymentPolicy: list.payment_policy || 'flexible'
             });
             setPinModalOpen(true);
-        } else {
-            updateCartItem(item.id, {
-                unit_price_usd: newPrice,
-                price_list_id: list.id,
-                price_list_name: list.name,
-                price_list_currency_code: list.currency_code || 'FLEX',
-                price_list_payment_policy: list.payment_policy || 'flexible',
-                auth_user_id: null
-            });
-            setActivePricePopover(null);
-            toast.success(`Precio actualizado a lista: ${list.name}`);
+            return;
         }
+
+        overwriteCart(nextCart);
+        setSelectedItemForEdit(null);
+        setActivePricePopover(null);
+        toast.success(list ? `Lista aplicada a todo el carrito: ${list.name}` : 'Todo el carrito volvio al precio base');
     };
 
     const handlePinSuccess = (userId) => {
         if (pendingPriceUpdate) {
-            updateCartItem(pendingPriceUpdate.itemId, {
-                unit_price_usd: pendingPriceUpdate.price,
-                price_list_id: pendingPriceUpdate.listId,
-                price_list_name: pendingPriceUpdate.listName,
-                price_list_currency_code: pendingPriceUpdate.currencyCode || 'FLEX',
-                price_list_payment_policy: pendingPriceUpdate.paymentPolicy || 'flexible',
-                auth_user_id: userId
-            });
+            if (pendingPriceUpdate.isBulk) {
+                overwriteCart((pendingPriceUpdate.cart || []).map(item => ({ ...item, auth_user_id: userId })));
+            } else {
+                updateCartItem(pendingPriceUpdate.itemId, {
+                    unit_price_usd: pendingPriceUpdate.price,
+                    price_list_id: pendingPriceUpdate.listId,
+                    price_list_name: pendingPriceUpdate.listName,
+                    price_list_currency_code: pendingPriceUpdate.currencyCode || 'FLEX',
+                    price_list_payment_policy: pendingPriceUpdate.paymentPolicy || 'flexible',
+                    auth_user_id: userId
+                });
+            }
             setPendingPriceUpdate(null);
+            setSelectedItemForEdit(null);
             setActivePricePopover(null);
         }
     };
