@@ -124,7 +124,7 @@ function TenantHealthRow({ tenant }) {
     );
 }
 
-function CatalogHealthPanel({ health, loading, syncing, createMissing, onCreateMissingChange, onRefresh, onSync }) {
+function CatalogHealthPanel({ health, loading, syncing, createMissing, onCreateMissingChange, onRefresh, onSync, masterSchema, onMasterSchemaChange }) {
     const totals = health?.totals || {};
     const hasIssues = Number(totals.missing || 0) + Number(totals.product_diffs || 0) + Number(totals.missing_price_lists || 0) + Number(totals.price_missing || 0) + Number(totals.price_diffs || 0) > 0;
     return (
@@ -146,6 +146,21 @@ function CatalogHealthPanel({ health, loading, syncing, createMissing, onCreateM
                     </div>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    {health?.tenants?.length > 1 && (
+                        <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">
+                            <Database size={14} className="text-indigo-500" />
+                            <span>Maestra</span>
+                            <select
+                                value={masterSchema || health?.master?.schema_name || ''}
+                                onChange={e => onMasterSchemaChange?.(e.target.value)}
+                                className="bg-transparent text-slate-900 font-black outline-none"
+                            >
+                                {(health.tenants || []).map(tenant => (
+                                    <option key={tenant.schema_name} value={tenant.schema_name}>{tenant.tenant_name}</option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
                     <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
                         <input type="checkbox" checked={createMissing} onChange={e => onCreateMissingChange(e.target.checked)} className="accent-indigo-600" />
                         Crear faltantes con stock 0
@@ -487,31 +502,53 @@ export default function SharedCatalog() {
     const [createMissing, setCreateMissing] = useState(false);
     const [orgId, setOrgId] = useState(null);
     const [orgName, setOrgName] = useState('');
+    const [orgOptions, setOrgOptions] = useState([]);
+    const [masterSchema, setMasterSchema] = useState('');
 
     useEffect(() => {
         const loadOrg = async () => {
             try {
-                const stored = localStorage.getItem('org_companies');
-                if (stored) {
-                    const orgs = JSON.parse(stored);
-                    const current = orgs.find(o => o.is_current) || orgs[0];
-                    if (current?.org_id) {
-                        setOrgId(current.org_id);
-                        const consolidatedRes = await apiClient.get('/organizations/consolidated-mine');
-                        setOrgName(consolidatedRes.data?.organization_name || 'Mi Grupo');
-                        return;
-                    }
+                const myOrgRes = await apiClient.get('/organizations/my-org');
+                const memberships = Array.isArray(myOrgRes.data) ? myOrgRes.data : [];
+                if (memberships.length > 0) {
+                    setOrgOptions(memberships);
+                    const savedOrgId = Number(localStorage.getItem('shared_catalog_org_id') || 0);
+                    const storedCompanies = JSON.parse(localStorage.getItem('org_companies') || '[]');
+                    const currentCompany = Array.isArray(storedCompanies) ? storedCompanies.find(o => o.is_current) : null;
+                    const preferred = memberships.find(o => o.id === savedOrgId)
+                        || memberships.find(o => o.id === currentCompany?.org_id)
+                        || memberships[0];
+                    setOrgId(preferred.id);
+                    setOrgName(preferred.name || 'Mi Grupo');
+                    return;
                 }
+
                 const consolidatedRes = await apiClient.get('/organizations/consolidated-mine');
                 const orgIdFromConsolidated = consolidatedRes.data?.organization_id;
                 if (orgIdFromConsolidated && orgIdFromConsolidated > 0) {
                     setOrgId(orgIdFromConsolidated);
                     setOrgName(consolidatedRes.data?.organization_name || 'Mi Grupo');
+                } else {
+                    setLoading(false);
                 }
-            } catch {}
+            } catch {
+                setLoading(false);
+            }
         };
         loadOrg();
     }, []);
+
+    const handleOrgChange = (nextOrgId) => {
+        const numericOrgId = Number(nextOrgId);
+        const nextOrg = orgOptions.find(org => org.id === numericOrgId);
+        setOrgId(numericOrgId || null);
+        setOrgName(nextOrg?.name || 'Mi Grupo');
+        setMasterSchema('');
+        setProducts([]);
+        setSelected(new Set());
+        setHealth(null);
+        if (numericOrgId) localStorage.setItem('shared_catalog_org_id', String(numericOrgId));
+    };
 
     const fetchCatalog = useCallback(async () => {
         if (!orgId) return;
@@ -532,16 +569,24 @@ export default function SharedCatalog() {
         if (!orgId) return;
         setHealthLoading(true);
         try {
-            const res = await apiClient.get(`/organizations/${orgId}/catalog/health`);
+            const res = await apiClient.get(`/organizations/${orgId}/catalog/health`, {
+                params: { master_schema: masterSchema || undefined },
+            });
             setHealth(res.data || null);
         } catch (err) {
             toast.error(err.response?.data?.detail || 'Error al auditar el catalogo');
         } finally {
             setHealthLoading(false);
         }
-    }, [orgId]);
+    }, [orgId, masterSchema]);
 
     useEffect(() => { fetchHealth(); }, [fetchHealth]);
+
+    useEffect(() => {
+        if (!masterSchema && health?.master?.schema_name) {
+            setMasterSchema(health.master.schema_name);
+        }
+    }, [health, masterSchema]);
 
     const handleSyncCatalog = async () => {
         if (!orgId) return;
@@ -552,7 +597,7 @@ export default function SharedCatalog() {
         setSyncing(true);
         try {
             const res = await apiClient.post(`/organizations/${orgId}/catalog/sync`, {
-                master_schema: health?.master?.schema_name || null,
+                master_schema: masterSchema || health?.master?.schema_name || null,
                 create_missing: createMissing,
                 update_existing: true,
                 sync_price_lists: true,
@@ -631,7 +676,20 @@ export default function SharedCatalog() {
                         </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        {orgName && (
+                        {orgOptions.length > 1 ? (
+                            <label className="inline-flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-black text-slate-600">
+                                <Building2 size={14} className="text-indigo-500" />
+                                <select
+                                    value={orgId || ''}
+                                    onChange={e => handleOrgChange(e.target.value)}
+                                    className="bg-transparent text-slate-800 font-black outline-none max-w-[240px]"
+                                >
+                                    {orgOptions.map(org => (
+                                        <option key={org.id} value={org.id}>{org.name}</option>
+                                    ))}
+                                </select>
+                            </label>
+                        ) : orgName && (
                             <span className="inline-flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-black text-slate-600">
                                 <Building2 size={14} /> {orgName}
                             </span>
@@ -651,6 +709,8 @@ export default function SharedCatalog() {
                 onCreateMissingChange={setCreateMissing}
                 onRefresh={fetchHealth}
                 onSync={handleSyncCatalog}
+                masterSchema={masterSchema}
+                onMasterSchemaChange={setMasterSchema}
             />
 
             <ManualMatchPanel
