@@ -32,7 +32,6 @@ import CashAdvanceModal from '../components/cash/CashAdvanceModal';
 import SaleSuccessModal from '../components/pos/SaleSuccessModal';
 import ProductLookupModal from '../components/pos/ProductLookupModal';
 import useBarcodeScanner from '../hooks/useBarcodeScanner';
-import SplitCartModal from '../components/pos/SplitCartModal';
 import usePOSCatalog from '../hooks/usePOSCatalog';
 import ServiceImportModal from './POS/ServiceImportModal';
 import SerializedItemModal from '../components/pos/SerializedItemModal';
@@ -186,8 +185,6 @@ const POS = () => {
     const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
     const [isPaymentOpen, setIsPaymentOpen] = useState(false);
     const [isLayawayOpen, setIsLayawayOpen] = useState(false);
-    const [isSplitCartModalOpen, setIsSplitCartModalOpen] = useState(false);
-    const [pendingCreditItems, setPendingCreditItems] = useState(null);
     const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
     const [isMovementOpen, setIsMovementOpen] = useState(false);
     const [isAdvanceOpen, setIsAdvanceOpen] = useState(false);
@@ -863,40 +860,10 @@ const POS = () => {
 
     
     const handleCheckoutClick = () => {
-        const imeiItems = cart.filter(item => item.has_imei === true || item.product?.requires_imei === true || item.requires_imei === true);
-        const hasNonIMEI = cart.some(item => !item.has_imei && !item.product?.requires_imei && !item.requires_imei);
-        
-        const hasMultipleIMEI = imeiItems.length > 1;
-
-        if (hasNonIMEI && imeiItems.length > 0) {
-            // Caso 1: Mixto (Accesorios + Celulares)
-            setIsSplitCartModalOpen(true);
-        } else if (hasMultipleIMEI) {
-            // Caso 2: Múltiples Celulares (Deben ir uno por uno)
-            import("react-hot-toast").then(m => m.toast.loading("Procesando dispositivos uno por uno...", { duration: 3000 }));
-            handleSplitCart(); // Reutilizamos la lógica de split
-        } else {
-            setIsPaymentOpen(true);
+        if (!cart.length) {
+            toast.error('Agrega al menos un producto para cobrar');
+            return;
         }
-    };
-
-    const handleSplitCart = () => {
-        const imeiItems = cart.filter(item => item.product?.requires_imei || item.requires_imei || item.has_imei);
-        const nonImeiItems = cart.filter(item => !(item.product?.requires_imei || item.requires_imei || item.has_imei));
-
-        if (nonImeiItems.length > 0 && imeiItems.length > 0) {
-            // Prioridad: Sacar accesorios primero (contado)
-            setPendingCreditItems(imeiItems);
-            overwriteCart(nonImeiItems);
-        } else if (imeiItems.length > 1) {
-            // Si solo hay teléfonos, dejamos el primero y mandamos el resto a la cola
-            const firstPhone = imeiItems[0];
-            const restOfPhones = imeiItems.slice(1);
-            setPendingCreditItems(restOfPhones);
-            overwriteCart([firstPhone]);
-        }
-        
-        setIsSplitCartModalOpen(false);
         setIsPaymentOpen(true);
     };
 
@@ -931,14 +898,6 @@ const POS = () => {
         }
         setLastSaleData(null);
         clearCart();
-        const toRestore = pendingCreditItems;
-        if (toRestore && toRestore.length > 0) {
-            setPendingCreditItems(null);
-            setTimeout(() => {
-                overwriteCart(toRestore);
-                import("react-hot-toast").then(m => m.toast.success("Teléfono restaurado para facturar a crédito"));
-            }, 600);
-        }
         setActiveServiceOrderId(null);
         setServiceOrderTicket(null);
         setQuoteCustomer(null);
@@ -1548,11 +1507,6 @@ const POS = () => {
                 <SaleSuccessModal isOpen={!!lastSaleData} saleData={lastSaleData} onClose={handleSuccessClose} canReprintWarranty={canReprintWarranty} />
                 <ProductLookupModal isOpen={isLookupOpen} onClose={() => setIsLookupOpen(false)} />
                 {!isLoading && !isCashLoading && !isSessionOpen && (<CashOpeningModal onOpen={openSession} />)}
-                <SplitCartModal 
-                    isOpen={isSplitCartModalOpen} 
-                    onClose={() => setIsSplitCartModalOpen(false)} 
-                    onSplit={handleSplitCart} 
-                />
                 <CashClosingModal isOpen={isClosingOpen} onClose={() => setIsClosingOpen(false)} />
             </div>
         {help.isOpen && <HelpDrawer contextKey={helpKey} onClose={help.close} />}

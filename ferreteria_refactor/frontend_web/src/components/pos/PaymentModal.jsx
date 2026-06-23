@@ -276,7 +276,9 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     const isComplete   = remainingUSD <= 0.005;
 
     // BLOQUECELULAR logic
-    const phoneItemsTotalUSD = cart?.filter(item => item.product?.requires_imei || item.requires_imei).reduce((sum, item) => sum + (item.subtotal || (item.quantity * item.unit_price)), 0) || 0;
+    const isSerializedCartItem = (item) => Boolean(item?.has_imei || item?.product?.has_imei || item?.product?.requires_imei || item?.requires_imei || (item?.serial_numbers && item.serial_numbers.length > 0));
+    const getItemUnitPriceUSD = (item) => Number(item?.unit_price_usd ?? item?.price_unit_usd ?? item?.price_usd ?? item?.unit_price ?? 0);
+    const phoneItemsTotalUSD = cart?.filter(isSerializedCartItem).reduce((sum, item) => sum + Number(item.subtotal || (Number(item.quantity || 0) * getItemUnitPriceUSD(item))), 0) || 0;
     const nonPhoneItemsTotalUSD = totalUSD - phoneItemsTotalUSD;
     const phoneDebtUSD = Math.max(0, phoneItemsTotalUSD - Math.max(0, totalPaidUSD - nonPhoneItemsTotalUSD));
     const showBloqueCelularAlert = isCreditSale && phoneItemsTotalUSD > 0 && featureFlags?.bloqueocelular_split_logic;
