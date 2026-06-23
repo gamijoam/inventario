@@ -1262,7 +1262,12 @@ def sync_catalog_between_tenants(
             continue
         qschema = _quote_schema(tenant.schema_name)
         target = _catalog_maps(db, tenant.schema_name, org_id)
-        result = {"tenant_id": tenant.id, "tenant_name": tenant.name, "schema_name": tenant.schema_name, "updated": 0, "created": 0, "price_lists_created": 0, "prices_upserted": 0, "skipped_missing": 0}
+        target_sku_owner = {
+            str(product.get("sku") or "").strip(): int(product["id"])
+            for product in target["products"]
+            if str(product.get("sku") or "").strip()
+        }
+        result = {"tenant_id": tenant.id, "tenant_name": tenant.name, "schema_name": tenant.schema_name, "updated": 0, "created": 0, "price_lists_created": 0, "prices_upserted": 0, "skipped_missing": 0, "sku_conflicts": 0}
 
         if data.sync_price_lists:
             for price_list in master_lists:
@@ -1285,13 +1290,24 @@ def sync_catalog_between_tenants(
             if target_product:
                 if data.update_existing:
                     result["updated"] += 1
+                    effective_sku = sku
+                    sku_owner = target_sku_owner.get(str(sku or "").strip())
+                    if sku_owner and int(sku_owner) != int(target_product["id"]):
+                        effective_sku = target_product.get("sku")
+                        result["sku_conflicts"] += 1
                     if not data.dry_run:
-                        db.execute(text(f"UPDATE {qschema}.products SET name = :name, sku = :sku, description = :description, price = :price, price_mayor_1 = :price_mayor_1, price_mayor_2 = :price_mayor_2, cost_price = :cost_price, has_imei = :has_imei, image_url = COALESCE(:image_url, image_url), updated_at = now() WHERE id = :id"), {**params, "id": target_product["id"]})
+                        db.execute(text(f"UPDATE {qschema}.products SET name = :name, sku = :sku, description = :description, price = :price, price_mayor_1 = :price_mayor_1, price_mayor_2 = :price_mayor_2, cost_price = :cost_price, has_imei = :has_imei, image_url = COALESCE(:image_url, image_url), updated_at = now() WHERE id = :id"), {**params, "sku": effective_sku, "id": target_product["id"]})
                 product_id = target_product["id"]
             elif data.create_missing:
+                create_params = dict(params)
+                sku_owner = target_sku_owner.get(str(sku or "").strip())
+                if sku_owner:
+                    create_params["sku"] = f"{sku}-{master_tenant.schema_name}"
+                    result["sku_conflicts"] += 1
                 result["created"] += 1
                 if not data.dry_run:
-                    product_id = db.execute(text(f"INSERT INTO {qschema}.products (name, sku, description, price, price_mayor_1, price_mayor_2, cost_price, stock, min_stock, is_active, has_imei, is_box, is_combo, is_service, is_discount_active, image_url, updated_at) VALUES (:name, :sku, :description, :price, :price_mayor_1, :price_mayor_2, :cost_price, 0, 5, true, :has_imei, false, false, false, false, :image_url, now()) RETURNING id"), params).scalar()
+                    product_id = db.execute(text(f"INSERT INTO {qschema}.products (name, sku, description, price, price_mayor_1, price_mayor_2, cost_price, stock, min_stock, is_active, has_imei, is_box, is_combo, is_service, is_discount_active, image_url, updated_at) VALUES (:name, :sku, :description, :price, :price_mayor_1, :price_mayor_2, :cost_price, 0, 5, true, :has_imei, false, false, false, false, :image_url, now()) RETURNING id"), create_params).scalar()
+                    target_sku_owner[str(create_params.get("sku") or "").strip()] = int(product_id)
                 else:
                     product_id = -result["created"]
             else:
