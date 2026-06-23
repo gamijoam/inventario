@@ -12,6 +12,7 @@ from .. import schemas
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
 from . import webhook_service
+from .serialized_stock_service import reconcile_serialized_product_stock
 import asyncio
 from ..models.tenant import Tenant
 import asyncio
@@ -549,9 +550,16 @@ class SalesService:
                                 models.ProductStock.warehouse_id == warehouse_id
                             ).first()
 
-                            available_qty = child_stock.quantity if child_stock else 0
+                            if child_product.has_imei:
+                                available_qty = db.query(models.ProductInstance).filter(
+                                    models.ProductInstance.product_id == child_product.id,
+                                    models.ProductInstance.warehouse_id == warehouse_id,
+                                    models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE,
+                                ).count()
+                            else:
+                                available_qty = child_stock.quantity if child_stock else 0
 
-                            if available_qty < qty_needed:
+                            if Decimal(str(available_qty)) < Decimal(str(qty_needed)):
                                 wh_name = db.query(models.Warehouse.name).filter(models.Warehouse.id == warehouse_id).scalar()
                                 raise HTTPException(
                                     status_code=400,
@@ -583,16 +591,9 @@ class SalesService:
                                 child_stock = models.ProductStock(product_id=child_product.id, warehouse_id=warehouse_id, quantity=0)
                                 db.add(child_stock)
 
-                            child_stock.quantity -= qty_to_deduct
-                            child_product.stock -= qty_to_deduct
-
-                            db.add(models.Kardex(
-                                product_id=child_product.id,
-                                movement_type="SALE",
-                                quantity=-qty_to_deduct,
-                                balance_after=child_product.stock,
-                                description=f"Sale via combo: {product.name}{unit_description} (Sale #{new_sale_id})"
-                            ))
+                            if not child_product.has_imei:
+                                child_stock.quantity -= qty_to_deduct
+                                child_product.stock -= qty_to_deduct
 
                             # ── Serializados dentro del combo ──────────────────────────────
                             if child_product.has_imei:
@@ -633,6 +634,16 @@ class SalesService:
 
                                 for inst in instances:
                                     inst.status = models.ProductInstanceStatus.SOLD
+
+                                reconcile_serialized_product_stock(db, child_product.id)
+
+                            db.add(models.Kardex(
+                                product_id=child_product.id,
+                                movement_type="SALE",
+                                quantity=-qty_to_deduct,
+                                balance_after=child_product.stock,
+                                description=f"Sale via combo: {product.name}{unit_description} (Sale #{new_sale_id})"
+                            ))
 
                             updated_products_info.append({
                                 "id": child_product.id,
@@ -687,16 +698,7 @@ class SalesService:
                             for instance in sold_instances:
                                 instance.status = models.ProductInstanceStatus.SOLD
 
-                            product_stock = get_product_stock(product.id)
-
-                            available_qty = product_stock.quantity if product_stock else 0
-
-                            if available_qty < units_to_deduct:
-                                wh_name = db.query(models.Warehouse.name).filter(models.Warehouse.id == warehouse_id).scalar()
-                                raise HTTPException(status_code=400, detail=f"Stock insuficiente para el producto '{product.name}' en almacén '{wh_name or 'Desconocido'}'. Disponible: {available_qty}")
-
-                            product_stock.quantity -= units_to_deduct
-                            product.stock -= units_to_deduct
+                            reconcile_serialized_product_stock(db, product.id)
 
                             updated_products_info.append({
                                 "id": product.id,

@@ -8,6 +8,7 @@ from .. import schemas
 from ..commission_engine import CommissionEngine
 from ..dependencies import get_current_active_user, require_permission, require_any_permission
 from ..utils.time_utils import get_venezuela_now
+from ..services.serialized_stock_service import reconcile_serialized_product_stock
 from datetime import datetime, date
 from decimal import Decimal
 
@@ -488,6 +489,9 @@ def process_return(
                 date=datetime.now()
             )
             db.add(kardex_adjustment)
+
+        if product and getattr(product, "has_imei", False):
+            reconcile_serialized_product_stock(db, product.id)
     
     new_return.total_refunded = total_refund
     
@@ -788,6 +792,9 @@ def void_sale(
         ).all()
         for pi in void_instances:
             pi.status = models.ProductInstanceStatus.AVAILABLE
+
+        if product and getattr(product, "has_imei", False):
+            reconcile_serialized_product_stock(db, product.id)
 
     new_return.total_refunded = total_refund
 

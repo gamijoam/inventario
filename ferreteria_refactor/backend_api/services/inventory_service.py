@@ -14,6 +14,7 @@ from typing import Dict, Any
 from ..models import models
 from ..models.restaurant import RestaurantRecipe, ProductModifierOption, RestaurantOrderItem, RestaurantOrder, OrderStatusDB
 from ..utils.time_utils import get_venezuela_now
+from .serialized_stock_service import reconcile_serialized_product_stock
 from fastapi import HTTPException
 
 class InventoryService:
@@ -391,6 +392,8 @@ class InventoryService:
             )
             db.add(p_stock)
 
+        reconcile_serialized_product_stock(db, product.id)
+
         kardex = Kardex(
             product_id=product.id,
             warehouse_id=entry_data.warehouse_id,
@@ -490,7 +493,7 @@ class InventoryService:
                     models.ProductStock.product_id == pid,
                     models.ProductStock.warehouse_id == warehouse_id
                 ).first()
-                
+
                 if not p_stock:
                     p_stock = models.ProductStock(
                         product_id=pid,
@@ -499,20 +502,22 @@ class InventoryService:
                     )
                     db.add(p_stock)
                     db.flush()
-                
-                if p_stock.quantity < qty:
-                    raise HTTPException(status_code=400, detail=f"Insufficient stock in WAREHOUSE for '{product.name}'. Requested: {qty}, Available: {p_stock.quantity}")
 
-                p_stock.quantity -= qty
-                product.stock -= qty
-                balance_after = p_stock.quantity
-                
+                if not product.has_imei:
+                    if p_stock.quantity < qty:
+                        raise HTTPException(status_code=400, detail=f"Insufficient stock in WAREHOUSE for '{product.name}'. Requested: {qty}, Available: {p_stock.quantity}")
+
+                    p_stock.quantity -= qty
+                    product.stock -= qty
+                    balance_after = p_stock.quantity
+
             else:
-                if product.stock < qty:
-                    raise HTTPException(status_code=400, detail=f"Insufficient global stock for '{product.name}'. Requested: {qty}, Available: {product.stock}")
-                
-                product.stock -= qty
-                balance_after = product.stock
+                if not product.has_imei:
+                    if product.stock < qty:
+                        raise HTTPException(status_code=400, detail=f"Insufficient global stock for '{product.name}'. Requested: {qty}, Available: {product.stock}")
+
+                    product.stock -= qty
+                    balance_after = product.stock
             
             kardex = models.Kardex(
                 product_id=product.id,
@@ -532,7 +537,11 @@ class InventoryService:
                 ).first()
                 if instance:
                     instance.status = models.ProductInstanceStatus.TRANSIT
-            
+
+            if product.has_imei:
+                balance_after = reconcile_serialized_product_stock(db, product.id)
+                kardex.balance_after = balance_after
+
             transfer_items.append({
                 "sku": product.sku,
                 "quantity": float(qty),
@@ -859,6 +868,10 @@ class InventoryService:
                             status=models.ProductInstanceStatus.AVAILABLE,
                         ))
 
+                    if serial_numbers:
+                        reconcile_serialized_product_stock(db, product.id)
+                        kardex.balance_after = product.stock
+
                     success_count += 1
                     imported_units_count += float(qty)
                     imported_imei_count += len(serial_numbers)
@@ -900,6 +913,10 @@ class InventoryService:
                             serial_number=serial,
                             status=models.ProductInstanceStatus.AVAILABLE,
                         ))
+
+                    if serial_numbers:
+                        reconcile_serialized_product_stock(db, new_product.id)
+                        kardex.balance_after = new_product.stock
 
                     success_count += 1
                     created_count += 1

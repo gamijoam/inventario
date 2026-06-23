@@ -10,6 +10,7 @@ from ..models.models import ProductInstanceStatus
 from ..dependencies import require_any_permission
 from ..models.tenant import Tenant
 from ..tenant_context import get_tenant_schema
+from ..services.serialized_stock_service import reconcile_serialized_product_stock
 
 router = APIRouter(prefix="/transfers", tags=["transfers"])
 
@@ -261,16 +262,19 @@ def create_transfer(transfer_data: schemas.InventoryTransferCreate, db: Session 
                         ),
                     )
 
-    # 4. Check Stock Availability (como antes)
-    for item in transfer_data.items:
-        stock_record = db.query(models.ProductStock).filter(
-            models.ProductStock.warehouse_id == source_wh.id,
-            models.ProductStock.product_id == item.product_id
-        ).first()
+    # 4. Check Stock Availability. For serialized products, IMEIs are the source of truth.
+    for idx, item in enumerate(transfer_data.items):
+        product = db.query(models.Product).get(item.product_id)
+        if imei_enabled and product and product.has_imei:
+            current_qty = len(pre_validated_imeis.get(idx, []))
+        else:
+            stock_record = db.query(models.ProductStock).filter(
+                models.ProductStock.warehouse_id == source_wh.id,
+                models.ProductStock.product_id == item.product_id
+            ).first()
+            current_qty = stock_record.quantity if stock_record else 0
 
-        current_qty = stock_record.quantity if stock_record else 0
         if current_qty < item.quantity:
-            product = db.query(models.Product).get(item.product_id)
             raise HTTPException(
                 status_code=400,
                 detail=f"Stock insuficiente para el producto '{product.name}'. Disponible: {current_qty}, Solicitado: {item.quantity}"
@@ -330,6 +334,7 @@ def create_transfer(transfer_data: schemas.InventoryTransferCreate, db: Session 
                     product_instance_id=pi.id
                 )
                 db.add(tdi)
+            reconcile_serialized_product_stock(db, item.product_id)
 
     try:
         db.commit()
