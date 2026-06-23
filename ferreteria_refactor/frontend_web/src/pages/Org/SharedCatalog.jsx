@@ -4,7 +4,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     BookOpen, Plus, Search, Download, Package, Tag, DollarSign,
-    X, Check, Loader2, RefreshCw, Layers, Building2, Info
+    X, Check, Loader2, RefreshCw, Layers, Building2, Info,
+    Activity, AlertTriangle, ShieldCheck, Wand2, Database
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -92,6 +93,101 @@ function CatalogProductCard({ product, selected, onToggle, onImport, importing }
                 </button>
             </div>
         </article>
+    );
+}
+
+function TenantHealthRow({ tenant }) {
+    const issueCount = Number(tenant.missing || 0) + Number(tenant.product_diffs || 0) + Number(tenant.missing_price_lists || 0) + Number(tenant.price_missing || 0) + Number(tenant.price_diffs || 0) + Number(tenant.duplicate_sku_groups || 0);
+    const healthy = tenant.healthy && issueCount === 0;
+    return (
+        <tr className="border-t border-slate-100">
+            <td className="py-3 pr-3">
+                <div className="flex items-center gap-2 min-w-0">
+                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${healthy ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                    <div className="min-w-0">
+                        <p className="text-sm font-black text-slate-900 truncate">{tenant.tenant_name}</p>
+                        <p className="text-[11px] font-bold text-slate-400 truncate">{tenant.schema_name}{tenant.is_master ? ' · Maestra' : ''}</p>
+                    </div>
+                </div>
+            </td>
+            <td className="py-3 px-2 text-right text-sm font-black text-slate-800">{tenant.products}</td>
+            <td className="py-3 px-2 text-right text-sm font-black text-slate-800">{tenant.matched}</td>
+            <td className={`py-3 px-2 text-right text-sm font-black ${tenant.missing ? 'text-amber-600' : 'text-slate-400'}`}>{tenant.missing}</td>
+            <td className={`py-3 px-2 text-right text-sm font-black ${tenant.product_diffs ? 'text-rose-600' : 'text-slate-400'}`}>{tenant.product_diffs}</td>
+            <td className={`py-3 px-2 text-right text-sm font-black ${tenant.price_missing || tenant.price_diffs || tenant.missing_price_lists ? 'text-indigo-600' : 'text-slate-400'}`}>{Number(tenant.price_missing || 0) + Number(tenant.price_diffs || 0) + Number(tenant.missing_price_lists || 0)}</td>
+            <td className="py-3 pl-2 text-right">
+                <span className={`inline-flex items-center justify-center rounded-lg px-2.5 py-1 text-[11px] font-black ${healthy ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
+                    {healthy ? 'Alineada' : `${issueCount} alertas`}
+                </span>
+            </td>
+        </tr>
+    );
+}
+
+function CatalogHealthPanel({ health, loading, syncing, createMissing, onCreateMissingChange, onRefresh, onSync }) {
+    const totals = health?.totals || {};
+    const hasIssues = Number(totals.missing || 0) + Number(totals.product_diffs || 0) + Number(totals.missing_price_lists || 0) + Number(totals.price_missing || 0) + Number(totals.price_diffs || 0) > 0;
+    return (
+        <section className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="p-5 flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4 border-b border-slate-100">
+                <div className="flex items-start gap-3 min-w-0">
+                    <div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 border ${hasIssues ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                        {hasIssues ? <AlertTriangle size={21} /> : <ShieldCheck size={21} />}
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Salud del catalogo</p>
+                        <h2 className="text-lg font-black text-slate-950">Productos y precios entre empresas</h2>
+                        <p className="text-sm text-slate-500">Compara contra la empresa maestra y sincroniza sin tocar stock, IMEIs, ventas ni kardex.</p>
+                        {health?.master && (
+                            <p className="mt-2 inline-flex items-center gap-2 rounded-lg bg-indigo-50 border border-indigo-100 px-2.5 py-1 text-xs font-black text-indigo-700">
+                                <Database size={13} /> Maestra: {health.master.tenant_name}
+                            </p>
+                        )}
+                    </div>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+                        <input type="checkbox" checked={createMissing} onChange={e => onCreateMissingChange(e.target.checked)} className="accent-indigo-600" />
+                        Crear faltantes con stock 0
+                    </label>
+                    <button onClick={onRefresh} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 hover:border-indigo-300 disabled:opacity-60">
+                        <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Auditar
+                    </button>
+                    <button onClick={onSync} disabled={syncing || loading || !health} className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-black text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700 disabled:opacity-60">
+                        {syncing ? <Loader2 size={15} className="animate-spin" /> : <Wand2 size={15} />} Sincronizar
+                    </button>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-5 border-b border-slate-100">
+                <div className="p-4 border-r border-slate-100"><p className="text-[11px] font-black uppercase text-slate-400">Empresas</p><p className="text-2xl font-black text-slate-950">{health?.tenants?.length || 0}</p></div>
+                <div className="p-4 border-r border-slate-100"><p className="text-[11px] font-black uppercase text-slate-400">Maestro</p><p className="text-2xl font-black text-slate-950">{health?.master?.products || 0}</p></div>
+                <div className="p-4 border-r border-slate-100"><p className="text-[11px] font-black uppercase text-slate-400">Faltantes</p><p className="text-2xl font-black text-amber-600">{totals.missing || 0}</p></div>
+                <div className="p-4 border-r border-slate-100"><p className="text-[11px] font-black uppercase text-slate-400">Diferencias</p><p className="text-2xl font-black text-rose-600">{totals.product_diffs || 0}</p></div>
+                <div className="p-4"><p className="text-[11px] font-black uppercase text-slate-400">Precios/listas</p><p className="text-2xl font-black text-indigo-600">{Number(totals.missing_price_lists || 0) + Number(totals.price_missing || 0) + Number(totals.price_diffs || 0)}</p></div>
+            </div>
+
+            <div className="overflow-x-auto">
+                <table className="w-full min-w-[780px]">
+                    <thead>
+                        <tr className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                            <th className="py-3 pl-5 pr-3 text-left">Empresa</th>
+                            <th className="py-3 px-2 text-right">Productos</th>
+                            <th className="py-3 px-2 text-right">Coinciden</th>
+                            <th className="py-3 px-2 text-right">Faltan</th>
+                            <th className="py-3 px-2 text-right">Cambios</th>
+                            <th className="py-3 px-2 text-right">Precios</th>
+                            <th className="py-3 pl-2 pr-5 text-right">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {loading ? (
+                            <tr><td colSpan={7} className="py-10 text-center text-sm font-bold text-slate-400"><Loader2 size={24} className="animate-spin mx-auto mb-2 text-indigo-500" /> Auditando empresas...</td></tr>
+                        ) : (health?.tenants || []).map(tenant => <TenantHealthRow key={tenant.schema_name} tenant={tenant} />)}
+                    </tbody>
+                </table>
+            </div>
+        </section>
     );
 }
 
@@ -227,6 +323,10 @@ export default function SharedCatalog() {
     const [selected, setSelected] = useState(new Set());
     const [showAddModal, setShowAddModal] = useState(false);
     const [importing, setImporting] = useState(false);
+    const [health, setHealth] = useState(null);
+    const [healthLoading, setHealthLoading] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [createMissing, setCreateMissing] = useState(false);
     const [orgId, setOrgId] = useState(null);
     const [orgName, setOrgName] = useState('');
 
@@ -269,6 +369,46 @@ export default function SharedCatalog() {
     }, [orgId, search]);
 
     useEffect(() => { fetchCatalog(); }, [fetchCatalog]);
+
+    const fetchHealth = useCallback(async () => {
+        if (!orgId) return;
+        setHealthLoading(true);
+        try {
+            const res = await apiClient.get(`/organizations/${orgId}/catalog/health`);
+            setHealth(res.data || null);
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Error al auditar el catalogo');
+        } finally {
+            setHealthLoading(false);
+        }
+    }, [orgId]);
+
+    useEffect(() => { fetchHealth(); }, [fetchHealth]);
+
+    const handleSyncCatalog = async () => {
+        if (!orgId) return;
+        const ok = window.confirm(createMissing
+            ? 'Se actualizaran nombres, precios y listas. Tambien se crearan productos faltantes con stock 0. ¿Continuar?'
+            : 'Se actualizaran nombres, precios y listas en las empresas del grupo. No se tocara stock ni IMEIs. ¿Continuar?');
+        if (!ok) return;
+        setSyncing(true);
+        try {
+            const res = await apiClient.post(`/organizations/${orgId}/catalog/sync`, {
+                master_schema: health?.master?.schema_name || null,
+                create_missing: createMissing,
+                update_existing: true,
+                sync_price_lists: true,
+                dry_run: false,
+            });
+            toast.success(res.data?.message || 'Catalogo sincronizado');
+            await fetchHealth();
+            await fetchCatalog();
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Error al sincronizar catalogo');
+        } finally {
+            setSyncing(false);
+        }
+    };
 
     const toggleSelect = (id) => {
         setSelected(prev => {
@@ -344,6 +484,16 @@ export default function SharedCatalog() {
                     </div>
                 </div>
             </div>
+
+            <CatalogHealthPanel
+                health={health}
+                loading={healthLoading}
+                syncing={syncing}
+                createMissing={createMissing}
+                onCreateMissingChange={setCreateMissing}
+                onRefresh={fetchHealth}
+                onSync={handleSyncCatalog}
+            />
 
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
                 <MetricCard icon={Package} label="Productos" value={products.length} tone="indigo" />

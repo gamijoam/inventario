@@ -19,7 +19,7 @@ from ..models.tenant import Tenant
 from ..schemas.organization import (
     OrganizationCreate, OrganizationUpdate, OrganizationOut,
     InviteMemberRequest, OrganizationMemberOut, OrganizationTenantOut,
-    SharedProductCreate, SharedProductOut, ImportSharedProductRequest,
+    SharedProductCreate, SharedProductOut, ImportSharedProductRequest, CatalogSyncRequest,
     InterCompanyTransferCreate, InterCompanyTransferOut,
     ConsolidatedSummary, TenantDailySummary, OrgCompanyOut,
     OrgPlanConfig, OrgWhatsAppConfig,
@@ -202,6 +202,147 @@ def _assert_org_role(org: Organization, user: User, allowed_roles: set[str], det
 def _assert_org_owner(org: Organization, user: User, detail: str = "Solo el owner puede modificar esta configuracion"):
     """Verifica que el usuario sea owner de la organizacion o superadmin."""
     return _assert_org_role(org, user, {"owner"}, detail)
+
+
+_SAFE_SCHEMA_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_NUMERIC_SKU_RE = re.compile(r"^\d+(?:\.0+)?$")
+
+
+def _quote_schema(schema: str) -> str:
+    schema = (schema or "").strip()
+    if not _SAFE_SCHEMA_RE.match(schema):
+        raise HTTPException(status_code=400, detail="Schema de empresa invalido")
+    return '"' + schema.replace('"', '""') + '"'
+
+
+def _canonical_catalog_sku(product_id: int, sku: Optional[str]) -> str:
+    raw = str(sku or "").strip()
+    if raw and _NUMERIC_SKU_RE.match(raw):
+        return raw.split(".", 1)[0]
+    if raw and raw.upper().startswith("CAT-"):
+        return raw.upper()
+    return f"CAT-{int(product_id):06d}"
+
+
+def _money(value) -> float:
+    return float(value or 0)
+
+
+def _org_active_tenants(db: Session, org_id: int) -> list[Tenant]:
+    return db.query(Tenant).filter(Tenant.organization_id == org_id, Tenant.is_active == True).order_by(Tenant.name.asc()).all()
+
+
+def _pick_master_tenant(db: Session, org_id: int, current_user: User, master_schema: Optional[str] = None) -> Tenant:
+    tenants = _org_active_tenants(db, org_id)
+    if not tenants:
+        raise HTTPException(status_code=400, detail="La organizacion no tiene empresas activas")
+    by_schema = {t.schema_name: t for t in tenants}
+    if master_schema:
+        if master_schema not in by_schema:
+            raise HTTPException(status_code=400, detail="La empresa maestra no pertenece a esta organizacion")
+        return by_schema[master_schema]
+    current = _current_tenant_for_user(db, current_user)
+    if current and current.schema_name in by_schema:
+        return by_schema[current.schema_name]
+    return tenants[0]
+
+
+def _tenant_products(db: Session, schema: str) -> list[dict]:
+    qschema = _quote_schema(schema)
+    sql = (
+        "SELECT id, name, sku, description, price, price_mayor_1, price_mayor_2, "
+        "cost_price, stock, is_active, has_imei, image_url "
+        f"FROM {qschema}.products "
+        "WHERE COALESCE(is_active, true) = true ORDER BY name, id"
+    )
+    return [dict(r) for r in db.execute(text(sql)).mappings().all()]
+
+
+def _tenant_price_lists(db: Session, schema: str) -> list[dict]:
+    qschema = _quote_schema(schema)
+    sql = (
+        "SELECT id, name, COALESCE(currency_code, 'FLEX') AS currency_code, "
+        "COALESCE(payment_policy, 'flexible') AS payment_policy, "
+        "COALESCE(requires_auth, false) AS requires_auth, COALESCE(is_active, true) AS is_active "
+        f"FROM {qschema}.price_lists WHERE COALESCE(is_active, true) = true ORDER BY name"
+    )
+    return [dict(r) for r in db.execute(text(sql)).mappings().all()]
+
+
+def _tenant_product_prices(db: Session, schema: str) -> list[dict]:
+    qschema = _quote_schema(schema)
+    sql = (
+        "SELECT p.id AS product_id, p.sku, pl.id AS price_list_id, pl.name AS list_name, "
+        "pp.price, COALESCE(pl.currency_code, 'FLEX') AS currency_code, "
+        "COALESCE(pl.payment_policy, 'flexible') AS payment_policy "
+        f"FROM {qschema}.product_prices pp "
+        f"JOIN {qschema}.products p ON p.id = pp.product_id "
+        f"JOIN {qschema}.price_lists pl ON pl.id = pp.price_list_id "
+        "WHERE COALESCE(p.is_active, true) = true AND COALESCE(pl.is_active, true) = true"
+    )
+    return [dict(r) for r in db.execute(text(sql)).mappings().all()]
+
+
+def _catalog_maps(db: Session, schema: str) -> dict:
+    products = _tenant_products(db, schema)
+    price_lists = _tenant_price_lists(db, schema)
+    product_prices = _tenant_product_prices(db, schema)
+    by_sku = {}
+    duplicates = {}
+    blank_sku = 0
+    for product in products:
+        sku = _canonical_catalog_sku(product["id"], product.get("sku"))
+        if not str(product.get("sku") or "").strip():
+            blank_sku += 1
+        product["catalog_sku"] = sku
+        if sku in by_sku:
+            duplicates.setdefault(sku, 1)
+            duplicates[sku] += 1
+        else:
+            by_sku[sku] = product
+    list_by_name = {pl["name"]: pl for pl in price_lists}
+    sku_by_product_id = {product["id"]: product["catalog_sku"] for product in products}
+    price_by_sku_list = {}
+    for price in product_prices:
+        sku = sku_by_product_id.get(price.get("product_id"))
+        if not sku:
+            continue
+        price_by_sku_list[(sku, price["list_name"])] = price
+    return {"products": products, "by_sku": by_sku, "price_lists": price_lists, "list_by_name": list_by_name, "prices": product_prices, "price_by_sku_list": price_by_sku_list, "blank_sku": blank_sku, "duplicate_sku_groups": len(duplicates)}
+
+
+def _catalog_tenant_summary(master: dict, target: dict) -> dict:
+    master_skus = set(master["by_sku"].keys())
+    target_skus = set(target["by_sku"].keys())
+    common = master_skus & target_skus
+    missing = master_skus - target_skus
+    extra = target_skus - master_skus
+    product_diffs = 0
+    for sku in common:
+        mp = master["by_sku"][sku]
+        tp = target["by_sku"][sku]
+        if (str(mp.get("name") or "").strip() != str(tp.get("name") or "").strip()
+            or round(_money(mp.get("price")), 4) != round(_money(tp.get("price")), 4)
+            or round(_money(mp.get("cost_price")), 4) != round(_money(tp.get("cost_price")), 4)
+            or round(_money(mp.get("price_mayor_1")), 4) != round(_money(tp.get("price_mayor_1")), 4)
+            or round(_money(mp.get("price_mayor_2")), 4) != round(_money(tp.get("price_mayor_2")), 4)):
+            product_diffs += 1
+    master_lists = set(master["list_by_name"].keys())
+    target_lists = set(target["list_by_name"].keys())
+    missing_lists = master_lists - target_lists
+    price_missing = 0
+    price_diffs = 0
+    for sku in common:
+        for list_name in master_lists:
+            mp = master["price_by_sku_list"].get((sku, list_name))
+            if not mp:
+                continue
+            tp = target["price_by_sku_list"].get((sku, list_name))
+            if not tp:
+                price_missing += 1
+            elif round(_money(mp.get("price")), 4) != round(_money(tp.get("price")), 4):
+                price_diffs += 1
+    return {"products": len(target["products"]), "matched": len(common), "missing": len(missing), "extra": len(extra), "product_diffs": product_diffs, "price_lists": len(target_lists), "missing_price_lists": len(missing_lists), "price_missing": price_missing, "price_diffs": price_diffs, "blank_sku": target["blank_sku"], "duplicate_sku_groups": target["duplicate_sku_groups"], "healthy": not (missing or product_diffs or missing_lists or price_missing or price_diffs or target["duplicate_sku_groups"])}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1037,6 +1178,122 @@ def import_catalog_to_tenant(
         "skipped" : skipped,
         "message" : f"{imported} productos importados, {skipped} ya existían"
     }
+
+
+@router.get("/{org_id}/catalog/health", dependencies=[Depends(require_permission("org.panel.view"))])
+def catalog_health(
+    org_id: int,
+    master_schema: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    org = _get_org_or_404(db, org_id)
+    _assert_org_access(org, current_user)
+    tenants = _org_active_tenants(db, org_id)
+    master_tenant = _pick_master_tenant(db, org_id, current_user, master_schema)
+    master_maps = _catalog_maps(db, master_tenant.schema_name)
+
+    tenant_summaries = []
+    totals = {"products": 0, "missing": 0, "product_diffs": 0, "missing_price_lists": 0, "price_missing": 0, "price_diffs": 0, "duplicate_sku_groups": 0}
+    for tenant in tenants:
+        maps = master_maps if tenant.schema_name == master_tenant.schema_name else _catalog_maps(db, tenant.schema_name)
+        summary = _catalog_tenant_summary(master_maps, maps)
+        summary.update({"tenant_id": tenant.id, "tenant_name": tenant.name, "schema_name": tenant.schema_name, "is_master": tenant.schema_name == master_tenant.schema_name})
+        tenant_summaries.append(summary)
+        for key in totals:
+            totals[key] += int(summary.get(key) or 0)
+
+    return {
+        "organization_id": org.id,
+        "organization_name": org.name,
+        "master": {"tenant_id": master_tenant.id, "tenant_name": master_tenant.name, "schema_name": master_tenant.schema_name, "products": len(master_maps["products"]), "price_lists": len(master_maps["price_lists"])},
+        "totals": totals,
+        "tenants": tenant_summaries,
+    }
+
+
+@router.post("/{org_id}/catalog/sync", dependencies=[Depends(require_permission("org.tenants.manage"))])
+def sync_catalog_between_tenants(
+    org_id: int,
+    data: CatalogSyncRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    org = _get_org_or_404(db, org_id)
+    _assert_org_role(org, current_user, {"owner", "manager"}, "Solo owner o manager puede sincronizar catalogos")
+    tenants = _org_active_tenants(db, org_id)
+    master_tenant = _pick_master_tenant(db, org_id, current_user, data.master_schema)
+    master_maps = _catalog_maps(db, master_tenant.schema_name)
+    master_lists = master_maps["price_lists"]
+    master_prices = master_maps["price_by_sku_list"]
+
+    results = []
+    for tenant in tenants:
+        if tenant.schema_name == master_tenant.schema_name:
+            continue
+        qschema = _quote_schema(tenant.schema_name)
+        target = _catalog_maps(db, tenant.schema_name)
+        result = {"tenant_id": tenant.id, "tenant_name": tenant.name, "schema_name": tenant.schema_name, "updated": 0, "created": 0, "price_lists_created": 0, "prices_upserted": 0, "skipped_missing": 0}
+
+        if data.sync_price_lists:
+            for price_list in master_lists:
+                target_list = target["list_by_name"].get(price_list["name"])
+                params = {"name": price_list["name"], "currency_code": price_list.get("currency_code") or "FLEX", "payment_policy": price_list.get("payment_policy") or "flexible", "requires_auth": bool(price_list.get("requires_auth") or False)}
+                if target_list:
+                    if not data.dry_run:
+                        db.execute(text(f"UPDATE {qschema}.price_lists SET currency_code = :currency_code, payment_policy = :payment_policy, requires_auth = :requires_auth WHERE id = :id"), {**params, "id": target_list["id"]})
+                else:
+                    result["price_lists_created"] += 1
+                    if not data.dry_run:
+                        new_id = db.execute(text(f"INSERT INTO {qschema}.price_lists (name, currency_code, payment_policy, requires_auth, is_active, created_at) VALUES (:name, :currency_code, :payment_policy, :requires_auth, true, now()) RETURNING id"), params).scalar()
+                    else:
+                        new_id = -result["price_lists_created"]
+                    target["list_by_name"][price_list["name"]] = {**params, "id": new_id, "is_active": True}
+
+        for sku, master_product in master_maps["by_sku"].items():
+            target_product = target["by_sku"].get(sku)
+            params = {"name": master_product.get("name"), "sku": sku, "description": master_product.get("description"), "price": _money(master_product.get("price")), "price_mayor_1": _money(master_product.get("price_mayor_1")), "price_mayor_2": _money(master_product.get("price_mayor_2")), "cost_price": _money(master_product.get("cost_price")), "has_imei": bool(master_product.get("has_imei") or False), "image_url": master_product.get("image_url")}
+            if target_product:
+                if data.update_existing:
+                    result["updated"] += 1
+                    if not data.dry_run:
+                        db.execute(text(f"UPDATE {qschema}.products SET name = :name, sku = :sku, description = :description, price = :price, price_mayor_1 = :price_mayor_1, price_mayor_2 = :price_mayor_2, cost_price = :cost_price, has_imei = :has_imei, image_url = COALESCE(:image_url, image_url), updated_at = now() WHERE id = :id"), {**params, "id": target_product["id"]})
+                product_id = target_product["id"]
+            elif data.create_missing:
+                result["created"] += 1
+                if not data.dry_run:
+                    product_id = db.execute(text(f"INSERT INTO {qschema}.products (name, sku, description, price, price_mayor_1, price_mayor_2, cost_price, stock, min_stock, is_active, has_imei, is_box, is_combo, is_service, is_discount_active, image_url, updated_at) VALUES (:name, :sku, :description, :price, :price_mayor_1, :price_mayor_2, :cost_price, 0, 5, true, :has_imei, false, false, false, false, :image_url, now()) RETURNING id"), params).scalar()
+                else:
+                    product_id = -result["created"]
+            else:
+                result["skipped_missing"] += 1
+                continue
+
+            if data.sync_price_lists and product_id:
+                for (price_sku, list_name), master_price in master_prices.items():
+                    if price_sku != sku:
+                        continue
+                    target_list = target["list_by_name"].get(list_name)
+                    if not target_list:
+                        continue
+                    result["prices_upserted"] += 1
+                    if data.dry_run:
+                        continue
+                    exists = db.execute(text(f"SELECT id FROM {qschema}.product_prices WHERE product_id = :product_id AND price_list_id = :price_list_id LIMIT 1"), {"product_id": product_id, "price_list_id": target_list["id"]}).scalar()
+                    price_params = {"product_id": product_id, "price_list_id": target_list["id"], "price": _money(master_price.get("price"))}
+                    if exists:
+                        db.execute(text(f"UPDATE {qschema}.product_prices SET price = :price WHERE id = :id"), {"price": price_params["price"], "id": exists})
+                    else:
+                        db.execute(text(f"INSERT INTO {qschema}.product_prices (product_id, price_list_id, price) VALUES (:product_id, :price_list_id, :price)"), price_params)
+
+        results.append(result)
+
+    if data.dry_run:
+        db.rollback()
+    else:
+        db.commit()
+
+    return {"ok": True, "dry_run": data.dry_run, "master": {"tenant_id": master_tenant.id, "tenant_name": master_tenant.name, "schema_name": master_tenant.schema_name}, "results": results, "message": "Simulacion completada" if data.dry_run else "Catalogo sincronizado"}
 
 
 # ══════════════════════════════════════════════════════════════════════════════

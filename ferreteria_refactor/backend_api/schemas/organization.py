@@ -126,6 +126,15 @@ class ImportSharedProductRequest(BaseModel):
     use_suggested_price: bool = True
 
 
+class CatalogSyncRequest(BaseModel):
+    """Sincronizar nombre, SKU y precios entre empresas de una organización."""
+    master_schema    : Optional[str] = None
+    create_missing   : bool = False
+    update_existing  : bool = True
+    sync_price_lists : bool = True
+    dry_run          : bool = False
+
+
 # ── Inter-Company Transfers ───────────────────────────────────────────────────
 
 class TransferItemCreate(BaseModel):
