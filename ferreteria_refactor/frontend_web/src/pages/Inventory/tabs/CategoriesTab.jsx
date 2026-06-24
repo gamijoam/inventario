@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, FolderTree, Folder, Tags, Check } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Plus, Edit2, Trash2, FolderTree, Folder, Tags, Check, Search, FolderPlus } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -23,6 +23,7 @@ const CategoriesTab = () => {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingCategory, setEditingCategory] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         fetchCategories();
@@ -70,70 +71,94 @@ const CategoriesTab = () => {
         closeModal();
     };
 
-    // Organize categories hierarchically
-    const rootCategories = categories.filter(cat => !cat.parent_id);
-    const childCategories = categories.filter(cat => cat.parent_id);
+    const rootCategories = useMemo(() => categories.filter(cat => !cat.parent_id), [categories]);
+    const childCategories = useMemo(() => categories.filter(cat => cat.parent_id), [categories]);
     const getChildren = (parentId) => categories.filter(cat => cat.parent_id === parentId);
 
-    if (loading) return <div className="p-12 text-center text-slate-400">Cargando categorías...</div>;
+    const filteredRoots = useMemo(() => {
+        const term = searchTerm.trim().toLowerCase();
+        if (!term) return rootCategories;
+        const matches = (cat) => `${cat.name || ''} ${cat.description || ''}`.toLowerCase().includes(term);
+        return rootCategories.filter(root => matches(root) || getChildren(root.id).some(matches));
+    }, [rootCategories, categories, searchTerm]);
+
+    if (loading) {
+        return (
+            <div className="flex min-h-64 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400">
+                Cargando categorias...
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h2 className="text-xl font-bold text-slate-800 flex items-center">
-                        <Tags className="mr-2 text-indigo-600" /> Categorías de Productos
-                    </h2>
-                    <p className="text-slate-500 text-sm mt-1">Organiza tu inventario en categorías y subcategorías.</p>
-                </div>
-                <Button id="tour-categories-add-btn" onClick={openCreateModal}>
-                    <Plus size={18} />
-                    Nueva Categoría
-                </Button>
-            </div>
+        <div className="space-y-2 animate-in fade-in duration-300">
+            <section className="rounded-t-lg border border-b-0 border-slate-200 bg-white p-2 shadow-sm">
+                <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50 text-indigo-600">
+                            <Tags size={17} />
+                        </div>
+                        <div className="min-w-0">
+                            <h2 className="text-base font-black leading-tight text-slate-900">Categorias</h2>
+                            <p className="text-xs font-medium text-slate-500">Organiza el catalogo para POS, filtros y reportes.</p>
+                        </div>
+                        <div className="hidden items-center gap-1.5 md:flex">
+                            <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-black text-slate-600">{rootCategories.length} principales</span>
+                            <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-black text-slate-600">{childCategories.length} subcategorias</span>
+                        </div>
+                    </div>
 
-            {/* Desktop Table (Zebra Bento) */}
-            <div className="hidden md:block bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-                <table className="min-w-full divide-y divide-slate-100">
-                    <thead className="bg-slate-50/50">
-                        <tr>
-                            <th className="text-left px-6 py-4 font-bold text-slate-500 text-xs uppercase tracking-wider">Nombre</th>
-                            <th className="text-left px-6 py-4 font-bold text-slate-500 text-xs uppercase tracking-wider">Descripción</th>
-                            <th className="text-left px-6 py-4 font-bold text-slate-500 text-xs uppercase tracking-wider">Tipo</th>
-                            <th className="text-right px-6 py-4 font-bold text-slate-500 text-xs uppercase tracking-wider">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50 bg-white">
-                        {rootCategories.map((category, index) => (
-                            <CategoryRow
-                                key={category.id}
-                                category={category}
-                                level={0}
-                                getChildren={getChildren}
-                                onEdit={openEditModal}
-                                onDelete={handleDelete}
-                                isEven={index % 2 === 0}
+                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center xl:justify-end">
+                        <div className="relative min-w-[240px] flex-1 xl:w-[360px] xl:flex-none">
+                            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                value={searchTerm}
+                                onChange={(event) => setSearchTerm(event.target.value)}
+                                placeholder="Buscar categoria..."
+                                className="h-9 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm font-medium text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
                             />
-                        ))}
-                        {rootCategories.length === 0 && (
-                            <tr>
-                                <td colSpan="4" className="text-center py-12 text-slate-400 font-medium">
-                                    No hay categorías. Crea una para comenzar.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                        </div>
+                        <Button id="tour-categories-add-btn" onClick={openCreateModal} className="h-9 rounded-md px-3 text-sm font-black">
+                            <Plus size={16} />
+                            Nueva Categoria
+                        </Button>
+                    </div>
+                </div>
+            </section>
 
-            {/* Mobile View */}
-            <div className="md:hidden space-y-4">
-                {rootCategories.length === 0 ? (
-                    <div className="text-center py-12 text-slate-400 font-medium bg-white rounded-lg border border-slate-200">
-                        No hay categorías. Crea una para comenzar.
+            <section className="hidden rounded-b-lg border border-slate-200 bg-slate-50/80 p-2 shadow-sm md:block">
+                {filteredRoots.length === 0 ? (
+                    <div className="flex min-h-64 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white text-center">
+                        <div className="max-w-sm px-6 py-8">
+                            <FolderPlus size={30} className="mx-auto mb-3 text-slate-300" />
+                            <p className="font-black text-slate-700">No hay categorias para mostrar</p>
+                            <p className="mt-1 text-xs font-medium text-slate-400">Crea una categoria o ajusta la busqueda.</p>
+                        </div>
                     </div>
                 ) : (
-                    rootCategories.map(category => (
+                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 min-[1900px]:grid-cols-5">
+                        {filteredRoots.map(category => (
+                            <CategoryCard
+                                key={category.id}
+                                category={category}
+                                children={getChildren(category.id)}
+                                onEdit={openEditModal}
+                                onDelete={handleDelete}
+                            />
+                        ))}
+                    </div>
+                )}
+            </section>
+
+            <div className="md:hidden space-y-3">
+                {filteredRoots.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-slate-200 bg-white px-5 py-10 text-center shadow-sm">
+                        <FolderPlus size={28} className="mx-auto mb-3 text-slate-300" />
+                        <p className="font-black text-slate-700">No hay categorias para mostrar</p>
+                        <p className="mt-1 text-xs font-medium text-slate-400">Crea una categoria o ajusta la busqueda.</p>
+                    </div>
+                ) : (
+                    filteredRoots.map(category => (
                         <MobileCategoryItem
                             key={category.id}
                             category={category}
@@ -158,73 +183,63 @@ const CategoriesTab = () => {
     );
 };
 
-// Recursive component for Desktop Table
-const CategoryRow = ({ category, level, getChildren, onEdit, onDelete, isEven }) => {
-    const children = getChildren(category.id);
-    const indent = level * 32;
-
+const CategoryCard = ({ category, children, onEdit, onDelete }) => {
     return (
-        <>
-            <tr className={clsx(
-                "transition-colors duration-200 hover:bg-indigo-50/40",
-                isEven ? "bg-white" : "bg-slate-50/30"
-            )}>
-                <td className="px-6 py-4">
-                    <div className="flex items-center" style={{ paddingLeft: `${indent}px` }}>
-                        {level === 0 ? (
-                            <div className="bg-indigo-50 p-1.5 rounded-lg mr-3 text-indigo-600 border border-indigo-100">
-                                <FolderTree size={16} />
-                            </div>
-                        ) : (
-                            <div className="relative mr-3 before:absolute before:content-[''] before:w-4 before:h-[1px] before:bg-slate-300 before:-left-4 before:top-1/2">
-                                <Folder size={16} className="text-slate-400" />
-                            </div>
-                        )}
-                        <span className={`font-bold ${level === 0 ? 'text-slate-800' : 'text-slate-600'}`}>
-                            {category.name}
-                        </span>
+        <article className="flex min-h-[170px] flex-col rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-3">
+                <div className="flex min-w-0 items-start gap-2.5">
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md border border-indigo-100 bg-indigo-50 text-indigo-600">
+                        <FolderTree size={17} />
                     </div>
-                </td>
-                <td className="px-6 py-4 text-sm text-slate-500">{category.description || <span className="text-slate-300 italic">Sin descripción</span>}</td>
-                <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${level === 0
-                        ? 'bg-indigo-50 text-indigo-700 border-indigo-100'
-                        : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}>
-                        {level === 0 ? 'Principal' : 'Subcategoría'}
-                    </span>
-                </td>
-                <td className="px-6 py-4">
-                    <div className="flex justify-end gap-2">
-                        <button
-                            onClick={() => onEdit(category)}
-                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="Editar"
-                        >
-                            <Edit2 size={16} />
-                        </button>
-                        <button
-                            onClick={() => onDelete(category.id, category.name)}
-                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                            title="Eliminar"
-                        >
-                            <Trash2 size={16} />
-                        </button>
+                    <div className="min-w-0">
+                        <h3 className="line-clamp-2 text-sm font-black leading-snug text-slate-900">{category.name}</h3>
+                        <div className="mt-1 flex flex-wrap items-center gap-1">
+                            <span className="rounded-md border border-indigo-100 bg-indigo-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-indigo-700">Principal</span>
+                            <span className="rounded-md border border-slate-100 bg-slate-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-500">{children.length} sub</span>
+                        </div>
                     </div>
-                </td>
-            </tr>
-            {children.map((child, idx) => (
-                <CategoryRow
-                    key={child.id}
-                    category={child}
-                    level={level + 1}
-                    getChildren={getChildren}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                    isEven={isEven}
-                />
-            ))}
-        </>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                    <button onClick={() => onEdit(category)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-indigo-600 shadow-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50" title="Editar">
+                        <Edit2 size={14} />
+                    </button>
+                    <button onClick={() => onDelete(category.id, category.name)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-rose-500 shadow-sm transition-colors hover:border-rose-200 hover:bg-rose-50" title="Eliminar">
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+            </div>
+
+            <div className="flex flex-1 flex-col p-3">
+                <p className="line-clamp-2 min-h-[32px] text-xs font-medium leading-relaxed text-slate-500">
+                    {category.description || <span className="italic text-slate-300">Sin descripcion</span>}
+                </p>
+
+                <div className="mt-3 flex-1 rounded-md border border-slate-100 bg-slate-50/70">
+                    {children.length === 0 ? (
+                        <div className="flex h-full min-h-[58px] items-center justify-center px-3 text-xs font-bold text-slate-300">Sin subcategorias</div>
+                    ) : (
+                        <div className="max-h-28 divide-y divide-slate-100 overflow-y-auto">
+                            {children.map(child => (
+                                <div key={child.id} className="group flex items-center justify-between gap-2 px-2.5 py-1.5">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        <Folder size={13} className="flex-shrink-0 text-slate-400" />
+                                        <span className="truncate text-xs font-bold text-slate-600">{child.name}</span>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-0.5 opacity-70 transition-opacity group-hover:opacity-100">
+                                        <button onClick={() => onEdit(child)} className="rounded p-1 text-indigo-500 hover:bg-indigo-50" title="Editar subcategoria">
+                                            <Edit2 size={12} />
+                                        </button>
+                                        <button onClick={() => onDelete(child.id, child.name)} className="rounded p-1 text-rose-500 hover:bg-rose-50" title="Eliminar subcategoria">
+                                            <Trash2 size={12} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </article>
     );
 };
 
