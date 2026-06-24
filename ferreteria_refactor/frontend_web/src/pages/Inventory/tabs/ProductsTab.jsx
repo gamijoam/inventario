@@ -614,18 +614,18 @@ const ProductsTab = () => {
     };
 
     return (
-        <div id="tour-products-panel" className="space-y-3 animate-in fade-in duration-300">
+        <div id="tour-products-panel" className="space-y-2 animate-in fade-in duration-300">
 
             {/* Toolbar */}
-            <div className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm">
-                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="rounded-t-lg border border-b-0 border-slate-200 bg-white p-2 shadow-sm">
+                <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
                     <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-                        <div id="tour-products-search" className="min-w-[220px] flex-1 lg:max-w-md">
+                        <div id="tour-products-search" className="min-w-[240px] flex-1 xl:max-w-2xl">
                             <SearchWithScanner
                                 value={searchTerm}
                                 onChange={setSearchTerm}
                                 placeholder="Buscar por nombre, SKU o serial..."
-                                inputClassName="h-10 bg-white rounded-md border-slate-200 shadow-none"
+                                inputClassName="h-9 bg-white rounded-md border-slate-200 shadow-none"
                             />
                         </div>
                         <button
@@ -644,7 +644,7 @@ const ProductsTab = () => {
                         </button>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                    <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <button className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900">
@@ -834,8 +834,8 @@ const ProductsTab = () => {
                 ))}
             </div>
             {/* Tabla Desktop */}
-            <div id="tour-products-list" className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:block">
-                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-3 py-2">
+            <div id="tour-products-list" className="hidden overflow-hidden rounded-b-lg border border-slate-200 bg-white shadow-sm md:block">
+                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-2.5 py-1.5">
                     <div className="flex items-center gap-2">
                         <p className="text-xs font-black uppercase tracking-wide text-slate-400">Catalogo</p>
                         <span className="hidden sm:inline text-xs font-bold text-slate-500">venta, stock y edicion rapida</span>
@@ -848,10 +848,10 @@ const ProductsTab = () => {
                 <table className="w-full table-fixed text-sm">
                     <thead>
                         <tr className="border-b border-slate-200 bg-white">
-                            <th className="w-[55%] px-3 py-2.5 text-left text-xs font-black uppercase tracking-wider text-slate-400">Producto</th>
-                            <th className="w-[22%] px-3 py-2.5 text-right text-xs font-black uppercase tracking-wide text-slate-400">Precio</th>
-                            <th className="w-[16%] px-3 py-2.5 text-right text-xs font-black uppercase tracking-wide text-slate-400">Stock</th>
-                            <th className="w-[7%] px-2 py-2.5" />
+                            <th className="w-[62%] px-2.5 py-2 text-left text-[11px] font-black uppercase tracking-wider text-slate-400">Producto</th>
+                            <th className="w-[19%] px-2.5 py-2 text-right text-[11px] font-black uppercase tracking-wide text-slate-400">Precio</th>
+                            <th className="w-[14%] px-2.5 py-2 text-right text-[11px] font-black uppercase tracking-wide text-slate-400">Stock</th>
+                            <th className="w-[5%] px-2 py-2" />
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -873,13 +873,13 @@ const ProductsTab = () => {
                             </tr>
                         ) : filteredProducts.map(product => (
                             <tr key={product.id} className="group transition-colors hover:bg-slate-50/80">
-                                <td className="px-3 py-2 align-middle">
+                                <td className="px-2.5 py-1.5 align-middle">
                                     <div className="flex min-w-0 items-center gap-2.5">
                                         <ProductThumbnail
                                             imageUrl={product.image_url}
                                             productName={product.name}
                                             size="sm"
-                                            className="h-9 w-9 flex-shrink-0 rounded-md border border-slate-100 bg-slate-50 object-cover shadow-sm transition-transform group-hover:scale-[1.03]"
+                                            className="h-8 w-8 flex-shrink-0 rounded-md border border-slate-100 bg-slate-50 object-cover shadow-sm transition-transform group-hover:scale-[1.03]"
                                         />
                                         <div className="min-w-0">
                                             <button
@@ -919,7 +919,7 @@ const ProductsTab = () => {
                                 </td>
 
 
-                                <td className="px-3 py-2 text-right align-middle">
+                                <td className="px-2.5 py-1.5 text-right align-middle">
                                     <div className="text-sm font-black leading-tight text-slate-900">{formatMoney(product.price)}</div>
                                     {convertProductPrice && (
                                         <div className="mt-0.5 text-[11px] font-bold text-slate-400">
@@ -941,11 +941,11 @@ const ProductsTab = () => {
                                     )}
                                 </td>
 
-                                <td className="px-3 py-2 align-middle">
+                                <td className="px-2.5 py-1.5 align-middle">
                                     <StockPill stock={product.stock} minStock={product.min_stock} />
                                 </td>
 
-                                <td className="px-2 py-2 text-right align-middle">
+                                <td className="px-2 py-1.5 text-right align-middle">
                                     {isAdmin && (
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
@@ -1019,7 +1019,7 @@ const ProductsTab = () => {
                 const from = filteredTotal === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1;
                 const to   = Math.min(currentPage * ITEMS_PER_PAGE, filteredTotal);
                 return (
-                    <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-xs text-slate-500 font-medium">
                             {filteredTotal === 0 ? 'Sin resultados' : (
                                 <>

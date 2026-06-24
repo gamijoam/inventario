@@ -136,33 +136,31 @@ const InventoryCenter = () => {
     // MAIN RENDER
     // ============================================================
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-slate-50/80 md:-mx-4 lg:-mx-6">
             <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85">
-                <div className="mx-auto max-w-[1680px] px-3 sm:px-5">
-                    <div className="flex flex-col gap-2 py-2.5">
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-400">
-                                    <Package size={14} /> Inventario
+                <div className="w-full px-2.5 sm:px-4 lg:px-5">
+                    <div className="flex flex-col gap-1.5 py-2">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                                <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-slate-400">
+                                    <Package size={13} /> Inventario
                                 </div>
-                                <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                                    <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">Centro de Inventario</h1>
-                                    <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-bold text-slate-600">
-                                        <ActiveIcon size={12} /> {activeTabMeta.label}
+                                <h1 className="text-lg font-black text-slate-900 tracking-tight">Centro de Inventario</h1>
+                                <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                                    <ActiveIcon size={12} /> {activeTabMeta.label}
+                                </span>
+                                {activeDescription && (
+                                    <span className="hidden xl:inline min-w-0 truncate text-xs font-medium text-slate-500">
+                                        {activeDescription.desc}
                                     </span>
-                                    {activeDescription && (
-                                        <span className="hidden lg:inline text-xs font-medium text-slate-500">
-                                            {activeDescription.desc}
-                                        </span>
-                                    )}
-                                </div>
+                                )}
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex shrink-0 items-center gap-2">
                                 <button
                                     id="tour-inventory-export-center"
                                     type="button"
                                     onClick={() => setIsExportOpen(true)}
-                                    className="inline-flex h-9 items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 text-sm font-black text-indigo-700 shadow-sm transition-colors hover:border-indigo-300 hover:bg-indigo-100"
+                                    className="inline-flex h-8 items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 text-xs font-black text-indigo-700 shadow-sm transition-colors hover:border-indigo-300 hover:bg-indigo-100"
                                 >
                                     <Download size={16} />
                                     <span className="hidden sm:inline">Exportar datos</span>
@@ -171,7 +169,7 @@ const InventoryCenter = () => {
                             </div>
                         </div>
 
-                        <div id="tour-inventory-tabs" className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide" role="tablist" aria-label="Secciones de inventario">
+                        <div id="tour-inventory-tabs" className="flex gap-1 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Secciones de inventario">
                             {TABS.map(tab => {
                                 const TabIcon = tab.icon;
                                 const isActive = activeTab === tab.id;
@@ -183,7 +181,7 @@ const InventoryCenter = () => {
                                         role="tab"
                                         aria-selected={isActive}
                                         onClick={() => setActiveTab(tab.id)}
-                                        className={`flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-bold transition-colors ${
+                                        className={`flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-bold transition-colors ${
                                             isActive
                                                 ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-100'
                                                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -199,7 +197,7 @@ const InventoryCenter = () => {
                 </div>
             </div>
 
-            <main className="mx-auto max-w-[1680px] px-3 py-3 sm:px-5 sm:py-4">
+            <main className="w-full px-2.5 py-2.5 sm:px-4 lg:px-5">
                 {renderTabContent()}
             </main>
 
