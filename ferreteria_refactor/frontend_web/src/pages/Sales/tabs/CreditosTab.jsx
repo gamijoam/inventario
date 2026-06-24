@@ -542,29 +542,29 @@ const CreditosTab = ({ dateRange }) => {
     // RENDER: CXC Sub-tab
     // ============================================================
     const renderCxc = () => (
-        <div id="tour-credits-cxc" className="space-y-6">
+        <div id="tour-credits-cxc" className="space-y-2">
             {/* Stats Cards */}
-            <div id="tour-credits-summary" className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div id="tour-credits-summary" className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 {STATS_CARDS.map((stat, idx) => (
-                    <div key={idx} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col relative overflow-hidden group hover:shadow-md transition-all">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <div key={idx} className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 flex flex-col relative overflow-hidden group hover:shadow-md transition-all">
+                        <div className="hidden">
                             <stat.icon size={80} className={`text-${stat.color}-600 transform translate-x-4 -translate-y-4`} />
                         </div>
                         <div className="relative z-10">
-                            <p className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-2">{stat.title}</p>
-                            <p className={`text-2xl md:text-3xl font-black text-${stat.color}-600 tracking-tight`}>
+                            <p className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-1">{stat.title}</p>
+                            <p className={`text-xl md:text-2xl font-black text-${stat.color}-600 tracking-tight`}>
                                 ${stat.value.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
                             </p>
-                            <p className="text-slate-400 text-xs mt-2 font-medium">{stat.subtext}</p>
+                            <p className="text-slate-400 text-xs mt-1 font-medium">{stat.subtext}</p>
                         </div>
                     </div>
                 ))}
             </div>
 
             {/* Controls */}
-            <div id="tour-credits-controls" className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sticky top-4 z-20 flex flex-col lg:flex-row justify-between items-center gap-4">
+            <div id="tour-credits-controls" className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 sticky top-2 z-20 flex flex-col lg:flex-row justify-between items-center gap-2">
                 {/* Filters */}
-                <div className="flex bg-slate-100 p-1.5 rounded-xl w-full lg:w-auto overflow-x-auto">
+                <div className="flex bg-slate-100 p-1 rounded-lg w-full lg:w-auto overflow-x-auto">
                     {[
                         { id: 'pending', label: 'Pendientes', icon: DollarSign },
                         { id: 'overdue', label: 'Vencidas', icon: AlertCircle },
@@ -574,7 +574,7 @@ const CreditosTab = ({ dateRange }) => {
                             key={tab.id}
                             onClick={() => setCxcFilter(tab.id)}
                             className={clsx(
-                                "px-4 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap",
+                                "px-3 py-2 rounded-md font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap",
                                 cxcFilter === tab.id
                                     ? "bg-white text-indigo-700 shadow-sm"
                                     : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
@@ -587,40 +587,40 @@ const CreditosTab = ({ dateRange }) => {
                 </div>
 
                 {/* Search & View Mode */}
-                <div className="flex items-center gap-4 w-full lg:w-auto">
-                    <div className="relative flex-1 lg:w-64">
-                        <Search className="absolute left-3 top-3 text-slate-400" size={18} />
+                <div className="flex items-center gap-2 w-full lg:w-auto">
+                    <div className="relative flex-1 lg:w-72">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         <input
                             type="text"
                             placeholder="Buscar cliente, factura..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 transition-all placeholder:text-slate-400"
+                            className="w-full h-9 pl-9 pr-3 bg-slate-50 border border-slate-200 rounded-md focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm font-bold text-slate-700 transition-all placeholder:text-slate-400"
                         />
                     </div>
 
                     <div className="h-8 w-px bg-slate-200 mx-2 hidden lg:block" />
 
-                    <div className="flex bg-slate-100 p-1 rounded-lg shrink-0">
+                    <div className="flex bg-slate-100 p-1 rounded-md shrink-0">
                         <button
                             onClick={() => setViewMode('invoices')}
                             className={clsx(
-                                "p-2 rounded-lg transition-all",
+                                "p-1.5 rounded-md transition-all",
                                 viewMode === 'invoices' ? 'bg-white shadow text-indigo-600' : 'text-slate-400 hover:text-slate-600'
                             )}
                             title="Ver Facturas"
                         >
-                            <Calendar size={20} />
+                            <Calendar size={18} />
                         </button>
                         <button
                             onClick={() => setViewMode('clients')}
                             className={clsx(
-                                "p-2 rounded-lg transition-all",
+                                "p-1.5 rounded-md transition-all",
                                 viewMode === 'clients' ? 'bg-white shadow text-indigo-600' : 'text-slate-400 hover:text-slate-600'
                             )}
                             title="Ver por Clientes"
                         >
-                            <Users size={20} />
+                            <Users size={18} />
                         </button>
                     </div>
                 </div>
@@ -628,12 +628,12 @@ const CreditosTab = ({ dateRange }) => {
 
             {/* Invoice View */}
             {viewMode === 'invoices' ? (
-                <div id="tour-credits-list" className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div id="tour-credits-list" className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-slate-50 border-b border-slate-200">
                                 <tr>
-                                    <th className="py-3 px-4 w-10 text-center">
+                                    <th className="py-2.5 px-3 w-10 text-center">
                                         <input
                                             type="checkbox"
                                             className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
@@ -669,7 +669,7 @@ const CreditosTab = ({ dateRange }) => {
                                                 "hover:bg-slate-50/50 transition-colors",
                                                 selectedInvoices.includes(inv.id) && "bg-indigo-50/30"
                                             )}>
-                                                <td className="py-3 px-4 text-center">
+                                                <td className="py-2.5 px-3 text-center">
                                                     {!inv.paid && (
                                                         <input
                                                             type="checkbox"
@@ -679,12 +679,12 @@ const CreditosTab = ({ dateRange }) => {
                                                         />
                                                     )}
                                                 </td>
-                                                <td className="py-3 px-4 font-bold text-indigo-600">#{inv.id}</td>
-                                                <td className="py-3 px-4">
+                                                <td className="py-2.5 px-3 font-bold text-indigo-600">#{inv.id}</td>
+                                                <td className="py-2.5 px-3">
                                                     <p className="font-medium text-slate-800">{inv.customer?.name || 'Cliente General'}</p>
                                                     <p className="text-xs text-slate-400">{inv.customer?.id_number || ''}</p>
                                                 </td>
-                                                <td className="py-3 px-4 text-sm">
+                                                <td className="py-2.5 px-3 text-sm">
                                                     <div className="text-slate-700">{new Date(inv.date).toLocaleDateString()}</div>
                                                     {inv.due_date && (
                                                         <div className={clsx("text-xs", daysOverdue > 0 ? "text-rose-500 font-bold" : "text-slate-400")}>
@@ -693,10 +693,10 @@ const CreditosTab = ({ dateRange }) => {
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="py-3 px-4 text-right font-medium text-slate-700">
+                                                <td className="py-2.5 px-3 text-right font-medium text-slate-700">
                                                     {formatUSD(inv.total_amount)}
                                                 </td>
-                                                <td className="py-3 px-4 text-right font-bold text-slate-900">
+                                                <td className="py-2.5 px-3 text-right font-bold text-slate-900">
                                                     {formatUSD(inv.balance_pending || inv.total_amount)}
                                                     {inv.credit_installments && (
                                                         <div className="text-[10px] text-slate-400 mt-0.5">
@@ -704,7 +704,7 @@ const CreditosTab = ({ dateRange }) => {
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="py-3 px-4 text-center">
+                                                <td className="py-2.5 px-3 text-center">
                                                     {inv.paid ? (
                                                         <span className="text-emerald-600 font-bold text-[10px] bg-emerald-50 px-2 py-1 rounded">PAGADO</span>
                                                     ) : (inv.due_date && new Date(inv.due_date) < new Date()) ? (
@@ -713,7 +713,7 @@ const CreditosTab = ({ dateRange }) => {
                                                         <span className="text-slate-500 font-bold text-[10px] bg-slate-100 px-2 py-1 rounded">PENDIENTE</span>
                                                     )}
                                                 </td>
-                                                <td className="py-3 px-4 text-right">
+                                                <td className="py-2.5 px-3 text-right">
                                                     <div className="flex justify-end gap-2">
                                                         <button
                                                             onClick={() => handleViewDetail(inv)}
@@ -740,11 +740,11 @@ const CreditosTab = ({ dateRange }) => {
                     </div>
 
                     {hasMore && (
-                        <div className="p-4 border-t border-slate-100 flex justify-center">
+                        <div className="p-3 border-t border-slate-100 flex justify-center">
                             <button
                                 onClick={() => setPage(p => p + 1)}
                                 disabled={loading}
-                                className="px-6 py-2 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 rounded-xl text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+                                className="px-4 py-2 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 rounded-md text-sm font-bold shadow-sm transition-all disabled:opacity-50"
                             >
                                 {loading ? 'Cargando...' : 'Cargar más'}
                             </button>
@@ -753,11 +753,11 @@ const CreditosTab = ({ dateRange }) => {
                 </div>
             ) : (
                 // Clients view
-                <div className="space-y-3">
+                <div className="space-y-2">
                     {loading ? (
                         <div className="text-center py-10 text-slate-400">Cargando...</div>
                     ) : clientsArray.length === 0 ? (
-                        <div className="text-center py-10 bg-white rounded-2xl shadow-sm border border-slate-200 text-slate-400">
+                        <div className="text-center py-8 bg-white rounded-lg shadow-sm border border-slate-200 text-slate-400">
                             No hay clientes con deuda {cxcFilter === 'pending' ? 'pendiente' : cxcFilter === 'overdue' ? 'vencida' : 'pagada'}.
                         </div>
                     ) : (
@@ -765,13 +765,13 @@ const CreditosTab = ({ dateRange }) => {
                             const clientKey = `${client.id}_${client.name}`;
                             const isExpanded = expandedClients[clientKey];
                             return (
-                                <div key={clientKey} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                                <div key={clientKey} className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                                     <div
-                                        className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 cursor-pointer hover:bg-slate-50/50 transition-colors"
+                                        className="p-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/50 transition-colors"
                                         onClick={() => toggleClientExpand(clientKey)}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold shrink-0">
+                                            <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold shrink-0">
                                                 {client.name.charAt(0).toUpperCase()}
                                             </div>
                                             <div>
@@ -780,13 +780,13 @@ const CreditosTab = ({ dateRange }) => {
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-8 w-full md:w-auto justify-between md:justify-end">
+                                        <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
                                             <div className="text-right">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Deuda Total</p>
-                                                <p className="text-2xl font-black text-slate-800 tracking-tight">${client.total_debt.toLocaleString('es-ES', { minimumFractionDigits: 2 })}</p>
+                                                <p className="text-xl font-black text-slate-800 tracking-tight">${client.total_debt.toLocaleString('es-ES', { minimumFractionDigits: 2 })}</p>
                                             </div>
                                             {client.overdue_count > 0 && (
-                                                <div className="bg-rose-50 text-rose-600 px-3 py-1.5 rounded-xl text-xs font-bold border border-rose-100 flex items-center gap-1.5">
+                                                <div className="bg-rose-50 text-rose-600 px-3 py-1.5 rounded-md text-xs font-bold border border-rose-100 flex items-center gap-1.5">
                                                     <AlertCircle size={14} />
                                                     {client.overdue_count} vencidas
                                                 </div>
@@ -798,12 +798,12 @@ const CreditosTab = ({ dateRange }) => {
                                     </div>
 
                                     {isExpanded && (
-                                        <div className="border-t border-slate-100 bg-slate-50/50 p-4">
-                                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                        <div className="border-t border-slate-100 bg-slate-50/50 p-3">
+                                            <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                                                 <table className="w-full text-sm">
                                                     <thead className="bg-slate-50">
                                                         <tr className="text-slate-500 border-b border-slate-200 text-xs uppercase tracking-wider">
-                                                            <th className="py-3 px-4 w-10 text-center">
+                                                            <th className="py-2.5 px-3 w-10 text-center">
                                                                 <input
                                                                     type="checkbox"
                                                                     className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
@@ -830,7 +830,7 @@ const CreditosTab = ({ dateRange }) => {
                                                     <tbody className="divide-y divide-slate-100">
                                                         {client.invoices.map(inv => (
                                                             <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
-                                                                <td className="py-3 px-4 text-center">
+                                                                <td className="py-2.5 px-3 text-center">
                                                                     {!inv.paid && (
                                                                         <input
                                                                             type="checkbox"
@@ -840,15 +840,15 @@ const CreditosTab = ({ dateRange }) => {
                                                                         />
                                                                     )}
                                                                 </td>
-                                                                <td className="py-3 px-4 font-medium text-slate-700">#{inv.id}</td>
-                                                                <td className="py-3 px-4 text-slate-500 text-xs">
+                                                                <td className="py-2.5 px-3 font-medium text-slate-700">#{inv.id}</td>
+                                                                <td className="py-2.5 px-3 text-slate-500 text-xs">
                                                                     <div>{new Date(inv.date).toLocaleDateString()}</div>
                                                                     <div className="text-slate-400">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : '-'}</div>
                                                                 </td>
-                                                                <td className="py-3 px-4 text-right font-bold text-slate-800">
+                                                                <td className="py-2.5 px-3 text-right font-bold text-slate-800">
                                                                     ${Number(inv.balance_pending || inv.total_amount).toFixed(2)}
                                                                 </td>
-                                                                <td className="py-3 px-4 text-center">
+                                                                <td className="py-2.5 px-3 text-center">
                                                                     {inv.paid ? (
                                                                         <span className="text-emerald-600 font-bold text-[10px] bg-emerald-50 px-2 py-1 rounded">PAGADO</span>
                                                                     ) : (inv.due_date && new Date(inv.due_date) < new Date()) ? (
@@ -857,7 +857,7 @@ const CreditosTab = ({ dateRange }) => {
                                                                         <span className="text-slate-500 font-bold text-[10px] bg-slate-100 px-2 py-1 rounded">PENDIENTE</span>
                                                                     )}
                                                                 </td>
-                                                                <td className="py-3 px-4 text-right">
+                                                                <td className="py-2.5 px-3 text-right">
                                                                     <div className="flex justify-end gap-2">
                                                                         <button
                                                                             onClick={(e) => { e.stopPropagation(); handleViewDetail(inv); }}
@@ -891,11 +891,11 @@ const CreditosTab = ({ dateRange }) => {
 
             {/* Bulk Action Bar */}
             {selectedInvoices.length > 0 && (
-                <div id="tour-credits-bulk-bar" className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-6 border border-slate-700/50 backdrop-blur-md bg-slate-900/90 max-w-2xl w-[90%] md:w-auto">
+                <div id="tour-credits-bulk-bar" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white p-3 rounded-lg shadow-2xl flex items-center gap-4 border border-slate-700/50 backdrop-blur-md bg-slate-900/90 max-w-2xl w-[90%] md:w-auto">
                     <div>
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Total a Pagar</p>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-black tracking-tight">
+                            <span className="text-xl font-black tracking-tight">
                                 ${invoices.filter(inv => selectedInvoices.includes(inv.id))
                                     .reduce((sum, inv) => sum + (inv.balance_pending || inv.total_amount), 0)
                                     .toFixed(2)}
@@ -906,14 +906,14 @@ const CreditosTab = ({ dateRange }) => {
                     <div className="h-10 w-px bg-slate-700 mx-2" />
                     <button
                         onClick={handleBulkPayment}
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-indigo-900/50 transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-md font-bold shadow-lg shadow-indigo-900/50 transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
                     >
                         <Wallet size={20} />
                         Pagar Seleccion
                     </button>
                     <button
                         onClick={() => setSelectedInvoices([])}
-                        className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
+                        className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors"
                     >
                         <X size={20} />
                     </button>
@@ -926,11 +926,11 @@ const CreditosTab = ({ dateRange }) => {
     // RENDER: Aging Sub-tab
     // ============================================================
     const renderAging = () => (
-        <div className="space-y-4">
+        <div className="space-y-2">
             {loadingAging ? (
                 <div className="text-center py-10 text-slate-400">Cargando reporte de antigüedad...</div>
             ) : (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="min-w-[700px] w-full divide-y divide-gray-200">
                             <thead className="bg-slate-50">
@@ -947,25 +947,25 @@ const CreditosTab = ({ dateRange }) => {
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {agingReport.map((item) => (
                                     <tr key={item.client_id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                                        <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
                                             {item.client_name}
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right font-bold text-slate-900">
+                                        <td className="px-3 py-3 whitespace-nowrap text-sm text-right font-bold text-slate-900">
                                             {formatUSD(item.total_debt)}
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right text-green-700 bg-green-50 font-medium">
+                                        <td className="px-3 py-3 whitespace-nowrap text-sm text-right text-green-700 bg-green-50 font-medium">
                                             {item.current > 0 ? formatUSD(item.current) : '-'}
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right text-yellow-700 bg-yellow-50 font-medium">
+                                        <td className="px-3 py-3 whitespace-nowrap text-sm text-right text-yellow-700 bg-yellow-50 font-medium">
                                             {item.days_15_30 > 0 ? formatUSD(item.days_15_30) : '-'}
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right text-orange-700 bg-orange-50 font-medium">
+                                        <td className="px-3 py-3 whitespace-nowrap text-sm text-right text-orange-700 bg-orange-50 font-medium">
                                             {item.days_30_60 > 0 ? formatUSD(item.days_30_60) : '-'}
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right text-white bg-red-600 font-bold">
+                                        <td className="px-3 py-3 whitespace-nowrap text-sm text-right text-white bg-red-600 font-bold">
                                             {item.days_60_plus > 0 ? formatUSD(item.days_60_plus) : '-'}
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
+                                        <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
                                             <button
                                                 onClick={() => handleViewLedger(item.client_id)}
                                                 className="text-indigo-600 hover:text-indigo-900 font-bold text-xs"
@@ -994,14 +994,14 @@ const CreditosTab = ({ dateRange }) => {
     // RENDER: Ledger Sub-tab
     // ============================================================
     const renderLedger = () => (
-        <div className="space-y-4">
+        <div className="space-y-2">
             {/* Client Selector */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 flex flex-col sm:flex-row items-start sm:items-center gap-2">
                 <label className="text-sm font-bold text-slate-600 whitespace-nowrap">Seleccionar Cliente:</label>
                 <select
                     value={ledgerClientId || ''}
                     onChange={(e) => setLedgerClientId(e.target.value ? Number(e.target.value) : null)}
-                    className="flex-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 text-sm"
+                    className="flex-1 h-9 px-3 bg-slate-50 border border-slate-200 rounded-md focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-slate-700 text-sm"
                 >
                     <option value="">-- Seleccione un cliente --</option>
                     {clientsList.map(client => (
@@ -1011,7 +1011,7 @@ const CreditosTab = ({ dateRange }) => {
                 {ledgerData && (
                     <button
                         onClick={handlePrintLedger}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors print:hidden"
+                        className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-md font-bold text-sm hover:bg-indigo-700 transition-colors print:hidden"
                     >
                         <Printer size={16} />
                         Imprimir
@@ -1020,8 +1020,8 @@ const CreditosTab = ({ dateRange }) => {
             </div>
 
             {!ledgerClientId && (
-                <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-slate-200 border-dashed">
-                    <FileText className="mx-auto text-slate-300 mb-4" size={64} />
+                <div className="text-center py-10 bg-white rounded-lg shadow-sm border border-slate-200 border-dashed">
+                    <FileText className="mx-auto text-slate-300 mb-3" size={42} />
                     <p className="text-slate-500 font-medium text-lg">Seleccione un cliente para ver su estado de cuenta</p>
                     <p className="text-slate-400 text-sm mt-1">O haga clic en "Ver Estado" desde la pestaña Antigüedad</p>
                 </div>
@@ -1034,9 +1034,9 @@ const CreditosTab = ({ dateRange }) => {
             {ledgerData && !loadingLedger && (
                 <>
                     {/* Client Header */}
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-5 rounded-2xl shadow-sm border border-slate-200 print:shadow-none">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-3 rounded-lg shadow-sm border border-slate-200 print:shadow-none">
                         <div>
-                            <h3 className="text-xl font-bold text-slate-800">{ledgerData.client.name}</h3>
+                            <h3 className="text-lg font-black text-slate-800">{ledgerData.client.name}</h3>
                             <p className="text-slate-500 text-sm">ID Cliente: {ledgerData.client.id}</p>
                         </div>
                         <div className="mt-4 md:mt-0 text-right">
@@ -1049,7 +1049,7 @@ const CreditosTab = ({ dateRange }) => {
                     </div>
 
                     {/* Ledger Table */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print:shadow-none">
+                    <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden print:shadow-none">
                         <div className="overflow-x-auto">
                             <table className="min-w-[550px] w-full divide-y divide-gray-200">
                                 <thead className="bg-slate-50 print:bg-gray-100">
@@ -1072,26 +1072,26 @@ const CreditosTab = ({ dateRange }) => {
                                     ) : (
                                         ledgerData.ledger.map((row, index) => (
                                             <tr key={index} className="hover:bg-slate-50 transition-colors">
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-900">
+                                                <td className="px-3 py-3 whitespace-nowrap text-sm text-slate-900">
                                                     {row.date ? new Date(row.date).toLocaleDateString() : 'N/A'}
                                                 </td>
-                                                <td className="px-4 py-4 whitespace-normal text-sm text-slate-900">
+                                                <td className="px-3 py-3 whitespace-normal text-sm text-slate-900">
                                                     {row.ref}
                                                 </td>
-                                                <td className="px-4 py-4 whitespace-nowrap text-center">
+                                                <td className="px-3 py-3 whitespace-nowrap text-center">
                                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                                                         row.type === 'VENTA' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
                                                     }`}>
                                                         {row.type}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-right text-slate-500">
+                                                <td className="px-3 py-3 whitespace-nowrap text-sm text-right text-slate-500">
                                                     {row.type === 'VENTA' ? formatUSD(row.debit) : '-'}
                                                 </td>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-right text-slate-500">
+                                                <td className="px-3 py-3 whitespace-nowrap text-sm text-right text-slate-500">
                                                     {row.type === 'ABONO' ? formatUSD(row.credit) : '-'}
                                                 </td>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-right font-bold text-slate-900">
+                                                <td className="px-3 py-3 whitespace-nowrap text-sm text-right font-bold text-slate-900">
                                                     {formatUSD(row.balance)}
                                                 </td>
                                             </tr>
@@ -1100,8 +1100,8 @@ const CreditosTab = ({ dateRange }) => {
                                 </tbody>
                                 <tfoot className="bg-slate-50 font-bold">
                                     <tr>
-                                        <td colSpan="5" className="px-4 py-4 text-right text-sm text-slate-900">Saldo Final:</td>
-                                        <td className="px-4 py-4 text-right text-sm text-slate-900">
+                                        <td colSpan="5" className="px-3 py-3 text-right text-sm text-slate-900">Saldo Final:</td>
+                                        <td className="px-3 py-3 text-right text-sm text-slate-900">
                                             {formatUSD(ledgerData.current_balance)}
                                         </td>
                                     </tr>
@@ -1122,25 +1122,25 @@ const CreditosTab = ({ dateRange }) => {
 
         return (
             <div id="tour-credit-payment-modal" className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-                    <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                         <div>
-                            <h3 className="text-xl font-bold text-slate-800">
+                            <h3 className="text-lg font-black text-slate-800">
                                 {isBulkPay ? 'Pago Multiple' : 'Registrar Abono'}
                             </h3>
                             <p className="text-xs text-slate-500 font-medium">
                                 {isBulkPay ? `${selectedInvoices.length} facturas seleccionadas` : `Factura #${selectedInvoice?.id}`}
                             </p>
                         </div>
-                        <button onClick={() => setShowPaymentModal(false)} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-xl transition-colors border border-slate-200 shadow-sm">
+                        <button onClick={() => setShowPaymentModal(false)} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-md transition-colors border border-slate-200 shadow-sm">
                             <X size={20} />
                         </button>
                     </div>
 
-                    <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                    <div className="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
                         {/* Stats */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Monto Original</p>
                                 <p className="text-lg font-bold text-slate-700">
                                     ${isBulkPay
@@ -1149,7 +1149,7 @@ const CreditosTab = ({ dateRange }) => {
                                     }
                                 </p>
                             </div>
-                            <div className="p-4 rounded-xl bg-rose-50 border border-rose-100">
+                            <div className="p-3 rounded-lg bg-rose-50 border border-rose-100">
                                 <p className="text-[10px] font-bold text-rose-400 uppercase tracking-wider mb-1">Saldo Pendiente</p>
                                 <p className="text-lg font-black text-rose-600">
                                     ${isBulkPay
@@ -1161,7 +1161,7 @@ const CreditosTab = ({ dateRange }) => {
                         </div>
 
                         {/* Rate Selector */}
-                        <div className="bg-white/50 rounded-xl">
+                        <div className="bg-white/50 rounded-md">
                             <div className="mt-3">
                                 <label className="block text-xs font-bold text-indigo-500 uppercase tracking-wider mb-2">Tasa de Cambio a Aplicar</label>
                                 <select
@@ -1213,19 +1213,19 @@ const CreditosTab = ({ dateRange }) => {
                         </div>
 
                         {/* Payment Date Picker */}
-                        <div className="bg-white/50 rounded-xl">
+                        <div className="bg-white/50 rounded-md">
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha de Pago</label>
                             <input
                                 type="date"
                                 value={paymentDate}
                                 max={new Date().toISOString().split('T')[0]}
                                 onChange={(e) => setPaymentDate(e.target.value)}
-                                className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700"
+                                className="w-full p-2.5 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700"
                             />
                         </div>
 
                         {/* Dual Inputs USD / Bs */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-2">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Monto USD ($)</label>
                                 <div className="relative">
@@ -1241,7 +1241,7 @@ const CreditosTab = ({ dateRange }) => {
                                             if (val !== '') setAmountBs((val * r).toFixed(2));
                                             else setAmountBs('');
                                         }}
-                                        className="w-full pl-6 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-lg text-slate-800"
+                                        className="w-full pl-6 pr-3 py-2.5 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-lg text-slate-800"
                                         step="0.01"
                                     />
                                 </div>
@@ -1260,21 +1260,21 @@ const CreditosTab = ({ dateRange }) => {
                                             if (val && r > 0) setPaymentAmount((parseFloat(val) / r).toFixed(2));
                                             else if (!val) setPaymentAmount('');
                                         }}
-                                        className="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-lg text-slate-800"
+                                        className="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-lg text-slate-800"
                                     />
                                 </div>
                             </div>
                         </div>
 
                         {/* Method + Currency */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-2">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Metodo</label>
                                 <select
                                     id="tour-credit-payment-method"
                                     value={paymentMethod}
                                     onChange={(e) => setPaymentMethod(e.target.value)}
-                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 text-sm"
+                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 text-sm"
                                 >
                                     {paymentMethods.filter(pm => pm.is_active).map(pm => (
                                         <option key={pm.id} value={pm.name}>{pm.name}</option>
@@ -1293,7 +1293,7 @@ const CreditosTab = ({ dateRange }) => {
                                         value={reference}
                                         onChange={(e) => setReference(e.target.value)}
                                         placeholder="Ej: 12345678"
-                                        className="w-full p-2.5 bg-indigo-50/50 border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-indigo-700 placeholder:text-indigo-300"
+                                        className="w-full p-2.5 bg-indigo-50/50 border border-indigo-200 rounded-md focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-indigo-700 placeholder:text-indigo-300"
                                     />
                                 </div>
                             )}
@@ -1303,7 +1303,7 @@ const CreditosTab = ({ dateRange }) => {
                                 <select
                                     value={paymentCurrency}
                                     onChange={(e) => setPaymentCurrency(e.target.value)}
-                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700"
+                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700"
                                 >
                                     {[
                                         { symbol: 'USD', name: 'Dolar', rate: 1, is_anchor: true },
@@ -1316,24 +1316,24 @@ const CreditosTab = ({ dateRange }) => {
                         </div>
 
                         {paymentCurrency !== 'USD' && (
-                            <div className="bg-indigo-50 text-indigo-700 px-4 py-3 rounded-xl text-xs font-medium border border-indigo-100 flex items-center gap-2">
+                            <div className="bg-indigo-50 text-indigo-700 px-4 py-3 rounded-md text-xs font-medium border border-indigo-100 flex items-center gap-2">
                                 <Calculator size={16} />
                                 Tasa de cambio: {(getExchangeRate(paymentCurrency) || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })} {paymentCurrency}/USD
                             </div>
                         )}
                     </div>
 
-                    <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-3">
+                    <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex gap-2">
                         <button
                             onClick={() => setShowPaymentModal(false)}
-                            className="flex-1 py-3 font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors"
+                            className="flex-1 py-2.5 font-bold text-slate-600 hover:bg-slate-200 rounded-md transition-colors"
                         >
                             Cancelar
                         </button>
                         <button
                             id="tour-credit-payment-confirm"
                             onClick={handleSavePayment}
-                            className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95"
+                            className="flex-1 py-2.5 bg-indigo-600 text-white rounded-md font-bold shadow-sm shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
                         >
                             <CheckSquare size={18} className="inline mr-2" />
                             Confirmar Pago
@@ -1348,15 +1348,15 @@ const CreditosTab = ({ dateRange }) => {
     // MAIN RENDER
     // ============================================================
     return (
-        <div id="tour-credits-container" className="space-y-6">
+        <div id="tour-credits-container" className="space-y-2">
             {/* Sub-tab Navigation (pill style) */}
-            <div id="tour-credits-tabs" className="flex bg-slate-100 p-1.5 rounded-xl w-fit">
+            <div id="tour-credits-tabs" className="flex bg-slate-100 p-1 rounded-md w-fit max-w-full overflow-x-auto">
                 {SUB_TABS.map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveSubTab(tab.id)}
                         className={clsx(
-                            "px-5 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap",
+                            "px-3 py-2 rounded-md font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap",
                             activeSubTab === tab.id
                                 ? "bg-white text-indigo-700 shadow-sm"
                                 : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
@@ -1371,7 +1371,7 @@ const CreditosTab = ({ dateRange }) => {
             {/* Sub-tab Content */}
             {activeSubTab === 'cxc' && renderCxc()}
             {activeSubTab === 'celulares' && (
-                <div className="p-4">
+                <div className="p-0">
                     <CreditosCelularesTab />
                 </div>
             )}

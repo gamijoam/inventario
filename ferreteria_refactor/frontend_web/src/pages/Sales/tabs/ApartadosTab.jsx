@@ -214,17 +214,17 @@ const ApartadosTab = () => {
     };
 
     return (
-        <div className="space-y-4">
-            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-2">
+            <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex items-start gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-md bg-indigo-50 text-indigo-600">
-                            <Archive size={22} />
+                        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50 text-indigo-600">
+                            <Archive size={18} />
                         </div>
                         <div>
                             <p className="text-xs font-black uppercase tracking-widest text-slate-400">Ventas reservadas</p>
-                            <h2 className="text-2xl font-black text-slate-950">Apartados</h2>
-                            <p className="text-sm font-medium text-slate-500">Controla productos reservados, abonos, vencimientos y liberaciones.</p>
+                            <h2 className="text-lg font-black text-slate-950">Apartados</h2>
+                            <p className="text-xs font-medium text-slate-500">Controla productos reservados, abonos, vencimientos y liberaciones.</p>
                         </div>
                     </div>
                     <button className="inline-flex h-10 items-center gap-2 rounded-md bg-indigo-600 px-4 text-sm font-black text-white shadow-sm opacity-60" title="Se activara al integrar Apartados con POS">
@@ -233,16 +233,16 @@ const ApartadosTab = () => {
                 </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="grid gap-2 md:grid-cols-4">
                 <MetricCard label="Apartados" value={total} icon={FileText} tone="indigo" />
                 <MetricCard label="Abonado" value={money(summary.paidAmount)} icon={DollarSign} tone="emerald" />
                 <MetricCard label="Pendiente" value={money(summary.balanceAmount)} icon={CreditCard} tone="amber" />
                 <MetricCard label="Por vencer" value={summary.dueSoon} icon={CalendarClock} tone="rose" />
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+            <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_380px]">
                 <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-                    <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-col gap-2 border-b border-slate-100 p-3 lg:flex-row lg:items-center lg:justify-between">
                         <div className="flex flex-wrap gap-2">
                             {['ACTIVE', 'PAID', 'COMPLETED', 'CANCELLED', 'EXPIRED', 'ALL'].map((status) => (
                                 <button
@@ -255,11 +255,11 @@ const ApartadosTab = () => {
                             ))}
                         </div>
                         <div className="flex gap-2">
-                            <div className="flex h-9 min-w-[260px] items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3">
+                            <div className="flex h-8 min-w-[240px] items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5">
                                 <Search size={16} className="text-slate-400" />
                                 <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar codigo, cliente, producto..." className="w-full bg-transparent text-sm font-bold outline-none placeholder:text-slate-400" />
                             </div>
-                            <button onClick={fetchLayaways} className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50" title="Actualizar">
+                            <button onClick={fetchLayaways} className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50" title="Actualizar">
                                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                             </button>
                         </div>
@@ -278,9 +278,9 @@ const ApartadosTab = () => {
                             {filteredLayaways.map((item) => {
                                 const left = daysLeft(item.expires_at);
                                 return (
-                                    <button key={item.id} onClick={() => fetchDetail(item.id)} className="grid w-full gap-3 px-4 py-4 text-left transition-colors hover:bg-indigo-50/40 lg:grid-cols-[1fr_140px_140px_130px] lg:items-center">
+                                    <button key={item.id} onClick={() => fetchDetail(item.id)} className="grid w-full gap-2 px-3 py-2.5 text-left transition-colors hover:bg-indigo-50/40 lg:grid-cols-[1fr_130px_130px_110px] lg:items-center">
                                         <div className="min-w-0">
-                                            <div className="mb-1 flex flex-wrap items-center gap-2">
+                                            <div className="mb-1 flex flex-wrap items-center gap-1.5">
                                                 <span className="font-black text-slate-950">{item.code}</span>
                                                 <StatusBadge status={item.status} />
                                             </div>
@@ -311,7 +311,7 @@ const ApartadosTab = () => {
 
                 <aside className="rounded-lg border border-slate-200 bg-white shadow-sm">
                     {!selected ? (
-                        <div className="flex h-full min-h-[520px] flex-col items-center justify-center p-8 text-center text-slate-400">
+                        <div className="flex h-full min-h-[440px] flex-col items-center justify-center p-6 text-center text-slate-400">
                             <Archive size={44} className="mb-3 opacity-40" />
                             <p className="font-black text-slate-700">Selecciona un apartado</p>
                             <p className="text-sm">Veras productos, abonos y acciones disponibles.</p>
@@ -319,12 +319,12 @@ const ApartadosTab = () => {
                     ) : detailLoading ? (
                         <div className="flex h-72 items-center justify-center text-slate-400"><Loader2 className="mr-2 animate-spin" /> Cargando detalle...</div>
                     ) : (
-                        <div className="flex max-h-[calc(100vh-180px)] flex-col">
-                            <div className="border-b border-slate-100 p-4">
+                        <div className="flex max-h-[calc(100vh-210px)] flex-col">
+                            <div className="border-b border-slate-100 p-3">
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
                                         <p className="text-xs font-black uppercase tracking-widest text-slate-400">Detalle</p>
-                                        <h3 className="text-xl font-black text-slate-950">{selected.code}</h3>
+                                        <h3 className="text-lg font-black text-slate-950">{selected.code}</h3>
                                         <p className="text-sm font-bold text-slate-500">{selected.customer_name || 'Sin cliente'}</p>
                                     </div>
                                     <button onClick={() => setSelected(null)} className="rounded-md border border-slate-200 p-2 text-slate-400 hover:bg-slate-50"><X size={16} /></button>
@@ -332,7 +332,7 @@ const ApartadosTab = () => {
                                 <div className="mt-3 flex flex-wrap gap-2"><StatusBadge status={selected.status} /><span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-black text-slate-500">Vence: {formatDate(selected.expires_at)}</span></div>
                             </div>
 
-                            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+                            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
                                 <div className="grid grid-cols-3 gap-2">
                                     <MiniTotal label="Total" value={money(selected.total_amount, selected.currency)} />
                                     <MiniTotal label="Abonado" value={money(selected.paid_amount, selected.currency)} tone="emerald" />
@@ -343,7 +343,7 @@ const ApartadosTab = () => {
                                     <h4 className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Productos reservados</h4>
                                     <div className="space-y-2">
                                         {(selected.items || []).map((line) => (
-                                            <div key={line.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                                            <div key={line.id} className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
                                                 <div className="flex items-start justify-between gap-3">
                                                     <div className="min-w-0">
                                                         <p className="truncate font-black text-slate-900">{line.product_name}</p>
@@ -361,7 +361,7 @@ const ApartadosTab = () => {
                                     <h4 className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Abonos</h4>
                                     <div className="space-y-2">
                                         {(selected.payments || []).length === 0 ? <p className="rounded-md bg-slate-50 p-3 text-sm font-bold text-slate-400">Sin abonos registrados.</p> : selected.payments.map((payment) => (
-                                            <div key={payment.id} className="flex items-center justify-between rounded-md border border-slate-100 p-3">
+                                            <div key={payment.id} className="flex items-center justify-between rounded-md border border-slate-100 p-2.5">
                                                 <div>
                                                     <p className="font-black text-slate-900">{money(payment.amount, payment.currency)}</p>
                                                     <p className="text-xs font-bold text-slate-400">{payment.payment_method} · {formatDate(payment.created_at)}</p>
@@ -423,7 +423,7 @@ const ApartadosTab = () => {
                             </div>
 
                             {(canCancel && !['CANCELLED', 'COMPLETED'].includes(selected.status)) && (
-                                <div className="border-t border-slate-100 p-4">
+                                <div className="border-t border-slate-100 p-3">
                                     <button onClick={handleCancel} disabled={processing} className="h-10 w-full rounded-md border border-rose-200 bg-rose-50 text-sm font-black text-rose-700 hover:bg-rose-100 disabled:opacity-50">Cancelar y liberar productos</button>
                                 </div>
                             )}
@@ -443,13 +443,13 @@ const MetricCard = ({ label, value, icon: Icon, tone }) => {
         rose: 'bg-rose-50 text-rose-700 border-rose-100',
     };
     return (
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
             <div className="flex items-center justify-between gap-3">
                 <div>
                     <p className="text-xs font-black uppercase tracking-widest text-slate-400">{label}</p>
-                    <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
+                    <p className="mt-1 text-xl font-black text-slate-950">{value}</p>
                 </div>
-                <div className={`flex h-11 w-11 items-center justify-center rounded-md border ${toneMap[tone] || toneMap.indigo}`}><Icon size={21} /></div>
+                <div className={`flex h-9 w-9 items-center justify-center rounded-md border ${toneMap[tone] || toneMap.indigo}`}><Icon size={18} /></div>
             </div>
         </div>
     );
@@ -458,7 +458,7 @@ const MetricCard = ({ label, value, icon: Icon, tone }) => {
 const MiniTotal = ({ label, value, tone = 'slate' }) => {
     const colors = tone === 'emerald' ? 'text-emerald-700 bg-emerald-50' : tone === 'amber' ? 'text-amber-700 bg-amber-50' : 'text-slate-900 bg-slate-50';
     return (
-        <div className={`rounded-md p-3 ${colors}`}>
+        <div className={`rounded-md p-2.5 ${colors}`}>
             <p className="text-[10px] font-black uppercase tracking-widest opacity-70">{label}</p>
             <p className="mt-1 font-black">{value}</p>
         </div>
