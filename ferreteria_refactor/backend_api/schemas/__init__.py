@@ -702,17 +702,43 @@ class CashMovementRead(CashMovementCreate):
 
 # ===== CASH REGISTER SCHEMAS =====
 
+class CashFundCreate(BaseModel):
+    name: str
+    code: Optional[str] = None
+    description: Optional[str] = None
+    is_shared: bool = False
+
+class CashFundUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    description: Optional[str] = None
+    is_shared: Optional[bool] = None
+    is_active: Optional[bool] = None
+
+class CashFundRead(BaseModel):
+    id: int
+    name: str
+    code: str
+    description: Optional[str] = None
+    is_shared: bool = False
+    is_active: bool = True
+    created_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 class CashRegisterCreate(BaseModel):
     name: str
     code: str
     description: Optional[str] = None
     hardware_client_id: Optional[str] = None
+    cash_fund_id: Optional[int] = None
 
 class CashRegisterUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
     hardware_client_id: Optional[str] = None
+    cash_fund_id: Optional[int] = None
 
 class CashRegisterRead(BaseModel):
     id: int
@@ -722,6 +748,8 @@ class CashRegisterRead(BaseModel):
     is_active: bool
     created_at: Optional[datetime] = None
     hardware_client_id: Optional[str] = None
+    cash_fund_id: Optional[int] = None
+    cash_fund: Optional[CashFundRead] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -767,7 +795,9 @@ class CashSessionRead(BaseModel):
     status: str
     user_id: Optional[int] = None      # Who opened this session
     register_id: Optional[int] = None
+    cash_fund_id: Optional[int] = None
     register: Optional[CashRegisterRead] = None
+    cash_fund: Optional[CashFundRead] = None
     # NOTE: 'user' removed — forward-ref to UserRead caused 500 on ORM serialization.
     # Use user_id + a separate query if needed.
     movements: List[CashMovementRead] = []

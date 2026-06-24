@@ -497,8 +497,28 @@ class SaleDetail(Base):
     def __repr__(self):
         return f"<SaleDetail(product='{self.product_id}', qty={self.quantity}, tax={self.tax_rate})>"
 
+class CashFund(Base):
+    """Physical money drawer/fund used by one or more cash registers."""
+    __tablename__ = "cash_funds"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    code = Column(String(40), nullable=False, unique=True)
+    description = Column(Text, nullable=True)
+    is_shared = Column(Boolean, default=False, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=get_venezuela_now)
+    updated_at = Column(DateTime, default=get_venezuela_now, onupdate=get_venezuela_now)
+
+    registers = relationship("CashRegister", back_populates="cash_fund")
+    sessions = relationship("CashSession", back_populates="cash_fund")
+
+    def __repr__(self):
+        return f"<CashFund(id={self.id}, code='{self.code}', shared={self.is_shared})>"
+
+
 class CashRegister(Base):
-    """Represents a physical cash register terminal (e.g. 'Caja 1', 'Caja 2')."""
+    """Represents a logical POS/cash register terminal (e.g. 'Caja 1', 'Caja 2')."""
     __tablename__ = "cash_registers"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -507,10 +527,12 @@ class CashRegister(Base):
     description = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=get_venezuela_now)
+    cash_fund_id = Column(Integer, ForeignKey("cash_funds.id"), nullable=True, index=True)
     # Hardware Bridge client ID — matches the "Client ID" configured in Windows Bridge app.
     # Used to route print jobs to the correct printer for each physical register.
     hardware_client_id = Column(String, nullable=True, default=None)
 
+    cash_fund = relationship("CashFund", back_populates="registers")
     sessions = relationship("CashSession", back_populates="register")
 
     def __repr__(self):
@@ -524,6 +546,7 @@ class CashSession(Base):
     user_id = Column(Integer, ForeignKey("public.users.id"), nullable=True)
     # Multi-register support: which cash register this session belongs to
     register_id = Column(Integer, ForeignKey("cash_registers.id"), nullable=True)
+    cash_fund_id = Column(Integer, ForeignKey("cash_funds.id"), nullable=True, index=True)
     start_time = Column(DateTime, default=get_venezuela_now)
     end_time = Column(DateTime, nullable=True)
     initial_cash = Column(Numeric(18, 4), default=0.0000)
@@ -540,6 +563,7 @@ class CashSession(Base):
     currencies = relationship("CashSessionCurrency", back_populates="session", cascade="all, delete-orphan")
     user = relationship("User", foreign_keys=[user_id])
     register = relationship("CashRegister", back_populates="sessions")
+    cash_fund = relationship("CashFund", back_populates="sessions")
 
     def __repr__(self):
         return f"<CashSession(id={self.id}, status='{self.status}', register_id={self.register_id})>"

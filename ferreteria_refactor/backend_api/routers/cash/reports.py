@@ -43,7 +43,8 @@ def get_sessions_history(
     query = db.query(models.CashSession).options(
         joinedload(models.CashSession.currencies),
         joinedload(models.CashSession.user),
-        joinedload(models.CashSession.register)
+        joinedload(models.CashSession.cash_fund),
+        joinedload(models.CashSession.register).joinedload(models.CashRegister.cash_fund)
     )
 
     # Apply date filters if provided
@@ -155,8 +156,21 @@ def get_sessions_history(
             "register": {
                 "id": session.register.id,
                 "name": session.register.name,
-                "code": session.register.code
+                "code": session.register.code,
+                "cash_fund_id": session.register.cash_fund_id,
+                "cash_fund": {
+                    "id": session.register.cash_fund.id,
+                    "name": session.register.cash_fund.name,
+                    "code": session.register.cash_fund.code,
+                    "is_shared": session.register.cash_fund.is_shared,
+                } if session.register.cash_fund else None,
             } if session.register else None,
+            "cash_fund": {
+                "id": (session.cash_fund or (session.register.cash_fund if session.register else None)).id,
+                "name": (session.cash_fund or (session.register.cash_fund if session.register else None)).name,
+                "code": (session.cash_fund or (session.register.cash_fund if session.register else None)).code,
+                "is_shared": (session.cash_fund or (session.register.cash_fund if session.register else None)).is_shared,
+            } if (session.cash_fund or (session.register.cash_fund if session.register else None)) else None,
             "currencies": [
                 {
                     "id": curr.id,

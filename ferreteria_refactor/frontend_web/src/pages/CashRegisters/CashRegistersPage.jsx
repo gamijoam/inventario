@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Plus, Edit2, Power, MonitorCheck, MonitorOff,
-    RefreshCw, Clock, User, Hash, CheckCircle2, XCircle, AlertTriangle
+    RefreshCw, Clock, User, Hash, CheckCircle2, XCircle, AlertTriangle, Wallet
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -62,6 +62,16 @@ const RegisterCard = ({ register, onEdit, onToggle, onForceClose }) => {
                             <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-500 dark:bg-gray-700 dark:text-gray-300">
                                 {register.hardware_client_id || 'sin impresora'}
                             </span>
+                            {register.cash_fund && (
+                                <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                                    register.cash_fund.is_shared
+                                        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                                        : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                                }`}>
+                                    <Wallet className="w-3 h-3" />
+                                    {register.cash_fund.is_shared ? 'Fondo compartido' : 'Fondo individual'}
+                                </span>
+                            )}
                             {register.hardware_client_id && (
                                 <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
                                     register.print_connected
@@ -152,8 +162,8 @@ const RegisterCard = ({ register, onEdit, onToggle, onForceClose }) => {
 };
 
 // ─── Form Modal ───────────────────────────────────────────────────────────────
-const RegisterModal = ({ isOpen, onClose, onSave, editing, registers = [] }) => {
-    const [form, setForm] = useState({ name: '', code: '', description: '', hardware_client_id: '' });
+const RegisterModal = ({ isOpen, onClose, onSave, editing, registers = [], funds = [] }) => {
+    const [form, setForm] = useState({ name: '', code: '', description: '', hardware_client_id: '', cash_fund_id: '' });
     const [saving, setSaving] = useState(false);
     const [errors, setErrors] = useState({});
 
@@ -172,10 +182,16 @@ const RegisterModal = ({ isOpen, onClose, onSave, editing, registers = [] }) => 
 
     useEffect(() => {
         if (editing) {
-            setForm({ name: editing.name, code: editing.code, description: editing.description || '', hardware_client_id: editing.hardware_client_id || '' });
+            setForm({
+                name: editing.name,
+                code: editing.code,
+                description: editing.description || '',
+                hardware_client_id: editing.hardware_client_id || '',
+                cash_fund_id: editing.cash_fund_id ? String(editing.cash_fund_id) : '',
+            });
         } else {
             const defaults = getNextRegisterDefaults();
-            setForm({ name: defaults.name, code: defaults.code, description: '', hardware_client_id: defaults.hardware_client_id });
+            setForm({ name: defaults.name, code: defaults.code, description: '', hardware_client_id: defaults.hardware_client_id, cash_fund_id: '' });
         }
         setErrors({});
     }, [editing, isOpen, registers]);
@@ -199,6 +215,7 @@ const RegisterModal = ({ isOpen, onClose, onSave, editing, registers = [] }) => 
                 ...form,
                 code: form.code.trim().toUpperCase(),
                 hardware_client_id: form.hardware_client_id.trim().toLowerCase(),
+                cash_fund_id: form.cash_fund_id ? Number(form.cash_fund_id) : null,
             });
             onClose();
         } catch (err) {
@@ -295,6 +312,29 @@ const RegisterModal = ({ isOpen, onClose, onSave, editing, registers = [] }) => 
                         </p>
                     </div>
 
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Fondo físico <span className="text-gray-400 font-normal">(cajón real)</span>
+                        </label>
+                        <select
+                            value={form.cash_fund_id}
+                            onChange={e => setForm(f => ({ ...f, cash_fund_id: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm
+                                       bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+                                       focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">Fondo individual automático</option>
+                            {funds.map(fund => (
+                                <option key={fund.id} value={fund.id}>
+                                    {fund.name} {fund.is_shared ? '(compartido)' : '(individual)'}
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-gray-400 mt-1">
+                            Si dos cajas guardan dinero en el mismo cajón, asígnales el mismo fondo compartido.
+                        </p>
+                    </div>
+
                     <div className="flex gap-3 pt-2">
                         <button
                             type="button"
@@ -326,10 +366,20 @@ const RegisterModal = ({ isOpen, onClose, onSave, editing, registers = [] }) => 
 const CashRegistersPage = () => {
     const help = useHelp();
     const [registers, setRegisters] = useState([]);
+    const [funds, setFunds] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState(null);
+
+    const fetchFunds = useCallback(async () => {
+        try {
+            const { data } = await apiClient.get('/cash/funds');
+            setFunds(data || []);
+        } catch (err) {
+            toast.error(getApiErrorMessage(err, 'Error al cargar fondos físicos'));
+        }
+    }, []);
 
     const fetchRegisters = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
@@ -349,25 +399,41 @@ const CashRegistersPage = () => {
 
     useEffect(() => {
         fetchRegisters();
+        fetchFunds();
         // Auto-refresh every 30s to update open/closed status
         const interval = setInterval(() => fetchRegisters(true), 30_000);
         return () => clearInterval(interval);
-    }, [fetchRegisters]);
+    }, [fetchRegisters, fetchFunds]);
 
     const handleCreate = async (formData) => {
         await apiClient.post('/cash/registers', formData);
         toast.success(`Caja "${formData.name}" creada exitosamente`);
         fetchRegisters(true);
+        fetchFunds();
     };
 
     const handleEdit = async (formData) => {
         await apiClient.put(`/cash/registers/${editing.id}`, {
             name: formData.name,
             description: formData.description,
-            hardware_client_id: formData.hardware_client_id || null
+            hardware_client_id: formData.hardware_client_id || null,
+            cash_fund_id: formData.cash_fund_id || null,
         });
         toast.success('Caja actualizada');
         fetchRegisters(true);
+        fetchFunds();
+    };
+
+    const handleCreateFund = async () => {
+        const name = window.prompt('Nombre del fondo físico compartido');
+        if (!name || !name.trim()) return;
+        try {
+            await apiClient.post('/cash/funds', { name: name.trim(), is_shared: true });
+            toast.success('Fondo compartido creado');
+            fetchFunds();
+        } catch (err) {
+            toast.error(getApiErrorMessage(err, 'Error al crear fondo'));
+        }
     };
 
     const handleToggleActive = async (register) => {
@@ -427,6 +493,14 @@ const CashRegistersPage = () => {
                         <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                     </button>
                     <button
+                        onClick={handleCreateFund}
+                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700
+                                   text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 text-sm font-medium rounded-lg transition-colors shadow-sm"
+                    >
+                        <Wallet className="w-4 h-4" />
+                        Nuevo Fondo
+                    </button>
+                    <button
                         id="tour-cash-new-register"
                         onClick={() => { setEditing(null); setModalOpen(true); }}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700
@@ -439,7 +513,7 @@ const CashRegistersPage = () => {
             </div>
 
             {/* Stats Row */}
-            <div id="tour-cash-registers-summary" className="grid grid-cols-3 gap-4 mb-6">
+            <div id="tour-cash-registers-summary" className="grid grid-cols-4 gap-4 mb-6">
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-3">
                     <div className="w-9 h-9 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                         <Hash className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -465,6 +539,15 @@ const CashRegistersPage = () => {
                     <div>
                         <p className="text-xs text-gray-500 dark:text-gray-400">Cerradas</p>
                         <p className="text-xl font-bold text-gray-900 dark:text-white">{totalActive - openSessions}</p>
+                    </div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-3">
+                    <div className="w-9 h-9 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center">
+                        <Wallet className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Fondos compartidos</p>
+                        <p className="text-xl font-bold text-gray-900 dark:text-white">{funds.filter(f => f.is_shared).length}</p>
                     </div>
                 </div>
             </div>
@@ -525,6 +608,7 @@ const CashRegistersPage = () => {
                 onSave={editing ? handleEdit : handleCreate}
                 editing={editing}
                 registers={registers}
+                funds={funds}
             />
         </div>
     );

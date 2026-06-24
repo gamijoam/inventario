@@ -79,6 +79,158 @@ def _assert_hardware_client_id_available(
             )
         )
 
+
+def _normalize_fund_code(value: Optional[str], fallback: str) -> str:
+    raw = (value or fallback or "").strip().upper()
+    cleaned = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "-" for ch in raw)
+    cleaned = "-".join(part for part in cleaned.split("-") if part)
+    return (cleaned or "FONDO")[:40]
+
+
+def _unique_fund_code(db: Session, desired: str) -> str:
+    base = _normalize_fund_code(desired, "FONDO")[:34]
+    code = base
+    counter = 2
+    while db.query(models.CashFund).filter(models.CashFund.code == code).first():
+        suffix = f"-{counter}"
+        code = f"{base[:40 - len(suffix)]}{suffix}"
+        counter += 1
+    return code
+
+
+def _fund_payload(fund: Optional[models.CashFund]) -> Optional[dict]:
+    if not fund:
+        return None
+    return {
+        "id": fund.id,
+        "name": fund.name,
+        "code": fund.code,
+        "description": fund.description,
+        "is_shared": fund.is_shared,
+        "is_active": fund.is_active,
+        "created_at": fund.created_at,
+    }
+
+
+def _register_payload(register: models.CashRegister) -> dict:
+    return {
+        "id": register.id,
+        "name": register.name,
+        "code": register.code,
+        "description": register.description,
+        "is_active": register.is_active,
+        "created_at": register.created_at,
+        "hardware_client_id": register.hardware_client_id,
+        "cash_fund_id": register.cash_fund_id,
+        "cash_fund": _fund_payload(getattr(register, "cash_fund", None)),
+    }
+
+
+def _get_active_fund(db: Session, fund_id: int) -> models.CashFund:
+    fund = db.query(models.CashFund).filter(
+        models.CashFund.id == fund_id,
+        models.CashFund.is_active == True,
+    ).first()
+    if not fund:
+        raise HTTPException(status_code=404, detail="Fondo físico no encontrado o inactivo")
+    return fund
+
+
+def _create_individual_fund_for_register(db: Session, register: models.CashRegister) -> models.CashFund:
+    fund = models.CashFund(
+        name=f"{register.code} {register.name}",
+        code=_unique_fund_code(db, f"FONDO-{register.code}"),
+        description="Fondo individual creado automáticamente para esta caja.",
+        is_shared=False,
+        is_active=True,
+    )
+    db.add(fund)
+    db.flush()
+    register.cash_fund_id = fund.id
+    return fund
+
+
+
+@router.get("/funds", response_model=List[schemas.CashFundRead], dependencies=[Depends(require_permission("cash.view"))])
+def list_cash_funds(
+    include_inactive: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Lista fondos físicos: cajones individuales o compartidos entre cajas."""
+    query = db.query(models.CashFund)
+    if not include_inactive:
+        query = query.filter(models.CashFund.is_active == True)
+    return query.order_by(models.CashFund.is_shared.desc(), models.CashFund.name).all()
+
+
+@router.post("/funds", response_model=schemas.CashFundRead, dependencies=[Depends(require_permission("config.printing.manage"))])
+def create_cash_fund(
+    data: schemas.CashFundCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Crea un fondo físico que puede asignarse a una o varias cajas."""
+    name = data.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="El nombre del fondo es requerido")
+    code = _unique_fund_code(db, data.code or f"FONDO-{name}")
+    fund = models.CashFund(
+        name=name,
+        code=code,
+        description=(data.description or "").strip() or None,
+        is_shared=bool(data.is_shared),
+        is_active=True,
+    )
+    db.add(fund)
+    db.commit()
+    return fund
+
+
+@router.put("/funds/{fund_id}", response_model=schemas.CashFundRead, dependencies=[Depends(require_permission("config.printing.manage"))])
+def update_cash_fund(
+    fund_id: int,
+    data: schemas.CashFundUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    fund = db.query(models.CashFund).filter(models.CashFund.id == fund_id).first()
+    if not fund:
+        raise HTTPException(status_code=404, detail="Fondo físico no encontrado")
+    if data.name is not None:
+        name = data.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="El nombre del fondo es requerido")
+        fund.name = name
+    if data.code is not None:
+        desired = _normalize_fund_code(data.code, fund.code)
+        duplicate = db.query(models.CashFund).filter(
+            models.CashFund.code == desired,
+            models.CashFund.id != fund.id,
+        ).first()
+        if duplicate:
+            raise HTTPException(status_code=400, detail=f"Ya existe un fondo con código '{desired}'")
+        fund.code = desired
+    if data.description is not None:
+        fund.description = data.description.strip() or None
+    if data.is_shared is not None:
+        fund.is_shared = bool(data.is_shared)
+    if data.is_active is not None:
+        if data.is_active is False:
+            linked_register = db.query(models.CashRegister).filter(
+                models.CashRegister.cash_fund_id == fund.id,
+                models.CashRegister.is_active == True,
+            ).first()
+            if linked_register:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"No se puede desactivar: está asignado a {linked_register.code} / {linked_register.name}"
+                )
+        fund.is_active = bool(data.is_active)
+    db.commit()
+    return fund
+
+
 @router.get("/registers", response_model=List[schemas.CashRegisterRead], dependencies=[Depends(require_permission("cash.view"))])
 def list_cash_registers(
     db: Session = Depends(get_db),
@@ -87,7 +239,7 @@ def list_cash_registers(
     """Lista todas las cajas registradoras activas del tenant."""
     return db.query(models.CashRegister).filter(
         models.CashRegister.is_active == True
-    ).order_by(models.CashRegister.id).all()
+    ).options(joinedload(models.CashRegister.cash_fund)).order_by(models.CashRegister.id).all()
 
 
 @router.post("/registers", response_model=schemas.CashRegisterRead, dependencies=[Depends(require_permission("config.printing.manage"))])
@@ -108,17 +260,22 @@ def create_cash_register(
 
     _assert_hardware_client_id_available(db, hardware_client_id)
 
+    cash_fund = _get_active_fund(db, data.cash_fund_id) if data.cash_fund_id else None
+
     register = models.CashRegister(
         name=data.name.strip(),
         code=code,
         description=(data.description or "").strip() or None,
         is_active=True,
-        hardware_client_id=hardware_client_id
+        hardware_client_id=hardware_client_id,
+        cash_fund_id=cash_fund.id if cash_fund else None,
     )
     db.add(register)
+    db.flush()
+    if not cash_fund:
+        cash_fund = _create_individual_fund_for_register(db, register)
     db.commit()
-    # expire_on_commit=False (see db.py) → register keeps all attributes after commit;
-    # return it directly to avoid any search_path / re-query race in multi-tenant.
+    register.cash_fund = cash_fund
     return register
 
 
@@ -144,6 +301,14 @@ def update_cash_register(
         hardware_client_id = _normalize_hardware_client_id(data.hardware_client_id)
         _assert_hardware_client_id_available(db, hardware_client_id, exclude_register_id=register_id)
         register.hardware_client_id = hardware_client_id
+    if data.cash_fund_id is not None:
+        open_session = db.query(models.CashSession).filter(
+            models.CashSession.register_id == register_id,
+            models.CashSession.status == "OPEN"
+        ).first()
+        if open_session:
+            raise HTTPException(status_code=400, detail="Cierra la caja antes de cambiar su fondo físico")
+        register.cash_fund_id = _get_active_fund(db, data.cash_fund_id).id
     if data.is_active is not None:
         if data.is_active is False:
             open_session = db.query(models.CashSession).filter(
@@ -246,6 +411,7 @@ def get_registers_status(
     registers = db.query(models.CashRegister).filter(
         models.CashRegister.is_active == True
     ).options(
+        joinedload(models.CashRegister.cash_fund),
         subqueryload(models.CashRegister.sessions)
         .joinedload(models.CashSession.user)
     ).order_by(models.CashRegister.id).all()
@@ -274,6 +440,8 @@ def get_registers_status(
             "opened_by": open_session.user.username if open_session and open_session.user else None,
             "opened_at": open_session.start_time.isoformat() if open_session else None,
             "hardware_client_id": reg.hardware_client_id,
+            "cash_fund_id": reg.cash_fund_id,
+            "cash_fund": _fund_payload(reg.cash_fund),
             "print_connected": print_connected,
             "connected_bridges": connected_bridges,
         })
@@ -350,7 +518,11 @@ async def open_cash_session(
             print(f"❌ [CASH] No active registers found in tenant")
             raise HTTPException(status_code=400, detail="No hay cajas configuradas. Crea una caja primero.")
 
-    print(f"   - Register resolved: id={register.id}, name='{register.name}', hw_client='{register.hardware_client_id}'")
+    if not register.cash_fund_id:
+        _create_individual_fund_for_register(db, register)
+        db.flush()
+
+    print(f"   - Register resolved: id={register.id}, name='{register.name}', hw_client='{register.hardware_client_id}', fund_id={register.cash_fund_id}")
 
     # Check if this specific register already has an open session
     active_session = db.query(models.CashSession).filter(
@@ -370,6 +542,7 @@ async def open_cash_session(
         new_session = models.CashSession(
             user_id=current_user.id,
             register_id=register.id,
+            cash_fund_id=register.cash_fund_id,
             start_time=get_venezuela_now(),
             initial_cash=initial_cash.initial_cash,
             initial_cash_bs=initial_cash.initial_cash_bs,
@@ -427,15 +600,9 @@ async def open_cash_session(
              "id": captured_id,
              "user_id": current_user.id,
              "register_id": register.id,
-             "register": {
-                 "id": register.id,
-                 "name": register.name,
-                 "code": register.code,
-                 "description": register.description,
-                 "is_active": register.is_active,
-                 "created_at": register.created_at,
-                 "hardware_client_id": register.hardware_client_id  # Required by CashRegisterRead schema
-             },
+             "cash_fund_id": register.cash_fund_id,
+             "register": _register_payload(register),
+             "cash_fund": _fund_payload(register.cash_fund),
              "start_time": captured_start_time,
              "end_time": None,
              "status": "OPEN",
@@ -454,6 +621,8 @@ async def open_cash_session(
                 "session_id": captured_id,
                 "register_id": register.id,
                 "register_name": register.name,
+                "cash_fund_id": register.cash_fund_id,
+                "cash_fund_name": register.cash_fund.name if register.cash_fund else None,
                 "initial_cash": captured_initial_cash,
                 "initial_cash_bs": captured_initial_cash_bs,
                 "start_time": captured_start_time.isoformat()
@@ -528,7 +697,8 @@ def get_current_session(
         query = query.filter(models.CashSession.register_id == register_id)
 
     session = query.options(
-        joinedload(models.CashSession.register),
+        joinedload(models.CashSession.register).joinedload(models.CashRegister.cash_fund),
+        joinedload(models.CashSession.cash_fund),
         joinedload(models.CashSession.currencies),
     ).first()
     print(f"💰 [DEBUG] Found session: {session.id if session else 'None'}")
@@ -540,7 +710,8 @@ def get_current_session(
             models.CashSession.status == "OPEN",
             models.CashSession.user_id == current_user.id
         ).options(
-            joinedload(models.CashSession.register),
+            joinedload(models.CashSession.register).joinedload(models.CashRegister.cash_fund),
+            joinedload(models.CashSession.cash_fund),
             joinedload(models.CashSession.currencies),
         ).first()
         if session:
@@ -552,7 +723,8 @@ def get_current_session(
         session = db.query(models.CashSession).filter(
             models.CashSession.status == "OPEN"
         ).options(
-            joinedload(models.CashSession.register),
+            joinedload(models.CashSession.register).joinedload(models.CashRegister.cash_fund),
+            joinedload(models.CashSession.cash_fund),
             joinedload(models.CashSession.currencies),
         ).first()
         if session:
@@ -670,6 +842,8 @@ async def close_cash_session(
     response_data = {
         "id": session.id,
         "user_id": session.user_id,
+        "register_id": session.register_id,
+        "cash_fund_id": session.cash_fund_id,
         "start_time": session.start_time,
         "end_time": session.end_time,
         "status": "CLOSED",
