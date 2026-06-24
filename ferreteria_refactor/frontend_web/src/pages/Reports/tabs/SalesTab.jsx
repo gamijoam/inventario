@@ -35,11 +35,11 @@ import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
 // ---------------------------------------------------------------------------
 const SUB_TABS = [
     { id: 'historial', label: 'Historial' },
-    { id: 'analisis', label: 'Analisis' },
+    { id: 'analisis', label: 'Análisis' },
 ];
 
 const ANALYSIS_TABS = [
-    { id: 'payment', label: 'Por Metodo de Pago', icon: Wallet },
+    { id: 'payment', label: 'Por Método de Pago', icon: Wallet },
     { id: 'product', label: 'Por Producto', icon: Package },
     { id: 'customer', label: 'Por Cliente (Top 50)', icon: Users },
 ];
@@ -207,7 +207,7 @@ const SalesTab = ({ dateRange }) => {
 
     const handleVoidClick = (sale) => {
         if (sale.status === 'VOIDED') {
-            toast.error('Esta venta ya esta anulada');
+            toast.error('Esta venta ya está anulada');
             return;
         }
         setSaleToVoid(sale);
@@ -297,7 +297,7 @@ const SalesTab = ({ dateRange }) => {
             toast.success('Ticket enviado a impresora exitosamente');
         } catch (error) {
             console.error('Error reprinting:', error);
-            toast.error(getApiErrorMessage(error, 'No se pudo completar la accion'));
+            toast.error(getApiErrorMessage(error, 'No se pudo completar la acción'));
         }
     };
 
@@ -318,7 +318,7 @@ const SalesTab = ({ dateRange }) => {
             window.URL.revokeObjectURL(url);
             toast.success('Abriendo garantía para imprimir...');
         } catch (error) {
-            toast.error(getApiErrorMessage(error, 'No se pudo generar la garantia'));
+            toast.error(getApiErrorMessage(error, 'No se pudo generar la garantía'));
         }
     };
 
@@ -425,57 +425,57 @@ const SalesTab = ({ dateRange }) => {
     const renderHistorial = () => (
         <div className="space-y-3">
             {/* Metric Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                <Card className="shadow-sm border-slate-200">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pt-3 pb-1">
                         <CardTitle className="text-xs font-black text-slate-400 uppercase tracking-widest">
                             Ventas Totales
                         </CardTitle>
                         <FileText className="h-4 w-4 text-emerald-500" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-xl font-black text-slate-800 tabular-nums">{metrics.totalSales}</div>
+                    <CardContent className="px-4 pb-3 pt-0">
+                        <div className="text-lg font-black text-slate-800 tabular-nums">{metrics.totalSales}</div>
                         <p className="text-[10px] text-slate-400 font-bold mt-0.5">Transacciones filtradas</p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
+                <Card className="shadow-sm border-slate-200">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pt-3 pb-1">
                         <CardTitle className="text-xs font-black text-slate-400 uppercase tracking-widest">
                             Ingreso Total
                         </CardTitle>
                         <AlertTriangle className="h-4 w-4 text-emerald-500" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-xl font-black text-emerald-600 tabular-nums">
+                    <CardContent className="px-4 pb-3 pt-0">
+                        <div className="text-lg font-black text-emerald-600 tabular-nums">
                             ${fmtUSD(metrics.totalRevenue)}
                         </div>
                         <p className="text-[10px] text-slate-400 font-bold mt-0.5">En USD (aprox)</p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
+                <Card className="shadow-sm border-slate-200">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pt-3 pb-1">
                         <CardTitle className="text-xs font-black text-slate-400 uppercase tracking-widest">
                             Ticket Promedio
                         </CardTitle>
                         <FileText className="h-4 w-4 text-indigo-500" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-xl font-black text-indigo-600 tabular-nums">
+                    <CardContent className="px-4 pb-3 pt-0">
+                        <div className="text-lg font-black text-indigo-600 tabular-nums">
                             ${fmtUSD(metrics.averageTicket)}
                         </div>
-                        <p className="text-[10px] text-slate-400 font-bold mt-0.5">Por transaccion</p>
+                        <p className="text-[10px] text-slate-400 font-bold mt-0.5">Por transacción</p>
                     </CardContent>
                 </Card>
             </div>
 
             {/* Filter Toolbar */}
-            <div className="flex flex-col md:flex-row gap-2 items-center justify-between bg-white p-2.5 rounded-lg shadow-sm border border-slate-200">
+            <div className="flex flex-col lg:flex-row gap-2 items-center justify-between bg-white p-2 rounded-lg shadow-sm border border-slate-200">
                 <div className="flex items-center gap-2 w-full md:w-auto flex-1">
                     <div className="relative w-full max-w-md">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                         <Input
                             placeholder="Buscar folio, cliente o referencia..."
-                            className="h-9 pl-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-colors"
+                            className="h-8 pl-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-colors text-sm"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -486,14 +486,14 @@ const SalesTab = ({ dateRange }) => {
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                         <Input
                             type="date"
-                            className="h-9 w-full sm:w-auto bg-slate-50/50 border-slate-200 text-xs font-bold text-slate-600 uppercase"
+                            className="h-8 w-full sm:w-auto bg-slate-50/50 border-slate-200 text-xs font-bold text-slate-600 uppercase"
                             value={dateFrom}
                             onChange={(e) => setDateFrom(e.target.value)}
                         />
                         <span className="text-slate-300">-</span>
                         <Input
                             type="date"
-                            className="h-9 w-full sm:w-auto bg-slate-50/50 border-slate-200 text-xs font-bold text-slate-600 uppercase"
+                            className="h-8 w-full sm:w-auto bg-slate-50/50 border-slate-200 text-xs font-bold text-slate-600 uppercase"
                             value={dateTo}
                             onChange={(e) => setDateTo(e.target.value)}
                         />
@@ -501,7 +501,7 @@ const SalesTab = ({ dateRange }) => {
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="h-9 gap-2 border-slate-200 text-slate-600">
+                            <Button variant="outline" className="h-8 gap-2 border-slate-200 text-slate-600 text-xs">
                                 <Filter size={14} /> Filtro: {selectedStatus === '' ? 'Todos' : selectedStatus === 'VOIDED' ? 'Anulados' : 'Completados'}
                             </Button>
                         </DropdownMenuTrigger>
@@ -516,7 +516,7 @@ const SalesTab = ({ dateRange }) => {
 
                     <Button
                         variant="outline"
-                        className="h-9 gap-2 border-slate-200 text-slate-600 hover:text-indigo-600 active:scale-95 transition-transform"
+                        className="h-8 gap-2 border-slate-200 text-slate-600 hover:text-indigo-600 active:scale-95 transition-transform text-xs"
                         onClick={handleExportHistorial}
                     >
                         <FileDown size={14} /> Exportar
@@ -525,11 +525,11 @@ const SalesTab = ({ dateRange }) => {
             </div>
 
             {/* Sales Table */}
-            <div className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
+            <div className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm [&_td]:px-3 [&_td]:py-2 [&_th]:h-9 [&_th]:px-3">
                 <Table>
                     <TableHeader className="bg-slate-50/80">
                         <TableRow>
-                            <TableHead className="w-[86px] font-black text-slate-400 uppercase text-[11px] tracking-widest">Folio</TableHead>
+                            <TableHead className="w-[74px] font-black text-slate-400 uppercase text-[11px] tracking-widest">Folio</TableHead>
                             <TableHead className="font-black text-slate-400 uppercase text-[11px] tracking-widest">Fecha</TableHead>
                             <TableHead className="font-black text-slate-400 uppercase text-[11px] tracking-widest">Cliente</TableHead>
                             <TableHead className="font-black text-slate-400 uppercase text-[11px] tracking-widest">Cajero / Caja</TableHead>
@@ -565,7 +565,7 @@ const SalesTab = ({ dateRange }) => {
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
-                                            <Avatar className="h-7 w-7 bg-indigo-100 text-indigo-600 font-bold border border-indigo-200 text-[10px]">
+                                            <Avatar className="h-6 w-6 bg-indigo-100 text-indigo-600 font-bold border border-indigo-200 text-[10px]">
                                                 <AvatarFallback>
                                                     {sale.customer?.name ? sale.customer.name.substring(0, 2).toUpperCase() : 'GN'}
                                                 </AvatarFallback>
@@ -614,7 +614,7 @@ const SalesTab = ({ dateRange }) => {
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
                                                 <Button variant="secondary" className="h-7 px-2 gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 shadow-sm transition-all hover:scale-105 active:scale-95">
-                                                    <span className="text-[11px] font-bold">Opciones</span>
+                                                    <span className="hidden 2xl:inline text-[11px] font-bold">Opciones</span>
                                                     <MoreHorizontal className="h-3.5 w-3.5" />
                                                 </Button>
                                             </DropdownMenuTrigger>
@@ -746,11 +746,11 @@ const SalesTab = ({ dateRange }) => {
             <table className="min-w-full divide-y divide-slate-100 text-sm">
                 <thead className="bg-slate-50/80">
                     <tr>
-                        <th className="px-4 py-2.5 text-left text-[11px] font-black text-slate-400 uppercase tracking-widest">Metodo</th>
-                        <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Transacciones</th>
-                        <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Total Ventas ($)</th>
-                        <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Total Ventas (Bs)</th>
-                        <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">% del Total</th>
+                        <th className="px-3 py-2 text-left text-[11px] font-black text-slate-400 uppercase tracking-widest">Método</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Transacciones</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Total Ventas ($)</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Total Ventas (Bs)</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">% del Total</th>
                     </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-100">
@@ -758,15 +758,15 @@ const SalesTab = ({ dateRange }) => {
                         const percentage = globalTotal > 0 ? (item.total_amount / globalTotal) * 100 : 0;
                         return (
                             <tr key={index} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-4 py-2.5 whitespace-nowrap font-bold text-slate-700 text-xs">{item.method}</td>
-                                <td className="px-4 py-2.5 whitespace-nowrap text-right text-slate-500 font-medium font-mono text-xs">{item.count}</td>
-                                <td className="px-4 py-2.5 whitespace-nowrap text-right font-black text-slate-800 tabular-nums">
+                                <td className="px-3 py-2 whitespace-nowrap font-bold text-slate-700 text-xs">{item.method}</td>
+                                <td className="px-3 py-2 whitespace-nowrap text-right text-slate-500 font-medium font-mono text-xs">{item.count}</td>
+                                <td className="px-3 py-2 whitespace-nowrap text-right font-black text-slate-800 tabular-nums">
                                     {formatCurrency ? formatCurrency(item.total_amount) : `$${fmtUSD(item.total_amount)}`}
                                 </td>
-                                <td className="px-4 py-2.5 whitespace-nowrap text-right font-medium text-blue-600 tabular-nums">
+                                <td className="px-3 py-2 whitespace-nowrap text-right font-medium text-blue-600 tabular-nums">
                                     {formatCurrency ? formatCurrency(item.total_amount_bs, 'VES') : `Bs ${fmtVES(item.total_amount_bs)}`}
                                 </td>
-                                <td className="px-4 py-2.5 whitespace-nowrap text-right">
+                                <td className="px-3 py-2 whitespace-nowrap text-right">
                                     <div className="flex items-center justify-end w-36 ml-auto">
                                         <span className="text-xs font-bold text-slate-400 mr-2 w-12 text-right">{percentage.toFixed(1)}%</span>
                                         <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -778,14 +778,14 @@ const SalesTab = ({ dateRange }) => {
                         );
                     })}
                     <tr className="bg-slate-50 font-black border-t-2 border-slate-200">
-                        <td className="px-4 py-2.5 text-slate-800">TOTAL</td>
-                        <td className="px-4 py-2.5 text-right text-slate-800">
+                        <td className="px-3 py-2 text-slate-800">TOTAL</td>
+                        <td className="px-3 py-2 text-right text-slate-800">
                             {analysisData.reduce((acc, curr) => acc + (curr.count || 0), 0)}
                         </td>
-                        <td className="px-4 py-2.5 text-right text-indigo-600 text-base">
+                        <td className="px-3 py-2 text-right text-indigo-600 text-base">
                             {formatCurrency ? formatCurrency(globalTotal) : `$${fmtUSD(globalTotal)}`}
                         </td>
-                        <td className="px-4 py-2.5 text-right text-blue-600 text-base">
+                        <td className="px-3 py-2 text-right text-blue-600 text-base">
                             {formatCurrency
                                 ? formatCurrency(analysisData.reduce((acc, curr) => acc + (curr.total_amount_bs || 0), 0), 'VES')
                                 : `Bs ${fmtVES(analysisData.reduce((acc, curr) => acc + (curr.total_amount_bs || 0), 0))}`
@@ -802,7 +802,7 @@ const SalesTab = ({ dateRange }) => {
         const filtered = analysisData.filter(i => (i.product_name || "").toLowerCase().includes(productSearch.toLowerCase()));
         return (
             <div className="space-y-0">
-                <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-100 flex items-center gap-2">
+                <div className="px-3 py-2 bg-slate-50/80 border-b border-slate-100 flex items-center gap-2">
                     <div className="relative flex-1 max-w-sm">
                         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input 
@@ -810,7 +810,7 @@ const SalesTab = ({ dateRange }) => {
                             placeholder="Filtrar productos..." 
                             value={productSearch} 
                             onChange={(e) => setProductSearch(e.target.value)}
-                            className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                         />
                     </div>
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -821,12 +821,12 @@ const SalesTab = ({ dateRange }) => {
                     <table className="min-w-full divide-y divide-slate-100 text-sm">
                         <thead className="bg-slate-50/80">
                             <tr>
-                                <th className="px-4 py-2.5 text-left text-[11px] font-black text-slate-400 uppercase tracking-widest">Producto</th>
-                                <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Cant.</th>
-                                <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Venta Total</th>
-                                <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Costo Total</th>
-                                <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Ganancia</th>
-                                <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Margen</th>
+                                <th className="px-3 py-2 text-left text-[11px] font-black text-slate-400 uppercase tracking-widest">Producto</th>
+                                <th className="px-3 py-2 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Cant.</th>
+                                <th className="px-3 py-2 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Venta Total</th>
+                                <th className="px-3 py-2 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Costo Total</th>
+                                <th className="px-3 py-2 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Ganancia</th>
+                                <th className="px-3 py-2 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Margen</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-100">
@@ -834,14 +834,14 @@ const SalesTab = ({ dateRange }) => {
                                 const margin = item.total_revenue > 0 ? ((item.total_profit / item.total_revenue) * 100) : 0;
                                 return (
                                     <tr key={index} className="hover:bg-slate-50/80 transition-colors">
-                                        <td className="px-4 py-2.5 whitespace-nowrap font-bold text-slate-700 text-xs">{item.product_name}</td>
-                                        <td className="px-4 py-2.5 whitespace-nowrap text-right text-slate-500 font-bold font-mono text-xs">{item.total_quantity}</td>
-                                        <td className="px-4 py-2.5 whitespace-nowrap text-right font-black text-slate-800 tabular-nums">${item.total_revenue?.toFixed(2)}</td>
-                                        <td className="px-4 py-2.5 whitespace-nowrap text-right text-slate-400 font-medium font-mono text-xs">${item.total_cost?.toFixed(2)}</td>
-                                        <td className={`px-4 py-2.5 whitespace-nowrap text-right font-black ${item.total_profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                        <td className="px-3 py-2 whitespace-nowrap font-bold text-slate-700 text-xs">{item.product_name}</td>
+                                        <td className="px-3 py-2 whitespace-nowrap text-right text-slate-500 font-bold font-mono text-xs">{item.total_quantity}</td>
+                                        <td className="px-3 py-2 whitespace-nowrap text-right font-black text-slate-800 tabular-nums">${item.total_revenue?.toFixed(2)}</td>
+                                        <td className="px-3 py-2 whitespace-nowrap text-right text-slate-400 font-medium font-mono text-xs">${item.total_cost?.toFixed(2)}</td>
+                                        <td className={`px-3 py-2 whitespace-nowrap text-right font-black ${item.total_profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                             ${item.total_profit?.toFixed(2)}
                                         </td>
-                                        <td className="px-4 py-2.5 whitespace-nowrap text-right">
+                                        <td className="px-3 py-2 whitespace-nowrap text-right">
                                             <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase ${margin > 20 ? 'bg-emerald-100 text-emerald-700' : margin > 0 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>
                                                 {margin.toFixed(1)}%
                                             </span>
@@ -860,27 +860,27 @@ const SalesTab = ({ dateRange }) => {
         <table className="min-w-full divide-y divide-slate-100 text-sm">
             <thead className="bg-slate-50/80">
                 <tr>
-                    <th className="px-4 py-2.5 text-left text-[11px] font-black text-slate-400 uppercase tracking-widest w-10">#</th>
-                    <th className="px-4 py-2.5 text-left text-[11px] font-black text-slate-400 uppercase tracking-widest">Cliente</th>
-                    <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Compras</th>
-                    <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Total ($)</th>
-                    <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Total (Bs)</th>
+                    <th className="px-3 py-2 text-left text-[11px] font-black text-slate-400 uppercase tracking-widest w-10">#</th>
+                    <th className="px-3 py-2 text-left text-[11px] font-black text-slate-400 uppercase tracking-widest">Cliente</th>
+                    <th className="px-3 py-2 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Compras</th>
+                    <th className="px-3 py-2 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Total ($)</th>
+                    <th className="px-3 py-2 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Total (Bs)</th>
                 </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-100">
                 {analysisData.map((item, index) => (
                     <tr key={index} className="hover:bg-slate-50 transition-colors group">
-                        <td className="px-4 py-2.5 whitespace-nowrap text-slate-400 text-xs font-bold group-hover:text-indigo-500">
+                        <td className="px-3 py-2 whitespace-nowrap text-slate-400 text-xs font-bold group-hover:text-indigo-500">
                             {index + 1}
                         </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap font-bold text-slate-700 text-xs">{item.customer_name}</td>
-                        <td className="px-4 py-2.5 whitespace-nowrap text-right text-slate-500 font-medium font-mono text-xs">
+                        <td className="px-3 py-2 whitespace-nowrap font-bold text-slate-700 text-xs">{item.customer_name}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-right text-slate-500 font-medium font-mono text-xs">
                             {item.transaction_count}
                         </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap text-right font-black text-slate-800 tabular-nums">
+                        <td className="px-3 py-2 whitespace-nowrap text-right font-black text-slate-800 tabular-nums">
                             {formatCurrency ? formatCurrency(item.total_purchased) : `$${fmtUSD(item.total_purchased)}`}
                         </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap text-right font-medium text-blue-600 tabular-nums">
+                        <td className="px-3 py-2 whitespace-nowrap text-right font-medium text-blue-600 tabular-nums">
                             {formatCurrency
                                 ? formatCurrency(item.total_purchased_bs || 0, 'VES')
                                 : `Bs ${fmtVES(item.total_purchased_bs || 0)}`
@@ -923,10 +923,10 @@ const SalesTab = ({ dateRange }) => {
             {/* Sale Detail Modal */}
             {/* ----------------------------------------------------------- */}
             {showDetailModal && selectedSale && (
-                <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1240px] max-h-[96vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 backdrop-blur-sm p-3 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1480px] max-h-[96vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                         {/* Header */}
-                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <div className="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                             <div>
                                 <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                                     <Badge variant="outline" className="bg-indigo-50 text-indigo-600 border-indigo-100 px-2 py-1 h-auto text-xs">
@@ -944,7 +944,7 @@ const SalesTab = ({ dateRange }) => {
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 flex flex-col p-5 overflow-y-auto custom-scrollbar">
+                        <div className="flex-1 flex flex-col p-4 overflow-y-auto custom-scrollbar min-h-0">
                             {selectedSale.is_credit && selectedSale.bloqueo_codigo_activacion && (
                                 <div className="col-span-full mb-2 p-4 bg-indigo-50 border-2 border-indigo-200 rounded-2xl flex items-center justify-between">
                                     <div className="flex items-center gap-2">
@@ -992,7 +992,7 @@ const SalesTab = ({ dateRange }) => {
                                 </Card>
                             </div>
 
-                            <div className="h-[390px] min-h-[320px] shadow-none border border-slate-200 overflow-hidden flex flex-col bg-white rounded-xl">
+                            <div className="h-[46vh] min-h-[360px] shadow-none border border-slate-200 overflow-hidden flex flex-col bg-white rounded-xl">
                                 <div className="flex-1 overflow-y-auto custom-scrollbar relative">
                                     <Table>
                                         <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
@@ -1006,9 +1006,9 @@ const SalesTab = ({ dateRange }) => {
                                         <TableBody>
                                             {selectedSale.details?.map((detail, index) => (
                                                 <TableRow key={index} className="group/row">
-                                                    <TableCell className="font-medium py-3">
+                                                    <TableCell className="font-medium py-2">
                                                         <div className="flex flex-col gap-1">
-                                                            <div className="text-sm font-bold text-slate-700 group-hover/row:text-indigo-600 transition-colors">
+                                                            <div className="text-xs font-bold text-slate-700 group-hover/row:text-indigo-600 transition-colors">
                                                                 {detail.product?.name || 'Producto Desconocido'}
                                                             </div>
 
@@ -1047,7 +1047,7 @@ const SalesTab = ({ dateRange }) => {
                                         </TableBody>
                                     </Table>
                                 </div>
-                                <div className="bg-slate-50 px-4 py-3 border-t border-slate-200 flex flex-col items-end gap-2 flex-shrink-0">
+                                <div className="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex flex-col items-end gap-2 flex-shrink-0">
                                     {selectedSale?.total_discount_usd > 0 && (
                                         <div className="flex justify-between items-center w-full max-w-[200px] text-rose-500">
                                             <div className="flex flex-col">
@@ -1067,7 +1067,7 @@ const SalesTab = ({ dateRange }) => {
                                     )}
                                     <div className="flex justify-between items-center w-full max-w-[200px]">
                                         <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Total Venta</span>
-                                        <span className="font-black text-2xl text-indigo-600 tracking-tight">
+                                        <span className="font-black text-xl text-indigo-600 tracking-tight">
                                             ${fmtUSD(selectedSale.total_amount)}
                                         </span>
                                     </div>
@@ -1088,7 +1088,7 @@ const SalesTab = ({ dateRange }) => {
                         {selectedSale?.payments?.length > 0 && (
                             <div className="px-5 pb-3 flex-shrink-0">
                                 <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                                    <span>💳</span> Detalle de pagos
+                                    Detalle de pagos
                                 </p>
                                 <div className="bg-slate-50 rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
                                     {selectedSale.payments.map((pago, idx) => (
@@ -1126,7 +1126,7 @@ const SalesTab = ({ dateRange }) => {
                         {/* Footer */}
                         <div className="p-3 border-t border-slate-100 bg-slate-50 flex flex-col gap-2">
                             <Button variant="outline" className="w-full border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" onClick={() => handleOpenPartialReturn(selectedSale)}>
-                                <CornerDownLeft className="mr-2 h-4 w-4" /> Devolucion / Canje
+                                <CornerDownLeft className="mr-2 h-4 w-4" /> Devolución / Canje
                             </Button>
                             <div className="flex gap-3">
                                 <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700" onClick={() => handlePrintPDF(selectedSale)}>
@@ -1156,7 +1156,7 @@ const SalesTab = ({ dateRange }) => {
                             <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <AlertTriangle className="text-rose-500 h-8 w-8" />
                             </div>
-                            <CardTitle className="text-xl font-black text-rose-600">Confirmar Anulacion</CardTitle>
+                            <CardTitle className="text-xl font-black text-rose-600">Confirmar Anulación</CardTitle>
                             <p className="text-slate-500 text-sm mt-1">
                                 Anular venta <span className="font-bold text-slate-800">#{saleToVoid.id}</span>
                             </p>
@@ -1164,7 +1164,7 @@ const SalesTab = ({ dateRange }) => {
                         <CardContent className="space-y-4">
                             <div className="bg-rose-50 border border-rose-100 rounded-xl p-3">
                                 <p className="text-xs text-rose-700 font-bold text-center leading-relaxed">
-                                    Esta accion devolvera los productos al inventario y reembolsara el dinero.
+                                    Esta acción devolverá los productos al inventario y reembolsará el dinero.
                                 </p>
                             </div>
                             <div className="space-y-2">
