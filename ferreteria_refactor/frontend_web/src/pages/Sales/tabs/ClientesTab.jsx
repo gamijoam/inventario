@@ -44,8 +44,9 @@ const ClientesTab = () => {
     const [editingCustomer, setEditingCustomer] = useState(null); // Full customer object for editing
 
     useEffect(() => {
-        fetchCustomers();
-    }, [showInactive]);
+        const handle = setTimeout(() => fetchCustomers(false), 250);
+        return () => clearTimeout(handle);
+    }, [showInactive, searchQuery]);
 
     useEffect(() => {
         if (selectedCustomer) {
@@ -220,37 +221,42 @@ const ClientesTab = () => {
     };
 
     return (
-        <div className="p-4 md:p-6 max-w-[1600px] mx-auto">
-            <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <p className="text-slate-500 font-medium">Administra clientes, límites de crédito y estados de cuenta</p>
+        <div className="space-y-2 animate-in fade-in duration-300">
+            <section className="rounded-t-lg border border-b-0 border-slate-200 bg-white p-3 shadow-sm">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="text-lg font-black text-slate-900">Clientes</h2>
+                            <span className="rounded-md border border-indigo-100 bg-indigo-50 px-2 py-1 text-xs font-black text-indigo-700">
+                                {customers.length}/{totalCustomers} en vista
+                            </span>
+                        </div>
+                        <p className="text-sm font-medium text-slate-500">CRM, crédito y estado de cuenta en una vista compacta.</p>
+                    </div>
+                    <Button id="tour-customers-add-btn" onClick={handleCreateClick} className="h-9 rounded-md px-3 text-sm font-black shadow-sm shadow-indigo-100 hover:-translate-y-0.5 transition-all">
+                        <Plus size={18} className="mr-2" />
+                        Nuevo Cliente
+                    </Button>
                 </div>
-                <Button id="tour-customers-add-btn" onClick={handleCreateClick} className="shadow-lg shadow-indigo-200 hover:-translate-y-0.5 transition-all">
-                    <Plus size={20} className="mr-2" />
-                    Nuevo Cliente
-                </Button>
-            </div>
+            </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]">
                 {/* Left Panel - Customer List */}
-                <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col md:col-span-1 overflow-hidden h-full ${selectedCustomer ? 'hidden md:flex' : 'flex'}`}>
-                    <div className="p-4 border-b border-slate-100">
+                <div className={`bg-white rounded-b-lg md:rounded-lg shadow-sm border border-slate-200 flex flex-col overflow-hidden min-h-[520px] md:h-[calc(100vh-280px)] ${selectedCustomer ? 'hidden md:flex' : 'flex'}`}>
+                    <div className="p-2.5 border-b border-slate-100">
                         <div className="relative group">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
                             <Input
                                 type="text"
                                 value={searchQuery}
-                                onChange={(e) => {
-                                    setSearchQuery(e.target.value);
-                                    fetchCustomers(); // Debounce recommended for prod
-                                }}
+                                onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Buscar cliente..."
-                                className="pl-10"
+                                className="h-9 pl-9 text-sm"
                             />
                         </div>
                     </div>
 
-                    <div className="px-4 py-2 flex items-center justify-between border-b border-slate-100">
+                    <div className="px-2.5 py-2 flex items-center justify-between border-b border-slate-100">
                         <span className="text-xs font-medium text-slate-500">
                             Mostrando {customers.length} de {totalCustomers} clientes
                         </span>
@@ -269,7 +275,7 @@ const ClientesTab = () => {
                             <span className="text-xs font-medium text-slate-500">Inactivos</span>
                         </label>
                     </div>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                    <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-1.5 space-y-1">
                         {customers.map(customer => {
                             const isInactive = customer.is_active === false;
                             return (
@@ -277,7 +283,7 @@ const ClientesTab = () => {
                                 key={customer.id}
                                 onClick={() => setSelectedCustomer(customer)}
                                 className={clsx(
-                                    "p-3 rounded-xl cursor-pointer transition-all border",
+                                    "px-2.5 py-2 rounded-md cursor-pointer transition-all border",
                                     isInactive && "opacity-50",
                                     selectedCustomer?.id === customer.id
                                         ? 'bg-indigo-50 border-indigo-200 shadow-sm'
@@ -287,9 +293,9 @@ const ClientesTab = () => {
                                 )}
                             >
                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
                                         <div className={clsx(
-                                            "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0",
+                                            "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
                                             isInactive
                                                 ? "bg-slate-200 text-slate-400"
                                                 : selectedCustomer?.id === customer.id ? "bg-indigo-200 text-indigo-700" : "bg-slate-100 text-slate-500"
@@ -297,7 +303,7 @@ const ClientesTab = () => {
                                             {customer.name.charAt(0).toUpperCase()}
                                         </div>
                                         <div className="min-w-0">
-                                            <p className={clsx("font-bold truncate", isInactive ? "text-slate-400 line-through" : selectedCustomer?.id === customer.id ? "text-indigo-900" : "text-slate-700")}>
+                                            <p className={clsx("text-sm font-bold truncate", isInactive ? "text-slate-400 line-through" : selectedCustomer?.id === customer.id ? "text-indigo-900" : "text-slate-700")}>
                                                 {customer.name}
                                             </p>
                                             <div className="flex items-center gap-1.5">
@@ -323,7 +329,7 @@ const ClientesTab = () => {
                                                         e.stopPropagation();
                                                         handleActivateCustomer(customer.id);
                                                     }}
-                                                    className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100"
+                                                    className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100"
                                                     title="Reactivar cliente"
                                                 >
                                                     <RotateCcw size={16} />
@@ -338,7 +344,7 @@ const ClientesTab = () => {
                                                             e.stopPropagation();
                                                             handleEditClick(customer);
                                                         }}
-                                                        className="h-8 w-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-200"
+                                                        className="h-7 w-7 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-200"
                                                     >
                                                         <Edit2 size={16} />
                                                     </Button>
@@ -351,7 +357,7 @@ const ClientesTab = () => {
                                                             e.stopPropagation();
                                                             handleDeactivateCustomer(customer.id);
                                                         }}
-                                                        className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-100"
+                                                        className="h-7 w-7 text-rose-500 hover:text-rose-600 hover:bg-rose-100"
                                                         title="Desactivar cliente"
                                                     >
                                                         <UserX size={16} />
@@ -369,7 +375,7 @@ const ClientesTab = () => {
                             <button
                                 onClick={() => fetchCustomers(true)}
                                 disabled={loadingMore}
-                                className="w-full py-2 text-sm font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors disabled:opacity-50"
+                                className="w-full py-2 text-sm font-bold text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors disabled:opacity-50"
                             >
                                 {loadingMore ? 'Cargando...' : 'Cargar más clientes'}
                             </button>
@@ -378,17 +384,17 @@ const ClientesTab = () => {
                 </div>
 
                 {/* Right Panel - Customer Profile */}
-                <div className={`md:col-span-2 h-full flex flex-col ${!selectedCustomer ? 'hidden md:flex' : 'flex'}`}>
+                <div className={`min-h-0 flex flex-col ${!selectedCustomer ? 'hidden md:flex' : 'flex'}`}>
                     {!selectedCustomer ? (
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 h-full flex flex-col items-center justify-center text-center p-8 border-dashed">
-                            <div className="bg-slate-50 p-6 rounded-full mb-4">
-                                <Users className="text-slate-300" size={64} />
+                        <div className="bg-white rounded-lg shadow-sm border border-slate-200 min-h-[520px] flex flex-col items-center justify-center text-center p-6 border-dashed">
+                            <div className="bg-slate-50 p-4 rounded-full mb-3">
+                                <Users className="text-slate-300" size={42} />
                             </div>
-                            <h3 className="text-xl font-bold text-slate-700">Ningún cliente seleccionado</h3>
-                            <p className="text-slate-500 max-w-sm mt-2">Selecciona un cliente de la lista para ver su perfil, historial de crédito y gestionar sus datos.</p>
+                            <h3 className="text-lg font-bold text-slate-700">Ningún cliente seleccionado</h3>
+                            <p className="text-sm text-slate-500 max-w-sm mt-1">Selecciona un cliente de la lista para ver su perfil, historial de crédito y gestionar sus datos.</p>
                         </div>
                     ) : (
-                        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6">
+                        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar space-y-2 pr-1 md:h-[calc(100vh-280px)]">
                             {/* Mobile Back Button */}
                             <Button
                                 variant="ghost"
@@ -400,14 +406,14 @@ const ClientesTab = () => {
 
                             {/* Inactive Banner */}
                             {selectedCustomer.is_active === false && (
-                                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between">
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <div className="bg-amber-100 p-2 rounded-full text-amber-600">
-                                            <UserX size={24} />
+                                            <UserX size={18} />
                                         </div>
                                         <div>
-                                            <p className="font-bold text-amber-800">Cliente Inactivo</p>
-                                            <p className="text-amber-600 text-sm">Este cliente fue desactivado y no aparece en el POS ni en listas por defecto.</p>
+                                            <p className="font-bold text-amber-800">Cliente inactivo</p>
+                                            <p className="text-amber-600 text-xs">No aparece en el POS ni en listas por defecto.</p>
                                         </div>
                                     </div>
                                     <Button
@@ -421,19 +427,18 @@ const ClientesTab = () => {
                             )}
 
                             {/* Header Card */}
-                            <div className={clsx("bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl shadow-lg p-6 relative overflow-hidden", selectedCustomer.is_active === false && "opacity-60")}>
-                                <div className="absolute top-0 right-0 p-32 bg-white opacity-5 rounded-full blur-3xl transform translate-x-10 -translate-y-10"></div>
-                                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start gap-6">
+                            <div className={clsx("bg-white text-slate-900 rounded-lg border border-slate-200 shadow-sm p-3 relative overflow-hidden", selectedCustomer.is_active === false && "opacity-60")}>
+                                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start gap-3">
                                     <div>
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <h2 className="text-xl md:text-3xl font-bold tracking-tight">{selectedCustomer.name}</h2>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <h2 className="text-lg md:text-xl font-black tracking-tight">{selectedCustomer.name}</h2>
                                             {selectedCustomer.is_blocked && (
-                                                <span className="bg-rose-500/20 text-rose-200 border border-rose-500/30 px-3 py-0.5 rounded-lg text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                                                <span className="bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wider">
                                                     Bloqueado
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="flex flex-wrap gap-4 text-slate-300 text-sm font-medium">
+                                        <div className="flex flex-wrap gap-3 text-slate-500 text-xs font-bold">
                                             <div className="flex items-center gap-1.5"><CreditCard size={14} /> {selectedCustomer.id_number || 'No ID'}</div>
                                             <div className="flex items-center gap-1.5"><Phone size={14} /> {selectedCustomer.phone || 'No Tel'}</div>
                                             <div className="flex items-center gap-1.5"><Mail size={14} /> {selectedCustomer.email || 'No Email'}</div>
@@ -441,12 +446,12 @@ const ClientesTab = () => {
                                     </div>
 
                                     {user?.role === 'ADMIN' && (
-                                    <div className="bg-white/10 backdrop-blur-md p-1 rounded-xl flex items-center">
+                                    <div className="border border-slate-200 bg-slate-50 p-1 rounded-md flex items-center">
                                         <label className={clsx(
-                                            "flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-all select-none",
+                                            "flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer transition-all select-none",
                                             selectedCustomer.is_blocked
-                                                ? "bg-rose-500/20 text-rose-200"
-                                                : "hover:bg-white/10 text-slate-300 hover:text-white"
+                                                ? "bg-rose-50 text-rose-700"
+                                                : "text-slate-600 hover:bg-white hover:text-slate-900"
                                         )}>
                                             <div className="relative">
                                                 <input
@@ -468,7 +473,7 @@ const ClientesTab = () => {
                             {/* Botón Vista 360° */}
                             <button
                                 onClick={() => setShow360(true)}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-md"
+                                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-bold text-sm transition-all shadow-sm"
                             >
                                 <Zap size={16} />
                                 Ver historial completo — Vista 360°
@@ -476,15 +481,15 @@ const ClientesTab = () => {
 
                             {/* Financial KPIs */}
                             {loading ? (
-                                <div className="text-center p-12">
+                                <div className="text-center p-8">
                                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-2"></div>
                                     <p className="text-slate-400">Cargando datos financieros...</p>
                                 </div>
                             ) : financialStatus && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
                                     {/* Credit Limit */}
-                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 group hover:border-indigo-200 transition-colors">
-                                        <div className="flex items-center justify-between mb-3">
+                                    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 group hover:border-indigo-200 transition-colors">
+                                        <div className="flex items-center justify-between mb-2">
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Límite Crédito</p>
                                             {user?.role === 'ADMIN' && (!editingCredit ? (
                                                 <button
@@ -505,20 +510,20 @@ const ClientesTab = () => {
                                                 type="number"
                                                 value={tempCreditLimit}
                                                 onChange={(e) => setTempCreditLimit(parseFloat(e.target.value))}
-                                                className="text-xl font-bold h-10"
+                                                className="h-9 text-lg font-bold"
                                                 autoFocus
                                             />
                                         ) : (
-                                            <p className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
+                                            <p className="text-lg md:text-xl font-black text-slate-800 tracking-tight">
                                                 ${financialStatus.credit_limit.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
                                             </p>
                                         )}
                                     </div>
 
                                     {/* Current Debt */}
-                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Deuda Actual</p>
-                                        <p className={clsx("text-2xl font-black tracking-tight",
+                                    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3">
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Deuda actual</p>
+                                        <p className={clsx("text-xl font-black tracking-tight",
                                             financialStatus.total_debt > financialStatus.credit_limit * 0.8 ? 'text-rose-600' : 'text-slate-800'
                                         )}>
                                             ${financialStatus.total_debt.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
@@ -526,15 +531,15 @@ const ClientesTab = () => {
                                     </div>
 
                                     {/* Available Credit */}
-                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Cupo Disponible</p>
-                                        <p className="text-2xl font-black text-emerald-600 tracking-tight">
+                                    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3">
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Cupo disponible</p>
+                                        <p className="text-xl font-black text-emerald-600 tracking-tight">
                                             ${financialStatus.available_credit.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
                                         </p>
                                     </div>
 
                                     {/* Payment Terms */}
-                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 group hover:border-indigo-200 transition-colors">
+                                    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 group hover:border-indigo-200 transition-colors">
                                         <div className="flex items-center justify-between mb-3">
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Días Crédito</p>
                                             {!editingTerms ? (
@@ -556,11 +561,11 @@ const ClientesTab = () => {
                                                 type="number"
                                                 value={tempPaymentTerms}
                                                 onChange={(e) => setTempPaymentTerms(parseInt(e.target.value))}
-                                                className="text-xl font-bold h-10"
+                                                className="h-9 text-lg font-bold"
                                                 autoFocus
                                             />
                                         ) : (
-                                            <p className="text-2xl font-black text-indigo-600 tracking-tight">
+                                            <p className="text-xl font-black text-indigo-600 tracking-tight">
                                                 {financialStatus.payment_term_days} <span className="text-sm font-bold text-indigo-300 uppercase">días</span>
                                             </p>
                                         )}
@@ -570,12 +575,12 @@ const ClientesTab = () => {
 
                             {/* Overdue Alert */}
                             {financialStatus && financialStatus.overdue_invoices > 0 && (
-                                <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-4 animate-pulse">
+                                <div className="bg-rose-50 border border-rose-100 rounded-lg p-3 flex items-center gap-3">
                                     <div className="bg-rose-100 p-2 rounded-full text-rose-600">
-                                        <AlertTriangle size={24} />
+                                        <AlertTriangle size={18} />
                                     </div>
                                     <div>
-                                        <p className="font-bold text-rose-800 text-lg">
+                                        <p className="font-bold text-rose-800 text-sm">
                                             {financialStatus.overdue_invoices} Factura(s) Vencida(s)
                                         </p>
                                         <p className="text-rose-600 font-medium text-sm">
@@ -586,9 +591,9 @@ const ClientesTab = () => {
                             )}
 
                             {/* Credit History */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col">
-                                <div className="p-5 border-b border-slate-100 bg-white">
-                                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col">
+                                <div className="p-3 border-b border-slate-100 bg-white">
+                                    <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
                                         <FileText size={20} className="text-slate-400" />
                                         Historial de Crédito
                                     </h3>
@@ -597,18 +602,18 @@ const ClientesTab = () => {
                                     <table className="min-w-[500px] w-full">
                                         <thead className="bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
                                             <tr>
-                                                <th className="text-left py-3 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Factura</th>
-                                                <th className="text-left py-3 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Emisión</th>
-                                                <th className="text-right py-3 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Monto</th>
-                                                <th className="text-left py-3 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider pl-8">Vencimiento</th>
-                                                <th className="text-center py-3 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
+                                                <th className="text-left py-2 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Factura</th>
+                                                <th className="text-left py-2 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Emisión</th>
+                                                <th className="text-right py-2 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Monto</th>
+                                                <th className="text-left py-2 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Vencimiento</th>
+                                                <th className="text-center py-2 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                             {creditHistory.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan="5" className="text-center py-12 text-slate-400">
-                                                        <FileText size={48} className="mx-auto mb-3 opacity-20" />
+                                                    <td colSpan="5" className="text-center py-8 text-slate-400">
+                                                        <FileText size={34} className="mx-auto mb-2 opacity-20" />
                                                         <p>No hay historial de crédito disponible</p>
                                                     </td>
                                                 </tr>
@@ -617,17 +622,17 @@ const ClientesTab = () => {
                                                     const status = getInvoiceStatus(sale);
                                                     return (
                                                         <tr key={sale.id} className={clsx("hover:bg-slate-50/80 transition-colors", idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30')}>
-                                                            <td className="py-3 px-5 font-bold text-indigo-600">#{sale.id}</td>
-                                                            <td className="py-3 px-5 text-slate-600 text-sm">
+                                                            <td className="py-2 px-3 font-bold text-indigo-600">#{sale.id}</td>
+                                                            <td className="py-2 px-3 text-slate-600 text-sm">
                                                                 {new Date(sale.date).toLocaleDateString('es-ES')}
                                                             </td>
-                                                            <td className="py-3 px-5 text-right font-bold text-slate-800">
+                                                            <td className="py-2 px-3 text-right font-bold text-slate-800">
                                                                 ${Number(sale.total_amount || 0).toFixed(2)}
                                                             </td>
-                                                            <td className="py-3 px-5 text-slate-600 pl-8 text-sm">
+                                                            <td className="py-2 px-3 text-slate-600 text-sm">
                                                                 {sale.due_date ? new Date(sale.due_date).toLocaleDateString('es-ES') : '-'}
                                                             </td>
-                                                            <td className="py-3 px-5 text-center">
+                                                            <td className="py-2 px-3 text-center">
                                                                 <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${status.color}`}>
                                                                     {status.label}
                                                                 </span>
