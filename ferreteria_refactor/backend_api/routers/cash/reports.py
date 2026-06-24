@@ -25,6 +25,187 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+
+
+def _currency_key(value):
+    curr = (value or "USD").strip()
+    if curr.upper() in {"BS", "VES", "VEF"}:
+        return "Bs"
+    if curr in {"$", ""}:
+        return "USD"
+    return curr
+
+
+def _merge_numeric_row(target: dict, source: dict):
+    for key, value in source.items():
+        if key == "currency":
+            continue
+        if isinstance(value, (int, float, Decimal)):
+            target[key] = float(target.get(key, 0) or 0) + float(value or 0)
+
+
+def _empty_cash_row(currency: str) -> dict:
+    return {
+        "currency": currency,
+        "initial": 0.0,
+        "cash_sales": 0.0,
+        "debt_cash": 0.0,
+        "layaway_cash": 0.0,
+        "service_cash": 0.0,
+        "external_financing_cash": 0.0,
+        "manual_in": 0.0,
+        "manual_out": 0.0,
+        "purchase_cash": 0.0,
+        "returns": 0.0,
+        "cash_advances": 0.0,
+        "change_given": 0.0,
+        "expected": 0.0,
+        "reported": 0.0,
+        "difference": 0.0,
+    }
+
+
+@router.get("/funds/{fund_id}/audit-report", dependencies=[Depends(require_permission("cash.audit.view"))])
+def get_cash_fund_audit_report(
+    fund_id: int,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    status: Optional[str] = Query(None, description="OPEN, CLOSED o ALL"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Consolidated read-only audit for a physical cash fund/shared drawer."""
+    fund = db.query(models.CashFund).filter(models.CashFund.id == fund_id).first()
+    if not fund:
+        raise HTTPException(status_code=404, detail="Fondo físico no encontrado")
+
+    query = db.query(models.CashSession).options(
+        joinedload(models.CashSession.user),
+        joinedload(models.CashSession.register).joinedload(models.CashRegister.cash_fund),
+        joinedload(models.CashSession.cash_fund),
+        joinedload(models.CashSession.currencies),
+    ).outerjoin(models.CashRegister, models.CashSession.register_id == models.CashRegister.id).filter(
+        or_(
+            models.CashSession.cash_fund_id == fund_id,
+            and_(models.CashSession.cash_fund_id.is_(None), models.CashRegister.cash_fund_id == fund_id),
+        )
+    )
+
+    if start_date:
+        query = query.filter(models.CashSession.start_time >= datetime.combine(start_date, datetime.min.time()))
+    if end_date:
+        query = query.filter(models.CashSession.start_time <= datetime.combine(end_date, datetime.max.time()))
+
+    status_key = (status or "ALL").strip().upper()
+    if status_key in {"OPEN", "CLOSED"}:
+        query = query.filter(models.CashSession.status == status_key)
+
+    sessions = query.order_by(models.CashSession.start_time.asc()).all()
+
+    cash_totals = {}
+    payment_totals = {}
+    transaction_count = 0
+    alert_count = 0
+    credit_pending_amount = 0.0
+    credit_pending_count = 0
+    external_financing_pending_usd = 0.0
+    session_rows = []
+
+    for session in sessions:
+        report = CashReconciliationService.build_session_audit(db, session.id)
+        if not report:
+            continue
+
+        for row in report.get("cash_by_currency", []):
+            currency = _currency_key(row.get("currency"))
+            if currency not in cash_totals:
+                cash_totals[currency] = _empty_cash_row(currency)
+            _merge_numeric_row(cash_totals[currency], row)
+
+        for method_row in report.get("payment_methods", []):
+            key = (method_row.get("method") or "Sin metodo", _currency_key(method_row.get("currency")))
+            if key not in payment_totals:
+                payment_totals[key] = {
+                    "method": key[0],
+                    "currency": key[1],
+                    "amount": 0.0,
+                    "count": 0,
+                    "sources": set(),
+                }
+            payment_totals[key]["amount"] += float(method_row.get("amount") or 0)
+            payment_totals[key]["count"] += int(method_row.get("count") or 0)
+            payment_totals[key]["sources"].update(method_row.get("sources") or [])
+
+        summary = report.get("summary") or {}
+        transaction_count += int(summary.get("transaction_count") or 0)
+        alert_count += int(summary.get("alert_count") or 0)
+        credit_pending_amount += float(summary.get("credit_pending_amount") or 0)
+        credit_pending_count += int(summary.get("credit_pending_count") or 0)
+        external_financing_pending_usd += float(summary.get("external_financing_pending_usd") or 0)
+
+        session_rows.append({
+            "id": session.id,
+            "status": session.status,
+            "start_time": session.start_time.isoformat() if session.start_time else None,
+            "end_time": session.end_time.isoformat() if session.end_time else None,
+            "user": {
+                "id": session.user.id,
+                "username": session.user.username,
+                "full_name": session.user.full_name,
+            } if session.user else None,
+            "register": {
+                "id": session.register.id,
+                "code": session.register.code,
+                "name": session.register.name,
+            } if session.register else None,
+            "cash_by_currency": report.get("cash_by_currency", []),
+            "summary": summary,
+        })
+
+    cash_rows = list(cash_totals.values())
+    expected_total = sum(float(row.get("expected") or 0) for row in cash_rows)
+    reported_total = sum(float(row.get("reported") or 0) for row in cash_rows)
+
+    return {
+        "schema_version": "cash-fund-audit-v1",
+        "fund": {
+            "id": fund.id,
+            "name": fund.name,
+            "code": fund.code,
+            "description": fund.description,
+            "is_shared": fund.is_shared,
+            "is_active": fund.is_active,
+        },
+        "filters": {
+            "start_date": start_date.isoformat() if start_date else None,
+            "end_date": end_date.isoformat() if end_date else None,
+            "status": status_key,
+        },
+        "summary": {
+            "session_count": len(session_rows),
+            "open_sessions": len([row for row in session_rows if row["status"] == "OPEN"]),
+            "closed_sessions": len([row for row in session_rows if row["status"] == "CLOSED"]),
+            "transaction_count": transaction_count,
+            "payment_method_count": len(payment_totals),
+            "cash_expected_total_display_only": expected_total,
+            "cash_reported_total_display_only": reported_total,
+            "cash_difference_total_display_only": reported_total - expected_total,
+            "credit_pending_amount": credit_pending_amount,
+            "credit_pending_count": credit_pending_count,
+            "external_financing_pending_usd": external_financing_pending_usd,
+            "alert_count": alert_count,
+        },
+        "cash_by_currency": cash_rows,
+        "payment_methods": [
+            {
+                **{k: v for k, v in row.items() if k != "sources"},
+                "sources": sorted(row["sources"]),
+            }
+            for row in sorted(payment_totals.values(), key=lambda item: (item["method"], item["currency"]))
+        ],
+        "sessions": session_rows,
+    }
+
 # ============================================================
 #  ENDPOINTS
 # ============================================================

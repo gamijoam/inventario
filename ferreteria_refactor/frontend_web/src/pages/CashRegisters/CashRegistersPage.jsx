@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Plus, Edit2, Power, MonitorCheck, MonitorOff,
-    RefreshCw, Clock, User, Hash, CheckCircle2, XCircle, AlertTriangle, Wallet
+    RefreshCw, Clock, User, Hash, CheckCircle2, XCircle, AlertTriangle, Wallet, Eye
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -28,7 +28,124 @@ const StatusBadge = ({ status }) => {
 };
 
 // ─── Register Card ────────────────────────────────────────────────────────────
-const RegisterCard = ({ register, onEdit, onToggle, onForceClose }) => {
+const formatMoney = (value, currency = 'USD') => {
+    const amount = Number(value || 0);
+    if (currency === 'Bs' || currency === 'VES') {
+        return `Bs ${amount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    if (currency === 'USD') {
+        return `$ ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    return `${currency} ${amount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+const FundAuditModal = ({ audit, loading, onClose }) => {
+    if (!audit && !loading) return null;
+    const summary = audit?.summary || {};
+    const rows = audit?.cash_by_currency || [];
+    const sessions = audit?.sessions || [];
+    const paymentMethods = audit?.payment_methods || [];
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+            <div className="max-h-[88vh] w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900">
+                <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4 dark:border-gray-800">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                            <Wallet className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-wide text-slate-400">Fondo físico</p>
+                            <h2 className="text-lg font-black text-slate-950 dark:text-white">{audit?.fund?.name || 'Consolidado'}</h2>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-gray-800 dark:hover:text-white">
+                        <XCircle className="h-5 w-5" />
+                    </button>
+                </div>
+                <div className="max-h-[calc(88vh-80px)] overflow-y-auto p-5">
+                    {loading ? (
+                        <div className="flex items-center justify-center py-16 text-slate-500">
+                            <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
+                            Calculando fondo compartido...
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            <div className="grid gap-3 sm:grid-cols-4">
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-gray-800 dark:bg-gray-800/60">
+                                    <p className="text-xs font-bold uppercase text-slate-400">Sesiones</p>
+                                    <p className="mt-1 text-2xl font-black text-slate-950 dark:text-white">{summary.session_count || 0}</p>
+                                </div>
+                                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
+                                    <p className="text-xs font-bold uppercase text-emerald-700">Abiertas</p>
+                                    <p className="mt-1 text-2xl font-black text-emerald-700">{summary.open_sessions || 0}</p>
+                                </div>
+                                <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
+                                    <p className="text-xs font-bold uppercase text-slate-400">Transacciones</p>
+                                    <p className="mt-1 text-2xl font-black text-slate-950 dark:text-white">{summary.transaction_count || 0}</p>
+                                </div>
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+                                    <p className="text-xs font-bold uppercase text-amber-700">Alertas</p>
+                                    <p className="mt-1 text-2xl font-black text-amber-700">{summary.alert_count || 0}</p>
+                                </div>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+                                <div className="border-b border-slate-100 px-4 py-3 dark:border-gray-800">
+                                    <h3 className="font-black text-slate-900 dark:text-white">Caja por moneda</h3>
+                                </div>
+                                <div className="divide-y divide-slate-100 dark:divide-gray-800">
+                                    {rows.length === 0 ? (
+                                        <p className="px-4 py-6 text-sm text-slate-500">No hay sesiones en este fondo para hoy.</p>
+                                    ) : rows.map(row => {
+                                        const diff = Number(row.difference || 0);
+                                        return (
+                                            <div key={row.currency} className="grid gap-2 px-4 py-3 sm:grid-cols-4">
+                                                <div><p className="text-xs font-bold uppercase text-slate-400">Moneda</p><p className="font-black text-slate-900 dark:text-white">{row.currency}</p></div>
+                                                <div><p className="text-xs font-bold uppercase text-slate-400">Esperado</p><p className="font-black text-slate-900 dark:text-white">{formatMoney(row.expected, row.currency)}</p></div>
+                                                <div><p className="text-xs font-bold uppercase text-slate-400">Declarado</p><p className="font-black text-slate-900 dark:text-white">{formatMoney(row.reported, row.currency)}</p></div>
+                                                <div><p className="text-xs font-bold uppercase text-slate-400">Diferencia</p><p className={`font-black ${Math.abs(diff) < 0.01 ? 'text-emerald-700' : diff < 0 ? 'text-rose-700' : 'text-blue-700'}`}>{formatMoney(diff, row.currency)}</p></div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="grid gap-4 lg:grid-cols-2">
+                                <div className="rounded-xl border border-slate-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+                                    <div className="border-b border-slate-100 px-4 py-3 dark:border-gray-800"><h3 className="font-black text-slate-900 dark:text-white">Sesiones incluidas</h3></div>
+                                    <div className="max-h-64 divide-y divide-slate-100 overflow-y-auto dark:divide-gray-800">
+                                        {sessions.map(session => (
+                                            <div key={session.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                                                <div><p className="font-black text-slate-900 dark:text-white">#{session.id} · {session.register?.code || 'Caja'}</p><p className="text-xs text-slate-500">{session.user?.username || 'Sin usuario'}</p></div>
+                                                <span className={`rounded-full px-2 py-1 text-xs font-black ${session.status === 'OPEN' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{session.status === 'OPEN' ? 'Abierta' : 'Cerrada'}</span>
+                                            </div>
+                                        ))}
+                                        {sessions.length === 0 && <p className="px-4 py-6 text-sm text-slate-500">Sin sesiones.</p>}
+                                    </div>
+                                </div>
+                                <div className="rounded-xl border border-slate-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+                                    <div className="border-b border-slate-100 px-4 py-3 dark:border-gray-800"><h3 className="font-black text-slate-900 dark:text-white">Métodos de pago</h3></div>
+                                    <div className="max-h-64 divide-y divide-slate-100 overflow-y-auto dark:divide-gray-800">
+                                        {paymentMethods.slice(0, 20).map((method, idx) => (
+                                            <div key={`${method.method}-${method.currency}-${idx}`} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                                                <div><p className="font-black text-slate-900 dark:text-white">{method.method}</p><p className="text-xs text-slate-500">{method.count} movimientos</p></div>
+                                                <p className="font-black text-slate-900 dark:text-white">{formatMoney(method.amount, method.currency)}</p>
+                                            </div>
+                                        ))}
+                                        {paymentMethods.length === 0 && <p className="px-4 py-6 text-sm text-slate-500">Sin métodos de pago.</p>}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const RegisterCard = ({ register, onEdit, onToggle, onForceClose, onViewFund }) => {
     const isOpen = register.session_status === 'OPEN';
 
     const formatTime = (isoStr) => {
@@ -143,6 +260,18 @@ const RegisterCard = ({ register, onEdit, onToggle, onForceClose }) => {
                         <span className="text-xs text-gray-400 dark:text-gray-500 italic">Caja principal del sistema</span>
                     )}
                     {/* Force-close button: shown when OPEN (admin safety valve for orphaned sessions) */}
+                    {register.cash_fund?.is_shared && (
+                        <button
+                            onClick={() => onViewFund(register.cash_fund)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
+                                       text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20
+                                       rounded-lg transition-colors"
+                            title="Ver consolidado del fondo físico compartido"
+                        >
+                            <Eye className="w-3.5 h-3.5" />
+                            Ver fondo
+                        </button>
+                    )}
                     {isOpen && (
                         <button
                             onClick={() => onForceClose(register)}
@@ -371,6 +500,8 @@ const CashRegistersPage = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState(null);
+    const [fundAudit, setFundAudit] = useState(null);
+    const [fundAuditLoading, setFundAuditLoading] = useState(false);
 
     const fetchFunds = useCallback(async () => {
         try {
@@ -433,6 +564,24 @@ const CashRegistersPage = () => {
             fetchFunds();
         } catch (err) {
             toast.error(getApiErrorMessage(err, 'Error al crear fondo'));
+        }
+    };
+
+    const handleViewFund = async (fund) => {
+        if (!fund?.id) return;
+        setFundAuditLoading(true);
+        setFundAudit({ fund });
+        try {
+            const today = new Date().toISOString().slice(0, 10);
+            const { data } = await apiClient.get(`/cash/funds/${fund.id}/audit-report`, {
+                params: { start_date: today, end_date: today, status: 'ALL' }
+            });
+            setFundAudit(data);
+        } catch (err) {
+            toast.error(getApiErrorMessage(err, 'Error al cargar el fondo compartido'));
+            setFundAudit(null);
+        } finally {
+            setFundAuditLoading(false);
         }
     };
 
@@ -582,6 +731,7 @@ const CashRegistersPage = () => {
                             onEdit={(r) => { setEditing(r); setModalOpen(true); }}
                             onToggle={handleToggleActive}
                             onForceClose={handleForceClose}
+                            onViewFund={handleViewFund}
                         />
                     ))}
                 </div>
@@ -601,6 +751,12 @@ const CashRegistersPage = () => {
 
             {/* Modal */}
             {help.isOpen && <HelpDrawer contextKey="cash/registers" onClose={help.close} />}
+
+            <FundAuditModal
+                audit={fundAudit}
+                loading={fundAuditLoading}
+                onClose={() => { setFundAudit(null); setFundAuditLoading(false); }}
+            />
 
             <RegisterModal
                 isOpen={modalOpen}
