@@ -201,12 +201,12 @@ const CashTab = ({ dateRange }) => {
             toast.success('Reporte Z enviado a impresora', { id: toastId });
         } catch (error) {
             console.error('Error reprinting Z-Report:', error);
-            toast.error(getApiErrorMessage(error, 'Error al reimprimir. Verifica que el Hardware Bridge este activo.'), { id: toastId });
+            toast.error(getApiErrorMessage(error, 'Error al reimprimir. Verifica que el Hardware Bridge esté activo.'), { id: toastId });
         }
     };
 
     const handleDownloadAuditPDF = async (session) => {
-        const toastId = toast.loading('Generando auditoria PDF...');
+        const toastId = toast.loading('Generando auditoría PDF...');
         try {
             const auditReport = await cashService.getAuditReport(session.id);
             const blob = await pdf(<CashAuditReportPDF report={auditReport} business={business} />).toBlob();
@@ -216,10 +216,10 @@ const CashTab = ({ dateRange }) => {
             link.download = `Auditoria-Arqueo-Sesion-${session.id}.pdf`;
             link.click();
             URL.revokeObjectURL(url);
-            toast.success('Auditoria PDF descargada', { id: toastId });
+            toast.success('Auditoría PDF descargada', { id: toastId });
         } catch (error) {
             console.error('Error generating audit PDF:', error);
-            toast.error(getApiErrorMessage(error, 'Error al generar auditoria PDF'), { id: toastId });
+            toast.error(getApiErrorMessage(error, 'Error al generar auditoría PDF'), { id: toastId });
         }
     };
 
@@ -233,12 +233,12 @@ const CashTab = ({ dateRange }) => {
             return;
         }
         setRebuildingSessionId(session.id);
-        const toastId = toast.loading(`Reconstruyendo libro de sesion #${session.id}...`);
+        const toastId = toast.loading(`Reconstruyendo libro de sesión #${session.id}...`);
         try {
             const response = await apiClient.post(`/accounting/sessions/${session.id}/rebuild`);
             toast.success(`Libro actualizado: ${response.data.entries || 0} asientos`, { id: toastId });
         } catch (error) {
-            toast.error(getApiErrorMessage(error, 'No se pudo reconstruir el libro de esta sesion'), { id: toastId });
+            toast.error(getApiErrorMessage(error, 'No se pudo reconstruir el libro de esta sesión'), { id: toastId });
         } finally {
             setRebuildingSessionId(null);
         }
@@ -248,9 +248,9 @@ const CashTab = ({ dateRange }) => {
     // RENDER
     // ============================================================
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             {/* Header actions */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
                 <div>
                     <h2 className="text-base font-black text-slate-800 flex items-center gap-2">
                         <div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-600">
@@ -259,57 +259,57 @@ const CashTab = ({ dateRange }) => {
                         Historial de Caja
                     </h2>
                     <p className="text-slate-500 text-xs font-semibold ml-8">
-                        Auditoria de cierres y movimientos
+                        Auditoría de cierres y movimientos
                     </p>
                 </div>
 
                 <button
                     onClick={handleDownloadReport}
                     disabled={downloading || loading}
-                    className="h-9 inline-flex items-center gap-2 bg-emerald-600 text-white px-3 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm font-black text-xs active:scale-95 disabled:opacity-50"
+                    className="h-8 inline-flex items-center gap-2 bg-emerald-600 text-white px-3 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm font-black text-xs active:scale-95 disabled:opacity-50"
                 >
                     <Download size={15} />
-                    <span>{downloading ? '...' : 'Exportar Auditoria'}</span>
+                    <span>{downloading ? '...' : 'Exportar Auditoría'}</span>
                 </button>
             </div>
 
             {/* KPIs */}
             {!loading && sessions.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-center justify-between">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 flex items-center justify-between">
                         <div>
                             <p className="text-slate-400 text-[11px] font-black uppercase mb-1">Faltantes (Aprox)</p>
-                            <p className="text-xl font-black text-rose-600">{formatCurrency(kpis.totalShortages)}</p>
+                            <p className="text-lg font-black text-rose-600">{formatCurrency(kpis.totalShortages)}</p>
                         </div>
-                        <div className="bg-rose-50 p-2.5 rounded-lg text-rose-600 border border-rose-100">
-                            <TrendingDown size={20} />
+                        <div className="bg-rose-50 p-2 rounded-lg text-rose-600 border border-rose-100">
+                            <TrendingDown size={18} />
                         </div>
                     </div>
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-center justify-between">
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 flex items-center justify-between">
                         <div>
                             <p className="text-slate-400 text-[11px] font-black uppercase mb-1">Sobrantes (Aprox)</p>
-                            <p className="text-xl font-black text-emerald-600">{formatCurrency(kpis.totalOverages)}</p>
+                            <p className="text-lg font-black text-emerald-600">{formatCurrency(kpis.totalOverages)}</p>
                         </div>
-                        <div className="bg-emerald-50 p-2.5 rounded-lg text-emerald-600 border border-emerald-100">
-                            <TrendingUp size={20} />
+                        <div className="bg-emerald-50 p-2 rounded-lg text-emerald-600 border border-emerald-100">
+                            <TrendingUp size={18} />
                         </div>
                     </div>
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-center justify-between">
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 flex items-center justify-between">
                         <div>
                             <p className="text-slate-400 text-[11px] font-black uppercase mb-1">Ventas Efectivo (Aprox)</p>
-                            <p className="text-xl font-black text-indigo-600">{formatCurrency(kpis.totalCashSales)}</p>
+                            <p className="text-lg font-black text-indigo-600">{formatCurrency(kpis.totalCashSales)}</p>
                         </div>
-                        <div className="bg-indigo-50 p-2.5 rounded-lg text-indigo-600 border border-indigo-100">
-                            <DollarSign size={20} />
+                        <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600 border border-indigo-100">
+                            <DollarSign size={18} />
                         </div>
                     </div>
                 </div>
             )}
 
             {/* Sessions list */}
-            <div className="space-y-3">
+            <div className="space-y-2.5">
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                    <div className="flex flex-col items-center justify-center py-10 text-slate-400">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-2"></div>
                         Cargando historial...
                     </div>
@@ -325,9 +325,9 @@ const CashTab = ({ dateRange }) => {
                         <button
                             type="button"
                             onClick={showRecentSessions}
-                            className="mt-4 h-9 rounded-lg bg-indigo-600 px-3 text-xs font-black text-white shadow-sm transition-colors hover:bg-indigo-700 active:scale-95"
+                            className="mt-3 h-8 rounded-lg bg-indigo-600 px-3 text-xs font-black text-white shadow-sm transition-colors hover:bg-indigo-700 active:scale-95"
                         >
-                            Ver ultimas sesiones
+                            Ver últimas sesiones
                         </button>
                     </div>
                 ) : (
@@ -349,22 +349,22 @@ const CashTab = ({ dateRange }) => {
                                 {/* Collapsed header */}
                                 <div
                                     className={clsx(
-                                        "p-4 cursor-pointer hover:bg-slate-50 transition-colors flex flex-col md:flex-row gap-3 justify-between",
+                                        "p-3 cursor-pointer hover:bg-slate-50 transition-colors flex flex-col md:flex-row gap-2.5 justify-between",
                                         isExpanded && "bg-slate-50/80"
                                     )}
                                     onClick={() => toggleExpand(session.id)}
                                 >
                                     <div className="flex items-center gap-3 min-w-0">
                                         <div className={clsx(
-                                            "p-2.5 rounded-lg",
+                                            "p-2 rounded-lg",
                                             isClosed ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
                                         )}>
-                                            {isClosed ? <CheckCircle size={20} /> : <Clock size={20} />}
+                                            {isClosed ? <CheckCircle size={18} /> : <Clock size={18} />}
                                         </div>
                                         <div className="min-w-0">
                                             <div className="flex flex-wrap items-center gap-2 mb-1">
                                                 <span className="font-black text-slate-800 text-base">
-                                                    Sesion #{session.id}
+                                                    Sesión #{session.id}
                                                 </span>
                                                 <span className={clsx(
                                                     "px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider",
@@ -378,7 +378,7 @@ const CashTab = ({ dateRange }) => {
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500">
+                                            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-semibold text-slate-500">
                                                 <span className="flex items-center gap-1">
                                                     <User size={12} /> {session.user?.full_name || session.user?.username}
                                                 </span>
@@ -397,7 +397,7 @@ const CashTab = ({ dateRange }) => {
                                     {/* Mini currency summary */}
                                     <div className="flex flex-wrap gap-2 items-center justify-end">
                                         {(session.currencies || []).slice(0, 3).map(curr => (
-                                            <div key={curr.id} className="flex items-center gap-2 bg-white border border-slate-100 px-2.5 py-1.5 rounded-lg shadow-sm">
+                                            <div key={curr.id} className="flex items-center gap-1.5 bg-white border border-slate-100 px-2 py-1 rounded-lg shadow-sm">
                                                 <span className="text-xs font-bold text-slate-400">{curr.currency_symbol}</span>
                                                 <span className="text-xs font-black text-slate-700">
                                                     {formatCurrency(curr.final_reported || 0, curr.currency_code || curr.currency_symbol)}
@@ -414,15 +414,15 @@ const CashTab = ({ dateRange }) => {
 
                                 {/* Expanded details */}
                                 {isExpanded && (
-                                    <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+                                    <div className="p-3 border-t border-slate-100 bg-slate-50/50">
                                         {/* Multi-currency breakdown grid */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
                                             {(session.currencies || []).map(curr => {
                                                 const diff = parseFloat(curr.difference || 0);
                                                 return (
-                                                    <div key={curr.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                                                    <div key={curr.id} className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
                                                         <div className="flex justify-between items-center mb-2">
-                                                            <span className="font-black text-slate-700 text-base">{curr.currency_symbol}</span>
+                                                            <span className="font-black text-slate-700 text-sm">{curr.currency_symbol}</span>
                                                             {isClosed && Math.abs(diff) >= 0.01 && (
                                                                 <span className={clsx(
                                                                     "text-xs font-bold px-2 py-1 rounded-lg border",
@@ -480,13 +480,13 @@ const CashTab = ({ dateRange }) => {
 
                                         {/* Payment method breakdown */}
                                         {session.payment_breakdown && session.payment_breakdown.length > 0 && (
-                                            <div className="mt-4 mb-3">
+                                            <div className="mt-3 mb-2.5">
                                                 <h4 className="text-xs font-black text-slate-700 mb-2 border-b border-slate-200 pb-2 uppercase tracking-wide">
-                                                    Detalle de Metodos de Pago
+                                                    Detalle de Métodos de Pago
                                                 </h4>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
                                                     {session.payment_breakdown.map((item, idx) => (
-                                                        <div key={idx} className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm flex flex-col">
+                                                        <div key={idx} className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm flex flex-col">
                                                             <span className="text-xs font-bold text-slate-500 uppercase tracking-wide truncate" title={item.method}>
                                                                 {item.method}
                                                             </span>
@@ -506,7 +506,7 @@ const CashTab = ({ dateRange }) => {
 
                                         {/* Session notes */}
                                         {session.notes && (
-                                            <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-xl text-amber-800 text-xs font-semibold flex items-start gap-3">
+                                            <div className="mt-2.5 p-2.5 bg-amber-50 border border-amber-100 rounded-xl text-amber-800 text-xs font-semibold flex items-start gap-2.5">
                                                 <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
                                                 <div className="min-w-0">
                                                     <p className="font-bold text-amber-900 mb-1">Notas del Cierre:</p>
@@ -517,23 +517,23 @@ const CashTab = ({ dateRange }) => {
 
                                         {/* Action buttons for closed sessions */}
                                         {isClosed && (
-                                            <div className="mt-4 grid grid-cols-1 gap-2.5 border-t border-slate-200 pt-3 sm:grid-cols-2 xl:grid-cols-5">
+                                            <div className="mt-3 grid grid-cols-1 gap-2 border-t border-slate-200 pt-3 sm:grid-cols-2 xl:grid-cols-5">
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setAuditSession(session);
                                                     }}
-                                                    className="h-10 px-3 bg-slate-900 text-white rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors shadow-sm active:scale-95"
+                                                    className="h-9 px-3 bg-slate-900 text-white rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors shadow-sm active:scale-95"
                                                 >
                                                     <ShieldCheck size={15} />
-                                                    Ver Auditoria
+                                                    Ver Auditoría
                                                 </button>
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleOpenLedger(session);
                                                     }}
-                                                    className="h-10 px-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-emerald-100 transition-colors active:scale-95"
+                                                    className="h-9 px-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-emerald-100 transition-colors active:scale-95"
                                                 >
                                                     <BookOpenCheck size={15} />
                                                     Libro contable
@@ -545,7 +545,7 @@ const CashTab = ({ dateRange }) => {
                                                             handleRebuildLedger(session);
                                                         }}
                                                         disabled={rebuildingSessionId === session.id}
-                                                        className="h-10 px-3 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-indigo-100 transition-colors active:scale-95 disabled:opacity-60"
+                                                        className="h-9 px-3 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-indigo-100 transition-colors active:scale-95 disabled:opacity-60"
                                                     >
                                                         <RotateCw size={15} className={rebuildingSessionId === session.id ? 'animate-spin' : ''} />
                                                         Reconstruir
@@ -556,7 +556,7 @@ const CashTab = ({ dateRange }) => {
                                                         e.stopPropagation();
                                                         handleReprintZReport(session.id);
                                                     }}
-                                                    className="h-10 px-3 bg-indigo-600 text-white rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-sm active:scale-95"
+                                                    className="h-9 px-3 bg-indigo-600 text-white rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-sm active:scale-95"
                                                 >
                                                     <Printer size={15} />
                                                     Reimprimir Z
@@ -566,7 +566,7 @@ const CashTab = ({ dateRange }) => {
                                                         e.stopPropagation();
                                                         handleDownloadAuditPDF(session);
                                                     }}
-                                                    className="h-10 px-3 bg-white border border-indigo-200 text-indigo-600 rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:border-indigo-300 transition-colors active:scale-95"
+                                                    className="h-9 px-3 bg-white border border-indigo-200 text-indigo-600 rounded-lg font-black text-xs flex items-center justify-center gap-2 hover:border-indigo-300 transition-colors active:scale-95"
                                                 >
                                                     <FileText size={15} />
                                                     Descargar PDF
