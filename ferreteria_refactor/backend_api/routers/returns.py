@@ -61,8 +61,36 @@ def _payments_cover_difference(payments, difference_due: Decimal) -> bool:
     return total_usd + Decimal("0.05") >= difference_due
 
 
+def _is_admin_like(current_user: Optional[models.User]) -> bool:
+    if current_user is None:
+        return False
+    role = getattr(current_user, "role", None)
+    role_value = getattr(role, "value", role)
+    return bool(
+        getattr(current_user, "is_superuser", False)
+        or str(role_value or "").upper() == models.UserRole.ADMIN.value
+    )
+
+
+def _find_admin_fallback_cash_session(db: Session, current_user: Optional[models.User], sale: Optional[models.Sale] = None):
+    # The endpoint permissions already decided whether the user can return/exchange.
+    # If that authorized user has no personal cash session, use an open tenant session.
+    base_query = db.query(models.CashSession).filter(models.CashSession.status == "OPEN")
+
+    if sale and sale.session_id:
+        original_session = db.query(models.CashSession).filter(models.CashSession.id == sale.session_id).first()
+        original_register_id = getattr(original_session, "register_id", None)
+        if original_register_id:
+            same_register_session = base_query.filter(
+                models.CashSession.register_id == original_register_id
+            ).order_by(models.CashSession.start_time.desc(), models.CashSession.id.desc()).first()
+            if same_register_session:
+                return same_register_session
+
+    return base_query.order_by(models.CashSession.start_time.desc(), models.CashSession.id.desc()).first()
+
+
 def _resolve_cash_session_for_refund(db: Session, sale: models.Sale, current_user: Optional[models.User]):
-    """Pick the cash session that should absorb a refund/void movement."""
     if sale.session_id:
         sale_session = db.query(models.CashSession).filter(
             models.CashSession.id == sale.session_id,
@@ -79,23 +107,45 @@ def _resolve_cash_session_for_refund(db: Session, sale: models.Sale, current_use
         if user_session:
             return user_session
 
-    return None
+    return _find_admin_fallback_cash_session(db, current_user, sale)
 
 
-def _validate_replacement_sale_ready(sale_data: schemas.SaleCreate, db: Session, current_user: models.User):
-    session = None
+def _resolve_cash_session_for_replacement_sale(
+    db: Session,
+    current_user: models.User,
+    sale_data: schemas.SaleCreate,
+    original_sale: Optional[models.Sale] = None,
+):
     if getattr(sale_data, 'session_id', None):
         session = db.query(models.CashSession).filter(
             models.CashSession.id == sale_data.session_id,
             models.CashSession.status == "OPEN"
         ).first()
+        if session:
+            return session
+
+    session = db.query(models.CashSession).filter(
+        models.CashSession.status == "OPEN",
+        models.CashSession.user_id == current_user.id
+    ).order_by(models.CashSession.start_time.desc(), models.CashSession.id.desc()).first()
+    if session:
+        return session
+
+    return _find_admin_fallback_cash_session(db, current_user, original_sale)
+
+
+def _validate_replacement_sale_ready(
+    sale_data: schemas.SaleCreate,
+    db: Session,
+    current_user: models.User,
+    original_sale: Optional[models.Sale] = None,
+):
+    session = _resolve_cash_session_for_replacement_sale(db, current_user, sale_data, original_sale)
     if not session:
-        session = db.query(models.CashSession).filter(
-            models.CashSession.status == "OPEN",
-            models.CashSession.user_id == current_user.id
-        ).first()
-    if not session:
-        raise HTTPException(status_code=400, detail="No hay caja abierta para registrar la venta de reemplazo del canje")
+        raise HTTPException(
+            status_code=400,
+            detail="No hay caja abierta para registrar el canje. Abre una caja o selecciona una caja abierta."
+        )
 
     warehouse_id = getattr(sale_data, 'warehouse_id', None)
     for item in sale_data.items:
@@ -130,6 +180,8 @@ def _validate_replacement_sale_ready(sale_data: schemas.SaleCreate, db: Session,
             available = Decimal(str(product.stock or 0))
         if available < qty:
             raise HTTPException(status_code=400, detail=f"Stock insuficiente para '{product.name}'. Disponible: {available}, solicitado: {qty}")
+
+    return session
 
 @router.get("/sales/search", dependencies=[Depends(require_any_permission(["sales.returns.create", "sales.returns.exchange", "pos.void_sale"]))])
 def search_sales(
@@ -565,8 +617,10 @@ def process_return(
             )
             db.add(cash_movement)
         else:
-            # Sin sesión disponible: registrar como movimiento sin sesión
-            print(f"[RETURN] Sin sesión de caja disponible para venta #{sale.id} — movimiento no registrado en caja")
+            raise HTTPException(
+                status_code=400,
+                detail="No hay caja abierta para registrar el reembolso. Abre una caja o selecciona una caja abierta."
+            )
 
     # ── FIX 3: Marcar si la devolución cubre la venta completa ────────────────
     # Una venta solo es VOIDED si se devolvieron TODOS los ítems en su totalidad
@@ -621,7 +675,7 @@ def process_exchange_return(
             detail=f"El canje cubre ${exchange_credit:.2f}. Falta cobrar diferencia de ${difference_due:.2f}."
         )
 
-    _validate_replacement_sale_ready(payload.replacement_sale, db, current_user)
+    replacement_session = _validate_replacement_sale_ready(payload.replacement_sale, db, current_user, original_sale)
 
     return_payload = payload.model_copy(update={
         "resolution_type": "EXCHANGE",
@@ -645,6 +699,7 @@ def process_exchange_return(
         "payments": [canje_payment] + submitted_payments,
         "notes": f"{replacement_notes} | {link_note}" if replacement_notes else link_note,
         "is_credit": False,
+        "session_id": replacement_session.id,
     })
 
     from ..services.sales_service import SalesService
