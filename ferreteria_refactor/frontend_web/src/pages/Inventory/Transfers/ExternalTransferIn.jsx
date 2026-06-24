@@ -44,7 +44,7 @@ function ProductSearchModal({ isOpen, onClose, onSelect }) {
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 pt-[10vh]">
       <div className="bg-white w-full max-w-lg rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center gap-3 p-4 border-b border-slate-100 bg-slate-50">
+        <div className="flex items-center gap-2 p-4 border-b border-slate-100 bg-slate-50">
           <Search size={20} className="text-indigo-600" />
           <input
             ref={inputRef}
@@ -83,11 +83,11 @@ function ProductSearchModal({ isOpen, onClose, onSelect }) {
                 onSelect({ id: p.id, sku: p.sku, name: p.name, stock: p.stock ?? p.current_stock ?? 0 });
                 onClose();
               }}
-              className="w-full text-left px-4 py-3 hover:bg-indigo-50 flex items-center gap-3 border-b border-slate-50 last:border-0 transition-colors"
+              className="w-full text-left px-4 py-3 hover:bg-indigo-50 flex items-center gap-2 border-b border-slate-50 last:border-0 transition-colors"
             >
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-slate-700 truncate">{p.name}</div>
-                <div className="flex items-center gap-3 mt-0.5">
+                <div className="flex items-center gap-2 mt-0.5">
                   <span className="font-mono text-xs text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">{p.sku || 'SIN SKU'}</span>
                   <span className="text-xs text-slate-400">Stock: {p.stock ?? p.current_stock ?? 0}</span>
                 </div>
@@ -328,9 +328,9 @@ const ExternalTransferIn = () => {
   if (step === 'upload') {
     return (
       <div className="bg-slate-50 p-4 md:p-6">
-        <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[1fr_360px]">
+        <div className="mx-auto grid w-full max-w-5xl gap-2 lg:grid-cols-[1fr_360px]">
           <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-5 flex items-start gap-3">
+            <div className="mb-5 flex items-start gap-2">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm shadow-indigo-100">
                 <Upload size={24} />
               </div>
@@ -358,14 +358,14 @@ const ExternalTransferIn = () => {
               />
               {file ? (
                 <>
-                  <FileJson size={54} className="mx-auto mb-3 text-emerald-500" />
-                  <p className="max-w-full break-all text-lg font-black text-slate-800">{file.name}</p>
+                  <FileJson size={54} className="mx-auto mb-2 text-emerald-500" />
+                  <p className="max-w-full break-all text-base font-black text-slate-800">{file.name}</p>
                   <p className="mt-1 text-xs font-bold uppercase text-emerald-700">Listo para previsualizar</p>
                 </>
               ) : (
                 <>
-                  <FileJson size={54} className="mx-auto mb-3 text-slate-300 group-hover:text-indigo-400" />
-                  <p className="text-lg font-black text-slate-700">Selecciona el archivo JSON</p>
+                  <FileJson size={54} className="mx-auto mb-2 text-slate-300 group-hover:text-indigo-400" />
+                  <p className="text-base font-black text-slate-700">Selecciona el archivo JSON</p>
                   <p className="mt-1 text-sm text-slate-400">Tambien puedes tocar aqui para cambiar el archivo.</p>
                 </>
               )}
@@ -396,15 +396,15 @@ const ExternalTransferIn = () => {
               Checklist antes de aceptar
             </h3>
             <div className="mt-4 space-y-3 text-sm text-slate-600">
-              <div className="flex gap-3 rounded-lg bg-slate-50 p-3">
+              <div className="flex gap-2 rounded-lg bg-slate-50 p-3">
                 <BadgeCheck size={18} className="mt-0.5 shrink-0 text-emerald-600" />
                 <span>Valida que el archivo corresponda a la empresa que envia.</span>
               </div>
-              <div className="flex gap-3 rounded-lg bg-slate-50 p-3">
+              <div className="flex gap-2 rounded-lg bg-slate-50 p-3">
                 <Package size={18} className="mt-0.5 shrink-0 text-indigo-600" />
                 <span>Revisa modelos, unidades y seriales antes de sumar stock.</span>
               </div>
-              <div className="flex gap-3 rounded-lg bg-slate-50 p-3">
+              <div className="flex gap-2 rounded-lg bg-slate-50 p-3">
                 <Warehouse size={18} className="mt-0.5 shrink-0 text-amber-600" />
                 <span>Define el almacen destino correcto para todo el paquete o por linea.</span>
               </div>
@@ -428,7 +428,7 @@ const ExternalTransferIn = () => {
 
         {/* Header */}
         <div className="border-b border-slate-200 bg-white px-6 py-4">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="flex flex-col gap-2 xl:flex-row xl:items-start xl:justify-between">
             <div className="min-w-0">
               <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-400">
                 <Route size={15} />
@@ -436,19 +436,19 @@ const ExternalTransferIn = () => {
               </p>
               <h2 className="mt-1 text-xl font-black text-slate-900">Revision de traslado entrante</h2>
               <div className="mt-3 grid gap-2 text-sm text-slate-600 md:grid-cols-2">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2">
                   <span className="block text-[10px] font-black uppercase text-slate-400">Origen</span>
                   <span className="font-bold text-slate-800">{sourceCompany || 'Sin origen'}</span>
                   {sourceWarehouseName && <span className="block text-xs text-slate-500">{sourceWarehouseName}</span>}
                 </div>
-                <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-2">
                   <span className="block text-[10px] font-black uppercase text-indigo-500">Destino indicado</span>
                   <span className="font-bold text-indigo-800">{destinationCompany || 'No especificado'}</span>
                   {dispatchGuideNumber && <span className="block font-mono text-xs text-indigo-600">{dispatchGuideNumber}</span>}
                 </div>
               </div>
               {dispatchNotes && (
-                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs font-semibold text-amber-800">
                   Nota: {dispatchNotes}
                 </div>
               )}
@@ -462,22 +462,22 @@ const ExternalTransferIn = () => {
               <div className="h-2 overflow-hidden rounded-full bg-slate-200">
                 <div className="h-full rounded-full bg-emerald-500 transition-all duration-300" style={{ width: `${mappedPct}%` }} />
               </div>
-              <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
+              <div className="mt-2 rounded-lg bg-slate-50 px-2.5 py-2 text-xs font-semibold text-slate-500">
                 No se suma inventario hasta confirmar todos los productos mapeados.
               </div>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-6">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"><p className="text-[10px] font-bold uppercase text-slate-400">Modelos</p><p className="text-lg font-black text-slate-800">{packageStats.models || totalCount}</p></div>
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2"><p className="text-[10px] font-bold uppercase text-emerald-600">Unidades</p><p className="text-lg font-black text-emerald-700">{totalUnits}</p></div>
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2"><p className="text-[10px] font-bold uppercase text-amber-600">IMEI</p><p className="text-lg font-black text-amber-700">{totalImeis}</p></div>
-            <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2"><p className="text-[10px] font-bold uppercase text-indigo-600">Fotos</p><p className="text-lg font-black text-indigo-700">{packageStats.photos || photoUrls.length}</p></div>
-            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2"><p className="text-[10px] font-bold uppercase text-blue-600">A crear</p><p className="text-lg font-black text-blue-700">{createNewCount}</p></div>
-            <div className={`rounded-lg border px-3 py-2 ${noMatchCount ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'}`}><p className={`text-[10px] font-bold uppercase ${noMatchCount ? 'text-red-600' : 'text-emerald-600'}`}>Pendientes</p><p className={`text-lg font-black ${noMatchCount ? 'text-red-700' : 'text-emerald-700'}`}>{noMatchCount}</p></div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2"><p className="text-[10px] font-bold uppercase text-slate-400">Modelos</p><p className="text-base font-black text-slate-800">{packageStats.models || totalCount}</p></div>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2"><p className="text-[10px] font-bold uppercase text-emerald-600">Unidades</p><p className="text-base font-black text-emerald-700">{totalUnits}</p></div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2"><p className="text-[10px] font-bold uppercase text-amber-600">IMEI</p><p className="text-base font-black text-amber-700">{totalImeis}</p></div>
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-2"><p className="text-[10px] font-bold uppercase text-indigo-600">Fotos</p><p className="text-base font-black text-indigo-700">{packageStats.photos || photoUrls.length}</p></div>
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-2"><p className="text-[10px] font-bold uppercase text-blue-600">A crear</p><p className="text-base font-black text-blue-700">{createNewCount}</p></div>
+            <div className={`rounded-lg border px-2.5 py-2 ${noMatchCount ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'}`}><p className={`text-[10px] font-bold uppercase ${noMatchCount ? 'text-red-600' : 'text-emerald-600'}`}>Pendientes</p><p className={`text-base font-black ${noMatchCount ? 'text-red-700' : 'text-emerald-700'}`}>{noMatchCount}</p></div>
           </div>
         </div>
         {warehouses.length > 0 && (
-          <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-3">
+          <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-2">
             <Warehouse size={18} className="text-indigo-500 flex-shrink-0" />
             <label className="text-sm font-semibold text-slate-700 flex-shrink-0">Enviar todo a:</label>
             <select
@@ -617,7 +617,7 @@ const ExternalTransferIn = () => {
                         ) : (
                           <button
                             onClick={() => openSearchFor(idx)}
-                            className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-sm font-medium transition-colors"
+                            className="inline-flex items-center gap-2 px-2.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-sm font-medium transition-colors"
                           >
                             <Search size={14} />
                             Buscar producto
@@ -714,7 +714,7 @@ const ExternalTransferIn = () => {
 
         <div className="space-y-4 mb-8">
           {(result?.imported_count ?? result?.success_count ?? 0) > 0 && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-4">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-2">
               <div className="bg-emerald-100 p-2 rounded-lg">
                 <Check size={24} className="text-emerald-600" />
               </div>
@@ -728,7 +728,7 @@ const ExternalTransferIn = () => {
           )}
 
           {(result?.created_count ?? 0) > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-2">
               <div className="bg-blue-100 p-2 rounded-lg">
                 <Package size={24} className="text-blue-600" />
               </div>
@@ -741,7 +741,7 @@ const ExternalTransferIn = () => {
 
           {(result?.errors?.length ?? 0) > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center gap-2 mb-2">
                 <div className="bg-red-100 p-2 rounded-lg">
                   <AlertTriangle size={24} className="text-red-600" />
                 </div>
@@ -768,7 +768,7 @@ const ExternalTransferIn = () => {
 
         <button
           onClick={resetProcess}
-          className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-sm shadow-indigo-100 hover:bg-indigo-700 transition-all"
+          className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-2.5 rounded-lg font-bold shadow-sm shadow-indigo-100 hover:bg-indigo-700 transition-all"
         >
           <RefreshCw size={18} />
           Importar otro

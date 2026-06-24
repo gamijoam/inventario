@@ -443,16 +443,16 @@ const ExternalTransferOut = () => {
     };
 
     return (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.85fr)]">
+        <div className="grid grid-cols-1 gap-2 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.85fr)]">
             {/* Left Panel: Search */}
-            <div className="flex min-h-[620px] flex-col rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <div className="flex min-h-[520px] flex-col rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                <h2 className="text-base font-black text-slate-800 mb-2 flex items-center gap-2">
                     <Search className="text-indigo-600" />
                     Buscar Productos
                 </h2>
 
                 {/* Warehouse Selector */}
-                <div className="mb-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                <div className="mb-2 bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm">
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Almacen de origen</label>
                     <select
                         value={selectedWarehouseId}
@@ -465,7 +465,7 @@ const ExternalTransferOut = () => {
                     </select>
                 </div>
 
-                <div className="mb-4 grid gap-3 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3 shadow-sm">
+                <div className="mb-2 grid gap-2 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3 shadow-sm">
                     <div>
                         <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <label className="flex items-center gap-1.5 text-xs font-bold uppercase text-indigo-700">
@@ -495,7 +495,7 @@ const ExternalTransferOut = () => {
                             <select
                                 value={selectedDestinationTenantId}
                                 onChange={(e) => handleOrgDestinationChange(e.target.value)}
-                                className="w-full rounded-lg border border-indigo-100 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                                className="w-full rounded-lg border border-indigo-100 bg-white px-2.5 py-2 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
                             >
                                 <option value="">Selecciona una empresa de la organizacion...</option>
                                 {orgCompanies.map(company => (
@@ -510,7 +510,7 @@ const ExternalTransferOut = () => {
                                 value={destinationCompany}
                                 onChange={(e) => setDestinationCompany(e.target.value)}
                                 placeholder={loadingOrgCompanies ? 'Cargando empresas...' : 'Ej: Colaloca 2, sucursal centro...'}
-                                className="w-full rounded-lg border border-indigo-100 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                                className="w-full rounded-lg border border-indigo-100 bg-white px-2.5 py-2 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
                             />
                         )}
 
@@ -528,7 +528,7 @@ const ExternalTransferOut = () => {
                             onChange={(e) => setDispatchNotes(e.target.value)}
                             placeholder="Transportista, observaciones, responsable que recibe..."
                             rows={2}
-                            className="w-full resize-none rounded-lg border border-indigo-100 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                            className="w-full resize-none rounded-lg border border-indigo-100 bg-white px-2.5 py-2 text-sm text-slate-700 outline-none transition-all focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
                         />
                     </div>
                 </div>
@@ -537,7 +537,7 @@ const ExternalTransferOut = () => {
                     <input
                         type="text"
                         placeholder="Buscar por nombre o código..."
-                        className="w-full pl-10 pr-4 py-3 rounded-xl border-none shadow-sm ring-1 ring-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-600"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-lg border-none shadow-sm ring-1 ring-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-600"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         autoFocus
@@ -552,14 +552,14 @@ const ExternalTransferOut = () => {
                         <div
                             key={product.id}
                             onClick={() => addToTransfer(product)}
-                            className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group"
+                            className="bg-white p-3 rounded-lg shadow-sm border border-slate-100 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group"
                         >
                             <div className="flex justify-between items-start">
                                 <div>
                                     <h3 className="font-bold text-slate-700 group-hover:text-indigo-700 transition-colors">
                                         {product.name}
                                     </h3>
-                                    <div className="flex items-center gap-3 mt-1 text-sm">
+                                    <div className="flex items-center gap-2 mt-1 text-sm">
                                         <span className={`px-2 py-0.5 rounded-lg font-mono text-xs ${product.sku ? 'bg-slate-100 text-slate-600' : 'bg-red-50 text-red-600'}`}>
                                             {product.sku || 'SIN SKU'}
                                         </span>
@@ -584,34 +584,34 @@ const ExternalTransferOut = () => {
             </div>
 
             {/* Right Panel: Transfer List */}
-            <div className="flex min-h-[620px] flex-col rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <div className="flex min-h-[520px] flex-col rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                <h2 className="text-base font-black text-slate-800 mb-2 flex items-center gap-2">
                     <Package className="text-emerald-600" />
                     Paquete de salida
                 </h2>
 
-                <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2">
                         <p className="text-[10px] font-bold uppercase text-slate-400">Modelos</p>
-                        <p className="text-lg font-black text-slate-800">{selectedItems.length}</p>
+                        <p className="text-base font-black text-slate-800">{selectedItems.length}</p>
                     </div>
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2">
                         <p className="text-[10px] font-bold uppercase text-emerald-600">Unidades</p>
-                        <p className="text-lg font-black text-emerald-700">{totalUnits}</p>
+                        <p className="text-base font-black text-emerald-700">{totalUnits}</p>
                     </div>
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2">
                         <p className="text-[10px] font-bold uppercase text-amber-600">Seriales</p>
-                        <p className="text-lg font-black text-amber-700">{totalSerials}</p>
+                        <p className="text-base font-black text-amber-700">{totalSerials}</p>
                     </div>
-                    <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
+                    <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-2">
                         <p className="text-[10px] font-bold uppercase text-indigo-600">Fotos</p>
-                        <p className="text-lg font-black text-indigo-700">{photoCount}</p>
+                        <p className="text-base font-black text-indigo-700">{photoCount}</p>
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto mb-4 border border-slate-100 rounded-xl bg-slate-50 p-4">
+                <div className="flex-1 overflow-y-auto mb-2 border border-slate-100 rounded-xl bg-slate-50 p-4">
                     {selectedItems.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3 opacity-60">
+                        <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2 opacity-60">
                             <Download size={48} />
                             <p>Agrega productos para generar el archivo</p>
                         </div>
@@ -619,7 +619,7 @@ const ExternalTransferOut = () => {
                         <div className="space-y-3">
                             {selectedItems.map(item => (
                                 <div key={item.product_id} className="bg-white p-3 rounded-lg shadow-sm border border-slate-200">
-                                    <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2">
                                     <div className="flex-1">
                                         <h4 className="font-bold text-slate-700 text-sm flex items-center gap-2">
                                             {item.name}
@@ -638,7 +638,7 @@ const ExternalTransferOut = () => {
                                         <button
                                             type="button"
                                             onClick={() => imeiPicker.openFor === selectedItems.indexOf(item) ? closeImeiPicker() : openImeiPicker(selectedItems.indexOf(item))}
-                                            className={`text-xs font-bold px-3 py-2 rounded-lg border transition-colors flex items-center gap-1.5 ${
+                                            className={`text-xs font-bold px-2.5 py-2 rounded-lg border transition-colors flex items-center gap-1.5 ${
                                                 (item.selected_imeis?.length || 0) > 0
                                                     ? 'bg-amber-50 border-amber-300 text-amber-700'
                                                     : 'bg-white border-slate-200 text-slate-600 hover:border-amber-300 hover:text-amber-700'
@@ -689,12 +689,12 @@ const ExternalTransferOut = () => {
                                                                 }
                                                             }}
                                                             placeholder="Escanea o escribe el IMEI..."
-                                                            className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-amber-300 outline-none"
+                                                            className="flex-1 px-2.5 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-amber-300 outline-none"
                                                         />
                                                         <button
                                                             type="button"
                                                             onClick={() => scanImeiForItem(selectedItems.indexOf(item))}
-                                                            className="px-3 py-2 bg-amber-500 text-white rounded-lg text-xs font-bold"
+                                                            className="px-2.5 py-2 bg-amber-500 text-white rounded-lg text-xs font-bold"
                                                         >
                                                             Agregar
                                                         </button>
@@ -707,7 +707,7 @@ const ExternalTransferOut = () => {
                                                             </button>
                                                         )}
                                                     </div>
-                                                    <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto">
+                                                    <div className="grid grid-cols-1 gap-1 max-h-28 overflow-y-auto">
                                                         {imeiPicker.instances.map(pi => {
                                                             const isSelected = item.selected_imeis?.some(s => s.id === pi.id);
                                                             return (
@@ -738,7 +738,7 @@ const ExternalTransferOut = () => {
                 </div>
 
                 {/* Photo Evidence Section */}
-                <div className="mb-4">
+                <div className="mb-2">
                     <div className="flex items-center justify-between mb-2">
                         <h3 className="text-sm font-bold text-slate-600 flex items-center gap-2">
                             <Camera size={16} className="text-indigo-500" />
@@ -765,10 +765,10 @@ const ExternalTransferOut = () => {
                     {photos.length === 0 ? (
                         <div
                             onClick={() => fileInputRef.current?.click()}
-                            className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors"
+                            className="border-2 border-dashed border-slate-200 rounded-xl p-3 text-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors"
                         >
                             <ImageIcon size={24} className="mx-auto text-slate-300 mb-1" />
-                            <p className="text-xs text-slate-400">Toca para agregar fotos de evidencia (opcional)</p>
+                            <p className="text-xs text-slate-400">Agregar fotos opcionales</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-4 gap-2">
@@ -811,8 +811,8 @@ const ExternalTransferOut = () => {
                 <div className="mt-auto pt-4 border-t border-slate-100">
                     {/* Success banner after export */}
                     {exportSummary && (
-                        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-                            <div className="flex items-start gap-3">
+                        <div className="mb-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                            <div className="flex items-start gap-2">
                                 <CheckCircle className="mt-0.5 flex-shrink-0 text-emerald-600" size={20} />
                                 <div className="min-w-0 flex-1">
                                     <p className="font-bold">Paquete generado y stock descontado.</p>
@@ -831,7 +831,7 @@ const ExternalTransferOut = () => {
                                         type="button"
                                         onClick={() => downloadDispatchGuide()}
                                         disabled={downloadingGuide || !lastPackage}
-                                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-60"
+                                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 py-2 text-xs font-black text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-60"
                                     >
                                         {downloadingGuide ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
                                         PDF guia
@@ -840,7 +840,7 @@ const ExternalTransferOut = () => {
                                         type="button"
                                         onClick={sendLastPackageToOrgChat}
                                         disabled={sendingChat || !lastPackage}
-                                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-60"
+                                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-2 text-xs font-black text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-60"
                                     >
                                         {sendingChat ? <Loader2 size={14} className="animate-spin" /> : <MessageSquareShare size={14} />}
                                         Enviar al chat
@@ -855,23 +855,23 @@ const ExternalTransferOut = () => {
 
                     {/* Stock error warning */}
                     {hasStockError && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-red-700">
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-2 flex gap-2 text-sm text-red-700">
                             <AlertTriangle className="flex-shrink-0 text-red-500" size={20} />
                             <p>
-                                Uno o mas productos exceden el stock disponible. Ajusta las cantidades antes de continuar.
+                                Hay cantidades superiores al stock disponible.
                             </p>
                         </div>
                     )}
 
                     {hasImeiError && (
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-amber-800">
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-2 flex gap-2 text-sm text-amber-800">
                             <AlertTriangle className="flex-shrink-0" size={20} />
-                            <p>Hay productos con IMEI pendientes por seleccionar o escanear.</p>
+                            <p>Faltan IMEI por seleccionar.</p>
                         </div>
                     )}
 
-                    <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                        <div className="flex gap-3">
+                    <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                        <div className="flex gap-2">
                             <AlertTriangle className="flex-shrink-0" size={20} />
                             <p>
                                 Al generar el paquete, se descontarán <strong>{totalUnits}</strong> unidad{totalUnits !== 1 ? 'es' : ''} de <strong>{selectedItems.length}</strong> modelo{selectedItems.length !== 1 ? 's' : ''} desde {selectedWarehouse?.name || 'sin almacén'}.
@@ -881,28 +881,28 @@ const ExternalTransferOut = () => {
 
                     {/* Confirmation step */}
                     {showConfirmation && (
-                        <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 mb-4">
-                            <p className="font-bold text-amber-800 text-sm mb-3 flex items-center gap-2">
+                        <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 mb-2">
+                            <p className="font-bold text-amber-800 text-sm mb-2 flex items-center gap-2">
                                 <AlertTriangle size={16} />
                                 Confirma el paquete de salida
                             </p>
-                            <div className="mb-3 grid grid-cols-4 gap-2 text-center text-xs">
+                            <div className="mb-2 grid grid-cols-4 gap-2 text-center text-xs">
                                 <div className="rounded-lg bg-white/70 px-2 py-2"><b className="block text-base text-slate-900">{selectedItems.length}</b>Modelos</div>
                                 <div className="rounded-lg bg-white/70 px-2 py-2"><b className="block text-base text-slate-900">{totalUnits}</b>Unidades</div>
                                 <div className="rounded-lg bg-white/70 px-2 py-2"><b className="block text-base text-slate-900">{totalSerials}</b>Seriales</div>
                                 <div className="rounded-lg bg-white/70 px-2 py-2"><b className="block text-base text-slate-900">{photoCount}</b>Fotos</div>
                             </div>
-                            <div className="mb-3 rounded-lg bg-white/70 px-3 py-2 text-sm text-amber-900">
+                            <div className="mb-2 rounded-lg bg-white/70 px-2.5 py-2 text-sm text-amber-900">
                                 <span className="font-bold">Destino:</span> {destinationCompany.trim() || 'Destino por definir'}
                             </div>
-                            <ul className="mb-3 ml-1 space-y-1 text-sm text-amber-900">
+                            <ul className="mb-2 ml-1 space-y-1 text-sm text-amber-900">
                                 {selectedItems.map(item => (
                                     <li key={item.product_id}>
                                         <span className="font-mono text-xs">{item.sku}</span> {item.name} - <strong>{item.quantity}</strong> unidades
                                     </li>
                                 ))}
                             </ul>
-                            <div className="flex gap-3">
+                            <div className="flex gap-2">
                                 <button
                                     onClick={() => setShowConfirmation(false)}
                                     className="flex-1 py-2 px-4 rounded-lg border border-slate-300 text-slate-600 font-semibold text-sm hover:bg-slate-100 transition-colors"
@@ -930,7 +930,7 @@ const ExternalTransferOut = () => {
                     <button
                         onClick={() => { setShowConfirmation(true); setExportSummary(null); setLastPackage(null); }}
                         disabled={selectedItems.length === 0 || generating || !selectedWarehouseId || hasStockError || hasImeiError || showConfirmation}
-                        className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                        className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                         <Download size={20} />
                         Generar paquete

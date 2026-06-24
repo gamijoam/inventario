@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowRightLeft, Upload, Download, Building2, CheckCircle2, History } from 'lucide-react';
+import { ArrowRightLeft, Upload, Download, CheckCircle2, History } from 'lucide-react';
 import InventoryTransfers from '../../Warehouses/InventoryTransfers';
 import ExternalTransferOut from '../Transfers/ExternalTransferOut';
 import ExternalTransferIn from '../Transfers/ExternalTransferIn';
@@ -49,29 +49,23 @@ const TransfersTab = () => {
   }, [searchParams]);
 
   return (
-    <div id="tour-transfers-panel" className="space-y-4">
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-400">
-              <Building2 size={15} />
-              Control de movimientos
-            </p>
-            <h2 className="mt-1 text-xl font-black text-slate-900">Traslados de inventario</h2>
-            <p className="mt-1 max-w-2xl text-sm font-medium text-slate-500">
-              Separa movimientos internos, salidas a otra empresa y paquetes recibidos para evitar mezclar operaciones.
-            </p>
+    <div id="tour-transfers-panel" className="space-y-2 animate-in fade-in duration-300">
+      <section className="rounded-t-lg border border-b-0 border-slate-200 bg-white p-2 shadow-sm">
+        <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-base font-black leading-tight text-slate-900">Traslados</h2>
+            <p className="text-xs font-medium text-slate-500">Internos, salidas externas, recepcion e historial.</p>
           </div>
-          <div className="grid grid-cols-3 gap-2 rounded-lg border border-slate-100 bg-slate-50 p-2 text-center text-xs font-bold text-slate-500">
-            <span className="rounded-md bg-white px-3 py-2 text-slate-700">Interno</span>
-            <span className="rounded-md bg-white px-3 py-2 text-indigo-700">JSON + guia</span>
-            <span className="rounded-md bg-white px-3 py-2 text-emerald-700">Recepcion</span>
+          <div className="hidden flex-wrap items-center gap-1.5 md:flex">
+            <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-black text-slate-600">Interno</span>
+            <span className="rounded-md border border-indigo-100 bg-indigo-50 px-2 py-1 text-xs font-black text-indigo-700">JSON + guia</span>
+            <span className="rounded-md border border-emerald-100 bg-emerald-50 px-2 py-1 text-xs font-black text-emerald-700">Recepcion</span>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Sub-tab selector */}
-      <div id="tour-transfers-modes" className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+      <div id="tour-transfers-modes" className="grid grid-cols-2 gap-2 xl:grid-cols-4">
         {SUB_TABS.map(({ key, label, eyebrow, icon: Icon, hint }) => {
           const isActive = activeTab === key;
           return (
@@ -80,23 +74,23 @@ const TransfersTab = () => {
               id={`tour-transfers-mode-${key}`}
               onClick={() => setActiveTab(key)}
               className={`
-                flex min-h-[86px] items-center gap-3 rounded-lg border px-4 text-left transition-colors
+                flex min-h-[58px] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors
                 ${isActive
                   ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-100'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                 }
               `}
             >
-              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isActive ? 'bg-white/15' : 'bg-slate-100 text-slate-500'}`}>
-                <Icon size={18} />
+              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${isActive ? 'bg-white/15' : 'bg-slate-100 text-slate-500'}`}>
+                <Icon size={15} />
               </span>
               <span className="min-w-0">
                 <span className={`mb-0.5 flex items-center gap-1 text-[10px] font-black uppercase ${isActive ? 'text-white/80' : 'text-slate-400'}`}>
                   {isActive && <CheckCircle2 size={12} />}
                   {eyebrow}
                 </span>
-                <span className="block text-sm font-black">{label}</span>
-                <span className={`block text-xs leading-4 ${isActive ? 'text-slate-200' : 'text-slate-500'}`}>{hint}</span>
+                <span className="block text-xs font-black leading-tight">{label}</span>
+                <span className={`hidden text-[11px] leading-4 md:block ${isActive ? 'text-slate-200' : 'text-slate-500'}`}>{hint}</span>
               </span>
             </button>
           );

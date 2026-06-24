@@ -68,28 +68,28 @@ const ExternalTransferHistory = () => {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-4">
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="grid gap-2 md:grid-cols-4">
+        <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
           <p className="text-xs font-black uppercase tracking-wide text-slate-400">Movimientos</p>
           <p className="mt-1 text-2xl font-black text-slate-900">{totals.packages}</p>
         </div>
-        <div className="rounded-lg border border-rose-100 bg-rose-50 p-4 shadow-sm">
+        <div className="rounded-lg border border-rose-100 bg-rose-50 p-3 shadow-sm">
           <p className="text-xs font-black uppercase tracking-wide text-rose-500">Salidas externas</p>
           <p className="mt-1 text-2xl font-black text-rose-700">{formatQty(totals.out)}</p>
         </div>
-        <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
+        <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 shadow-sm">
           <p className="text-xs font-black uppercase tracking-wide text-emerald-600">Entradas externas</p>
           <p className="mt-1 text-2xl font-black text-emerald-700">{formatQty(totals.in)}</p>
         </div>
-        <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4 shadow-sm">
+        <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-3 shadow-sm">
           <p className="text-xs font-black uppercase tracking-wide text-indigo-500">Modelos</p>
           <p className="mt-1 text-2xl font-black text-indigo-700">{totals.models}</p>
         </div>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-slate-100 p-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-2 border-b border-slate-100 p-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-center gap-2">
             <span className="flex h-10 w-10 items-center justify-center rounded-md bg-indigo-50 text-indigo-600">
               <History size={18} />
             </span>
@@ -118,7 +118,7 @@ const ExternalTransferHistory = () => {
                   key={option.key}
                   type="button"
                   onClick={() => setDirection(option.key)}
-                  className={`rounded-md px-3 py-2 text-xs font-black transition-colors ${direction === option.key ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-white'}`}
+                  className={`rounded-md px-2.5 py-2 text-xs font-black transition-colors ${direction === option.key ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-white'}`}
                 >
                   {option.label}
                 </button>
@@ -177,7 +177,7 @@ const ExternalTransferHistory = () => {
                       </div>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <button onClick={() => setSelected(row)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                      <button onClick={() => setSelected(row)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-black text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
                         <Eye size={15} /> Ver
                       </button>
                     </td>
@@ -187,7 +187,7 @@ const ExternalTransferHistory = () => {
               {!loading && filteredRows.length === 0 && (
                 <tr>
                   <td colSpan="7" className="py-16 text-center text-slate-400">
-                    <FileJson size={44} className="mx-auto mb-3 opacity-25" />
+                    <FileJson size={44} className="mx-auto mb-2 opacity-25" />
                     <p className="font-bold">Sin traslados externos</p>
                     <p className="mt-1 text-sm">Cuando exportes o importes paquetes apareceran aqui.</p>
                   </td>
@@ -204,14 +204,14 @@ const ExternalTransferHistory = () => {
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-wide text-slate-400">Detalle externo</p>
-                <h3 className="text-lg font-black text-slate-900">{selected.direction === 'out' ? 'Salida externa' : 'Entrada externa'}</h3>
+                <h3 className="text-base font-black text-slate-900">{selected.direction === 'out' ? 'Salida externa' : 'Entrada externa'}</h3>
               </div>
               <button onClick={() => setSelected(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Cerrar detalle">
                 <X size={20} />
               </button>
             </div>
             <div className="min-h-0 overflow-y-auto p-5">
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-2 md:grid-cols-3">
                 <div className="rounded-lg border border-slate-200 p-3">
                   <p className="text-xs font-black uppercase tracking-wide text-slate-400">Paquete</p>
                   <p className="mt-1 break-all font-mono text-sm font-black text-slate-800">{selected.package_id || 'No registrado'}</p>

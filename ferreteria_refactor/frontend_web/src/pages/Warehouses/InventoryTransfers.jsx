@@ -402,63 +402,63 @@ const InventoryTransfers = () => {
     // --- Render List View ---
     if (view === 'list') {
         return (
-            <div className="max-w-7xl mx-auto space-y-5">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="w-full space-y-2">
+                <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
                     <div>
-                        <h1 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-3">
-                            <Truck className="text-indigo-600" size={30} /> Traslados de Inventario
+                        <h1 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-3">
+                            <Truck className="text-indigo-600" size={20} /> Traslados de Inventario
                         </h1>
-                        <p className="text-slate-500 font-medium">Historial de lo que sale del almacen origen y entra al almacen destino.</p>
+                        <p className="text-xs font-medium text-slate-500">Movimientos internos entre almacenes.</p>
                     </div>
                     <button
                         id="tour-transfers-add-btn"
                         onClick={() => setView('create')}
-                        className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-sm shadow-indigo-100 hover:shadow-indigo-300"
+                        className="bg-indigo-600 text-white px-3 py-2 rounded-md font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-sm shadow-indigo-100 hover:shadow-indigo-300"
                     >
-                        <Plus size={20} /> Nuevo Traslado
+                        <Plus size={16} /> Nuevo
                     </button>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-4">
-                    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="grid gap-2 md:grid-cols-4">
+                    <div className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm">
                         <div className="text-xs font-black uppercase tracking-wide text-slate-400">Traslados</div>
-                        <div className="mt-1 text-2xl font-black text-slate-900">{historyTotals.transfers}</div>
+                        <div className="mt-1 text-xl font-black text-slate-900">{historyTotals.transfers}</div>
                     </div>
-                    <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4 shadow-sm">
+                    <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-2.5 shadow-sm">
                         <div className="text-xs font-black uppercase tracking-wide text-indigo-500">Modelos movidos</div>
-                        <div className="mt-1 text-2xl font-black text-indigo-700">{historyTotals.models}</div>
+                        <div className="mt-1 text-xl font-black text-indigo-700">{historyTotals.models}</div>
                     </div>
-                    <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
+                    <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-2.5 shadow-sm">
                         <div className="text-xs font-black uppercase tracking-wide text-emerald-600">Unidades movidas</div>
-                        <div className="mt-1 text-2xl font-black text-emerald-700">{formatQuantity(historyTotals.units)}</div>
+                        <div className="mt-1 text-xl font-black text-emerald-700">{formatQuantity(historyTotals.units)}</div>
                     </div>
-                    <div className="rounded-lg border border-amber-100 bg-amber-50 p-4 shadow-sm">
+                    <div className="rounded-lg border border-amber-100 bg-amber-50 p-2.5 shadow-sm">
                         <div className="text-xs font-black uppercase tracking-wide text-amber-600">IMEIs trazados</div>
-                        <div className="mt-1 text-2xl font-black text-amber-700">{historyTotals.imeis}</div>
+                        <div className="mt-1 text-xl font-black text-amber-700">{historyTotals.imeis}</div>
                     </div>
                 </div>
 
                 <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-                    <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-col gap-3 border-b border-slate-100 p-2.5 lg:flex-row lg:items-center lg:justify-between">
                         <div className="flex items-center gap-3">
-                            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-100 text-slate-600">
-                                <ClipboardList size={18} />
+                            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-600">
+                                <ClipboardList size={15} />
                             </span>
                             <div>
                                 <h2 className="font-black text-slate-900">Historial interno</h2>
-                                <p className="text-xs font-semibold text-slate-500">Filtra por almacen para ver lo que salio, entro o ambos movimientos.</p>
+                                <p className="text-xs font-semibold text-slate-500">Filtra por almacen y direccion.</p>
                             </div>
                         </div>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                             <select
                                 value={historyWarehouseId}
                                 onChange={e => setHistoryWarehouseId(e.target.value)}
-                                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 outline-none focus:border-indigo-300"
+                                className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 outline-none focus:border-indigo-300"
                             >
                                 <option value="">Todos los almacenes</option>
                                 {warehouses.map(warehouse => <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>)}
                             </select>
-                            <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+                            <div className="flex rounded-md border border-slate-200 bg-slate-50 p-1">
                                 {[
                                     { key: 'all', label: 'Todo' },
                                     { key: 'out', label: 'Salidas' },
@@ -469,7 +469,7 @@ const InventoryTransfers = () => {
                                         type="button"
                                         onClick={() => setHistoryDirection(option.key)}
                                         className={clsx(
-                                            'rounded-md px-3 py-2 text-xs font-black transition-colors',
+                                            'rounded-md px-2.5 py-1.5 text-xs font-black transition-colors',
                                             historyDirection === option.key ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-white'
                                         )}
                                     >
@@ -484,13 +484,13 @@ const InventoryTransfers = () => {
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 border-b border-slate-200">
                                 <tr>
-                                    <th className="px-5 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Traslado</th>
-                                    <th className="px-5 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha</th>
-                                    <th className="px-5 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Salida</th>
-                                    <th className="px-5 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Entrada</th>
-                                    <th className="px-5 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contenido</th>
-                                    <th className="px-5 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
-                                    <th className="px-5 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Acciones</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Traslado</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Salida</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Entrada</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Contenido</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -500,38 +500,38 @@ const InventoryTransfers = () => {
                                     const imeis = getTransferImeis(t);
                                     return (
                                         <tr key={t.id} className={clsx('hover:bg-slate-50/80 transition-colors', idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30')}>
-                                            <td className="px-5 py-4">
+                                            <td className="px-4 py-3">
                                                 <div className="text-sm font-black text-slate-900">#{t.id}</div>
                                                 {t.notes && <div className="mt-0.5 max-w-[180px] truncate text-xs font-semibold text-slate-400">{t.notes}</div>}
                                             </td>
-                                            <td className="px-5 py-4 text-sm font-medium text-slate-700">{format(new Date(t.date), 'dd/MM/yyyy')}</td>
-                                            <td className="px-5 py-4 text-sm">
+                                            <td className="px-4 py-3 text-sm font-medium text-slate-700">{format(new Date(t.date), 'dd/MM/yyyy')}</td>
+                                            <td className="px-4 py-3 text-sm">
                                                 <span className="flex w-fit items-center gap-1.5 rounded-lg border border-rose-100 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700">
                                                     <ArrowUpRight size={13} /> {t.source_warehouse?.name || 'Origen'}
                                                 </span>
                                             </td>
-                                            <td className="px-5 py-4 text-sm">
+                                            <td className="px-4 py-3 text-sm">
                                                 <span className="flex w-fit items-center gap-1.5 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
                                                     <ArrowDownLeft size={13} /> {t.target_warehouse?.name || 'Destino'}
                                                 </span>
                                             </td>
-                                            <td className="px-5 py-4">
+                                            <td className="px-4 py-3">
                                                 <div className="flex flex-wrap items-center gap-2 text-xs font-black">
                                                     <span className="rounded-md bg-slate-100 px-2 py-1 text-slate-700">{models} modelo{models !== 1 ? 's' : ''}</span>
                                                     <span className="rounded-md bg-emerald-50 px-2 py-1 text-emerald-700">{formatQuantity(units)} unidad{units !== 1 ? 'es' : ''}</span>
                                                     {imeis > 0 && <span className="rounded-md bg-amber-50 px-2 py-1 text-amber-700"><Zap size={10} className="mr-1 inline" />{imeis} IMEI</span>}
                                                 </div>
                                             </td>
-                                            <td className="px-5 py-4">
+                                            <td className="px-4 py-3">
                                                 <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
                                                     {t.status}
                                                 </span>
                                             </td>
-                                            <td className="px-5 py-4">
+                                            <td className="px-4 py-3">
                                                 <div className="flex items-center justify-end gap-2">
                                                     <button
                                                         onClick={() => setSelectedTransfer(t)}
-                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-black text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                                                     >
                                                         <Eye size={15} /> Ver
                                                     </button>
@@ -549,8 +549,8 @@ const InventoryTransfers = () => {
                                 })}
                                 {filteredTransfers.length === 0 && (
                                     <tr>
-                                        <td colSpan="7" className="py-16 text-center text-slate-400">
-                                            <History size={48} className="mx-auto mb-3 opacity-20" />
+                                        <td colSpan="7" className="py-12 text-center text-slate-400">
+                                            <History size={34} className="mx-auto mb-3 opacity-20" />
                                             <p className="font-medium">No hay traslados registrados</p>
                                         </td>
                                     </tr>
@@ -562,8 +562,8 @@ const InventoryTransfers = () => {
 
                 {selectedTransfer && (
                     <div className="fixed inset-0 z-[95] bg-slate-950/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
-                        <div className="mx-auto flex max-h-full max-w-4xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
-                            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                        <div className="mx-auto flex max-h-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+                            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
                                 <div>
                                     <p className="text-xs font-black uppercase tracking-wide text-slate-400">Historial interno</p>
                                     <h3 className="text-lg font-black text-slate-900">Traslado #{selectedTransfer.id}</h3>
@@ -572,18 +572,18 @@ const InventoryTransfers = () => {
                                     <X size={20} />
                                 </button>
                             </div>
-                            <div className="min-h-0 overflow-y-auto p-5">
+                            <div className="min-h-0 overflow-y-auto p-3">
                                 <div className="grid gap-3 md:grid-cols-2">
                                     <div className="rounded-lg border border-rose-100 bg-rose-50 p-4">
                                         <div className="text-xs font-black uppercase tracking-wide text-rose-500">Sale de</div>
-                                        <div className="mt-1 flex items-center gap-2 text-lg font-black text-rose-800"><ArrowUpRight size={18} /> {selectedTransfer.source_warehouse?.name || 'Origen'}</div>
+                                        <div className="mt-1 flex items-center gap-2 text-lg font-black text-rose-800"><ArrowUpRight size={15} /> {selectedTransfer.source_warehouse?.name || 'Origen'}</div>
                                     </div>
                                     <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
                                         <div className="text-xs font-black uppercase tracking-wide text-emerald-600">Entra a</div>
-                                        <div className="mt-1 flex items-center gap-2 text-lg font-black text-emerald-800"><ArrowDownLeft size={18} /> {selectedTransfer.target_warehouse?.name || 'Destino'}</div>
+                                        <div className="mt-1 flex items-center gap-2 text-lg font-black text-emerald-800"><ArrowDownLeft size={15} /> {selectedTransfer.target_warehouse?.name || 'Destino'}</div>
                                     </div>
                                 </div>
-                                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                                <div className="mt-2 grid gap-3 md:grid-cols-3">
                                     <div className="rounded-lg border border-slate-200 p-3">
                                         <div className="text-xs font-black uppercase tracking-wide text-slate-400">Fecha</div>
                                         <div className="mt-1 font-black text-slate-800">{format(new Date(selectedTransfer.date), 'dd/MM/yyyy')}</div>
@@ -602,7 +602,7 @@ const InventoryTransfers = () => {
                                         {selectedTransfer.notes}
                                     </div>
                                 )}
-                                <div className="mt-5 overflow-hidden rounded-lg border border-slate-200">
+                                <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
                                     <table className="w-full text-left">
                                         <thead className="bg-slate-50">
                                             <tr>
@@ -634,7 +634,7 @@ const InventoryTransfers = () => {
                                     </table>
                                 </div>
                             </div>
-                            <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4">
+                            <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
                                 <button onClick={() => setSelectedTransfer(null)} className="rounded-lg px-4 py-2 text-sm font-black text-slate-600 hover:bg-white">Cerrar</button>
                                 <button onClick={() => handlePrint(selectedTransfer)} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-black text-white hover:bg-indigo-700">
                                     <Printer size={16} /> Imprimir
@@ -653,23 +653,23 @@ const InventoryTransfers = () => {
             <div className="flex items-center gap-4 mb-8">
                 <button
                     onClick={() => setView('list')}
-                    className="p-3 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-slate-500 transition-colors shadow-sm"
+                    className="p-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-slate-500 transition-colors shadow-sm"
                 >
                     <ArrowRight className="rotate-180" size={20} />
                 </button>
-                <h1 className="text-xl font-black text-slate-800 tracking-tight">Nuevo Traslado</h1>
+                <h1 className="text-base font-black text-slate-900 tracking-tight">Nuevo Traslado</h1>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-3">
                 {/* Left Column: Config & Items */}
                 <div className="lg:col-span-2 space-y-6">
 
                     {/* Route Card */}
-                    <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+                    <div className="bg-white p-3 rounded-lg shadow-sm border border-slate-200">
                         <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2 text-lg border-b border-slate-100 pb-4">
                             <MapPin className="text-indigo-600" size={20} /> Ruta del Traslado
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 relative">
                             {/* Connector Arrow for Desktop */}
                             <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 bg-white p-2 rounded-full shadow-sm border border-slate-200 text-slate-400">
                                 <ArrowRight size={20} />
@@ -678,7 +678,7 @@ const InventoryTransfers = () => {
                             <div className="space-y-2">
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Bodega Origen (Sale)</label>
                                 <select
-                                    className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-rose-50/30 text-slate-700 font-medium transition-all"
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-rose-50/30 text-slate-700 font-medium transition-all"
                                     value={formData.source_warehouse_id}
                                     onChange={e => setFormData({ ...formData, source_warehouse_id: e.target.value })}
                                 >
@@ -691,7 +691,7 @@ const InventoryTransfers = () => {
                             <div className="space-y-2">
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Bodega Destino (Entra)</label>
                                 <select
-                                    className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-emerald-50/30 text-slate-700 font-medium transition-all"
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-emerald-50/30 text-slate-700 font-medium transition-all"
                                     value={formData.target_warehouse_id}
                                     onChange={e => setFormData({ ...formData, target_warehouse_id: e.target.value })}
                                 >
@@ -705,7 +705,7 @@ const InventoryTransfers = () => {
                     </div>
 
                     {/* Products Card */}
-                    <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 min-h-[500px] flex flex-col">
+                    <div className="bg-white p-3 rounded-lg shadow-sm border border-slate-200 min-h-[420px] flex flex-col">
                         <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 text-lg border-b border-slate-100 pb-4">
                             <Package className="text-indigo-600" size={20} /> Productos a Trasladar
                         </h3>
@@ -928,9 +928,9 @@ const InventoryTransfers = () => {
                             })}
                             {items.length === 0 && (
                                 <div className="h-full flex flex-col items-center justify-center text-center py-12 text-slate-400 border-2 border-dashed border-slate-100 rounded-xl bg-slate-50/30">
-                                    <Package size={48} className="mb-4 opacity-30" />
-                                    <p className="font-bold text-slate-500">Lista de traslado vacia</p>
-                                    <p className="text-sm">Busca productos arriba para agregarlos</p>
+                                    <Package size={34} className="mb-4 opacity-30" />
+                                    <p className="font-bold text-slate-500">Lista vacia</p>
+                                    <p className="text-sm">Busca productos para agregarlos</p>
                                 </div>
                             )}
                         </div>
@@ -939,7 +939,7 @@ const InventoryTransfers = () => {
 
                 {/* Right Column: Actions */}
                 <div className="space-y-6">
-                    <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 sticky top-6">
+                    <div className="bg-white p-3 rounded-lg shadow-sm border border-slate-200 sticky top-6">
                         <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2 text-lg border-b border-slate-100 pb-4">
                             <Calendar className="text-indigo-600" size={20} /> Detalles del envio
                         </h3>
@@ -948,7 +948,7 @@ const InventoryTransfers = () => {
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha</label>
                                 <input
                                     type="date"
-                                    className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700"
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700"
                                     value={formData.date}
                                     onChange={e => setFormData({ ...formData, date: e.target.value })}
                                 />
@@ -956,7 +956,7 @@ const InventoryTransfers = () => {
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Notas / Referencia</label>
                                 <textarea
-                                    className="w-full p-3 border border-slate-200 rounded-xl resize-none h-32 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-slate-700"
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl resize-none h-24 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-slate-700"
                                     placeholder="Razon del traslado, numero de guia..."
                                     value={formData.notes}
                                     onChange={e => setFormData({ ...formData, notes: e.target.value })}
@@ -965,8 +965,8 @@ const InventoryTransfers = () => {
                         </div>
 
                         <div className="mt-8 pt-6 border-t border-slate-100">
-                            <div className="bg-indigo-50 rounded-xl p-4 mb-4 flex items-start gap-3">
-                                <Truck className="text-indigo-600 shrink-0 mt-1" size={18} />
+                            <div className="bg-indigo-50 rounded-lg p-3 mb-3 flex items-start gap-3">
+                                <Truck className="text-indigo-600 shrink-0 mt-1" size={15} />
                                 <div className="text-xs text-indigo-800 font-medium">
                                     Estas moviendo <span className="font-bold">{items.length} productos</span> de {warehouses.find(w => w.id == formData.source_warehouse_id)?.name || '...'} a {warehouses.find(w => w.id == formData.target_warehouse_id)?.name || '...'}.
                                 </div>
@@ -976,14 +976,14 @@ const InventoryTransfers = () => {
                                 <button
                                     onClick={(e) => handleSubmit(e, true)}
                                     disabled={items.length === 0 || !formData.source_warehouse_id || !formData.target_warehouse_id || hasStockErrors}
-                                    className="flex-1 bg-white border-2 border-indigo-600 text-indigo-700 py-4 rounded-xl font-bold shadow-sm hover:bg-indigo-50 transition-all active:scale-95 disabled:opacity-50 flex justify-center items-center gap-2"
+                                    className="flex-1 bg-white border-2 border-indigo-600 text-indigo-700 py-3 rounded-lg font-bold shadow-sm hover:bg-indigo-50 transition-all active:scale-95 disabled:opacity-50 flex justify-center items-center gap-2"
                                 >
                                     <Printer size={20} /> Guardar e Imprimir
                                 </button>
                                 <button
                                     onClick={(e) => handleSubmit(e, false)}
                                     disabled={items.length === 0 || !formData.source_warehouse_id || !formData.target_warehouse_id || hasStockErrors}
-                                    className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-sm shadow-indigo-100 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95 disabled:opacity-50 disabled:shadow-none flex justify-center items-center gap-2"
+                                    className="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-bold shadow-sm shadow-indigo-100 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95 disabled:opacity-50 disabled:shadow-none flex justify-center items-center gap-2"
                                 >
                                     <CheckCircle size={20} /> Solo Guardar
                                 </button>
