@@ -147,6 +147,23 @@ class DiscountRuleRead(DiscountRuleBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class ProductPromotionItemBase(BaseModel):
+    child_product_id: int = Field(..., description="Producto incluido sin costo")
+    quantity: Decimal = Field(..., description="Cantidad incluida por cada producto vendido", gt=0)
+    unit_id: Optional[int] = Field(None, description="Presentacion especifica opcional")
+    label: Optional[str] = Field(None, description="Texto corto para el ticket/factura")
+    is_active: bool = True
+
+class ProductPromotionItemCreate(ProductPromotionItemBase):
+    pass
+
+class ProductPromotionItemRead(ProductPromotionItemBase):
+    id: int
+    parent_product_id: int
+    child_product: Optional['ProductRead'] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 class ComboItemBase(BaseModel):
     child_product_id: int = Field(..., description="ID del producto componente", json_schema_extra={'example': 5})
     quantity: Decimal = Field(..., description="Cantidad del componente en el combo", gt=0, json_schema_extra={'example': "2.000"})
@@ -271,6 +288,7 @@ class CatalogProductRead(ProductBase):
 class ProductCreate(ProductBase):
     units: List[ProductUnitCreate] = Field([], description="Lista de unidades alternativas (cajas, bultos)")
     combo_items: List[ComboItemCreate] = Field([], description="Lista de componentes si es un combo")
+    promotion_items: List[ProductPromotionItemCreate] = Field([], description="Productos incluidos sin costo al vender este producto")
     warehouse_stocks: List[ProductStockCreate] = Field([], description="Distribución de stock por almacén")
     prices: List[ProductPriceInput] = Field([], description="Precios por lista (Mayorista, VIP, etc)") # NEW
     gallery_images: List[ProductImageCreate] = Field([], description="Galeria de imagenes del producto")
@@ -315,6 +333,7 @@ class ProductUpdate(BaseModel):
     
     units: Optional[List[ProductUnitCreate]] = None
     combo_items: Optional[List[ComboItemCreate]] = None  # NEW: Allow updating combo items
+    promotion_items: Optional[List[ProductPromotionItemCreate]] = None
     warehouse_stocks: Optional[List[ProductStockCreate]] = None  # NEW: Allow updating stocks per warehouse
     prices: Optional[List[ProductPriceInput]] = None # NEW
     gallery_images: Optional[List[ProductImageCreate]] = None
@@ -339,6 +358,7 @@ class ProductRead(ProductBase):
     price_rules: List[PriceRuleRead] = []
     units: List[ProductUnitRead] = []
     combo_items: List[ComboItemRead] = []  # NEW: Include combo items
+    promotion_items: List[ProductPromotionItemRead] = []
     stocks: List[ProductStockRead] = [] # NEW: Include warehouse stocks
     instances: List['ProductInstanceRead'] = []
     has_imei: Optional[bool] = False # NEW: Include serialized status exposed to frontend
@@ -380,6 +400,9 @@ class SaleDetailCreate(BaseModel):
     modifier_option_ids: Optional[List[int]] = [] # NEW: IDs of selected modifier options
     skip_stock_deduction: bool = False # New: avoid double deduction in restaurant flow
     allow_reserved_serials: bool = False # Internal: allow completing layaway items reserved by IMEI
+    is_promotion_gift: bool = False
+    promotion_parent_product_id: Optional[int] = None
+    description: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

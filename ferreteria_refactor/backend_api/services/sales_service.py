@@ -325,6 +325,63 @@ class SalesService:
                     quote.status = "CONVERTED" 
                     db.add(quote)       
             
+            # 1.5. Expand promotional gifts.
+            # If a product has active gift items configured, add them as zero-price
+            # sale lines so stock, kardex, invoices and returns remain traceable.
+            expanded_items = []
+            original_items = list(sale_data.items or [])
+            parent_product_ids = {item.product_id for item in original_items}
+            promo_rows = []
+            if parent_product_ids:
+                promo_rows = db.query(models.ProductPromotionItem).options(
+                    joinedload(models.ProductPromotionItem.child_product),
+                    joinedload(models.ProductPromotionItem.unit),
+                ).filter(
+                    models.ProductPromotionItem.parent_product_id.in_(parent_product_ids),
+                    models.ProductPromotionItem.is_active == True,
+                ).all()
+            promos_by_parent = {}
+            for promo in promo_rows:
+                promos_by_parent.setdefault(promo.parent_product_id, []).append(promo)
+
+            for item in original_items:
+                expanded_items.append(item)
+                if getattr(item, "is_promotion_gift", False):
+                    continue
+                for promo in promos_by_parent.get(item.product_id, []):
+                    child = promo.child_product
+                    if not child or not child.is_active:
+                        continue
+                    if child.has_imei:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"La promocion de '{child.name}' requiere IMEI/serial. Configura un producto incluido sin serial o vende el serial por separado."
+                        )
+                    qty = Decimal(str(item.quantity or 0)) * Decimal(str(promo.quantity or 0))
+                    if qty <= 0:
+                        continue
+                    factor = Decimal(str(promo.unit.conversion_factor)) if promo.unit_id and promo.unit else Decimal("1.0")
+                    label = promo.label or f"Incluido por promocion de producto #{item.product_id}"
+                    expanded_items.append(schemas.SaleDetailCreate(
+                        product_id=child.id,
+                        quantity=qty,
+                        unit_price=Decimal("0.0000"),
+                        subtotal=Decimal("0.0000"),
+                        conversion_factor=factor,
+                        unit_id=promo.unit_id,
+                        discount=Decimal("0.00"),
+                        discount_type="PROMO_GIFT",
+                        salesperson_id=getattr(item, "salesperson_id", None),
+                        employee_id=None,
+                        serial_numbers=[],
+                        price_list_id=None,
+                        auth_user_id=None,
+                        is_promotion_gift=True,
+                        promotion_parent_product_id=item.product_id,
+                        description=label,
+                    ))
+            sale_data.items = expanded_items
+
             # 2. Process Items
             employee_cache = {}
             salesperson_cache = {}
@@ -713,7 +770,7 @@ class SalesService:
                                 movement_type="SALE",
                                 quantity=-units_to_deduct,
                                 balance_after=product.stock,
-                                description=f"Sale #{new_sale_id} from Warehouse #{warehouse_id}"
+                                description=(f"Bonificado por promocion: {getattr(item, 'description', None) or product.name} (Venta #{new_sale_id})" if getattr(item, "is_promotion_gift", False) else f"Sale #{new_sale_id} from Warehouse #{warehouse_id}")
                             ))
 
                         else:
@@ -741,7 +798,7 @@ class SalesService:
                                 movement_type="SALE",
                                 quantity=-units_to_deduct,
                                 balance_after=product.stock,
-                                description=f"Sale #{new_sale_id} from Warehouse #{warehouse_id}"
+                                description=(f"Bonificado por promocion: {getattr(item, 'description', None) or product.name} (Venta #{new_sale_id})" if getattr(item, "is_promotion_gift", False) else f"Sale #{new_sale_id} from Warehouse #{warehouse_id}")
                             ))
                 
                 # Calculate subtotal (before discount) - SAME FOR BOTH
@@ -768,6 +825,7 @@ class SalesService:
                     is_box_sale=False,
                     discount=item.discount,
                     discount_type=item.discount_type,
+                    description=getattr(item, "description", None),
                     unit_id=item.unit_id if hasattr(item, 'unit_id') else None,  # NEW: Persist presentation
                     salesperson_id=item.salesperson_id, # NEW: Granular Commission
                     warranty_expiration_date=warranty_expiration # NEW: Warranty Date

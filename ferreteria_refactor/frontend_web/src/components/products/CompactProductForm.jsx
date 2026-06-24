@@ -12,6 +12,9 @@ import {
     ShieldCheck,
     Image as ImageIcon,
     BookOpen,
+    Gift,
+    Trash2,
+    Search,
 } from 'lucide-react';
 import { Sheet, SheetContent } from '../../components/ui/sheet';
 import { Button } from '../../components/ui/button';
@@ -47,6 +50,7 @@ const defaultForm = {
     prices: {},
     units: [],
     combo_items: [],
+    promotion_items: [],
     warranty_policy_id: null,
     image_url: '',
     image_url_original: '',
@@ -319,6 +323,15 @@ const mapInitialProduct = (product) => {
             })
             : [],
         combo_items: Array.isArray(product.combo_items) ? product.combo_items : [],
+        promotion_items: Array.isArray(product.promotion_items) ? product.promotion_items.filter(item => item.is_active !== false).map(item => ({
+            id: item.id,
+            child_product_id: item.child_product_id,
+            quantity: formatQtyInput(item.quantity || 1),
+            unit_id: item.unit_id || null,
+            label: item.label || '',
+            child_product: item.child_product || null,
+            is_active: item.is_active !== false,
+        })) : [],
         warranty_policy_id: product.warranty_policy_id || null,
         image_url: product.image_url || '',
         image_url_original: product.image_url_original || '',
@@ -337,6 +350,9 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
     const [priceCalcMode, setPriceCalcMode] = useState('margin');
     const [priceLists, setPriceLists] = useState([]);
     const [policies, setPolicies] = useState([]);
+    const [promoSearch, setPromoSearch] = useState('');
+    const [promoResults, setPromoResults] = useState([]);
+    const [loadingPromoResults, setLoadingPromoResults] = useState(false);
     const isEditing = !!initialData?.id;
 
     const priceValue = parseFloat(formData.price || 0) || 0;
@@ -415,6 +431,63 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
             combo_items: type === 'combo' ? prev.combo_items : [],
             warehouse_stocks: type === 'physical' ? prev.warehouse_stocks : [],
             stock: type === 'physical' ? prev.stock : 0,
+        }));
+    };
+
+    const searchPromoProducts = async (query) => {
+        const q = query.trim();
+        setPromoSearch(query);
+        if (q.length < 2) {
+            setPromoResults([]);
+            return;
+        }
+        setLoadingPromoResults(true);
+        try {
+            const { data } = await apiClient.get('/products/', { params: { search: q, limit: 8 } });
+            const items = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+            setPromoResults(items.filter(item => item.is_active !== false && !item.has_imei && String(item.id) !== String(initialData?.id || '')));
+        } catch {
+            setPromoResults([]);
+        } finally {
+            setLoadingPromoResults(false);
+        }
+    };
+
+    const addPromotionItem = (product) => {
+        if (!product?.id) return;
+        if (formData.promotion_items.some(item => String(item.child_product_id) === String(product.id))) {
+            toast.error('Ese producto ya esta incluido en la promocion');
+            return;
+        }
+        setFormData(prev => ({
+            ...prev,
+            promotion_items: [
+                ...(prev.promotion_items || []),
+                {
+                    child_product_id: product.id,
+                    quantity: '1',
+                    unit_id: null,
+                    label: `Incluido: ${product.name}`,
+                    child_product: product,
+                    is_active: true,
+                }
+            ]
+        }));
+        setPromoSearch('');
+        setPromoResults([]);
+    };
+
+    const updatePromotionItem = (index, patch) => {
+        setFormData(prev => ({
+            ...prev,
+            promotion_items: (prev.promotion_items || []).map((item, i) => i === index ? { ...item, ...patch } : item),
+        }));
+    };
+
+    const removePromotionItem = (index) => {
+        setFormData(prev => ({
+            ...prev,
+            promotion_items: (prev.promotion_items || []).filter((_, i) => i !== index),
         }));
     };
 
@@ -534,6 +607,15 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
             warehouse_stocks: productType === 'physical' ? formData.warehouse_stocks : [],
             units: unitsValidation.units,
             combo_items: formData.is_combo ? (formData.combo_items || []) : [],
+            promotion_items: (formData.promotion_items || [])
+                .map(item => ({
+                    child_product_id: parseInt(item.child_product_id, 10),
+                    quantity: parseFloat(item.quantity || 0),
+                    unit_id: item.unit_id ? parseInt(item.unit_id, 10) : null,
+                    label: item.label || '',
+                    is_active: item.is_active !== false,
+                }))
+                .filter(item => Number.isFinite(item.child_product_id) && item.quantity > 0),
             prices: pricesArray,
             image_url: normalizedGallery.find(image => image.is_primary)?.image_url || formData.image_url || '',
             gallery_images: normalizedGallery,
@@ -893,6 +975,56 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                                                 Aplica comision
                                                 <input type="checkbox" checked={formData.is_commissionable} onChange={e => setFormData(p => ({ ...p, is_commissionable: e.target.checked }))} />
                                             </label>
+                                        </div>
+                                    </Panel>
+                                    <Panel title="Bonos de promocion" eyebrow={(formData.promotion_items || []).length ? `${(formData.promotion_items || []).length} incluidos` : 'Opcional'}>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <FieldLabel><span className="inline-flex items-center gap-1"><Gift size={12} /> Productos incluidos sin costo</span></FieldLabel>
+                                                <div className="relative">
+                                                    <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                                    <Input value={promoSearch} onChange={e => searchPromoProducts(e.target.value)} placeholder="Buscar vidrio, forro, accesorio..." className="h-10 pl-9" />
+                                                    {promoResults.length > 0 && (
+                                                        <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-md border border-slate-200 bg-white shadow-xl">
+                                                            {promoResults.map(product => (
+                                                                <button key={product.id} type="button" onClick={() => addPromotionItem(product)} className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-indigo-50">
+                                                                    <span>
+                                                                        <span className="block text-sm font-black text-slate-800">{product.name}</span>
+                                                                        <span className="text-xs font-bold text-slate-400">{product.sku || 'Sin SKU'} · Stock {Number(product.stock || 0).toFixed(0)}</span>
+                                                                    </span>
+                                                                    <span className="text-xs font-black text-indigo-600">Agregar</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {loadingPromoResults && <p className="mt-1 text-xs font-bold text-slate-400">Buscando...</p>}
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                {(formData.promotion_items || []).map((item, index) => (
+                                                    <div key={`${item.child_product_id}-${index}`} className="rounded-md border border-emerald-100 bg-emerald-50/50 p-3">
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div className="min-w-0">
+                                                                <p className="truncate text-sm font-black text-slate-800">{item.child_product?.name || `Producto #${item.child_product_id}`}</p>
+                                                                <p className="text-xs font-bold text-emerald-700">Se cobra en $0.00 y descuenta stock</p>
+                                                            </div>
+                                                            <button type="button" onClick={() => removePromotionItem(index)} className="rounded-md border border-red-100 bg-white p-2 text-red-500 hover:bg-red-50" title="Eliminar incluido">
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </div>
+                                                        <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-[110px_1fr]">
+                                                            <Input type="number" min="0.001" step="0.001" value={item.quantity} onChange={e => updatePromotionItem(index, { quantity: e.target.value })} onBlur={e => updatePromotionItem(index, { quantity: formatQtyInput(e.target.value || 1) })} placeholder="Cant." />
+                                                            <Input value={item.label || ''} onChange={e => updatePromotionItem(index, { label: e.target.value })} placeholder="Texto en factura: Incluido por promocion" />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {(formData.promotion_items || []).length === 0 && (
+                                                    <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-400">
+                                                        Sin productos incluidos. Si agregas un accesorio aqui, el POS lo bonifica y descuenta inventario automaticamente.
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </Panel>
                                     <Panel title="Garantia y moneda" eyebrow="Venta">

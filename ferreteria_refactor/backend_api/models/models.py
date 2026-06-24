@@ -228,6 +228,19 @@ class Product(Base):
         foreign_keys="ComboItem.child_product_id",
         back_populates="child_product"
     )
+
+    promotion_items = relationship(
+        "ProductPromotionItem",
+        foreign_keys="ProductPromotionItem.parent_product_id",
+        back_populates="parent_product",
+        cascade="all, delete-orphan"
+    )
+
+    included_in_promotions = relationship(
+        "ProductPromotionItem",
+        foreign_keys="ProductPromotionItem.child_product_id",
+        back_populates="child_product"
+    )
     
     # NEW: Multi-Warehouse Stocks
     stocks = relationship("ProductStock", back_populates="product", cascade="all, delete-orphan")
@@ -350,6 +363,38 @@ class ComboItem(Base):
     
     def __repr__(self):
         return f"<ComboItem(parent={self.parent_product_id}, child={self.child_product_id}, qty={self.quantity})>"
+
+class ProductPromotionItem(Base):
+    """Products included at no charge when selling a parent product."""
+    __tablename__ = "product_promotion_items"
+    __table_args__ = (
+        UniqueConstraint('parent_product_id', 'child_product_id', 'unit_id', name='uq_product_promo_parent_child_unit'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    parent_product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
+    child_product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
+    quantity = Column(Numeric(12, 3), nullable=False, default=1.000)
+    unit_id = Column(Integer, ForeignKey("product_units.id"), nullable=True)
+    label = Column(String(120), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=get_venezuela_now)
+    updated_at = Column(DateTime, default=get_venezuela_now, onupdate=get_venezuela_now)
+
+    parent_product = relationship(
+        "Product",
+        foreign_keys=[parent_product_id],
+        back_populates="promotion_items"
+    )
+    child_product = relationship(
+        "Product",
+        foreign_keys=[child_product_id],
+        back_populates="included_in_promotions"
+    )
+    unit = relationship("ProductUnit", foreign_keys=[unit_id])
+
+    def __repr__(self):
+        return f"<ProductPromotionItem(parent={self.parent_product_id}, child={self.child_product_id}, qty={self.quantity})>"
 
 class Kardex(Base):
     __tablename__ = "kardex"

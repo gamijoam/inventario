@@ -55,6 +55,57 @@ def _active_product_units(units):
     return [unit for unit in (units or []) if getattr(unit, "is_active", True) is not False]
 
 
+def _serialize_promotion_item(item):
+    child = getattr(item, "child_product", None)
+    return {
+        "id": item.id,
+        "parent_product_id": item.parent_product_id,
+        "child_product_id": item.child_product_id,
+        "quantity": float(item.quantity),
+        "unit_id": item.unit_id,
+        "label": item.label,
+        "is_active": bool(getattr(item, "is_active", True)),
+        "child_product": {
+            "id": child.id,
+            "name": child.name,
+            "sku": child.sku,
+            "price": float(child.price or 0),
+            "stock": float(child.stock or 0),
+            "has_imei": bool(child.has_imei),
+            "is_service": bool(child.is_service),
+            "is_active": bool(child.is_active),
+        } if child else None,
+    }
+
+
+def _create_promotion_items(db: Session, parent_product_id: int, promotion_items):
+    created = []
+    for promo in promotion_items or []:
+        data = promo if isinstance(promo, dict) else promo.dict()
+        child_id = data.get("child_product_id")
+        if not child_id or int(child_id) == int(parent_product_id):
+            raise HTTPException(status_code=400, detail="El producto promocional incluido no puede ser el mismo producto principal.")
+        child = db.query(models.Product).filter(
+            models.Product.id == child_id,
+            models.Product.is_active == True,
+        ).first()
+        if not child:
+            raise HTTPException(status_code=400, detail=f"Producto incluido #{child_id} no existe o esta inactivo.")
+        if child.has_imei:
+            raise HTTPException(status_code=400, detail=f"'{child.name}' maneja IMEI/serial y no puede incluirse automaticamente como bonificado.")
+        db_item = models.ProductPromotionItem(
+            parent_product_id=parent_product_id,
+            child_product_id=child_id,
+            quantity=data.get("quantity") or 1,
+            unit_id=data.get("unit_id"),
+            label=data.get("label"),
+            is_active=data.get("is_active", True),
+        )
+        db.add(db_item)
+        created.append(db_item)
+    return created
+
+
 def _unit_identity_key(unit):
     unit_data = _as_unit_dict(unit)
     unit_name = str(unit_data.get("unit_name") or "").strip().lower()
@@ -660,6 +711,7 @@ def read_products(
             joinedload(models.Product.prices).joinedload(models.ProductPrice.price_list),
             selectinload(models.Product.gallery_images),
             joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product),
+            joinedload(models.Product.promotion_items).joinedload(models.ProductPromotionItem.child_product),
             joinedload(models.Product.price_rules),
             joinedload(models.Product.recipes).subqueryload(rest_models.RestaurantRecipe.ingredient).subqueryload(models.Product.stocks)
         ).order_by(func.lower(models.Product.name))
@@ -717,7 +769,7 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
     # 1. Operaciones DB (Transaction Wrapper)
     try:
         # A. Create Base Product
-        product_data = product.dict(exclude={"units", "combo_items", "warehouse_stocks", "prices", "gallery_images"})
+        product_data = product.dict(exclude={"units", "combo_items", "promotion_items", "warehouse_stocks", "prices", "gallery_images"})
         db_product = models.Product(**product_data)
         db.add(db_product)
         db.flush() # Generate ID
@@ -725,6 +777,7 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
         # Prepare lists to capture ORM objects for response construction
         new_units = []
         new_combo_items = []
+        new_promotion_items = []
         new_stocks = []
         new_prices = []
         new_gallery = []
@@ -748,6 +801,10 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
                 db.add(db_combo_item)
                 new_combo_items.append(db_combo_item)
             
+        # C2. Process Promotion Gifts
+        if product.promotion_items:
+            new_promotion_items = _create_promotion_items(db, db_product.id, product.promotion_items)
+
         # D. Process Warehouse Stocks
         total_stock = 0
         if product.warehouse_stocks:
@@ -869,6 +926,7 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
                     "unit_id": c.unit_id
                 } for c in new_combo_items
             ],
+            "promotion_items": [_serialize_promotion_item(item) for item in new_promotion_items],
             "stocks": [
                 {
                    "id": s.id,
@@ -906,7 +964,8 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
             "exchange_rate_id": response_data["exchange_rate_id"],
             "warranty_policy_id": int(db_product.warranty_policy_id) if db_product.warranty_policy_id else None,
             "units": response_data["units"],
-            "combo_items": response_data["combo_items"]
+            "combo_items": response_data["combo_items"],
+            "promotion_items": response_data.get("promotion_items", [])
         }
         background_tasks.add_task(run_broadcast, WebSocketEvents.PRODUCT_CREATED, payload)
 
@@ -985,6 +1044,10 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
     if "combo_items" in update_data:
         combo_items_data = update_data.pop("combo_items")
 
+    promotion_items_data = None
+    if "promotion_items" in update_data:
+        promotion_items_data = update_data.pop("promotion_items")
+
     stocks_data = None
     if "warehouse_stocks" in update_data:
         stocks_data = update_data.pop("warehouse_stocks")
@@ -1026,6 +1089,7 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
     
     final_units = _active_product_units(db_product.units)
     final_combo = db_product.combo_items
+    final_promotion_items = db_product.promotion_items
     final_stocks = db_product.stocks
     final_prices = db_product.prices
     final_gallery = db_product.gallery_images
@@ -1101,6 +1165,11 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
             new_combo.append(db_combo_item)
         final_combo = new_combo
             
+    # Handle Promotion Gifts Update
+    if promotion_items_data is not None:
+        db.query(models.ProductPromotionItem).filter(models.ProductPromotionItem.parent_product_id == product_id).delete()
+        final_promotion_items = _create_promotion_items(db, product_id, promotion_items_data)
+
     # Handle Stocks Update
     if stocks_data is not None:
         db.query(models.ProductStock).filter(models.ProductStock.product_id == product_id).delete()
@@ -1235,6 +1304,7 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
                 "unit_id": c.unit_id
             } for c in final_combo
         ],
+        "promotion_items": [_serialize_promotion_item(item) for item in final_promotion_items],
         "stocks": [
             {
                "id": s.id,
@@ -1622,6 +1692,7 @@ def read_product(product_id: int, db: Session = Depends(get_db)):
         joinedload(models.Product.prices).joinedload(models.ProductPrice.price_list),
         selectinload(models.Product.gallery_images),
         joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product),
+        joinedload(models.Product.promotion_items).joinedload(models.ProductPromotionItem.child_product),
         joinedload(models.Product.price_rules)
     ).filter(models.Product.id == product_id).first()
     if not product:
