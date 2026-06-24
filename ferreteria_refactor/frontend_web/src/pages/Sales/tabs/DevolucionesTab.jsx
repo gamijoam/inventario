@@ -340,14 +340,14 @@ const DevolucionesTab = () => {
 
     return (
         <>
-        <div id="tour-returns-container" className="flex flex-col bg-slate-50 p-6 overflow-hidden flex-1">
+        <div id="tour-returns-container" className="flex flex-col bg-slate-50 p-3 overflow-hidden flex-1">
             {/* Header */}
-            <div className="flex justify-between items-center mb-6 flex-shrink-0">
+            <div className="flex justify-between items-center mb-2 flex-shrink-0">
                 <div>
                     <p className="text-slate-500 font-medium">Procesar devoluciones y reembolsos</p>
                 </div>
                 {!cashSessionOpen && (
-                    <div className="bg-rose-50 border border-rose-200 rounded-xl px-4 py-2 flex items-center gap-3">
+                    <div className="bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 flex items-center gap-2">
                         <AlertCircle className="text-rose-600" size={20} />
                         <div>
                             <p className="font-bold text-rose-800 text-sm">Caja Cerrada</p>
@@ -357,14 +357,14 @@ const DevolucionesTab = () => {
                 )}
             </div>
 
-            <div className="flex-1 flex overflow-hidden gap-6">
+            <div className="flex-1 flex overflow-hidden gap-2">
                 {step === 1 ? (
                     // STEP 1: Search Sales
-                    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6">
-                        <div id="tour-returns-search-panel" className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex flex-col items-center justify-center min-h-[200px]">
-                            <h2 className="text-xl font-bold text-slate-800 mb-6">Buscar Venta Original</h2>
-                            <div className="flex w-full max-w-2xl gap-3 relative">
-                                <Search className="absolute left-4 top-4 text-slate-400" size={20} />
+                    <div className="w-full max-w-6xl mx-auto flex flex-col gap-2">
+                        <div id="tour-returns-search-panel" className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 flex flex-col items-center justify-center">
+                            <h2 className="text-lg font-black text-slate-800 mb-3">Buscar Venta Original</h2>
+                            <div className="flex w-full max-w-3xl gap-2 relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                                 <input
                                     id="tour-returns-search-input"
                                     type="text"
@@ -372,14 +372,14 @@ const DevolucionesTab = () => {
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                                     placeholder="Buscar por Nro de Factura, Cédula o Nombre del Cliente..."
-                                    className="flex-1 pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl text-lg focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none shadow-sm transition-all"
+                                    className="flex-1 h-10 pl-10 pr-3 border border-slate-200 rounded-md text-sm font-bold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none shadow-sm transition-all"
                                     autoFocus
                                 />
                                 <button
                                     id="tour-returns-search-btn"
                                     onClick={handleSearch}
                                     disabled={loading}
-                                    className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-200 transition-all active:scale-95"
+                                    className="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-bold flex items-center gap-2 shadow-sm shadow-indigo-100 transition-all active:scale-95"
                                 >
                                     {loading ? <RefreshCw className="animate-spin" /> : <Search />}
                                     Buscar
@@ -388,29 +388,29 @@ const DevolucionesTab = () => {
                         </div>
 
                         {/* Search Results */}
-                        <div id="tour-returns-results" className="flex-1 overflow-y-auto bg-white rounded-2xl shadow-sm border border-slate-200 relative">
+                        <div id="tour-returns-results" className="flex-1 min-h-[420px] overflow-y-auto bg-white rounded-lg shadow-sm border border-slate-200 relative">
                             {searchResults.length > 0 ? (
                                 <table className="w-full">
                                     <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
                                         <tr>
-                                            <th className="text-left p-4 font-bold text-slate-600">Nro. Venta</th>
-                                            <th className="text-left p-4 font-bold text-slate-600">Fecha</th>
-                                            <th className="text-left p-4 font-bold text-slate-600">Cliente</th>
-                                            <th className="text-right p-4 font-bold text-slate-600">Total</th>
-                                            <th className="text-right p-4 font-bold text-slate-600">Acción</th>
+                                            <th className="text-left p-3 font-bold text-slate-600">Nro. Venta</th>
+                                            <th className="text-left p-3 font-bold text-slate-600">Fecha</th>
+                                            <th className="text-left p-3 font-bold text-slate-600">Cliente</th>
+                                            <th className="text-right p-3 font-bold text-slate-600">Total</th>
+                                            <th className="text-right p-3 font-bold text-slate-600">Acción</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
                                         {searchResults.map(sale => (
                                             <tr key={sale.id} className="hover:bg-slate-50/80 transition-colors">
-                                                <td className="p-4 font-bold text-slate-800">#{sale.id}</td>
-                                                <td className="p-4 text-slate-600">{new Date(sale.date).toLocaleDateString()}</td>
-                                                <td className="p-4 text-slate-600 font-medium">{sale.customer?.name || 'Cliente General'}</td>
-                                                <td className="p-4 text-right font-black text-slate-800">${Number(sale.total_amount || 0).toFixed(2)}</td>
-                                                <td className="p-4 text-right">
+                                                <td className="p-3 font-bold text-slate-800">#{sale.id}</td>
+                                                <td className="p-3 text-slate-600">{new Date(sale.date).toLocaleDateString()}</td>
+                                                <td className="p-3 text-slate-600 font-medium">{sale.customer?.name || 'Cliente General'}</td>
+                                                <td className="p-3 text-right font-black text-slate-800">${Number(sale.total_amount || 0).toFixed(2)}</td>
+                                                <td className="p-3 text-right">
                                                     <button
                                                         onClick={() => handleSelectSale(sale)}
-                                                        className="px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg font-bold transition-colors text-sm"
+                                                        className="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-md font-bold transition-colors text-sm"
                                                     >
                                                         Seleccionar
                                                     </button>
@@ -421,8 +421,8 @@ const DevolucionesTab = () => {
                                 </table>
                             ) : (
                                 <div className="h-full flex flex-col items-center justify-center text-slate-400 p-10">
-                                    <Package size={64} className="mb-4 opacity-50 text-indigo-200" />
-                                    <p className="font-medium text-lg">
+                                    <Package size={42} className="mb-3 opacity-50 text-indigo-200" />
+                                    <p className="text-sm font-bold">
                                         {searchQuery && !loading ? 'No se encontraron ventas' : 'Ingrese un término de búsqueda para comenzar'}
                                     </p>
                                 </div>
@@ -432,10 +432,10 @@ const DevolucionesTab = () => {
                 ) : (
                     // STEP 2: Select Items
                     <>
-                        <div id="tour-returns-items" className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
-                            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                        <div id="tour-returns-items" className="flex-1 bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col overflow-hidden">
+                            <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                                 <div>
-                                    <h2 className="text-lg font-bold text-slate-800">Seleccionar Items a Devolver</h2>
+                                    <h2 className="text-base font-black text-slate-800">Seleccionar Items a Devolver</h2>
                                     <p className="text-sm text-slate-500 font-medium">Venta #{selectedSale?.id} - {new Date(selectedSale?.date).toLocaleDateString()}</p>
                                 </div>
                                 <button
@@ -447,12 +447,12 @@ const DevolucionesTab = () => {
                                 </button>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/40">
+                            <div className="flex-1 overflow-y-auto p-2 space-y-2 bg-slate-50/40">
                                 {returnItems.map((item, index) => (
                                     <div
                                         key={index}
                                         className={clsx(
-                                            "rounded-xl border bg-white p-4 shadow-sm transition-all",
+                                            "rounded-lg border bg-white p-3 shadow-sm transition-all",
                                             item.quantity_to_return > 0 ? "border-indigo-200 ring-2 ring-indigo-500/10" : "border-slate-200 hover:border-indigo-100"
                                         )}
                                     >
@@ -475,9 +475,9 @@ const DevolucionesTab = () => {
                                             />
                                         </div>
 
-                                        <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                                        <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-2">
                                             <span className="text-xs font-black uppercase tracking-wider text-slate-400">Condicion</span>
-                                            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
+                                            <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
                                                 <button
                                                     type="button"
                                                     onClick={() => handleConditionChange(index, 'GOOD')}
@@ -506,7 +506,7 @@ const DevolucionesTab = () => {
                                 ))}
                             </div>
 
-                            <div className="p-4 border-t border-slate-200 bg-slate-50/50">
+                            <div className="p-3 border-t border-slate-200 bg-slate-50/50">
                                 <label className="block text-sm font-bold text-slate-500 mb-2 px-1">
                                     Motivo de Devolución
                                 </label>
@@ -521,8 +521,8 @@ const DevolucionesTab = () => {
                         </div>
 
                         {resolutionType === 'EXCHANGE' && (
-                            <div className="w-[420px] flex flex-col gap-4">
-                                <div id="tour-returns-replacement" className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col gap-3 max-h-full overflow-hidden">
+                            <div className="w-[380px] flex flex-col gap-2">
+                                <div id="tour-returns-replacement" className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 flex flex-col gap-2 max-h-full overflow-hidden">
                                     <div className="flex items-center justify-between gap-3">
                                         <h3 className="text-base font-black text-slate-800 flex items-center gap-2"><Repeat2 className="text-indigo-600" size={18} /> Producto de reemplazo</h3>
                                         <span className="rounded-md bg-indigo-50 px-2 py-1 text-xs font-black text-indigo-700">${calculateReplacementTotal().toFixed(2)}</span>
@@ -596,19 +596,19 @@ const DevolucionesTab = () => {
                         )}
 
                         {/* RIGHT Sidebar Summary */}
-                        <div className="w-[360px] flex flex-col gap-4">
-                            <div id="tour-returns-summary" className="bg-white rounded-2xl shadow-lg border border-indigo-100 p-6 flex flex-col h-full">
-                                <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                        <div className="w-[320px] flex flex-col gap-2">
+                            <div id="tour-returns-summary" className="bg-white rounded-lg shadow-sm border border-indigo-100 p-3 flex flex-col h-full">
+                                <h3 className="text-lg font-black text-slate-800 mb-3 flex items-center gap-2">
                                     <RefreshCw className="text-indigo-600" /> Resumen
                                 </h3>
 
-                                <div className="space-y-6 flex-1">
-                                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                <div className="space-y-2 flex-1">
+                                    <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                                         <p className="text-slate-500 text-xs font-bold uppercase mb-1">Total USD</p>
-                                        <p className="text-3xl font-black text-slate-800">${Number(calculateTotal() || 0).toFixed(2)}</p>
+                                        <p className="text-2xl font-black text-slate-800">${Number(calculateTotal() || 0).toFixed(2)}</p>
                                     </div>
 
-                                    <div id="tour-returns-resolution" className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                    <div id="tour-returns-resolution" className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
                                         <p className="mb-2 text-xs font-black uppercase tracking-wider text-slate-500">Resolucion</p>
                                         <div className="grid grid-cols-2 gap-2">
                                             <button
@@ -629,7 +629,7 @@ const DevolucionesTab = () => {
                                     </div>
 
                                     {resolutionType === 'EXCHANGE' && (
-                                        <div className="rounded-xl border border-indigo-100 bg-white p-4 space-y-3">
+                                        <div className="rounded-lg border border-indigo-100 bg-white p-3 space-y-2">
                                             <div className="flex items-center justify-between text-sm">
                                                 <span className="font-bold text-slate-500">Reemplazo</span>
                                                 <span className="font-black text-slate-800">{formatUsd(calculateExchange().replacementTotal)}</span>
@@ -650,7 +650,7 @@ const DevolucionesTab = () => {
                                     )}
 
                                     {/* Refund Info Component */}
-                                    <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl flex flex-col gap-2">
+                                    <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg flex flex-col gap-2">
                                         <div className="flex justify-between items-center mb-2">
                                             <span className="text-sm font-bold text-indigo-500 uppercase">Moneda de Reembolso</span>
                                             <div className="flex gap-2">
@@ -683,7 +683,7 @@ const DevolucionesTab = () => {
                                         </div>
 
                                         <div className="flex items-baseline gap-2">
-                                            <p className="text-3xl font-black text-indigo-800">
+                                            <p className="text-2xl font-black text-indigo-800">
                                                 {refundCurrency === 'USD' ? '$' : 'Bs. '}
                                                 {Number(getRefundAmount() || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </p>
@@ -707,7 +707,7 @@ const DevolucionesTab = () => {
                                 <button
                                     onClick={handleProcessReturn}
                                     disabled={loading || !cashSessionOpen || calculateTotal() === 0}
-                                    className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none mt-6 flex justify-center items-center gap-2"
+                                    className="w-full py-3 bg-indigo-600 text-white rounded-md font-bold text-sm hover:bg-indigo-700 shadow-sm shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none mt-3 flex justify-center items-center gap-2"
                                 >
                                     {loading ? <RefreshCw className="animate-spin" /> : <DollarSign />}
                                     {loading ? 'Procesando...' : (resolutionType === 'EXCHANGE' ? 'Procesar Canje' : 'Reembolsar')}
