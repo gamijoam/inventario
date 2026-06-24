@@ -138,18 +138,23 @@ const InventoryCenter = () => {
     return (
         <div className="min-h-screen bg-slate-50">
             <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6">
-                    <div className="flex flex-col gap-3 py-3">
+                <div className="mx-auto max-w-[1680px] px-3 sm:px-5">
+                    <div className="flex flex-col gap-2 py-2.5">
                         <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-400">
                                     <Package size={14} /> Inventario
                                 </div>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Centro de Inventario</h1>
-                                    <span className="hidden sm:inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600">
-                                        <ActiveIcon size={13} /> {activeTabMeta.label}
+                                <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                    <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">Centro de Inventario</h1>
+                                    <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                                        <ActiveIcon size={12} /> {activeTabMeta.label}
                                     </span>
+                                    {activeDescription && (
+                                        <span className="hidden lg:inline text-xs font-medium text-slate-500">
+                                            {activeDescription.desc}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
@@ -157,7 +162,7 @@ const InventoryCenter = () => {
                                     id="tour-inventory-export-center"
                                     type="button"
                                     onClick={() => setIsExportOpen(true)}
-                                    className="inline-flex h-10 items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 text-sm font-black text-indigo-700 shadow-sm transition-colors hover:border-indigo-300 hover:bg-indigo-100"
+                                    className="inline-flex h-9 items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 text-sm font-black text-indigo-700 shadow-sm transition-colors hover:border-indigo-300 hover:bg-indigo-100"
                                 >
                                     <Download size={16} />
                                     <span className="hidden sm:inline">Exportar datos</span>
@@ -178,7 +183,7 @@ const InventoryCenter = () => {
                                         role="tab"
                                         aria-selected={isActive}
                                         onClick={() => setActiveTab(tab.id)}
-                                        className={`flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-bold transition-colors ${
+                                        className={`flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-bold transition-colors ${
                                             isActive
                                                 ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-100'
                                                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -194,22 +199,7 @@ const InventoryCenter = () => {
                 </div>
             </div>
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
-                {activeDescription && (
-                    <section className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                        <div className="flex items-start gap-3">
-                            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-500">
-                                <ActiveIcon size={16} />
-                            </div>
-                            <div className="min-w-0">
-                                <h2 className="text-sm font-black text-slate-900">{activeTabMeta.label}</h2>
-                                <p className="mt-0.5 text-sm text-slate-600 leading-relaxed">{activeDescription.desc}</p>
-                                <p className="mt-1 text-xs font-medium text-slate-400">{activeDescription.tip}</p>
-                            </div>
-                        </div>
-                    </section>
-                )}
-
+            <main className="mx-auto max-w-[1680px] px-3 py-3 sm:px-5 sm:py-4">
                 {renderTabContent()}
             </main>
 

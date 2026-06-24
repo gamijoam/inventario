@@ -614,11 +614,11 @@ const ProductsTab = () => {
     };
 
     return (
-        <div id="tour-products-panel" className="space-y-4 animate-in fade-in duration-300">
+        <div id="tour-products-panel" className="space-y-3 animate-in fade-in duration-300">
 
             {/* Toolbar */}
-            <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
                         <div id="tour-products-search" className="min-w-[220px] flex-1 lg:max-w-md">
                             <SearchWithScanner
@@ -632,7 +632,7 @@ const ProductsTab = () => {
                             id="tour-products-filters-btn"
                             onClick={() => setShowFilters(f => !f)}
                             className={cn(
-                                'inline-flex h-10 items-center justify-center gap-2 rounded-md border px-3 text-sm font-bold transition-colors',
+                                'inline-flex h-9 items-center justify-center gap-2 rounded-md border px-3 text-sm font-bold transition-colors',
                                 showFilters || hasFilters
                                     ? 'border-indigo-600 bg-indigo-600 text-white'
                                     : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -647,7 +647,7 @@ const ProductsTab = () => {
                     <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <button className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900">
+                                <button className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900">
                                     <Download size={15} />
                                     Acciones
                                     <ChevronDown size={13} className="text-slate-400" />
@@ -666,7 +666,7 @@ const ProductsTab = () => {
                         {modules?.services && (
                             <Link
                                 to="/inventory/serialized-reception"
-                                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                                className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                             >
                                 <Barcode size={15} />
                                 <span className="hidden sm:inline">Recepción IMEI</span>
@@ -676,7 +676,7 @@ const ProductsTab = () => {
                         {isAdmin && (
                             <button
                                 onClick={() => setIsQuickModalOpen(true)}
-                                className="inline-flex h-10 items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-700 transition-colors hover:bg-amber-100"
+                                className="inline-flex h-9 items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-700 transition-colors hover:bg-amber-100"
                                 title="Crear un producto con los datos mínimos"
                             >
                                 <Zap size={15} />
@@ -689,7 +689,7 @@ const ProductsTab = () => {
                             <button
                                 id="tour-products-add-btn"
                                 onClick={() => openCompactEditor(null)}
-                                className="inline-flex h-10 items-center gap-2 rounded-md bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm shadow-indigo-100 transition-colors hover:bg-indigo-700"
+                                className="inline-flex h-9 items-center gap-2 rounded-md bg-indigo-600 px-3.5 text-sm font-bold text-white shadow-sm shadow-indigo-100 transition-colors hover:bg-indigo-700"
                             >
                                 <Plus size={16} />
                                 Nuevo Producto
@@ -835,36 +835,35 @@ const ProductsTab = () => {
             </div>
             {/* Tabla Desktop */}
             <div id="tour-products-list" className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:block">
-                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-4 py-3">
-                    <div>
+                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-3 py-2">
+                    <div className="flex items-center gap-2">
                         <p className="text-xs font-black uppercase tracking-wide text-slate-400">Catalogo</p>
-                        <p className="text-sm font-bold text-slate-700">Productos listos para venta, inventario y edicion rapida</p>
+                        <span className="hidden sm:inline text-xs font-bold text-slate-500">venta, stock y edicion rapida</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                        <span className="rounded-md bg-white px-2.5 py-1 shadow-sm">{filteredProducts.length} en vista</span>
-                        {hasActiveConstraints && <span className="rounded-md bg-indigo-50 px-2.5 py-1 text-indigo-700">Filtrado</span>}
+                        <span className="rounded-md bg-white px-2 py-0.5 shadow-sm">{filteredProducts.length} en vista</span>
+                        {hasActiveConstraints && <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-indigo-700">Filtrado</span>}
                     </div>
                 </div>
                 <table className="w-full table-fixed text-sm">
                     <thead>
                         <tr className="border-b border-slate-200 bg-white">
-                            <th className="w-[46%] px-4 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-400">Producto</th>
-                            <th className="w-[18%] px-4 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-400">Categoria</th>
-                            <th className="w-[18%] px-4 py-3 text-right text-xs font-black uppercase tracking-wide text-slate-400">Precio</th>
-                            <th className="w-[12%] px-4 py-3 text-right text-xs font-black uppercase tracking-wide text-slate-400">Stock</th>
-                            <th className="w-[6%] px-3 py-3" />
+                            <th className="w-[55%] px-3 py-2.5 text-left text-xs font-black uppercase tracking-wider text-slate-400">Producto</th>
+                            <th className="w-[22%] px-3 py-2.5 text-right text-xs font-black uppercase tracking-wide text-slate-400">Precio</th>
+                            <th className="w-[16%] px-3 py-2.5 text-right text-xs font-black uppercase tracking-wide text-slate-400">Stock</th>
+                            <th className="w-[7%] px-2 py-2.5" />
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {isLoading ? (
-                            <tr><td colSpan={5} className="py-16 text-center">
+                            <tr><td colSpan={4} className="py-16 text-center">
                                 <div className="flex items-center justify-center gap-2 text-slate-400">
                                     <RefreshCw size={16} className="animate-spin" /> Cargando productos...
                                 </div>
                             </td></tr>
                         ) : filteredProducts.length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="py-16 text-center">
+                                <td colSpan={4} className="py-16 text-center">
                                     <div className="mx-auto max-w-sm rounded-lg border border-dashed border-slate-200 bg-slate-50 px-6 py-8">
                                         <Package size={28} className="mx-auto mb-3 text-slate-300" />
                                         <p className="font-black text-slate-700">No se encontraron productos</p>
@@ -874,23 +873,23 @@ const ProductsTab = () => {
                             </tr>
                         ) : filteredProducts.map(product => (
                             <tr key={product.id} className="group transition-colors hover:bg-slate-50/80">
-                                <td className="px-4 py-3 align-middle">
-                                    <div className="flex min-w-0 items-center gap-3">
+                                <td className="px-3 py-2 align-middle">
+                                    <div className="flex min-w-0 items-center gap-2.5">
                                         <ProductThumbnail
                                             imageUrl={product.image_url}
                                             productName={product.name}
                                             size="sm"
-                                            className="h-11 w-11 flex-shrink-0 rounded-lg border border-slate-100 bg-slate-50 object-cover shadow-sm transition-transform group-hover:scale-[1.03]"
+                                            className="h-9 w-9 flex-shrink-0 rounded-md border border-slate-100 bg-slate-50 object-cover shadow-sm transition-transform group-hover:scale-[1.03]"
                                         />
                                         <div className="min-w-0">
                                             <button
                                                 type="button"
                                                 onClick={() => openCompactEditor(product)}
-                                                className="line-clamp-1 text-left text-sm font-black leading-tight text-slate-900 transition-colors hover:text-indigo-700"
+                                                className="line-clamp-1 text-left text-[13px] font-black leading-tight text-slate-900 transition-colors hover:text-indigo-700"
                                             >
                                                 {product.name}
                                             </button>
-                                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                            <div className="mt-0.5 flex flex-wrap items-center gap-1">
                                                 <span className="rounded-md border border-slate-100 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-slate-400">
                                                     {product.sku || 'Sin SKU'}
                                                 </span>
@@ -900,35 +899,35 @@ const ProductsTab = () => {
                                                     </span>
                                                 )}
                                             </div>
+                                            <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                                                {product.category?.name ? (
+                                                    <button
+                                                        onClick={() => setFilterCategory(product.category_id.toString())}
+                                                        className="max-w-[160px] truncate rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                                                        title={product.category.name}
+                                                    >
+                                                        {product.category.name}
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-[10px] italic text-slate-300">Sin categoria</span>
+                                                )}
+                                            </div>
                                             <ProductTypeBadges product={product} />
                                             <ProductIssueBadges product={product} />
                                         </div>
                                     </div>
                                 </td>
 
-                                <td className="px-4 py-3 align-middle">
-                                    {product.category?.name ? (
-                                        <button
-                                            onClick={() => setFilterCategory(product.category_id.toString())}
-                                            className="max-w-full truncate rounded-md bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
-                                            title={product.category.name}
-                                        >
-                                            {product.category.name}
-                                        </button>
-                                    ) : (
-                                        <span className="text-[11px] italic text-slate-300">Sin categoria</span>
-                                    )}
-                                </td>
 
-                                <td className="px-4 py-3 text-right align-middle">
-                                    <div className="text-base font-black leading-tight text-slate-900">{formatMoney(product.price)}</div>
+                                <td className="px-3 py-2 text-right align-middle">
+                                    <div className="text-sm font-black leading-tight text-slate-900">{formatMoney(product.price)}</div>
                                     {convertProductPrice && (
                                         <div className="mt-0.5 text-[11px] font-bold text-slate-400">
                                             Bs {Number(convertProductPrice(product, 'VES') || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </div>
                                     )}
                                     {showPriceList && Array.isArray(product.prices) && product.prices.length > 0 && (
-                                        <div className="mt-1 flex flex-col items-end gap-0.5">
+                                        <div className="mt-0.5 flex flex-col items-end gap-0.5">
                                             {product.prices.slice(0, 2).map((priceItem, idx) => (
                                                 <div key={priceItem.id ?? `${priceItem.price_list_id ?? 'list'}-${idx}`} className="max-w-[150px] truncate text-[11px] font-bold text-slate-500">
                                                     <span className="text-slate-400">{priceItem.price_list?.name || 'Lista'}:</span>{' '}
@@ -942,15 +941,15 @@ const ProductsTab = () => {
                                     )}
                                 </td>
 
-                                <td className="px-4 py-3 align-middle">
+                                <td className="px-3 py-2 align-middle">
                                     <StockPill stock={product.stock} minStock={product.min_stock} />
                                 </td>
 
-                                <td className="px-3 py-3 text-right align-middle">
+                                <td className="px-2 py-2 text-right align-middle">
                                     {isAdmin && (
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <button className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700" title="Acciones del producto">
+                                                <button className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700" title="Acciones del producto">
                                                     <MoreHorizontal size={17} />
                                                 </button>
                                             </DropdownMenuTrigger>
