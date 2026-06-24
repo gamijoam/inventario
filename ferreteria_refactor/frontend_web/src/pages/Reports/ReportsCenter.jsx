@@ -124,7 +124,7 @@ const SkeletonChart = () => (
 );
 
 const SkeletonTable = () => (
-    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm animate-pulse">
+    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm animate-pulse">
         <div className="h-4 w-40 bg-slate-200 rounded mb-6" />
         {[...Array(5)].map((_, i) => (
             <div key={i} className="flex gap-4 mb-3">
@@ -151,14 +151,14 @@ const KPICard = ({ title, value, prevValue, icon: Icon, color = 'bg-emerald-500'
     const displayValue = isCurrency ? fmtCurrency(value, currency) : fmtNumber(value);
 
     return (
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg hover:ring-1 hover:ring-emerald-500/20 transition-all duration-300 relative overflow-hidden group hover:-translate-y-0.5">
-            <div className="flex justify-between items-start mb-3">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:ring-1 hover:ring-emerald-500/20 transition-all duration-200 relative overflow-hidden group hover:-translate-y-0.5">
+            <div className="flex justify-between items-start gap-3 mb-2">
                 <p className="text-slate-500 text-xs font-bold uppercase tracking-wider leading-tight">{title}</p>
-                <div className={`p-2 rounded-lg ${color} bg-opacity-10 group-hover:bg-opacity-20 transition-colors`}>
-                    <Icon size={16} className={`${color.replace('bg-', 'text-')}`} />
+                <div className={`p-1.5 rounded-lg ${color} bg-opacity-10 group-hover:bg-opacity-20 transition-colors`}>
+                    <Icon size={15} className={`${color.replace('bg-', 'text-')}`} />
                 </div>
             </div>
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-1">
+            <h3 className="text-[1.55rem] leading-tight font-black text-slate-900 tracking-tight mb-1">
                 {prefix}{displayValue}
             </h3>
             {change !== null && (
@@ -443,9 +443,9 @@ const ReportsCenter = () => {
         }
 
         return (
-            <div className="space-y-6">
+            <div className="space-y-4">
                 {/* KPI Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-3">
                     <KPICard
                         title="Ingresos Totales (USD)"
                         value={salesSummary?.total_revenue || 0}
@@ -494,15 +494,15 @@ const ReportsCenter = () => {
                 </div>
 
                 {/* Charts */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4">
                     {/* Area Chart: Ventas por Dia */}
-                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                        <div className="mb-4">
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="mb-3">
                             <h3 className="text-base font-bold text-slate-900">Ventas por Día</h3>
                             <p className="text-sm text-slate-500">Ingresos diarios en el periodo seleccionado</p>
                         </div>
                         {chartData.length > 0 ? (
-                            <div className="h-72">
+                            <div className="h-64">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                         <defs>
@@ -541,20 +541,20 @@ const ReportsCenter = () => {
                                 </ResponsiveContainer>
                             </div>
                         ) : (
-                            <div className="h-72 flex items-center justify-center text-slate-400 text-sm">
+                            <div className="h-64 flex items-center justify-center text-slate-400 text-sm">
                                 Sin datos de ventas en este periodo
                             </div>
                         )}
                     </div>
 
                     {/* Donut Chart: Metodos de Pago */}
-                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                        <div className="mb-4">
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="mb-3">
                             <h3 className="text-base font-bold text-slate-900">Métodos de Pago</h3>
                             <p className="text-sm text-slate-500">Distribución por método de pago</p>
                         </div>
                         {pieData.length > 0 ? (
-                            <div className="h-72 flex flex-col">
+                            <div className="h-64 flex flex-col">
                                 <div className="flex-1 min-h-0">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
@@ -592,7 +592,7 @@ const ReportsCenter = () => {
                                 </div>
                             </div>
                         ) : (
-                            <div className="h-72 flex items-center justify-center text-slate-400 text-sm">
+                            <div className="h-64 flex items-center justify-center text-slate-400 text-sm">
                                 Sin datos de métodos de pago
                             </div>
                         )}
@@ -600,10 +600,10 @@ const ReportsCenter = () => {
                 </div>
 
                 {/* Tables */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                     {/* Top 10 Products */}
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="px-6 py-4 border-b border-slate-100">
+                        <div className="px-4 py-3 border-b border-slate-100">
                             <h3 className="text-base font-bold text-slate-900">Top 10 Productos</h3>
                             <p className="text-sm text-slate-500">Productos con mayor ingreso en el periodo</p>
                         </div>
@@ -611,27 +611,27 @@ const ReportsCenter = () => {
                             <table className="w-full text-sm">
                                 <thead className="bg-slate-50/80 text-slate-500 text-xs font-bold uppercase tracking-wider">
                                     <tr>
-                                        <th className="px-4 py-3 text-left">#</th>
-                                        <th className="px-4 py-3 text-left">Producto</th>
-                                        <th className="px-4 py-3 text-right">Cant.</th>
-                                        <th className="px-4 py-3 text-right">Ingreso</th>
-                                        <th className="px-4 py-3 text-right">Margen</th>
+                                        <th className="px-3 py-2.5 text-left">#</th>
+                                        <th className="px-3 py-2.5 text-left">Producto</th>
+                                        <th className="px-3 py-2.5 text-right">Cant.</th>
+                                        <th className="px-3 py-2.5 text-right">Ingreso</th>
+                                        <th className="px-3 py-2.5 text-right">Margen</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {topProducts.length > 0 ? topProducts.map((p, i) => (
                                         <tr key={i} className="hover:bg-slate-50/60 transition-colors">
-                                            <td className="px-4 py-3 text-slate-400 font-bold">{i + 1}</td>
-                                            <td className="px-4 py-3 font-medium text-slate-800 max-w-[200px] truncate">
+                                            <td className="px-3 py-2.5 text-slate-400 font-bold">{i + 1}</td>
+                                            <td className="px-3 py-2.5 font-medium text-slate-800 max-w-[220px] truncate">
                                                 {p.product_name || p.name}
                                             </td>
-                                            <td className="px-4 py-3 text-right text-slate-600">
+                                            <td className="px-3 py-2.5 text-right text-slate-600">
                                                 {p.quantity_sold || p.quantity || 0}
                                             </td>
-                                            <td className="px-4 py-3 text-right font-bold text-slate-900">
+                                            <td className="px-3 py-2.5 text-right font-bold text-slate-900">
                                                 {fmtCurrency(p.revenue || p.total_revenue || 0)}
                                             </td>
-                                            <td className="px-4 py-3 text-right">
+                                            <td className="px-3 py-2.5 text-right">
                                                 {(() => {
                                                     const marginVal = p.margin_percent ?? p.margin ?? null;
                                                     if (marginVal !== null && marginVal !== undefined) {
@@ -675,7 +675,7 @@ const ReportsCenter = () => {
 
                     {/* Top 10 Customers */}
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="px-6 py-4 border-b border-slate-100">
+                        <div className="px-4 py-3 border-b border-slate-100">
                             <h3 className="text-base font-bold text-slate-900">Top 10 Clientes</h3>
                             <p className="text-sm text-slate-500">Clientes con mayor volumen de compra</p>
                         </div>
@@ -683,23 +683,23 @@ const ReportsCenter = () => {
                             <table className="w-full text-sm">
                                 <thead className="bg-slate-50/80 text-slate-500 text-xs font-bold uppercase tracking-wider">
                                     <tr>
-                                        <th className="px-4 py-3 text-left">#</th>
-                                        <th className="px-4 py-3 text-left">Cliente</th>
-                                        <th className="px-4 py-3 text-right">Transacc.</th>
-                                        <th className="px-4 py-3 text-right">Total (USD)</th>
+                                        <th className="px-3 py-2.5 text-left">#</th>
+                                        <th className="px-3 py-2.5 text-left">Cliente</th>
+                                        <th className="px-3 py-2.5 text-right">Transacc.</th>
+                                        <th className="px-3 py-2.5 text-right">Total (USD)</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {topCustomers.length > 0 ? topCustomers.map((c, i) => (
                                         <tr key={i} className="hover:bg-slate-50/60 transition-colors">
-                                            <td className="px-4 py-3 text-slate-400 font-bold">{i + 1}</td>
-                                            <td className="px-4 py-3 font-medium text-slate-800 max-w-[200px] truncate">
+                                            <td className="px-3 py-2.5 text-slate-400 font-bold">{i + 1}</td>
+                                            <td className="px-3 py-2.5 font-medium text-slate-800 max-w-[220px] truncate">
                                                 {c.customer_name || c.name || 'Cliente General'}
                                             </td>
-                                            <td className="px-4 py-3 text-right text-slate-600">
+                                            <td className="px-3 py-2.5 text-right text-slate-600">
                                                 {c.transaction_count || c.transactions || c.count || 0}
                                             </td>
-                                            <td className="px-4 py-3 text-right font-bold text-slate-900">
+                                            <td className="px-3 py-2.5 text-right font-bold text-slate-900">
                                                 {fmtCurrency(c.total_purchased || c.total || c.total_amount || c.revenue || 0)}
                                             </td>
                                         </tr>
@@ -811,12 +811,12 @@ const ReportsCenter = () => {
         <div id="tour-reports-container" className="min-h-screen bg-slate-50">
             {/* Header */}
             <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-                <div className="max-w-[1520px] mx-auto px-4 sm:px-5">
+                <div className="max-w-[1720px] mx-auto px-3 sm:px-4">
                     {/* Title row + date controls */}
                     <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 py-3">
                         <div>
                             <h1 className="text-xl font-black text-slate-900 tracking-tight">Centro de Reportes</h1>
-                            <p className="text-slate-500 text-xs font-semibold">Analitica avanzada de tu negocio</p>
+                            <p className="text-slate-500 text-xs font-semibold">Analítica avanzada de tu negocio</p>
                         </div>
 
                         <div id="tour-reports-controls" className="flex flex-wrap items-center gap-1.5">
@@ -898,7 +898,7 @@ const ReportsCenter = () => {
                                         setSearchParams(nextParams);
                                         setActiveTab(tab.id);
                                     }}
-                                    className={`flex items-center gap-2 px-3 py-2.5 text-xs font-black whitespace-nowrap border-b-2 rounded-t-lg transition-all ${
+                                    className={`flex items-center gap-2 px-3 py-2 text-xs font-black whitespace-nowrap border-b-2 rounded-t-lg transition-all ${
                                         isActive
                                             ? 'bg-emerald-50 text-emerald-700 border-emerald-600'
                                             : 'text-slate-500 border-transparent hover:bg-slate-50 hover:text-slate-700 hover:border-slate-300'
@@ -914,7 +914,7 @@ const ReportsCenter = () => {
             </div>
 
             {/* Tab Content */}
-            <div id="tour-reports-content" className="max-w-[1520px] mx-auto px-4 sm:px-5 py-4">
+            <div id="tour-reports-content" className="max-w-[1720px] mx-auto px-3 sm:px-4 py-3">
                 {renderTabContent()}
             </div>
             {help.isOpen && helpKey && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
