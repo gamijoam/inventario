@@ -6,7 +6,8 @@ import {
     MoreHorizontal, ChevronDown, Barcode, ArrowUpAZ, ArrowDownAZ,
     TrendingUp, TrendingDown, Download, Upload, FileSpreadsheet,
     FileText, SlidersHorizontal, Boxes, AlertTriangle, Ban,
-    Zap, Tag, Wrench, Layers, CircleDollarSign, History, PackagePlus, Save
+    Zap, Tag, Wrench, Layers, CircleDollarSign, History, PackagePlus, Save,
+    LayoutGrid, List
 } from 'lucide-react';
 import SearchWithScanner from '../../../components/common/SearchWithScanner';
 import CompactProductForm from '../../../components/products/CompactProductForm';
@@ -129,6 +130,134 @@ const StockPill = ({ stock, minStock }) => {
             </div>
             <div className={cn('mt-1 text-[10px] font-black uppercase tracking-wide', cfg.text)}>{cfg.label}</div>
         </div>
+    );
+};
+
+const ProductInventoryCard = ({
+    product,
+    isAdmin,
+    user,
+    showPriceList,
+    convertProductPrice,
+    openCompactEditor,
+    handleDelete,
+    setFilterCategory,
+    setQuickPriceProduct,
+    setStockAdjustProduct,
+    setQuickKardexProduct,
+    setSelectedProductForInstances,
+    setIsInstancesModalOpen,
+}) => {
+    return (
+        <article className="group flex min-h-[168px] flex-col rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
+            <div className="flex min-w-0 items-start gap-3 border-b border-slate-100 p-3">
+                <ProductThumbnail
+                    imageUrl={product.image_url}
+                    productName={product.name}
+                    size="sm"
+                    className="h-11 w-11 flex-shrink-0 rounded-md border border-slate-100 bg-slate-50 object-cover shadow-sm"
+                />
+                <div className="min-w-0 flex-1">
+                    <button
+                        type="button"
+                        onClick={() => openCompactEditor(product)}
+                        className="line-clamp-2 text-left text-sm font-black leading-snug text-slate-900 transition-colors hover:text-indigo-700"
+                    >
+                        {product.name}
+                    </button>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                        <span className="rounded-md border border-slate-100 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                            {product.sku || 'Sin SKU'}
+                        </span>
+                        {Array.isArray(product.prices) && product.prices.length > 0 && (
+                            <span className="rounded-md border border-indigo-100 bg-indigo-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-indigo-600">
+                                {product.prices.length} lista{product.prices.length === 1 ? '' : 's'}
+                            </span>
+                        )}
+                        {product.category?.name ? (
+                            <button
+                                onClick={() => setFilterCategory(product.category_id.toString())}
+                                className="max-w-[170px] truncate rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                                title={product.category.name}
+                            >
+                                {product.category.name}
+                            </button>
+                        ) : (
+                            <span className="text-[10px] italic text-slate-300">Sin categoria</span>
+                        )}
+                    </div>
+                    <ProductTypeBadges product={product} />
+                    <ProductIssueBadges product={product} compact />
+                </div>
+                {isAdmin && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <button className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700" title="Acciones del producto">
+                                <MoreHorizontal size={17} />
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="min-w-[190px] rounded-lg border-slate-100 shadow-xl">
+                            <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-slate-400">Opciones</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => openCompactEditor(product)} className="cursor-pointer rounded-md font-bold">
+                                <Pencil size={14} className="mr-2 text-indigo-500" /> Editar producto
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setQuickPriceProduct(product)} className="cursor-pointer rounded-md font-medium text-slate-700">
+                                <CircleDollarSign size={14} className="mr-2 text-emerald-500" /> Precios rapidos
+                            </DropdownMenuItem>
+                            {!product.has_imei && !product.is_service && (
+                                <DropdownMenuItem onClick={() => setStockAdjustProduct(product)} className="cursor-pointer rounded-md font-medium text-slate-700">
+                                    <PackagePlus size={14} className="mr-2 text-amber-500" /> Ajustar stock
+                                </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem onClick={() => setQuickKardexProduct(product)} className="cursor-pointer rounded-md font-medium text-slate-700">
+                                <History size={14} className="mr-2 text-slate-500" /> Ver Kardex
+                            </DropdownMenuItem>
+                            {product.has_imei && (
+                                <DropdownMenuItem onClick={() => { setSelectedProductForInstances(product); setIsInstancesModalOpen(true); }} className="cursor-pointer rounded-md font-medium text-slate-700">
+                                    <Search size={14} className="mr-2 text-indigo-400" /> Ver Seriales / IMEIs
+                                </DropdownMenuItem>
+                            )}
+                            {user?.role === 'ADMIN' && (
+                                <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => handleDelete(product)} className="cursor-pointer rounded-md font-bold text-rose-600 hover:text-rose-700 focus:bg-rose-50">
+                                        <Trash2 size={14} className="mr-2" /> Eliminar
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
+            </div>
+
+            <div className="grid flex-1 grid-cols-[1fr_132px] gap-3 p-3">
+                <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Precio venta</p>
+                    <div className="mt-0.5 text-xl font-black leading-none text-slate-900">{formatMoney(product.price)}</div>
+                    {convertProductPrice && (
+                        <div className="mt-1 text-[11px] font-bold text-slate-400">
+                            Bs {Number(convertProductPrice(product, 'VES') || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                    )}
+                    {showPriceList && Array.isArray(product.prices) && product.prices.length > 0 && (
+                        <div className="mt-2 space-y-0.5">
+                            {product.prices.slice(0, 2).map((priceItem, idx) => (
+                                <div key={priceItem.id ?? `${priceItem.price_list_id ?? 'list'}-${idx}`} className="truncate text-[11px] font-bold text-slate-500">
+                                    <span className="text-slate-400">{priceItem.price_list?.name || 'Lista'}:</span>{' '}
+                                    <span className="text-indigo-700">{formatMoney(priceItem.price)}</span>
+                                </div>
+                            ))}
+                            {product.prices.length > 2 && (
+                                <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">+{product.prices.length - 2} mas</div>
+                            )}
+                        </div>
+                    )}
+                </div>
+                <div className="flex items-end justify-end">
+                    <StockPill stock={product.stock} minStock={product.min_stock} />
+                </div>
+            </div>
+        </article>
     );
 };
 
@@ -398,6 +527,16 @@ const ProductsTab = () => {
     const [filterType, setFilterType]     = useState('');
     const [filterIssue, setFilterIssue]   = useState('');
     const [showFilters, setShowFilters]   = useState(false);
+    const [desktopView, setDesktopView] = useState(() => {
+        if (typeof window === 'undefined') return 'cards';
+        return window.localStorage.getItem('inventoryProductsView') || 'cards';
+    });
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem('inventoryProductsView', desktopView);
+        }
+    }, [desktopView]);
 
     const fetchProducts = async (page = currentPage) => {
         setIsLoading(true);
@@ -642,6 +781,23 @@ const ProductsTab = () => {
                             Filtros
                             {hasFilters && <span className="h-2 w-2 rounded-full bg-amber-400" />}
                         </button>
+
+                        <div className="hidden h-9 items-center rounded-md border border-slate-200 bg-slate-100 p-1 md:flex" aria-label="Vista de productos">
+                            <button
+                                type="button"
+                                onClick={() => setDesktopView('cards')}
+                                className={cn('inline-flex h-7 items-center gap-1.5 rounded px-2 text-xs font-black transition-colors', desktopView === 'cards' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800')}
+                            >
+                                <LayoutGrid size={13} /> Tarjetas
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setDesktopView('list')}
+                                className={cn('inline-flex h-7 items-center gap-1.5 rounded px-2 text-xs font-black transition-colors', desktopView === 'list' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800')}
+                            >
+                                <List size={13} /> Lista
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
@@ -833,8 +989,58 @@ const ProductsTab = () => {
                     />
                 ))}
             </div>
+
+            {desktopView === 'cards' && (
+                <div id="tour-products-card-grid" className="hidden rounded-b-lg border border-slate-200 bg-slate-50/80 p-2 shadow-sm md:block">
+                    <div className="mb-2 flex items-center justify-between px-1">
+                        <div className="flex items-center gap-2">
+                            <p className="text-xs font-black uppercase tracking-wide text-slate-400">Catalogo visual</p>
+                            <span className="hidden sm:inline text-xs font-bold text-slate-500">tarjetas para revision rapida</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                            <span className="rounded-md bg-white px-2 py-0.5 shadow-sm">{filteredProducts.length} en vista</span>
+                            {hasActiveConstraints && <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-indigo-700">Filtrado</span>}
+                        </div>
+                    </div>
+                    {isLoading ? (
+                        <div className="flex min-h-64 items-center justify-center gap-2 rounded-lg bg-white text-slate-400">
+                            <RefreshCw size={16} className="animate-spin" /> Cargando productos...
+                        </div>
+                    ) : filteredProducts.length === 0 ? (
+                        <div className="flex min-h-64 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white text-center">
+                            <div className="max-w-sm px-6 py-8">
+                                <Package size={28} className="mx-auto mb-3 text-slate-300" />
+                                <p className="font-black text-slate-700">No se encontraron productos</p>
+                                <p className="mt-1 text-xs font-medium text-slate-400">Prueba limpiar filtros o buscar por otro SKU.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 min-[1900px]:grid-cols-5">
+                            {filteredProducts.map(product => (
+                                <ProductInventoryCard
+                                    key={product.id}
+                                    product={product}
+                                    isAdmin={isAdmin}
+                                    user={user}
+                                    showPriceList={showPriceList}
+                                    convertProductPrice={convertProductPrice}
+                                    openCompactEditor={openCompactEditor}
+                                    handleDelete={handleDelete}
+                                    setFilterCategory={setFilterCategory}
+                                    setQuickPriceProduct={setQuickPriceProduct}
+                                    setStockAdjustProduct={setStockAdjustProduct}
+                                    setQuickKardexProduct={setQuickKardexProduct}
+                                    setSelectedProductForInstances={setSelectedProductForInstances}
+                                    setIsInstancesModalOpen={setIsInstancesModalOpen}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Tabla Desktop */}
-            <div id="tour-products-list" className="hidden overflow-hidden rounded-b-lg border border-slate-200 bg-white shadow-sm md:block">
+            <div id="tour-products-list" className={cn('hidden overflow-hidden rounded-b-lg border border-slate-200 bg-white shadow-sm md:block', desktopView === 'cards' && 'md:hidden')}>
                 <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-2.5 py-1.5">
                     <div className="flex items-center gap-2">
                         <p className="text-xs font-black uppercase tracking-wide text-slate-400">Catalogo</p>
