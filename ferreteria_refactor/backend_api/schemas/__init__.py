@@ -792,6 +792,9 @@ class CashSessionRead(BaseModel):
     final_cash_reported: Optional[Decimal]
     final_cash_reported_bs: Optional[Decimal]
     final_cash_expected: Optional[Decimal]
+    final_cash_expected_bs: Optional[Decimal] = None
+    difference: Optional[Decimal] = None
+    difference_bs: Optional[Decimal] = None
     status: str
     user_id: Optional[int] = None      # Who opened this session
     register_id: Optional[int] = None

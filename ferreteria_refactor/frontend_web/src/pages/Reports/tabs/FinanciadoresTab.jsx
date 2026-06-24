@@ -12,6 +12,17 @@ const STATUS_CONFIG = {
 const getStatus = (s) => STATUS_CONFIG[s] || STATUS_CONFIG.PENDING;
 
 const fmt = (n) => `$${Number(n || 0).toFixed(2)}`;
+const fmtCurrencyAmount = (amount, currency) => {
+    const code = String(currency || 'USD').toUpperCase();
+    const value = Number(amount || 0);
+    return code === 'VES' || code === 'BS' ? `Bs ${value.toFixed(2)}` : `$${value.toFixed(2)}`;
+};
+const fmtInitialByCurrency = (summary) => {
+    const buckets = summary?.initial_by_currency || {};
+    const entries = Object.entries(buckets).filter(([, value]) => Math.abs(Number(value || 0)) > 0.0001);
+    if (!entries.length) return fmt(summary?.total_initial_collected);
+    return entries.map(([currency, value]) => fmtCurrencyAmount(value, currency)).join(' / ');
+};
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 // ─── Modal pago ───────────────────────────────────────────────────────────────
@@ -395,7 +406,7 @@ export default function FinanciadoresTab() {
                 </div>
                 <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-4 shadow-sm">
                     <p className="text-[11px] font-black text-emerald-600 uppercase tracking-wide">Iniciales en caja</p>
-                    <p className="text-xl font-black text-emerald-700 mt-1">{fmt(summary?.total_initial_collected)}</p>
+                    <p className="text-xl font-black text-emerald-700 mt-1">{fmtInitialByCurrency(summary)}</p>
                     <p className="text-xs text-emerald-600 mt-1">No es deuda de financiera</p>
                 </div>
                 <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 shadow-sm">

@@ -24,6 +24,17 @@ const FREQ_OPTIONS = [
 ];
 
 const fmt = (n) => `$${Number(n || 0).toFixed(2)}`;
+const fmtCurrencyAmount = (amount, currency) => {
+    const code = String(currency || 'USD').toUpperCase();
+    const value = Number(amount || 0);
+    return code === 'VES' || code === 'BS' ? `Bs ${value.toFixed(2)}` : `$${value.toFixed(2)}`;
+};
+const fmtInitialByCurrency = (summary) => {
+    const buckets = summary?.initial_by_currency || {};
+    const entries = Object.entries(buckets).filter(([, value]) => Math.abs(Number(value || 0)) > 0.0001);
+    if (!entries.length) return fmt(summary?.total_initial_collected);
+    return entries.map(([currency, value]) => fmtCurrencyAmount(value, currency)).join(' / ');
+};
 const fmtDate = (d) => new Date(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' });
 
 // ─── Modal Nuevo Registro ─────────────────────────────────────────────────────
@@ -741,7 +752,7 @@ const ExternalFinancing = () => {
                     </div>
                     <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-4 shadow-sm">
                         <div className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1 flex items-center gap-1"><Wallet size={10} /> Iniciales cobrados</div>
-                        <div className="text-xl font-black text-emerald-700">{fmt(summary.total_initial_collected)}</div>
+                        <div className="text-xl font-black text-emerald-700">{fmtInitialByCurrency(summary)}</div>
                         <div className="text-xs text-emerald-400 mt-0.5">Dinero en tu caja</div>
                     </div>
                     <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4 shadow-sm">

@@ -96,6 +96,15 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         });
     };
 
+    const getAllowedFinancingInitialMethods = (symbol) => {
+        const currencyCode = normalizeCurrencyCode(symbol);
+        return paymentMethods.filter(method => {
+            if (!method?.is_active || method?.is_external_financer) return false;
+            const methodCurrency = getMethodCurrencyCode(method);
+            return methodCurrency === 'FLEX' || methodCurrency === currencyCode;
+        });
+    };
+
     const pickDefaultCurrency = () => {
         if (cartCurrencyPolicy.strictCurrency) return currencySymbolForCode(cartCurrencyPolicy.strictCurrency);
         const activeCurrencies = getActiveCurrencies();
@@ -525,8 +534,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                         financer_name: fData.financer_name,
                         financer_payment_method_id: fData.financer_payment_method_id || null,
                         total_price: fData.total_price,
-                        initial_payment: fData.initial_payment,
-                        initial_currency: "USD",
+                        initial_payment: fData.initial_payment_amount ?? fData.initial_payment,
+                        initial_currency: initialCurrency,
                         financed_amount: fData.financed_amount,
                         notes: `Inicial real: ${initialLabel}${fData.initial_payment_reference ? ` Ref: ${fData.initial_payment_reference}` : ''}`,
                     });
@@ -813,8 +822,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             totalUSD={totalUSD}
                             totalsByCurrency={totalsByCurrency}
                             paymentMethods={paymentMethods}
-                            currencies={visibleCurrencies}
-                            getAllowedPaymentMethods={getAllowedPaymentMethods}
+                            currencies={currencies}
+                            getAllowedPaymentMethods={getAllowedFinancingInitialMethods}
                             getExchangeRate={getExchangeRate}
                             defaultBsRate={defaultBsRate}
                             formatAmount={formatLocalCurrency}
