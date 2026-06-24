@@ -68,6 +68,14 @@ const friendlyDescription = (item = {}) => {
     if (/Generated package/i.test(desc)) return `Paquete de traslado generado${suffix}`;
 
     return desc
+        .replace(/Stock Adjustment/gi, 'Ajuste de inventario')
+        .replace(/Adjustment IN/gi, 'Ajuste de entrada')
+        .replace(/Adjustment OUT/gi, 'Ajuste de salida')
+        .replace(/Purchase/gi, 'Compra')
+        .replace(/Sale/gi, 'Venta')
+        .replace(/Return/gi, 'Devolucion')
+        .replace(/Damaged/gi, 'Dañado')
+        .replace(/Internal Use/gi, 'Uso interno')
         .replace(/Transfer OUT to External \(Generated package\)/gi, 'Salida por traslado externo')
         .replace(/Transfer IN \(v2 - new product\) from/gi, 'Entrada por traslado externo desde')
         .replace(/Transfer IN \(v2\) from/gi, 'Entrada por traslado externo desde')
@@ -95,6 +103,15 @@ const formatDateTime = (dateStr) => {
         date: d.toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' }),
         time: d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }),
     };
+};
+
+const formatInventoryNumber = (value) => {
+    const number = Number(value || 0);
+    if (!Number.isFinite(number)) return '0';
+    return number.toLocaleString('es-VE', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: Number.isInteger(number) ? 0 : 2,
+    });
 };
 
 // ─── Sub-componente: fila expandible (desktop) ───────────────────────────────
@@ -140,13 +157,13 @@ const KardexRow = ({ item, index }) => {
                 )}
             >
                 {/* Fecha */}
-                <td className="px-4 py-3 whitespace-nowrap">
+                <td className="px-3 py-2 whitespace-nowrap">
                     <div className="text-sm font-semibold text-slate-700">{date}</div>
                     <div className="text-xs text-slate-400 font-medium">{time}</div>
                 </td>
 
                 {/* Producto */}
-                <td className="px-4 py-3">
+                <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
                         {isPhone
                             ? <Smartphone size={14} className="text-indigo-400 shrink-0" />
@@ -169,7 +186,7 @@ const KardexRow = ({ item, index }) => {
                 </td>
 
                 {/* Tipo */}
-                <td className="px-4 py-3 whitespace-nowrap">
+                <td className="px-3 py-2 whitespace-nowrap">
                     <span className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-bold ${cfg.bg} ${cfg.color} ${cfg.border}`}>
                         <Icon size={12} />
                         {cfg.label}
@@ -177,7 +194,7 @@ const KardexRow = ({ item, index }) => {
                 </td>
 
                 {/* Descripción resumida */}
-                <td className="px-4 py-3 max-w-xs">
+                <td className="px-3 py-2 max-w-xs">
                     <div className="text-xs text-slate-500 italic line-clamp-1">
                         {displayDescription || <span className="text-slate-300">Sin descripci\u00f3n</span>}
                     </div>
@@ -185,18 +202,18 @@ const KardexRow = ({ item, index }) => {
 
                 {/* Cantidad */}
                 <td className={`px-4 py-3 whitespace-nowrap text-right font-black text-sm ${cfg.color}`}>
-                    {isOut ? '-' : '+'}{Math.abs(item.quantity)}
+                    {isOut ? '-' : '+'}{formatInventoryNumber(Math.abs(item.quantity))}
                 </td>
 
                 {/* Saldo */}
                 <td className="px-4 py-3 whitespace-nowrap text-right">
                     <span className="rounded-md bg-slate-100 px-2 py-1 text-sm font-bold text-slate-700">
-                        {item.balance_after}
+                        {formatInventoryNumber(item.balance_after)}
                     </span>
                 </td>
 
                 {/* Expand */}
-                <td className="px-3 py-3 text-center">
+                <td className="px-2 py-2 text-center">
                     <ChevronDown
                         size={15}
                         className={clsx("text-slate-400 transition-transform duration-200 mx-auto", expanded && "rotate-180")}
@@ -207,10 +224,10 @@ const KardexRow = ({ item, index }) => {
             {/* Fila expandida — detalle completo */}
             {expanded && (
                 <tr className="bg-slate-50/80">
-                    <td colSpan={7} className="border-b border-slate-100 px-6 py-4">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <td colSpan={7} className="border-b border-slate-100 px-4 py-3">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                             {/* Producto completo */}
-                            <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                            <div className="rounded-md border border-slate-200 bg-white p-2.5 shadow-sm">
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                                     <Package size={10} /> Producto
                                 </div>
@@ -223,7 +240,7 @@ const KardexRow = ({ item, index }) => {
                             </div>
 
                             {/* Fecha y hora exacta */}
-                            <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                            <div className="rounded-md border border-slate-200 bg-white p-2.5 shadow-sm">
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                                     <Calendar size={10} /> Fecha y Hora
                                 </div>
@@ -232,15 +249,15 @@ const KardexRow = ({ item, index }) => {
                             </div>
 
                             {/* Movimiento */}
-                            <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                            <div className="rounded-md border border-slate-200 bg-white p-2.5 shadow-sm">
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                                     <BarChart2 size={10} /> Movimiento
                                 </div>
                                 <div className={`text-sm font-black ${cfg.color}`}>
-                                    {isOut ? '-' : '+'}{Math.abs(item.quantity)} unidades
+                                    {isOut ? '-' : '+'}{formatInventoryNumber(Math.abs(item.quantity))} unidades
                                 </div>
                                 <div className="text-xs text-slate-500">
-                                    Saldo resultante: <span className="font-bold text-slate-700">{item.balance_after}</span>
+                                    Saldo resultante: <span className="font-bold text-slate-700">{formatInventoryNumber(item.balance_after)}</span>
                                 </div>
                             </div>
 
@@ -258,7 +275,7 @@ const KardexRow = ({ item, index }) => {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                                <div className="rounded-md border border-slate-200 bg-white p-2.5 shadow-sm">
                                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                                         <Layers size={10} /> Tipo
                                     </div>
@@ -271,7 +288,7 @@ const KardexRow = ({ item, index }) => {
 
                         {/* Descripción completa */}
                         {displayDescription && (
-                            <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                            <div className="mt-2 rounded-md border border-slate-200 bg-white p-2.5 shadow-sm">
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                                     <Info size={10} /> Descripción completa
                                 </div>
@@ -302,12 +319,12 @@ const KardexCard = ({ item }) => {
     return (
         <div
             className={clsx(
-                "bg-white rounded-2xl shadow-sm border transition-all duration-200",
+                "bg-white rounded-lg shadow-sm border transition-all duration-200",
                 expanded ? "border-indigo-300 shadow-md" : "border-slate-200"
             )}
         >
             <div
-                className="p-4 flex flex-col gap-3 cursor-pointer"
+                className="p-3 flex flex-col gap-2 cursor-pointer"
                 onClick={() => setExpanded(e => !e)}
             >
                 {/* Header */}
@@ -336,17 +353,17 @@ const KardexCard = ({ item }) => {
                 </div>
 
                 {/* Footer */}
-                <div className="flex justify-between items-center border-t border-slate-100 pt-3">
+                <div className="flex justify-between items-center border-t border-slate-100 pt-2">
                     <div className="text-xs text-slate-500 italic max-w-[55%] line-clamp-1">
                         {displayDescription || <span className="text-slate-300">Sin descripci\u00f3n</span>}
                     </div>
                     <div className="text-right flex items-center gap-3">
                         <div>
                             <div className={`text-lg font-black ${cfg.color}`}>
-                                {isOut ? '-' : '+'}{Math.abs(item.quantity)}
+                                {isOut ? '-' : '+'}{formatInventoryNumber(Math.abs(item.quantity))}
                             </div>
                             <div className="text-[10px] text-slate-400 font-bold bg-slate-100 px-2 py-0.5 rounded-full inline-block">
-                                Saldo: {item.balance_after}
+                                Saldo: {formatInventoryNumber(item.balance_after)}
                             </div>
                         </div>
                         <ChevronDown
@@ -359,7 +376,7 @@ const KardexCard = ({ item }) => {
 
             {/* Detalle expandido móvil */}
             {expanded && (
-                <div className="px-4 pb-4 border-t border-indigo-100 pt-3 space-y-2">
+                <div className="px-3 pb-3 border-t border-indigo-100 pt-2 space-y-2">
                     <div className="grid grid-cols-2 gap-2">
                         <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200">
                             <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha exacta</div>
@@ -368,8 +385,8 @@ const KardexCard = ({ item }) => {
                         </div>
                         <div className={`rounded-xl p-2.5 border ${cfg.bg} ${cfg.border}`}>
                             <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Cantidad</div>
-                            <div className={`text-sm font-black ${cfg.color}`}>{isOut ? '-' : '+'}{Math.abs(item.quantity)}</div>
-                            <div className="text-[10px] text-slate-500">Saldo final: {item.balance_after}</div>
+                            <div className={`text-sm font-black ${cfg.color}`}>{isOut ? '-' : '+'}{formatInventoryNumber(Math.abs(item.quantity))}</div>
+                            <div className="text-[10px] text-slate-500">Saldo final: {formatInventoryNumber(item.balance_after)}</div>
                         </div>
                     </div>
                     {imei && (
@@ -453,24 +470,32 @@ const KardexTab = () => {
     };
 
     return (
-        <div id="tour-kardex-panel" className="space-y-4">
-            <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="min-w-0">
-                        <h2 className="text-lg font-black text-slate-900">Kardex de Inventario</h2>
-                        <p className="text-xs font-medium text-slate-400">
-                            {filtered.length} movimientos en el rango seleccionado
-                        </p>
+        <div id="tour-kardex-panel" className="space-y-2 animate-in fade-in duration-300">
+            <section className="rounded-t-lg border border-b-0 border-slate-200 bg-white p-2 shadow-sm">
+                <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50 text-indigo-600">
+                            <Archive size={17} />
+                        </div>
+                        <div className="min-w-0">
+                            <h2 className="text-base font-black leading-tight text-slate-900">Kardex</h2>
+                            <p className="text-xs font-medium text-slate-500">Historial de movimientos, saldos e IMEI.</p>
+                        </div>
+                        <div className="hidden flex-wrap items-center gap-1.5 md:flex">
+                            <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-black text-slate-600">{formatInventoryNumber(filtered.length)} mov.</span>
+                            <span className="rounded-md border border-emerald-100 bg-emerald-50 px-2 py-1 text-xs font-black text-emerald-700">+{formatInventoryNumber(totalIn)} entradas</span>
+                            <span className="rounded-md border border-rose-100 bg-rose-50 px-2 py-1 text-xs font-black text-rose-700">-{formatInventoryNumber(totalOut)} salidas</span>
+                        </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 xl:justify-end">
                         <button
                             id="tour-kardex-type-btn"
                             onClick={() => setShowFilters(f => !f)}
                             className={clsx(
-                                "inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-bold transition-colors",
+                                "inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-black transition-colors",
                                 showFilters || filterType !== 'ALL'
-                                    ? "border-indigo-600 bg-indigo-600 text-white"
+                                    ? "border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-100"
                                     : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                             )}
                         >
@@ -481,44 +506,43 @@ const KardexTab = () => {
                         <button
                             id="tour-kardex-adjust-btn"
                             onClick={() => setIsSheetOpen(true)}
-                            className="inline-flex h-10 items-center gap-2 rounded-md bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm shadow-indigo-100 transition-colors hover:bg-indigo-700"
+                            className="inline-flex h-9 items-center gap-2 rounded-md bg-indigo-600 px-3 text-sm font-black text-white shadow-sm shadow-indigo-100 transition-colors hover:bg-indigo-700"
                         >
                             <ArrowUpCircle size={16} />
-                            <span className="md:hidden">Ajuste</span>
-                            <span className="hidden md:inline">Nuevo ajuste manual</span>
+                            Ajuste manual
                         </button>
                     </div>
                 </div>
 
-                <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(260px,1fr)_auto] lg:items-center">
+                <div className="mt-2 grid gap-2 lg:grid-cols-[minmax(280px,1fr)_auto] lg:items-center">
                     <div id="tour-kardex-search" className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         <input
                             type="text"
-                            placeholder="Buscar por producto, IMEI o descripción..."
+                            placeholder="Buscar producto, IMEI o descripción..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-9 text-sm font-medium text-slate-700 outline-none transition-colors focus:border-slate-400"
+                            className="h-9 w-full rounded-md border border-slate-200 bg-white pl-9 pr-9 text-sm font-medium text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
                         />
                         {searchQuery && (
                             <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                                <X size={16} />
+                                <X size={15} />
                             </button>
                         )}
                     </div>
 
-                    <div id="tour-kardex-date-range" className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-2">
+                    <div id="tour-kardex-date-range" className="flex flex-wrap items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
                         <Calendar size={14} className="text-slate-400" />
                         <input
                             type="date"
-                            className="h-8 rounded border border-slate-200 bg-white px-2 text-sm font-medium text-slate-600 outline-none focus:border-slate-400"
+                            className="h-8 rounded border border-slate-200 bg-white px-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-300"
                             value={startDate}
                             onChange={e => setStartDate(e.target.value)}
                         />
-                        <ChevronRight size={14} className="text-slate-400" />
+                        <ChevronRight size={13} className="text-slate-400" />
                         <input
                             type="date"
-                            className="h-8 rounded border border-slate-200 bg-white px-2 text-sm font-medium text-slate-600 outline-none focus:border-slate-400"
+                            className="h-8 rounded border border-slate-200 bg-white px-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-300"
                             value={endDate}
                             onChange={e => setEndDate(e.target.value)}
                         />
@@ -526,8 +550,8 @@ const KardexTab = () => {
                 </div>
 
                 {(hasActiveFilters || showFilters) && (
-                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-                        <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Vista</span>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2">
+                        <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">Vista</span>
                         <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">{activeTypeLabel}</span>
                         {searchQuery && (
                             <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
@@ -541,15 +565,15 @@ const KardexTab = () => {
                         )}
                     </div>
                 )}
-            </div>
+            </section>
 
             {showFilters && (
-                <div id="tour-kardex-type-filters" className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Tipo de movimiento</div>
-                    <div className="flex flex-wrap gap-2">
+                <section id="tour-kardex-type-filters" className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+                    <div className="mb-2 text-[10px] font-black uppercase tracking-wide text-slate-400">Tipo de movimiento</div>
+                    <div className="flex flex-wrap gap-1.5">
                         <button
                             onClick={() => setFilterType('ALL')}
-                            className={clsx("rounded-md border px-3 py-1.5 text-xs font-bold transition-colors",
+                            className={clsx("rounded-md border px-2.5 py-1.5 text-xs font-black transition-colors",
                                 filterType === 'ALL' ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                             )}
                         >
@@ -562,7 +586,7 @@ const KardexTab = () => {
                                 <button
                                     key={value}
                                     onClick={() => setFilterType(value)}
-                                    className={clsx("inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-bold transition-colors",
+                                    className={clsx("inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-black transition-colors",
                                         filterType === value
                                             ? `${cfg.bg} ${cfg.color} ${cfg.border}`
                                             : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-800"
@@ -573,42 +597,42 @@ const KardexTab = () => {
                             );
                         })}
                     </div>
-                </div>
+                </section>
             )}
 
-            <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Movimientos</div>
-                    <div className="mt-1 text-2xl font-black text-slate-800">{filtered.length}</div>
+            <div className="grid grid-cols-3 gap-2 md:hidden">
+                <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+                    <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Mov.</div>
+                    <div className="mt-0.5 text-xl font-black text-slate-800">{formatInventoryNumber(filtered.length)}</div>
                 </div>
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 shadow-sm">
-                    <div className="text-xs font-bold uppercase tracking-wide text-emerald-600">Entradas</div>
-                    <div className="mt-1 text-2xl font-black text-emerald-700">+{totalIn.toFixed(0)}</div>
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 shadow-sm">
+                    <div className="text-[10px] font-black uppercase tracking-wide text-emerald-600">Entradas</div>
+                    <div className="mt-0.5 text-xl font-black text-emerald-700">+{formatInventoryNumber(totalIn)}</div>
                 </div>
-                <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 shadow-sm">
-                    <div className="text-xs font-bold uppercase tracking-wide text-rose-600">Salidas</div>
-                    <div className="mt-1 text-2xl font-black text-rose-700">-{totalOut.toFixed(0)}</div>
+                <div className="rounded-lg border border-rose-200 bg-rose-50 p-2 shadow-sm">
+                    <div className="text-[10px] font-black uppercase tracking-wide text-rose-600">Salidas</div>
+                    <div className="mt-0.5 text-xl font-black text-rose-700">-{formatInventoryNumber(totalOut)}</div>
                 </div>
             </div>
 
-            <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:block">
+            <section className="hidden overflow-hidden rounded-b-lg border border-slate-200 bg-white shadow-sm md:block">
                 <table className="min-w-full divide-y divide-slate-100">
                     <thead className="bg-slate-50">
                         <tr>
-                            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">Fecha</th>
-                            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">Producto / IMEI</th>
-                            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">Tipo</th>
-                            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">Descripción</th>
-                            <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wide text-slate-500">Cantidad</th>
-                            <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wide text-slate-500">Saldo</th>
-                            <th className="w-8 px-4 py-3"></th>
+                            <th className="px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-wide text-slate-500">Fecha</th>
+                            <th className="px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-wide text-slate-500">Producto / IMEI</th>
+                            <th className="px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-wide text-slate-500">Tipo</th>
+                            <th className="px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-wide text-slate-500">Descripción</th>
+                            <th className="px-3 py-2.5 text-right text-[10px] font-black uppercase tracking-wide text-slate-500">Cant.</th>
+                            <th className="px-3 py-2.5 text-right text-[10px] font-black uppercase tracking-wide text-slate-500">Saldo</th>
+                            <th className="w-8 px-2 py-2.5"></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 bg-white">
                         {isLoading ? (
-                            <tr><td colSpan="7" className="py-12 text-center text-slate-400 animate-pulse">Cargando movimientos...</td></tr>
+                            <tr><td colSpan="7" className="py-14 text-center text-slate-400 animate-pulse">Cargando movimientos...</td></tr>
                         ) : filtered.length === 0 ? (
-                            <tr><td colSpan="7" className="py-12 text-center text-slate-400">No hay movimientos para los filtros seleccionados.</td></tr>
+                            <tr><td colSpan="7" className="py-14 text-center text-slate-400">No hay movimientos para los filtros seleccionados.</td></tr>
                         ) : (
                             filtered.map((item, index) => (
                                 <KardexRow key={item.id} item={item} index={index} />
@@ -616,9 +640,9 @@ const KardexTab = () => {
                         )}
                     </tbody>
                 </table>
-            </div>
+            </section>
 
-            <div className="space-y-3 md:hidden">
+            <div className="space-y-2 md:hidden">
                 {isLoading ? (
                     <div className="py-12 text-center text-slate-400 animate-pulse font-medium">Cargando movimientos...</div>
                 ) : filtered.length === 0 ? (
