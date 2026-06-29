@@ -178,6 +178,10 @@ class ConnectionManager:
             await self.broadcast_all(message)
             return
 
+        message["tenant_id"] = target_tenant
+        if isinstance(message.get("data"), dict):
+            message["data"].setdefault("tenant_id", target_tenant)
+
         print(f"📣 [WS] Broadcasting event: {message.get('type')} to tenant {target_tenant}")
         await self.broadcast_to_tenant(message, target_tenant)
 

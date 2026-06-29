@@ -10,6 +10,7 @@ from ..dependencies import get_current_user, get_current_active_user, require_pe
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
 from ..services.cash_session_resolver import resolve_current_cash_session
+from ..tenant_context import get_tenant_schema
 
 router = APIRouter(
     prefix="/purchases",
@@ -484,12 +485,13 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
         db.commit()
         
         # Final Event Emission (safe after commit)
+        tenant_schema = get_tenant_schema()
         for p_info in updated_products_info:
-            await manager.broadcast(WebSocketEvents.PRODUCT_UPDATED, p_info)
+            await manager.broadcast(WebSocketEvents.PRODUCT_UPDATED, p_info, tenant_id=tenant_schema)
             await manager.broadcast(WebSocketEvents.PRODUCT_STOCK_UPDATED, {
                 "id": p_info["id"], 
                 "stock": p_info["stock"]
-            })
+            }, tenant_id=tenant_schema)
 
         return schemas.PurchaseOrderResponse.model_validate(purchase)
     except HTTPException:
@@ -651,12 +653,13 @@ async def void_purchase_order(
     db.delete(purchase)
     db.commit()
 
+    tenant_schema = get_tenant_schema()
     for p_info in updated_products_info:
-        await manager.broadcast(WebSocketEvents.PRODUCT_UPDATED, p_info)
+        await manager.broadcast(WebSocketEvents.PRODUCT_UPDATED, p_info, tenant_id=tenant_schema)
         await manager.broadcast(WebSocketEvents.PRODUCT_STOCK_UPDATED, {
             "id": p_info["id"],
             "stock": p_info["stock"],
-        })
+        }, tenant_id=tenant_schema)
 
     return {
         "message": f"Factura {invoice_ref} anulada correctamente",

@@ -317,11 +317,11 @@ async def remove_background_status():
     return {"available": bg_is_available()}
 
 # Helper para ejecutar broadcast asíncrono desde contexto síncrono
-def run_broadcast(event: str, data: dict):
+def run_broadcast(event: str, data: dict, tenant_id: Optional[str] = None):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        loop.run_until_complete(manager.broadcast_all({"type": event, "data": data}))
+        loop.run_until_complete(manager.broadcast(event, data, tenant_id=tenant_id))
     finally:
         loop.close()
 
@@ -967,7 +967,7 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
             "combo_items": response_data["combo_items"],
             "promotion_items": response_data.get("promotion_items", [])
         }
-        background_tasks.add_task(run_broadcast, WebSocketEvents.PRODUCT_CREATED, payload)
+        background_tasks.add_task(run_broadcast, WebSocketEvents.PRODUCT_CREATED, payload, get_tenant_schema())
 
         # Invalidar caché del catálogo para que el POS vea el producto/precios nuevos
         try:
@@ -1011,7 +1011,7 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
             } for c in db_product.combo_items
         ] if db_product.combo_items else []
     }
-    background_tasks.add_task(manager.broadcast, WebSocketEvents.PRODUCT_CREATED, payload)
+    background_tasks.add_task(manager.broadcast, WebSocketEvents.PRODUCT_CREATED, payload, tenant_id=get_tenant_schema())
         
     return db_product
 
@@ -1352,7 +1352,7 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
         "units": response_data["units"],
         "combo_items": response_data["combo_items"]
     }
-    background_tasks.add_task(manager.broadcast, WebSocketEvents.PRODUCT_UPDATED, payload)
+    background_tasks.add_task(manager.broadcast, WebSocketEvents.PRODUCT_UPDATED, payload, tenant_id=get_tenant_schema())
 
     # Invalidar caché del catálogo para que el POS vea cambios de precio/lista al instante
     try:
@@ -1721,7 +1721,7 @@ def delete_product(product_id: int, background_tasks: BackgroundTasks, db: Sessi
         "id": product_id_val,
         "name": product_name_val
     }
-    background_tasks.add_task(run_broadcast, WebSocketEvents.PRODUCT_DELETED, payload)
+    background_tasks.add_task(run_broadcast, WebSocketEvents.PRODUCT_DELETED, payload, get_tenant_schema())
 
     return {"status": "success", "message": "Product deactivated"}
 
@@ -1890,7 +1890,7 @@ def read_price_rules(product_id: int, db: Session = Depends(get_db)):
     rules = db.query(models.PriceRule).filter(models.PriceRule.product_id == product_id).order_by(models.PriceRule.min_quantity).all()
     return rules
 
-@router.post("/{product_id}/rules", response_model=schemas.PriceRuleRead)
+@router.post("/{product_id}/rules", response_model=schemas.PriceRuleRead, dependencies=[Depends(require_permission("config.prices.manage"))])
 def create_price_rule(product_id: int, rule: schemas.PriceRuleCreate, db: Session = Depends(get_db)):
     db_rule = models.PriceRule(**rule.dict())
     db_rule.product_id = product_id # Override with path param
@@ -1911,7 +1911,7 @@ def create_price_rule(product_id: int, rule: schemas.PriceRuleCreate, db: Sessio
 
 
 
-@router.delete("/rules/{rule_id}")
+@router.delete("/rules/{rule_id}", dependencies=[Depends(require_permission("config.prices.manage"))])
 def delete_price_rule(rule_id: int, db: Session = Depends(get_db)):
     rule = db.query(models.PriceRule).filter(models.PriceRule.id == rule_id).first()
     if not rule:
@@ -2659,7 +2659,7 @@ def update_sale(
     
     return {"status": "success", "sale": response_data}
 
-@router.post("/bulk", response_model=schemas.BulkImportResult)
+@router.post("/bulk", response_model=schemas.BulkImportResult, dependencies=[Depends(require_permission("inventory.products.create"))])
 def bulk_create_products(products: List[schemas.ProductCreate], db: Session = Depends(get_db)):
     # Initialize result using Pydantic model
     result = schemas.BulkImportResult(success_count=0, failed_count=0, errors=[])

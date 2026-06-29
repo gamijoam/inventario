@@ -1031,7 +1031,7 @@ def get_currencies(db: Session = Depends(get_db)):
     print(f"DEBUG: Returning {len(data)} currencies")
     return data
 
-@router.post("/currencies", response_model=schemas.CurrencyRead)
+@router.post("/currencies", response_model=schemas.CurrencyRead, dependencies=[Depends(require_permission("config.prices.manage"))])
 def create_currency(currency: schemas.CurrencyCreate, db: Session = Depends(get_db)):
     """Create a new currency"""
     # If this is anchor, unset others
@@ -1055,7 +1055,7 @@ def create_currency(currency: schemas.CurrencyCreate, db: Session = Depends(get_
     # db.refresh(db_currency)
     return response_data
 
-@router.put("/currencies/{currency_id}", response_model=schemas.CurrencyRead)
+@router.put("/currencies/{currency_id}", response_model=schemas.CurrencyRead, dependencies=[Depends(require_permission("config.prices.manage"))])
 def update_currency(currency_id: int, currency: schemas.CurrencyUpdate, db: Session = Depends(get_db)):
     """Update a currency"""
     db_currency = db.query(models.Currency).get(currency_id)
@@ -1084,7 +1084,7 @@ def update_currency(currency_id: int, currency: schemas.CurrencyUpdate, db: Sess
     # db.refresh(db_currency)
     return response_data
 
-@router.delete("/currencies/{currency_id}")
+@router.delete("/currencies/{currency_id}", dependencies=[Depends(require_permission("config.prices.manage"))])
 def delete_currency(currency_id: int, db: Session = Depends(get_db)):
     """Delete a currency"""
     db_currency = db.query(models.Currency).get(currency_id)

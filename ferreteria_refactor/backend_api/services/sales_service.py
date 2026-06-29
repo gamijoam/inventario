@@ -28,11 +28,11 @@ from ..commission_engine import CommissionEngine
  
 
 # DUPLICATED HELPER due to circular import risks if we try to import from routers
-def run_broadcast(event: str, data: dict):
+def run_broadcast(event: str, data: dict, tenant_id: str = None):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        loop.run_until_complete(manager.broadcast(event, data))
+        loop.run_until_complete(manager.broadcast(event, data, tenant_id=tenant_id))
     finally:
         loop.close()
 
@@ -1121,12 +1121,13 @@ class SalesService:
             
             # Emit Stock Update Events using BackgroundTasks
             if background_tasks:
+                tenant_schema = get_tenant_schema()
                 for p_info in updated_products_info:
-                    background_tasks.add_task(run_broadcast, WebSocketEvents.PRODUCT_UPDATED, p_info)
+                    background_tasks.add_task(run_broadcast, WebSocketEvents.PRODUCT_UPDATED, p_info, tenant_schema)
                     background_tasks.add_task(run_broadcast, WebSocketEvents.PRODUCT_STOCK_UPDATED, {
                         "id": p_info["id"], 
                         "stock": p_info["stock"]
-                    })
+                    }, tenant_schema)
                 
                 # Emit Sale Event (WebSocket frontend)
                 background_tasks.add_task(run_broadcast, WebSocketEvents.SALE_COMPLETED, {
@@ -1136,7 +1137,7 @@ class SalesService:
                     "payment_method": sale_payment_method,
                     "customer_id": sale_customer_id,
                     "date": sale_date_iso
-                })
+                }, tenant_schema)
 
                 # WhatsApp — enviar ticket al cliente directamente vía servicio Baileys
                 if sale_customer_id:

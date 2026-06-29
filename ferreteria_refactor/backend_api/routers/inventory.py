@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from ..dependencies import warehouse_or_admin, require_permission, require_any_permission, get_current_active_user
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
+from ..tenant_context import get_tenant_schema
 
 router = APIRouter(
     prefix="/inventory",
@@ -77,18 +78,19 @@ async def add_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = Dep
     from ..audit_utils import log_action
     log_action(db, user_id=current_user.id, action="UPDATE", table_name="products", record_id=product_id, changes=f"Stock Adjustment (IN) [Wh:{adjustment.warehouse_id}]: +{adjustment.quantity}. Reason: {adjustment.reason}")
 
+    tenant_schema = get_tenant_schema()
     await manager.broadcast(WebSocketEvents.PRODUCT_UPDATED, {
         "id": product_id,
         "name": product_name,
         "price": product_price,
         "stock": product_stock,
         "exchange_rate_id": product_er_id
-    })
+    }, tenant_id=tenant_schema)
     
     await manager.broadcast(WebSocketEvents.PRODUCT_STOCK_UPDATED, {
         "id": product_id,
         "stock": product_stock
-    })
+    }, tenant_id=tenant_schema)
     
     return {"status": "success", "new_stock": product_stock, "product_id": product_id}
 
@@ -156,18 +158,19 @@ async def remove_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = 
     from ..audit_utils import log_action
     log_action(db, user_id=current_user.id, action="UPDATE", table_name="products", record_id=product_id, changes=f"Stock Adjustment (OUT) [Wh:{adjustment.warehouse_id}]: -{adjustment.quantity}. Reason: {adjustment.reason}")
 
+    tenant_schema = get_tenant_schema()
     await manager.broadcast(WebSocketEvents.PRODUCT_UPDATED, {
         "id": product_id,
         "name": product_name,
         "price": product_price,
         "stock": product_stock,
         "exchange_rate_id": product_er_id
-    })
+    }, tenant_id=tenant_schema)
     
     await manager.broadcast(WebSocketEvents.PRODUCT_STOCK_UPDATED, {
         "id": product_id,
         "stock": product_stock
-    })
+    }, tenant_id=tenant_schema)
     
     return {"status": "success", "new_stock": product_stock, "product_id": product_id}
 

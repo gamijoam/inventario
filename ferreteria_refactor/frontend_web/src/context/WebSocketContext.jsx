@@ -3,6 +3,30 @@ import apiClient from '../config/axios';
 
 const WebSocketContext = createContext(null);
 
+const normalizeTenantId = (value) => {
+    if (!value) return 'public';
+    return String(value).trim().toLowerCase().replace('.qa', '') || 'public';
+};
+
+const resolveBrowserTenant = () => {
+    const hostname = window.location.hostname;
+    const parts = hostname.split('.');
+    let tenantId = 'public';
+    if (parts.length >= 3 && !hostname.includes('localhost') && !hostname.includes('app-qa') && !hostname.includes('app.')) {
+        const sub = parts[0];
+        if (!['www', 'api', 'app', 'dashboard', 'admin'].includes(sub)) {
+            tenantId = sub;
+        }
+    }
+    if (tenantId === 'public') {
+        const storedTenant = localStorage.getItem('selected_tenant');
+        if (storedTenant && !storedTenant.includes('public')) {
+            tenantId = storedTenant;
+        }
+    }
+    return normalizeTenantId(tenantId);
+};
+
 export const WebSocketProvider = ({ children }) => {
     const [status, setStatus] = useState('DISCONNECTED'); // CONNECTED, DISCONNECTED, RECONNECTING
     const ws = useRef(null);
@@ -12,6 +36,7 @@ export const WebSocketProvider = ({ children }) => {
     const retryCount = useRef(0);
     const maxRetries = 5; // Reducido para evitar loops de reconexión agresivos
     const isMounting = useRef(true);
+    const tenantIdRef = useRef(resolveBrowserTenant());
 
     const connect = useCallback(() => {
         const token = localStorage.getItem('token');
@@ -60,23 +85,8 @@ export const WebSocketProvider = ({ children }) => {
 
         try {
             // Agregar tenant_id como query param para que el backend sepa el tenant
-            const hostname = window.location.hostname;
-            const parts = hostname.split('.');
-            let tenantId = 'public';
-            if (parts.length >= 3 && !hostname.includes('localhost') && !hostname.includes('app-qa') && !hostname.includes('app.')) {
-                const sub = parts[0];
-                if (!['www', 'api', 'app', 'dashboard', 'admin'].includes(sub)) {
-                    tenantId = sub;
-                }
-            }
-            if (tenantId === 'public') {
-                const storedTenant = localStorage.getItem('selected_tenant');
-                if (storedTenant && !storedTenant.includes('public')) {
-                    tenantId = storedTenant;
-                }
-            }
-            // Limpiar el .qa de tenants QA (restaurante3.qa -> restaurante3)
-            tenantId = tenantId.replace('.qa', '');
+            const tenantId = resolveBrowserTenant();
+            tenantIdRef.current = tenantId;
             
             const queryPrefix = wsUrl.includes('?') ? '&' : '?';
             const wsUrlWithTenant = `${wsUrl}${queryPrefix}tenant_id=${encodeURIComponent(tenantId)}&token=${encodeURIComponent(token)}`;
@@ -108,6 +118,13 @@ export const WebSocketProvider = ({ children }) => {
                 try {
                     const message = JSON.parse(event.data);
                     const { type, data } = message;
+                    const messageTenant = normalizeTenantId(message.tenant_id || data?.tenant_id || data?.tenant);
+                    const currentTenant = tenantIdRef.current;
+
+                    if (messageTenant !== 'public' && currentTenant !== 'public' && messageTenant !== currentTenant) {
+                        console.warn('WS: Ignoring cross-tenant event', { type, messageTenant, currentTenant });
+                        return;
+                    }
 
                     if (listeners.current[type]) {
                         listeners.current[type].forEach(cb => cb(data));
