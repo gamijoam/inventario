@@ -3,7 +3,7 @@ import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
 import { useHelp } from '../help/useHelp';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2, LayoutGrid, Image, Search, ChevronDown, CheckCircle2, Printer, ReceiptText, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2, LayoutGrid, Image, Search, ChevronDown, CheckCircle2, Printer, ReceiptText, AlertTriangle, Calculator, X } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -141,6 +141,8 @@ const POS = () => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isReprintOpen, setIsReprintOpen] = useState(false);
     const [newReprintCount, setNewReprintCount] = useState(0);
+    const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
+    const [calculatorAmount, setCalculatorAmount] = useState('');
 
     // Express Mode State
     const isExpressMode = user?.preferences?.pos_mode === 'express';
@@ -171,6 +173,17 @@ const POS = () => {
     const handleToggleExpressMode = () => {
         updateUserPreferences({ pos_mode: isExpressMode ? 'full' : 'express' });
     };
+
+    const calculatorCurrency = secondaryCurrency || secondaryCurrencies[0] || null;
+    const calculatorRate = Number(calculatorCurrency?.rate || 0);
+    const calculatorNumericAmount = Number(String(calculatorAmount || '').replace(',', '.')) || 0;
+    const calculatorResult = calculatorNumericAmount * calculatorRate;
+    const calculatorSymbol = calculatorCurrency?.currency_symbol || calculatorCurrency?.symbol || calculatorCurrency?.currency_code || 'Bs';
+    const formatCalculatorNumber = (value) => new Intl.NumberFormat('es-VE', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(Number.isFinite(Number(value)) ? Number(value) : 0);
+    const calculatorRateName = calculatorCurrency?.name || calculatorCurrency?.currency_code || 'Tasa activa';
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const quoteIdParam = searchParams.get('quote_id');
@@ -1223,6 +1236,15 @@ const POS = () => {
 
                     )}
 
+                    <button
+                        onClick={() => setIsRateCalculatorOpen(true)}
+                        className="hidden sm:flex h-9 items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-black text-emerald-700 transition-all hover:border-emerald-300 hover:bg-emerald-100"
+                        title="Calcular USD a moneda local"
+                    >
+                        <Calculator size={15} />
+                        <span className="hidden lg:block">Calculadora</span>
+                    </button>
+
                     {/* Buscador rapido F1 - siempre visible */}
                     <button
                         onClick={() => setIsLookupOpen(true)}
@@ -1297,6 +1319,86 @@ const POS = () => {
                 canReprintTicket={canReprintTicket}
                 canReprintWarranty={canReprintWarranty}
             />
+
+            {isRateCalculatorOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm" onClick={() => setIsRateCalculatorOpen(false)}>
+                    <div
+                        className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                                    <Calculator size={22} />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-black text-slate-900">Calculadora</h2>
+                                    <p className="text-xs font-bold text-slate-500">USD a {calculatorSymbol} con la tasa activa</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsRateCalculatorOpen(false)}
+                                className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                                aria-label="Cerrar calculadora"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4 p-5">
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                                <div className="mb-2 flex items-center justify-between gap-3 text-[11px] font-black uppercase tracking-wide text-slate-400">
+                                    <span>Tasa usada</span>
+                                    <span className="rounded-full bg-white px-2 py-1 text-slate-600 shadow-sm">{calculatorRateName}</span>
+                                </div>
+                                <div className="flex items-baseline justify-between">
+                                    <span className="text-sm font-bold text-slate-500">1 USD</span>
+                                    <span className="text-xl font-black text-slate-950">{calculatorSymbol} {formatCalculatorNumber(calculatorRate)}</span>
+                                </div>
+                            </div>
+
+                            <label className="block">
+                                <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">Monto en dolares</span>
+                                <div className="flex h-14 items-center rounded-2xl border border-indigo-200 bg-white px-4 shadow-sm focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-100">
+                                    <span className="mr-3 text-2xl font-black text-indigo-600">$</span>
+                                    <input
+                                        value={calculatorAmount}
+                                        onChange={(event) => setCalculatorAmount(event.target.value.replace(/[^0-9.,]/g, ''))}
+                                        autoFocus
+                                        inputMode="decimal"
+                                        placeholder="80"
+                                        className="h-full min-w-0 flex-1 bg-transparent text-2xl font-black text-slate-950 outline-none placeholder:text-slate-300"
+                                    />
+                                </div>
+                            </label>
+
+                            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                                <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Resultado</p>
+                                <p className="mt-1 break-words text-3xl font-black text-emerald-700">
+                                    {calculatorSymbol} {formatCalculatorNumber(calculatorResult)}
+                                </p>
+                                <p className="mt-2 text-xs font-bold text-emerald-700/75">
+                                    {formatCalculatorNumber(calculatorNumericAmount)} USD x {formatCalculatorNumber(calculatorRate)}
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-4 gap-2">
+                                {[10, 20, 50, 80].map((amount) => (
+                                    <button
+                                        key={amount}
+                                        type="button"
+                                        onClick={() => setCalculatorAmount(String(amount))}
+                                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                                    >
+                                        ${amount}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {isSessionOpen && currentRegister?.hardware_client_id && currentRegister?.print_connected === false && (
                 <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-2 shrink-0 z-10 text-sm font-bold text-amber-800">
