@@ -3,7 +3,7 @@ import uuid
 import shutil
 from fastapi import UploadFile, HTTPException
 from ..tenant_context import get_tenant_schema
-from PIL import Image
+from PIL import Image, ImageOps
 
 # Base directory for media files
 # In Docker, this is mounted to a persistent volume /app/media
@@ -16,6 +16,7 @@ else:
 
 # Allowed extensions
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
+MAX_IMAGE_DIMENSION = 1200
 
 def save_upload_file(file: UploadFile, folder: str = "products") -> str:
     """
@@ -43,6 +44,9 @@ def save_upload_file(file: UploadFile, folder: str = "products") -> str:
     # 4. Save and Convert to WebP — preservando alpha si la imagen tiene transparencia
     try:
         image = Image.open(file.file)
+        image = ImageOps.exif_transpose(image)
+        if max(image.size) > MAX_IMAGE_DIMENSION:
+            image.thumbnail((MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION), Image.Resampling.LANCZOS)
 
         # Detectar si la imagen tiene canal alpha (fondo transparente)
         has_alpha = image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info)
@@ -88,6 +92,9 @@ def save_bytes_as_image(image_bytes: bytes, folder: str = "products",
 
     try:
         image = Image.open(io.BytesIO(image_bytes))
+        image = ImageOps.exif_transpose(image)
+        if max(image.size) > MAX_IMAGE_DIMENSION:
+            image.thumbnail((MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION), Image.Resampling.LANCZOS)
         has_alpha = image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info)
         if has_alpha:
             image = image.convert("RGBA")

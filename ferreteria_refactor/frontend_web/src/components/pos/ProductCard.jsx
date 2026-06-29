@@ -95,7 +95,7 @@ const ProductCard = ({
                         imageUrl={product.image_url}
                         productName={product.name}
                         size="lg"
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="w-full h-full object-contain bg-white p-0.5 transition-transform duration-500 group-hover:scale-105"
                         updatedAt={product.updated_at}
                     />
 

@@ -11,7 +11,8 @@ const ProductImage = ({ src, alt, className, iconSize = 24, updatedAt }) => {
 
     // Cache busting with updated_at (or current time if not provided)
     const getVersionedUrl = (url) => {
-        const timestamp = updatedAt ? new Date(updatedAt).getTime() : Date.now();
+        if (!updatedAt) return url;
+        const timestamp = new Date(updatedAt).getTime();
         return `${url}${url.includes('?') ? '&' : '?'}v=${timestamp}`;
     };
 
@@ -40,6 +41,8 @@ const ProductImage = ({ src, alt, className, iconSize = 24, updatedAt }) => {
             className={imgClass}
             onError={() => setError(true)}
             loading="lazy"
+            decoding="async"
+            draggable="false"
         />
     );
 };

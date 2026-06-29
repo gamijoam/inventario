@@ -190,10 +190,11 @@ const POSCatalog = forwardRef(({
                     secondaryCurrency={secondaryCurrency}
                     secondaryCurrencies={secondaryCurrencies}
                     showSecondaryPrice={showSecondaryPrice}
+                    simpleMode={simpleMode}
                 />
             </div>
         );
-    }, [products, columnCount, onAddToCart, currencySymbol, convertProductPrice, secondaryCurrency, secondaryCurrencies, showSecondaryPrice]);
+    }, [products, columnCount, onAddToCart, currencySymbol, convertProductPrice, secondaryCurrency, secondaryCurrencies, showSecondaryPrice, simpleMode]);
 
     const showTotalCount = isServerSide && totalCount != null && products.length > 0;
 
