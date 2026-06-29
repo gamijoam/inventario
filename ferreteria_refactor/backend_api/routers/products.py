@@ -329,8 +329,8 @@ from typing import Optional
 from sqlalchemy import or_, and_, func, text
 from pydantic import BaseModel
 
-@router.get("/catalog", response_model=schemas.PaginatedCatalog)
-@router.get("/catalog/", response_model=schemas.PaginatedCatalog, include_in_schema=False)
+@router.get("/catalog", response_model=schemas.PaginatedCatalog, dependencies=[Depends(get_current_active_user)])
+@router.get("/catalog/", response_model=schemas.PaginatedCatalog, include_in_schema=False, dependencies=[Depends(get_current_active_user)])
 def read_catalog_products(
     response: Response,
     skip: int = 0,
@@ -524,8 +524,8 @@ def read_catalog_products(
 
     return catalog_result
 
-@router.get("/lookup", response_model=schemas.ProductRead)
-@router.get("/lookup/", response_model=schemas.ProductRead, include_in_schema=False)
+@router.get("/lookup", response_model=schemas.ProductRead, dependencies=[Depends(get_current_active_user)])
+@router.get("/lookup/", response_model=schemas.ProductRead, include_in_schema=False, dependencies=[Depends(get_current_active_user)])
 def lookup_product(
     sku: Optional[str] = None,
     product_id: Optional[int] = None,

@@ -1,7 +1,9 @@
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.types import ASGIApp
+from starlette.responses import JSONResponse
 import re
+import time
 from ..tenant_context import set_tenant_schema
 from ..config import settings
 
@@ -11,6 +13,8 @@ class TenantMiddleware(BaseHTTPMiddleware):
         # Regex to validate safe schema names (alphanumeric + underscore + dash)
         # Prevents SQL Injection via Host header
         self.schema_validator = re.compile(r'^[a-z0-9_-]+$')
+        self._tenant_cache = {}
+        self._tenant_cache_ttl = 60
 
     async def dispatch(self, request: Request, call_next):
 
@@ -62,6 +66,16 @@ class TenantMiddleware(BaseHTTPMiddleware):
         # Ensure it's safe (lowercase, sanitary)
         if not self.is_safe_schema(tenant_slug):
             tenant_slug = "public"
+
+        tenant_slug = tenant_slug.strip().lower()
+        if tenant_slug != "public":
+            status_info = self.get_tenant_status(tenant_slug)
+            if status_info == "missing":
+                return JSONResponse({"detail": "Empresa no encontrada"}, status_code=404)
+            if status_info == "inactive":
+                return JSONResponse({"detail": "Empresa suspendida o inactiva"}, status_code=403)
+            if status_info == "error":
+                return JSONResponse({"detail": "No se pudo validar la empresa"}, status_code=503)
             
         set_tenant_schema(tenant_slug)
         
@@ -91,3 +105,36 @@ class TenantMiddleware(BaseHTTPMiddleware):
     def is_safe_schema(self, schema_name: str) -> bool:
         if not schema_name: return False
         return bool(self.schema_validator.match(schema_name))
+
+
+    def get_tenant_status(self, schema_name: str) -> str:
+        if schema_name == "public":
+            return "active"
+
+        now = time.time()
+        cached = self._tenant_cache.get(schema_name)
+        if cached and now - cached[0] < self._tenant_cache_ttl:
+            return cached[1]
+
+        try:
+            from sqlalchemy import text
+            from ..database.db import SessionLocal
+            db = SessionLocal()
+            try:
+                row = db.execute(
+                    text("SELECT is_active FROM public.tenants WHERE schema_name = :schema LIMIT 1"),
+                    {"schema": schema_name},
+                ).fetchone()
+            finally:
+                db.close()
+
+            if not row:
+                status = "missing"
+            else:
+                status = "active" if bool(row[0]) else "inactive"
+        except Exception as exc:
+            print(f"[TenantMiddleware] Error validating tenant '{schema_name}': {exc}")
+            status = "error"
+
+        self._tenant_cache[schema_name] = (now, status)
+        return status

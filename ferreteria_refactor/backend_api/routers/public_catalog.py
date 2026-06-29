@@ -2,7 +2,7 @@
 Catálogo Público — Mi Inventario Fácil
 Endpoint sin autenticación.
 """
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import Optional
@@ -12,18 +12,31 @@ import re
 
 from ..database.db import get_db
 from ..tenant_context import get_tenant_schema
+from ..dependencies import get_current_active_user
+from ..models import models
 
 router = APIRouter(prefix="/public", tags=["Catálogo Público"])
 
 SAFE = re.compile(r'^[a-z0-9_-]+$')
 
 
-def resolve_schema(middleware_schema: str, tenant_param: Optional[str]) -> Optional[str]:
+def resolve_schema(db: Session, middleware_schema: str, tenant_param: Optional[str]) -> Optional[str]:
+    candidate = None
     if middleware_schema and middleware_schema != "public":
-        return middleware_schema
-    if tenant_param and SAFE.match(tenant_param):
-        return tenant_param
-    return None
+        candidate = middleware_schema
+    elif tenant_param and SAFE.match(tenant_param):
+        candidate = tenant_param
+
+    if not candidate:
+        return None
+
+    row = db.execute(
+        text("SELECT is_active FROM public.tenants WHERE schema_name = :schema LIMIT 1"),
+        {"schema": candidate},
+    ).fetchone()
+    if not row or not bool(row[0]):
+        return None
+    return candidate
 
 
 class CatalogProduct(BaseModel):
@@ -73,7 +86,7 @@ def get_public_catalog(
     offset:   int = Query(0, ge=0),
     _tenant:  Optional[str] = Query(None),
 ):
-    schema = resolve_schema(get_tenant_schema(), _tenant)
+    schema = resolve_schema(db, get_tenant_schema(), _tenant)
     if not schema:
         return CatalogResponse(
             business=CatalogBusiness(name="Mi Inventario"),
@@ -125,12 +138,11 @@ def get_public_catalog(
     rows = db.execute(text(f"""
         SELECT p.id, p.name, p.price, p.stock,
                p.sku, p.description,
-               c.name AS category, p.image_url,
-               COALESCE(p.featured, false) AS featured
+               c.name AS category, p.image_url
         FROM "{schema}".products p
         LEFT JOIN "{schema}".categories c ON c.id = p.category_id
         WHERE {w}
-        ORDER BY COALESCE(p.featured, false) DESC, p.name ASC
+        ORDER BY p.name ASC
         LIMIT :limit OFFSET :offset
     """), params).fetchall()
 
@@ -144,7 +156,7 @@ def get_public_catalog(
         CatalogProduct(
             id=r[0], name=r[1], price=r[2], stock=int(r[3]),
             sku=r[4], description=r[5], category=r[6],
-            image_url=r[7], featured=bool(r[8]),
+            image_url=r[7], featured=False,
         )
         for r in rows
     ]
@@ -157,7 +169,7 @@ def get_catalog_categories(
     db: Session = Depends(get_db),
     _tenant: Optional[str] = Query(None),
 ):
-    schema = resolve_schema(get_tenant_schema(), _tenant)
+    schema = resolve_schema(db, get_tenant_schema(), _tenant)
     if not schema:
         return []
     rows = db.execute(text(f"""
@@ -174,13 +186,11 @@ def get_catalog_categories(
 def update_catalog_config(
     config: dict,
     db: Session = Depends(get_db),
-    _tenant: Optional[str] = Query(None),
+    current_user: models.User = Depends(get_current_active_user),
 ):
-    """Actualiza la configuración del catálogo del tenant."""
-    from ..dependencies import get_current_active_user
-    schema = resolve_schema(get_tenant_schema(), _tenant)
-    if not schema:
-        from fastapi import HTTPException
+    """Actualiza la configuración del catálogo del tenant autenticado."""
+    schema = get_tenant_schema()
+    if not schema or schema == "public":
         raise HTTPException(status_code=400, detail="Tenant no encontrado")
 
     allowed = {
