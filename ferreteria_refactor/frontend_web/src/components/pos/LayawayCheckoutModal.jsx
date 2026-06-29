@@ -285,7 +285,7 @@ const LayawayCheckoutModal = ({ isOpen, onClose, cart = [], totalUSD = 0, wareho
                 </div>
 
                 <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs font-bold text-slate-400">El apartado quedara visible en Centro de Ventas > Apartados.</p>
+                    <p className="text-xs font-bold text-slate-400">El apartado quedara visible en Centro de Ventas → Apartados.</p>
                     <div className="flex gap-2">
                         <Button variant="outline" onClick={onClose} disabled={processing}>Cancelar</Button>
                         <Button onClick={handleSubmit} disabled={processing || !settings} className="bg-indigo-600 font-black hover:bg-indigo-700">

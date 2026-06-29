@@ -201,6 +201,9 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 )
                 print("🧹 Cleared invalid auth cookie (force re-login)")
 
+            if request.url.path.startswith("/media/products/"):
+                response.headers.setdefault("Cache-Control", "public, max-age=604800, immutable")
+
             return response
         except Exception as e:
             process_time = time.time() - start_time

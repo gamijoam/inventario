@@ -349,12 +349,16 @@ def read_catalog_products(
     else:
         response.headers["Cache-Control"] = "no-store"
 
-    # Redis cache para el catálogo sin filtros (el caso más común en el POS)
-    if not any([search, category_id, warehouse_id, min_price, max_price, is_menu_item, skip]):
+    # Redis cache para páginas comunes del POS. No cacheamos búsquedas libres.
+    _catalog_cache_extra = None
+    if not any([search, min_price, max_price, is_menu_item]):
         from ..tenant_context import get_tenant_schema as _gts
         _schema = _gts()
-        _cache_key = f"catalog:{limit}"
-        _cached = get_cached(_schema, _cache_key)
+        _catalog_cache_extra = (
+            f"pos:v2:skip={skip}:limit={limit}:"
+            f"cat={category_id or 'all'}:wh={warehouse_id or 'all'}"
+        )
+        _cached = get_cached(_schema, "catalog", _catalog_cache_extra)
         if _cached is not None:
             return _cached
     """
@@ -514,11 +518,11 @@ def read_catalog_products(
         "has_more": (skip + limit) < total,
     }
 
-    # Guardar en Redis si es la primera página sin filtros (60s TTL)
-    if not any([search, category_id, warehouse_id, min_price, max_price, is_menu_item]) and skip == 0:
+    # Guardar variantes comunes del POS en Redis por 60s.
+    if _catalog_cache_extra:
         try:
             from ..tenant_context import get_tenant_schema as _gts
-            set_cached(_gts(), f"catalog:{limit}", catalog_result, ttl=60)
+            set_cached(_gts(), "catalog", catalog_result, extra=_catalog_cache_extra, ttl=60)
         except Exception:
             pass
 

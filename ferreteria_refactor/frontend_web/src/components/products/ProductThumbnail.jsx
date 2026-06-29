@@ -23,6 +23,7 @@ export default function ProductThumbnail({ imageUrl, productName, size = 'md', u
             updatedAt={updatedAt}
             iconSize={iconSizes[size]}
             className={`${sizes[size]} rounded-lg ${className || ''}`}
+            preferThumbnail
         />
     );
 }
