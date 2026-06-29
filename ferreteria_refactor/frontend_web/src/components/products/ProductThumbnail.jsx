@@ -6,14 +6,16 @@ export default function ProductThumbnail({ imageUrl, productName, size = 'md', u
         xs: 'w-8 h-8',
         sm: 'w-10 h-10',
         md: 'w-16 h-16',
-        lg: 'w-24 h-24'
+        lg: 'w-24 h-24',
+        full: 'w-full h-full'
     };
 
     const iconSizes = {
         xs: 12,
         sm: 16,
         md: 24,
-        lg: 32
+        lg: 32,
+        full: 32
     };
 
     return (

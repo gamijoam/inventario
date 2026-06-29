@@ -15,11 +15,11 @@ const getColumnCount = (width, simpleMode = false) => {
         if (width >= 768) return 5;
         return 3;
     }
-    if (width >= 1536) return 8;
-    if (width >= 1280) return 6;
-    if (width >= 1024) return 5;
-    if (width >= 768) return 4;
-    return 2;
+    if (width >= 1536) return 5;
+    if (width >= 1280) return 4;
+    if (width >= 1024) return 3;
+    if (width >= 768) return 2;
+    return 1;
 };
 
 const SCROLL_THRESHOLD = 600; // px ahead to trigger load
@@ -152,7 +152,7 @@ const POSCatalog = forwardRef(({
     const columnWidth = containerSize.width > 0
         ? (containerSize.width - PADDING * 2 - GAP * (columnCount - 1)) / columnCount
         : 0;
-    const ROW_HEIGHT = simpleMode ? 88 : 136;
+    const ROW_HEIGHT = simpleMode ? 88 : 124;
 
     const totalHeight = rowCount * ROW_HEIGHT;
     const gridHeight = containerSize.height;

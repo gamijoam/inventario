@@ -32,9 +32,6 @@ const ProductCard = ({
         setTimeout(() => setIsAnimating(false), 300);
     };
 
-    // ── Precio efectivo según lista predeterminada del POS (por tenant) ──
-    // Si hay una lista configurada y el producto tiene precio en ella, ese precio
-    // se muestra en la tarjeta (consistente con lo que se aplica al carrito).
     const effectivePrice = React.useMemo(() => {
         let p = parseFloat(product.price) || 0;
         try {
@@ -49,12 +46,10 @@ const ProductCard = ({
         return p;
     }, [product]);
 
-    // Producto "efectivo" para convertir a moneda secundaria sobre el precio correcto
     const priceProduct = (effectivePrice !== (parseFloat(product.price) || 0))
         ? { ...product, price: effectivePrice }
         : product;
 
-    // ── Precios secundarios (usa el precio efectivo) ──────────────────────────
     const secondaryPrices = showSecondaryPrice && secondaryCurrencies.length > 0 && convertProductPrice
         ? secondaryCurrencies.map(curr => {
             const code = curr.currency_code || curr.symbol;
@@ -74,141 +69,143 @@ const ProductCard = ({
     const minStock = Number(product.min_stock ?? 5);
     const isOutOfStock = numStock <= 0;
     const isLowStock = !isOutOfStock && numStock < minStock;
+    const stockLabel = numStock % 1 === 0 ? numStock.toFixed(0) : numStock.toFixed(1);
 
-    // ── Render ────────────────────────────────────────────────────────────────
+    const StatusBadge = () => {
+        if (isOutOfStock) {
+            return <span className="rounded-md bg-red-500 px-1.5 py-0.5 text-[7px] font-black text-white shadow-sm">AGOTADO</span>;
+        }
+        if (isLowStock) {
+            return <span className="rounded-md bg-amber-400 px-1.5 py-0.5 text-[7px] font-black text-white shadow-sm">BAJO</span>;
+        }
+        return null;
+    };
+
     return (
         <div
             onClick={handleClick}
             className={cn(
-                'group relative flex flex-col bg-white rounded-lg cursor-pointer transition-all duration-200 overflow-hidden h-full select-none border border-slate-200/80',
+                'group relative flex h-full cursor-pointer select-none overflow-hidden rounded-lg border border-slate-200/80 bg-white p-2 transition-all duration-200',
                 isSelected
                     ? 'ring-2 ring-indigo-500 shadow-lg shadow-indigo-100'
-                    : 'shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:shadow-md hover:shadow-indigo-100/50 hover:-translate-y-0.5',
+                    : 'shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:-translate-y-0.5 hover:shadow-md hover:shadow-indigo-100/50',
                 isAnimating && 'scale-95 ring-2 ring-indigo-400',
                 isOutOfStock && 'opacity-60'
             )}
         >
-            {/* ── Imagen ───────────────────────────────────────────────────── */}
             {!simpleMode && (
-                <div className="relative overflow-hidden bg-slate-50" style={{ height: 64 }}>
+                <div className="relative mr-3 flex h-full w-[82px] shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-100 bg-slate-50">
                     <ProductThumbnail
                         imageUrl={product.image_url}
                         productName={product.name}
-                        size="lg"
-                        className="w-full h-full object-contain bg-white p-0.5 transition-transform duration-500 group-hover:scale-105"
+                        size="full"
+                        className="rounded-md object-contain bg-white p-1 transition-transform duration-500 group-hover:scale-[1.04]"
                         updatedAt={product.updated_at}
                     />
 
-                    {/* Badges izquierda */}
-                    <div className="absolute top-1 left-1 flex flex-col gap-0.5">
+                    <div className="absolute left-1 top-1 flex max-w-[74px] flex-wrap gap-0.5">
                         {product.has_imei && (
-                            <span className="text-[6px] font-black tracking-widest bg-indigo-600 text-white px-1.5 py-0.5 rounded-md shadow-sm">
+                            <span className="rounded bg-indigo-600 px-1.5 py-0.5 text-[6.5px] font-black tracking-widest text-white shadow-sm">
                                 SERIAL
                             </span>
                         )}
                         {product.is_combo && (
-                            <span className="text-[6px] font-black bg-purple-500 text-white px-1.5 py-0.5 rounded-md shadow-sm">
+                            <span className="rounded bg-purple-500 px-1.5 py-0.5 text-[6.5px] font-black text-white shadow-sm">
                                 COMBO
                             </span>
                         )}
                         {product.drug_classification === 'PRESCRIPTION' && (
-                            <span className="text-[6.5px] font-black bg-blue-500 text-white px-1.5 py-0.5 rounded-full shadow-sm flex items-center gap-0.5">
+                            <span className="flex items-center gap-0.5 rounded-full bg-blue-500 px-1.5 py-0.5 text-[6.5px] font-black text-white shadow-sm">
                                 <Shield size={7} />Rx
                             </span>
                         )}
                         {product.drug_classification === 'CONTROLLED' && (
-                            <span className="text-[6.5px] font-black bg-orange-600 text-white px-1.5 py-0.5 rounded-full shadow-sm">
+                            <span className="rounded-full bg-orange-600 px-1.5 py-0.5 text-[6.5px] font-black text-white shadow-sm">
                                 C
                             </span>
                         )}
                         {product.storage_condition === 'REFRIGERATED' && (
-                            <span className="text-[6.5px] font-black bg-sky-400 text-white px-1.5 py-0.5 rounded-full shadow-sm flex items-center gap-0.5">
-                                <Snowflake size={7} />2-8°C
+                            <span className="flex items-center gap-0.5 rounded-full bg-sky-400 px-1.5 py-0.5 text-[6.5px] font-black text-white shadow-sm">
+                                <Snowflake size={7} />2-8C
                             </span>
                         )}
                         {product.storage_condition === 'FROZEN' && (
-                            <span className="text-[6.5px] font-black bg-blue-800 text-white px-1.5 py-0.5 rounded-full shadow-sm flex items-center gap-0.5">
+                            <span className="flex items-center gap-0.5 rounded-full bg-blue-800 px-1.5 py-0.5 text-[6.5px] font-black text-white shadow-sm">
                                 <Snowflake size={7} />CONG.
                             </span>
                         )}
                     </div>
 
-                    {/* Stock badge derecha */}
-                    <div className="absolute top-1 right-1">
-                        {isOutOfStock ? (
-                            <span className="text-[6px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-md shadow-sm">
-                                AGOTADO
-                            </span>
-                        ) : isLowStock ? (
-                            <span className="text-[6px] font-black bg-amber-400 text-white px-1.5 py-0.5 rounded-md shadow-sm">
-                                BAJO
-                            </span>
-                        ) : null}
+                    <div className="absolute right-1 top-1">
+                        <StatusBadge />
                     </div>
 
-                    {/* Vence pronto */}
                     {nearExpiry && (
-                        <div className="absolute bottom-0 inset-x-0 bg-amber-500/90 text-white text-[7px] font-black text-center py-0.5 tracking-wide">
+                        <div className="absolute inset-x-0 bottom-0 bg-amber-500/90 py-0.5 text-center text-[7px] font-black tracking-wide text-white">
                             VENCE PRONTO
                         </div>
                     )}
 
-                    {/* Overlay al seleccionar */}
-                    {isSelected && (
-                        <div className="absolute inset-0 bg-indigo-500/10" />
-                    )}
+                    {isSelected && <div className="absolute inset-0 bg-indigo-500/10" />}
                 </div>
             )}
 
-            {/* ── Info ─────────────────────────────────────────────────────── */}
-            <div className="flex flex-col flex-1 px-2.5 py-1.5 gap-0.5">
-
-                {/* Nombre */}
-                <div className="flex items-start gap-1">
-                    <p className={cn(
-                        'font-bold text-slate-800 leading-tight line-clamp-2 flex-1 group-hover:text-indigo-600 transition-colors min-h-[25px]',
-                        simpleMode ? 'text-[10px]' : 'text-[10px]'
-                    )}>
+            <div className={cn('flex min-w-0 flex-1 flex-col pr-1', simpleMode ? 'gap-1' : 'gap-1.5')}>
+                <div className="flex min-h-[34px] items-start gap-2">
+                    <p className="line-clamp-2 min-w-0 flex-1 text-[11px] font-black leading-tight text-slate-800 transition-colors group-hover:text-indigo-600">
                         {product.name}
                     </p>
                     {simpleMode && product.has_imei && (
-                        <span className="shrink-0 text-[7px] font-black bg-indigo-100 text-indigo-600 px-1 py-0.5 rounded">SN</span>
+                        <span className="shrink-0 rounded bg-indigo-100 px-1 py-0.5 text-[7px] font-black text-indigo-600">SN</span>
                     )}
                 </div>
 
-                {/* SKU + stock en una fila */}
-                <div className="flex items-center justify-between gap-1 min-h-[13px]">
-                    {product.sku && (
-                        <span className="text-[8px] text-slate-400 font-mono truncate">
+                <div className="flex min-h-[18px] items-center justify-between gap-2">
+                    {product.sku ? (
+                        <span className="min-w-0 truncate rounded bg-slate-50 px-1.5 py-0.5 font-mono text-[8px] font-bold text-slate-400">
                             {product.sku}
                         </span>
-                    )}
+                    ) : <span />}
                     <span className={cn(
-                        'text-[8px] font-black ml-auto shrink-0 tabular-nums',
-                        isOutOfStock ? 'text-red-500' : isLowStock ? 'text-amber-500' : 'text-emerald-600'
+                        'shrink-0 rounded-full px-1.5 py-0.5 text-[8.5px] font-black tabular-nums',
+                        isOutOfStock ? 'bg-red-50 text-red-500' : isLowStock ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
                     )}>
-                        {numStock % 1 === 0 ? numStock.toFixed(0) : numStock.toFixed(1)} un.
+                        {stockLabel} un.
                     </span>
                 </div>
 
-                {/* Precios */}
-                <div className="mt-auto pt-0.5 flex items-end justify-between gap-1.5">
-                    <span className="text-[14px] font-black text-indigo-600 leading-none tabular-nums">
-                        ${fmt(effectivePrice)}
-                    </span>
-                    {secondaryPrices.length > 0 ? (
-                        <div className="flex flex-wrap gap-1 justify-end">
-                            {secondaryPrices.map(({ code, sym, price }) => (
-                                <span key={code} className="text-[8px] font-bold text-slate-500 leading-none tabular-nums">
-                                    {sym}{fmt(price)}
-                                </span>
-                            ))}
-                        </div>
-                    ) : (priceBS > 0 && secSymbol && (
-                        <span className="text-[8px] font-bold text-slate-500 leading-none tabular-nums">
-                            {secSymbol}{fmt(priceBS)}
+                <div className="mt-auto flex items-end justify-between gap-2 border-t border-slate-100 pt-2">
+                    <div className="min-w-0 pb-0.5">
+                        <span className="block text-[16px] font-black leading-none text-indigo-600 tabular-nums">
+                            {currencySymbol}{fmt(effectivePrice)}
                         </span>
-                    ))}
+                        {secondaryPrices.length > 0 ? (
+                            <div className="mt-1 flex max-w-full flex-wrap gap-x-1 gap-y-0.5">
+                                {secondaryPrices.slice(0, 2).map(({ code, sym, price }) => (
+                                    <span key={code} className="truncate text-[8px] font-bold leading-none text-slate-500 tabular-nums">
+                                        {sym}{fmt(price)}
+                                    </span>
+                                ))}
+                            </div>
+                        ) : (priceBS > 0 && secSymbol && (
+                            <span className="mt-1 block truncate text-[8px] font-bold leading-none text-slate-500 tabular-nums">
+                                {secSymbol}{fmt(priceBS)}
+                            </span>
+                        ))}
+                    </div>
+
+                    <div className="flex shrink-0 flex-col items-end gap-1 pb-1">
+                        {simpleMode && <StatusBadge />}
+                        <span className={cn(
+                            'h-1.5 w-11 overflow-hidden rounded-full',
+                            isOutOfStock ? 'bg-red-100' : isLowStock ? 'bg-amber-100' : 'bg-emerald-100'
+                        )}>
+                            <span className={cn(
+                                'block h-full rounded-full',
+                                isOutOfStock ? 'w-1 bg-red-500' : isLowStock ? 'w-1/2 bg-amber-400' : 'w-full bg-emerald-500'
+                            )} />
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
