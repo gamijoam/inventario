@@ -1057,14 +1057,14 @@ def bulk_entry(
     """
     return InventoryService.process_bulk_entry(db, entry_data)
 
-@router.get("/validate-imei")
-def validate_imei(product_id: int, imei: str, db: Session = Depends(get_db)):
+@router.get("/validate-imei", dependencies=[Depends(require_any_permission(["pos.access", "pos.sell", "inventory.serials.view"]))])
+def validate_imei(product_id: int, imei: str, warehouse_id: Optional[int] = None, db: Session = Depends(get_db)):
     """
-    Check if an IMEI is valid and available for a given product.
+    Check if an IMEI is valid and available for a product in the selected warehouse.
     """
-    return InventoryService.validate_imei_availability(db, product_id, imei)
+    return InventoryService.validate_imei_availability(db, product_id, imei, warehouse_id)
 
-@router.get("/validate-entry")
+@router.get("/validate-entry", dependencies=[Depends(require_permission("inventory.serials.receive"))])
 def validate_imei_for_entry(imei: str, db: Session = Depends(get_db)):
     """
     Check if an IMEI is ALREADY in the database.

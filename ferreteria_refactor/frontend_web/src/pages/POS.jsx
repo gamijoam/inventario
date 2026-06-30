@@ -1686,7 +1686,7 @@ const POS = () => {
                 />
 
                 <PinAuthModal isOpen={pinModalOpen} onClose={() => { setPinModalOpen(false); setPendingPriceUpdate(null); setActivePricePopover(null); }} onSuccess={handlePinSuccess} title="Autorización Requerida" message="Ingrese PIN de supervisor." />
-                <SerializedItemModal isOpen={!!selectedProductForSerialized} product={selectedProductForSerialized} quantity={0} onClose={() => setSelectedProductForSerialized(null)} onConfirm={handleSerializedConfirm} />
+                <SerializedItemModal isOpen={!!selectedProductForSerialized} product={selectedProductForSerialized} quantity={0} warehouseId={selectedWarehouseId} onClose={() => setSelectedProductForSerialized(null)} onConfirm={handleSerializedConfirm} />
 
                 {/* Modal seriales para componentes de combo */}
                 <SerializedItemModal
@@ -1695,6 +1695,7 @@ const POS = () => {
                     quantity={comboImeiQueue[0]?.qty || 1}
                     onClose={handleCancelComboImei}
                     onConfirm={handleComboComponentSerialConfirm}
+                    warehouseId={selectedWarehouseId}
                     title={`Componente del combo: ${pendingComboProduct?.name || ''}`}
                     subtitle={`Paso ${Object.keys(comboImeiCollected).length + 1} de ${(Object.keys(comboImeiCollected).length) + comboImeiQueue.length}`}
                 />

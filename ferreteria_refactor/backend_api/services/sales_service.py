@@ -46,6 +46,20 @@ def _normalize_payment_currency(value) -> str:
     return raw
 
 
+def _money_delta(a, b) -> Decimal:
+    return abs(Decimal(str(a or 0)) - Decimal(str(b or 0)))
+
+
+def _user_has_any_sale_permission(db: Session, user_id: int, permission_codes) -> bool:
+    if not user_id:
+        return False
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        return False
+    from ..services.permissions_service import user_has_any_permission
+    return user_has_any_permission(db, user, list(permission_codes))
+
+
 class SalesService:
     @staticmethod
     def calculate_expiration_date(duration: int, unit: str) -> datetime:
@@ -123,6 +137,13 @@ class SalesService:
                     models.CashSession.id == sale_data.session_id,
                     models.CashSession.status == "OPEN"
                 ).first()
+                if open_session and open_session.user_id != user_id:
+                    can_use_foreign_session = _user_has_any_sale_permission(db, user_id, ["cash.force_close", "cash.audit.view"])
+                    if not can_use_foreign_session:
+                        raise HTTPException(
+                            status_code=403,
+                            detail="La caja seleccionada pertenece a otro usuario. Cierra sesion y entra con el cajero correcto o abre tu propia caja."
+                        )
             if not open_session:
                 # Fallback: sesión del usuario actual
                 open_session = db.query(models.CashSession).filter(
@@ -419,54 +440,55 @@ class SalesService:
                 units_to_deduct = item.quantity * item.conversion_factor
                 
                 # =========================================================================
-                # ZERO TRUST SECURITY: Price Validation Logic
+                # ZERO TRUST SECURITY: Price / discount validation.
+                # The browser may suggest prices, but the backend decides what is valid.
                 # =========================================================================
-                effective_price = item.unit_price # Default to what frontend sent (trusted slightly only if no list)
-                
-                if item.price_list_id and updated_products_info is not None: # Check if price list requested
-                     # 1. Fetch Price List Details
+                factor = Decimal(str(item.conversion_factor)) if item.conversion_factor else Decimal("1.0")
+                submitted_price = Decimal(str(item.unit_price or 0))
+                is_promotion_gift = bool(getattr(item, "is_promotion_gift", False))
+
+                if is_promotion_gift:
+                    item.unit_price = Decimal("0.0000")
+                elif item.price_list_id and updated_products_info is not None:
                      price_list = db.query(models.PriceList).filter(models.PriceList.id == item.price_list_id).first()
                      if not price_list:
-                         raise HTTPException(status_code=400, detail=f"Price List ID {item.price_list_id} not found")
-                     
-                     # 2. Security Check: Authorization
+                         raise HTTPException(status_code=400, detail=f"Lista de precios no encontrada: {item.price_list_id}")
+
                      if price_list.requires_auth:
                          if not item.auth_user_id:
-                             raise HTTPException(status_code=403, detail=f"Price List '{price_list.name}' requires authorization (PIN).")
-                         
-                         supervisor = db.query(models.User).filter(models.User.id == item.auth_user_id).first()
-                         if not supervisor:
-                             raise HTTPException(status_code=403, detail="Invalid authorization user.")
-                         
-                         # Check role (Supervisor/Admin)
-                         if supervisor.role not in [models.UserRole.ADMIN, models.UserRole.WAREHOUSE]: # Assuming WAREHOUSE acts as Supervisor here, or strictly ADMIN? Best check logic.
-                             # Let's enforce strict ADMIN for now or specific permission? 
-                             # User asked for "Supervisor/Admin". 
-                             pass 
-                             
-                     # 3. Fetch Authoritative Price
+                             raise HTTPException(status_code=403, detail=f"La lista '{price_list.name}' requiere autorizacion.")
+                         if not _user_has_any_sale_permission(db, item.auth_user_id, ["pos.price.override", "config.prices.manage"]):
+                             raise HTTPException(status_code=403, detail="El usuario autorizador no tiene permiso para aprobar esta lista de precios.")
+
                      db_price_record = db.query(models.ProductPrice).filter(
                          models.ProductPrice.product_id == product.id,
                          models.ProductPrice.price_list_id == item.price_list_id
                      ).first()
-                     
                      if not db_price_record:
-                         # Fallback or Error? 
-                         # If explicitly requested a list, and product not in it, maybe return Error.
-                         # Or fallback to Base Price?
-                         # For security, let's Error implies configuration mismatch.
-                         raise HTTPException(status_code=400, detail=f"Product '{product.name}' not found in Price List '{price_list.name}'")
-                     
-                     # 4. OVERRIDE: Trust NO ONE. Use DB Price.
-                     # CRITICAL FIX: Pricing is per Base Unit. Must multiply by factor for Boxes/Packs.
-                     base_price = db_price_record.price
-                     factor = Decimal(str(item.conversion_factor)) if item.conversion_factor else Decimal("1.0")
-                     effective_price = base_price * factor
-                     
-                     # Update item object for subtotal calc below
-                     item.unit_price = effective_price # Update for storage in SaleDetail
-                     
-                
+                         raise HTTPException(status_code=400, detail=f"Producto '{product.name}' no esta configurado en la lista '{price_list.name}'")
+
+                     item.unit_price = Decimal(str(db_price_record.price)) * factor
+                else:
+                     base_price = Decimal(str(product.price or 0)) * factor
+                     if _money_delta(submitted_price, base_price) > Decimal("0.01"):
+                         authorized = _user_has_any_sale_permission(db, user_id, ["pos.price.override", "config.prices.manage"])
+                         if not authorized and item.auth_user_id:
+                             authorized = _user_has_any_sale_permission(db, item.auth_user_id, ["pos.price.override", "config.prices.manage"])
+                         if not authorized:
+                             raise HTTPException(
+                                 status_code=403,
+                                 detail=f"Precio no autorizado para '{product.name}'. Esperado ${base_price:.2f}, recibido ${submitted_price:.2f}."
+                             )
+                     else:
+                         item.unit_price = base_price
+
+                if Decimal(str(item.discount or 0)) > 0:
+                    authorized_discount = _user_has_any_sale_permission(db, user_id, ["pos.discount.apply", "pos.discount.authorize"])
+                    if not authorized_discount and item.auth_user_id:
+                        authorized_discount = _user_has_any_sale_permission(db, item.auth_user_id, ["pos.discount.authorize"])
+                    if not authorized_discount:
+                        raise HTTPException(status_code=403, detail=f"Descuento no autorizado para '{product.name}'.")
+
                 # New: Determine if Product is a Service (Skip Stock Check)
                 is_service = False
                 
@@ -922,6 +944,30 @@ class SalesService:
             if sale_data.payments:
 
                 for p in sale_data.payments:
+                    # =========================================================================
+                    # PAYMENT METHOD VALIDATION — active method and currency gate in backend
+                    # =========================================================================
+                    method_name = str(p.payment_method or "").strip()
+                    payment_currency = _normalize_payment_currency(p.currency)
+                    p.currency = payment_currency
+
+                    payment_method = db.query(models.PaymentMethod).filter(
+                        func.lower(models.PaymentMethod.name) == method_name.lower(),
+                        models.PaymentMethod.is_active == True,
+                    ).first()
+                    if not payment_method:
+                        raise HTTPException(status_code=400, detail=f"Metodo de pago no activo o no encontrado: {method_name or 'Sin metodo'}")
+
+                    method_currency = _normalize_payment_currency(payment_method.currency_code or "FLEX")
+                    if method_currency != "FLEX" and method_currency != payment_currency:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"El metodo '{payment_method.name}' solo acepta {method_currency}. La venta intenta pagar en {payment_currency}."
+                        )
+
+                    if payment_method.requires_reference and not str(p.reference or "").strip():
+                        raise HTTPException(status_code=400, detail=f"El metodo '{payment_method.name}' requiere referencia.")
+
                     # =========================================================================
                     # EXCHANGE RATE VALIDATION — Prevents frontend manipulation of rates
                     # =========================================================================

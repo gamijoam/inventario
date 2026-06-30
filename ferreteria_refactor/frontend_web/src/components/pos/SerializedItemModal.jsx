@@ -6,7 +6,7 @@ import apiClient from '../../config/axios';
 
 const getSafeColorHex = (hex) => /^#([0-9a-fA-F]{6})$/.test(hex || '') ? hex : '#cbd5e1';
 
-const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm, title, subtitle }) => {
+const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm, title, subtitle, warehouseId = null }) => {
     const [serialInput, setSerialInput] = useState('');
     const [scannedSerials, setScannedSerials] = useState([]);
     const inputRef = useRef(null);
@@ -45,7 +45,7 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
 
         try {
             const { data } = await apiClient.get('/inventory/validate-imei', {
-                params: { product_id: product.id, imei: code }
+                params: { product_id: product.id, imei: code, ...((warehouseId && warehouseId !== 'all') ? { warehouse_id: warehouseId } : {}) }
             });
 
             if (!data.valid) {

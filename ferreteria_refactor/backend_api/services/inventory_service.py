@@ -312,17 +312,25 @@ class InventoryService:
         return True
 
     @staticmethod
-    def validate_imei_availability(db: Session, product_id: int, imei: str) -> Dict[str, Any]:
+    def validate_imei_availability(db: Session, product_id: int, imei: str, warehouse_id: int = None) -> Dict[str, Any]:
         """
-        Validates if an IMEI exists and is available for sale.
+        Validates if an IMEI exists and is available for sale in the requested warehouse.
         """
-        instance = db.query(models.ProductInstance).filter(
+        query = db.query(models.ProductInstance).filter(
             models.ProductInstance.product_id == product_id,
             models.ProductInstance.serial_number == imei
-        ).first()
+        )
+        instance = query.first()
 
         if not instance:
             return {"valid": False, "message": "Serial no encontrado en inventario."}
+
+        if warehouse_id and instance.warehouse_id != warehouse_id:
+            warehouse = db.query(models.Warehouse).filter(models.Warehouse.id == instance.warehouse_id).first()
+            return {
+                "valid": False,
+                "message": f"Serial pertenece a otro almacén: {warehouse.name if warehouse else 'Desconocido'}"
+            }
 
         if instance.status != models.ProductInstanceStatus.AVAILABLE:
             return {"valid": False, "message": f"Serial no disponible (Estado: {instance.status})"}
@@ -331,6 +339,7 @@ class InventoryService:
             "valid": True,
             "message": "Serial valido",
             "instance_id": instance.id,
+            "warehouse_id": instance.warehouse_id,
             "color_name": getattr(instance, "color_name", None),
             "color_hex": getattr(instance, "color_hex", None),
         }
