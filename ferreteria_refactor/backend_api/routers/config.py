@@ -776,7 +776,10 @@ def patch_business_config(
 
 
 @router.post("/test-print")
-async def test_print_ticket(db: Session = Depends(get_db)):
+async def test_print_ticket(
+    db: Session = Depends(get_db),
+    user: Any = Depends(require_permission("config.printing.manage"))
+):
     """Send test ticket to hardware bridge"""
     print("DEBUG: /test-print endpoint hit") # Debug log
     # Get template
