@@ -11,6 +11,7 @@ from ..utils.time_utils import get_venezuela_now
 from ..services.serialized_stock_service import reconcile_serialized_product_stock
 from datetime import datetime, date
 from decimal import Decimal
+import unicodedata
 
 router = APIRouter(
     prefix="/returns",
@@ -41,6 +42,87 @@ def _estimate_return_total(return_data: schemas.ReturnCreate, db: Session) -> De
 
 def _is_bs_currency(value) -> bool:
     return str(value or "").strip().upper() in {"BS", "VES", "VEF", "BSS"}
+
+
+def _strip_accents(value: str) -> str:
+    return ''.join(
+        char for char in unicodedata.normalize('NFKD', value or '')
+        if not unicodedata.combining(char)
+    )
+
+
+def _sales_search_terms(value: Optional[str]) -> List[str]:
+    raw = str(value or '').strip()
+    if not raw:
+        return []
+    terms = {raw, _strip_accents(raw)}
+    compact = ''.join(raw.split())
+    if compact and compact != raw:
+        terms.add(compact)
+        terms.add(_strip_accents(compact))
+    lowered = _strip_accents(raw.lower())
+    if len(lowered) > 3:
+        for base in list(terms):
+            base_lower = _strip_accents(base.lower())
+            if base_lower.endswith('es'):
+                terms.add(base[:-2])
+            if base_lower.endswith('s'):
+                terms.add(base[:-1])
+    return [term for term in terms if term]
+
+
+def _sale_summary_dict(sale: models.Sale) -> dict:
+    customer = None
+    if sale.customer:
+        customer = {
+            "id": sale.customer.id,
+            "name": sale.customer.name,
+            "phone": sale.customer.phone,
+            "id_number": sale.customer.id_number,
+        }
+
+    payments = [
+        {
+            "id": payment.id,
+            "amount": payment.amount,
+            "currency": payment.currency,
+            "payment_method": payment.payment_method,
+            "exchange_rate": payment.exchange_rate,
+            "reference": payment.reference,
+            "payment_date": payment.payment_date,
+        }
+        for payment in (sale.payments or [])
+    ]
+
+    cashier_name = None
+    register_name = None
+    register_code = None
+    if sale.cash_session:
+        if sale.cash_session.user:
+            cashier_name = sale.cash_session.user.full_name or sale.cash_session.user.username
+        if sale.cash_session.register:
+            register_name = sale.cash_session.register.name
+            register_code = sale.cash_session.register.code
+
+    return {
+        "id": sale.id,
+        "date": sale.date,
+        "total_amount": sale.total_amount,
+        "total_amount_bs": sale.total_amount_bs or Decimal("0.00"),
+        "payment_method": sale.payment_method,
+        "currency": sale.currency or "USD",
+        "exchange_rate_used": sale.exchange_rate_used or Decimal("1.0"),
+        "customer_id": sale.customer_id,
+        "customer": customer,
+        "payments": payments,
+        "details": [],
+        "is_credit": bool(sale.is_credit),
+        "paid": bool(sale.paid),
+        "status": sale.status,
+        "cashier_name": cashier_name,
+        "register_name": register_name,
+        "register_code": register_code,
+    }
 
 
 def _payments_cover_difference(payments, difference_due: Decimal) -> bool:
@@ -186,50 +268,59 @@ def _validate_replacement_sale_ready(
 @router.get("/sales/search", dependencies=[Depends(require_any_permission(["sales.returns.create", "sales.returns.exchange", "pos.void_sale"]))])
 def search_sales(
     q: Optional[str] = None,
-    skip: int = 0,
-    limit: int = Query(default=500, le=5000),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
     payment_method: Optional[str] = None,
     status: Optional[str] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
+    include_details: bool = False,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
     try:
-        """Search sales with filters"""
+        """Search sales with lightweight pagination for reports and returns."""
         query = db.query(models.Sale)
 
-        # Text Search — por ID, cliente o IMEI
         if q:
-            query = query.join(models.Customer, isouter=True).outerjoin(
-                models.SaleDetail, models.SaleDetail.sale_id == models.Sale.id
-            ).outerjoin(
-                models.SaleDetailInstance, models.SaleDetailInstance.sale_detail_id == models.SaleDetail.id
-            ).outerjoin(
-                models.ProductInstance, models.ProductInstance.id == models.SaleDetailInstance.product_instance_id
-            ).filter(
-                or_(
-                    cast(models.Sale.id, String).ilike(f"%{q}%"),
-                    models.Customer.name.ilike(f"%{q}%"),
-                    models.Customer.phone.ilike(f"%{q}%"),
-                    models.ProductInstance.serial_number.ilike(f"%{q}%"),
-                )
-            ).distinct()
+            terms = _sales_search_terms(q)
+            predicates = []
+            for term in terms:
+                like = f"%{term}%"
+                normalized_like = f"%{_strip_accents(term)}%"
+                predicates.extend([
+                    cast(models.Sale.id, String).ilike(like),
+                    func.unaccent(models.Customer.name).ilike(normalized_like),
+                    models.Customer.phone.ilike(like),
+                    models.Customer.id_number.ilike(like),
+                    models.SalePayment.reference.ilike(like),
+                    func.unaccent(models.SalePayment.payment_method).ilike(normalized_like),
+                    func.unaccent(models.Product.name).ilike(normalized_like),
+                    models.Product.sku.ilike(like),
+                    models.ProductInstance.serial_number.ilike(like),
+                ])
 
-        # Filter by Payment Method
+            query = (
+                query
+                .outerjoin(models.Customer, models.Sale.customer_id == models.Customer.id)
+                .outerjoin(models.SalePayment, models.SalePayment.sale_id == models.Sale.id)
+                .outerjoin(models.SaleDetail, models.SaleDetail.sale_id == models.Sale.id)
+                .outerjoin(models.Product, models.Product.id == models.SaleDetail.product_id)
+                .outerjoin(models.SaleDetailInstance, models.SaleDetailInstance.sale_detail_id == models.SaleDetail.id)
+                .outerjoin(models.ProductInstance, models.ProductInstance.id == models.SaleDetailInstance.product_instance_id)
+                .filter(or_(*predicates))
+                .distinct()
+            )
+
         if payment_method:
             query = query.filter(models.Sale.payment_method == payment_method)
 
-        # Filter by Status (Derived from existence of Return)
         if status:
             if status == "VOIDED":
-                # Show only sales with returns
                 query = query.join(models.Return)
             elif status == "COMPLETED":
-                # Show only sales WITHOUT returns
                 query = query.outerjoin(models.Return).filter(models.Return.id == None)
 
-        # Filter by Date Range
         if start_date:
             start_dt = datetime.combine(start_date, datetime.min.time())
             query = query.filter(models.Sale.date >= start_dt)
@@ -240,31 +331,23 @@ def search_sales(
 
         total = query.count()
 
-        results = query.options(
+        options = [
             joinedload(models.Sale.customer),
             joinedload(models.Sale.payments),
             joinedload(models.Sale.returns),
-            joinedload(models.Sale.details).joinedload(models.SaleDetail.product),
             joinedload(models.Sale.cash_session).joinedload(models.CashSession.user),
             joinedload(models.Sale.cash_session).joinedload(models.CashSession.register),
-        ).order_by(models.Sale.date.desc()).offset(skip).limit(limit).all()
+        ]
+        if include_details:
+            options.append(joinedload(models.Sale.details).joinedload(models.SaleDetail.product))
 
-        # Build enriched response with cashier + register info
-        output = []
-        for sale in results:
-            sale_dict = schemas.SaleRead.from_orm(sale).dict()
-            sale_dict["cashier_name"] = None
-            sale_dict["register_name"] = None
-            sale_dict["register_code"] = None
-            if sale.cash_session:
-                sale_dict["cashier_name"] = (
-                    sale.cash_session.user.full_name or sale.cash_session.user.username
-                ) if sale.cash_session.user else None
-                if sale.cash_session.register:
-                    sale_dict["register_name"] = sale.cash_session.register.name
-                    sale_dict["register_code"] = sale.cash_session.register.code
-            output.append(sale_dict)
-        return {"items": output, "total": total, "has_more": skip + limit < total}
+        results = query.options(*options).order_by(models.Sale.date.desc()).offset(skip).limit(limit).all()
+
+        output = [
+            schemas.SaleRead.from_orm(sale).dict() if include_details else _sale_summary_dict(sale)
+            for sale in results
+        ]
+        return {"items": output, "total": total, "has_more": skip + limit < total, "skip": skip, "limit": limit}
     except Exception as e:
         import traceback
         trace = traceback.format_exc()

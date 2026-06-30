@@ -38,6 +38,8 @@ const SUB_TABS = [
     { id: 'analisis', label: 'Análisis' },
 ];
 
+const SALES_PAGE_SIZE = 80;
+
 const ANALYSIS_TABS = [
     { id: 'payment', label: 'Por Método de Pago', icon: Wallet },
     { id: 'product', label: 'Por Producto', icon: Package },
@@ -74,13 +76,16 @@ const SalesTab = ({ dateRange }) => {
     // HISTORIAL state
     // -----------------------------------------------------------------------
     const [sales, setSales] = useState([]);
-    const [filteredSales, setFilteredSales] = useState([]);
+    const [salesTotal, setSalesTotal] = useState(0);
+    const [salesHasMore, setSalesHasMore] = useState(false);
+    const [currentPage, setCurrentPage] = useState(0);
     const [loading, setLoading] = useState(false);
 
     // Filters (dates default from parent)
     const [dateFrom, setDateFrom] = useState(dateRange?.start || new Date().toISOString().split('T')[0]);
     const [dateTo, setDateTo] = useState(dateRange?.end || new Date().toISOString().split('T')[0]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
     const [selectedStatus, setSelectedStatus] = useState('');
 
     // Modals
@@ -113,47 +118,58 @@ const SalesTab = ({ dateRange }) => {
     // HISTORIAL: Metrics
     // -----------------------------------------------------------------------
     const metrics = useMemo(() => {
-        const completedSales = filteredSales.filter(s => s.status !== 'VOIDED');
+        const completedSales = sales.filter(s => s.status !== 'VOIDED');
         const totalSales = completedSales.length;
         const totalRevenue = completedSales.reduce((acc, curr) => acc + Number(curr.total_amount || 0), 0);
         const averageTicket = totalSales > 0 ? totalRevenue / totalSales : 0;
         return { totalSales, totalRevenue, averageTicket };
-    }, [filteredSales]);
+    }, [sales]);
 
     // -----------------------------------------------------------------------
     // HISTORIAL: Fetch sales
     // -----------------------------------------------------------------------
     const fetchSales = useCallback(async () => {
+        if (activeSubTab !== 'historial') return;
         setLoading(true);
         try {
             const params = {
-                limit: 200,
+                limit: SALES_PAGE_SIZE,
+                skip: currentPage * SALES_PAGE_SIZE,
                 start_date: dateFrom,
                 end_date: dateTo,
+                include_details: false,
             };
-            if (searchQuery) params.q = searchQuery;
+            const q = debouncedSearchQuery.trim();
+            if (q) params.q = q;
             if (selectedStatus) params.status = selectedStatus;
 
             const response = await apiClient.get('/returns/sales/search', { params });
             const items = response.data?.items || [];
-            const sorted = items.sort((a, b) => b.id - a.id);
-            setSales(sorted);
-            setFilteredSales(sorted);
+            setSales(items);
+            setSalesTotal(Number(response.data?.total || items.length));
+            setSalesHasMore(Boolean(response.data?.has_more));
         } catch (error) {
             console.error('Error fetching sales:', error);
+            toast.error(getApiErrorMessage(error, 'Error al cargar ventas'));
         } finally {
             setLoading(false);
         }
-    }, [dateFrom, dateTo, searchQuery, selectedStatus]);
+    }, [activeSubTab, currentPage, dateFrom, dateTo, debouncedSearchQuery, selectedStatus]);
 
     useEffect(() => {
         if (activeSubTab === 'historial') fetchSales();
-    }, [dateFrom, dateTo, selectedStatus, activeSubTab]);
+    }, [fetchSales, activeSubTab]);
+
+    useEffect(() => {
+        setCurrentPage(0);
+    }, [dateFrom, dateTo, selectedStatus]);
 
     // Debounce search
     useEffect(() => {
-        if (activeSubTab !== 'historial') return;
-        const timer = setTimeout(() => fetchSales(), 500);
+        const timer = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery.trim());
+            setCurrentPage(0);
+        }, 450);
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
@@ -264,7 +280,6 @@ const SalesTab = ({ dateRange }) => {
                 s.id === saleToVoid.id ? { ...s, status: 'VOIDED' } : s
             );
             setSales(updatedSales);
-            setFilteredSales(updatedSales);
 
             toast.success('Venta anulada correctamente');
             setShowPinModal(false);
@@ -282,7 +297,8 @@ const SalesTab = ({ dateRange }) => {
 
     const handlePrintPDF = async (sale) => {
         try {
-            const blob = await pdf(<InvoicePDF sale={sale} business={business} />).toBlob();
+            const response = await apiClient.get(`/returns/sales/${sale.id}`);
+            const blob = await pdf(<InvoicePDF sale={response.data} business={business} />).toBlob();
             const url = URL.createObjectURL(blob);
             window.open(url, '_blank');
         } catch (error) {
@@ -449,7 +465,7 @@ const SalesTab = ({ dateRange }) => {
                         <div className="text-lg font-black text-emerald-600 tabular-nums">
                             ${fmtUSD(metrics.totalRevenue)}
                         </div>
-                        <p className="text-[10px] text-slate-400 font-bold mt-0.5">En USD (aprox)</p>
+                        <p className="text-[10px] text-slate-400 font-bold mt-0.5">Monto visible en la página</p>
                     </CardContent>
                 </Card>
                 <Card className="shadow-sm border-slate-200">
@@ -524,6 +540,39 @@ const SalesTab = ({ dateRange }) => {
                 </div>
             </div>
 
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                <div className="text-xs font-bold text-slate-500">
+                    {salesTotal > 0 ? (
+                        <>
+                            Mostrando <span className="text-slate-900">{currentPage * SALES_PAGE_SIZE + 1}</span> - <span className="text-slate-900">{currentPage * SALES_PAGE_SIZE + sales.length}</span> de <span className="text-slate-900">{salesTotal}</span> ventas
+                        </>
+                    ) : (
+                        'Sin ventas para los filtros actuales'
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        className="h-8 text-xs"
+                        disabled={loading || currentPage === 0}
+                        onClick={() => setCurrentPage(page => Math.max(0, page - 1))}
+                    >
+                        Anterior
+                    </Button>
+                    <span className="min-w-20 text-center text-xs font-black text-slate-500">
+                        Página {currentPage + 1}
+                    </span>
+                    <Button
+                        variant="outline"
+                        className="h-8 text-xs"
+                        disabled={loading || !salesHasMore}
+                        onClick={() => setCurrentPage(page => page + 1)}
+                    >
+                        Siguiente
+                    </Button>
+                </div>
+            </div>
+
             {/* Sales Table */}
             <div className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm [&_td]:px-3 [&_td]:py-2 [&_th]:h-9 [&_th]:px-3">
                 <Table>
@@ -545,14 +594,14 @@ const SalesTab = ({ dateRange }) => {
                                     Cargando datos...
                                 </TableCell>
                             </TableRow>
-                        ) : filteredSales.length === 0 ? (
+                        ) : sales.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={7} className="h-24 text-center text-slate-400 font-medium">
                                     No se encontraron ventas
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            filteredSales.map((sale) => (
+                            sales.map((sale) => (
                                 <TableRow key={sale.id} className="hover:bg-slate-50/70 group">
                                     <TableCell className="font-mono font-black text-slate-700 text-xs">
                                         #{sale.id}
