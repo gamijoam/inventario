@@ -7,6 +7,8 @@ from decimal import Decimal
 from typing import List, Optional
 import json
 import asyncio
+import re
+import unicodedata
 from datetime import date, datetime, timedelta
 from ..database.db import get_db
 from ..models import models
@@ -53,6 +55,109 @@ def _as_unit_dict(unit):
 
 def _active_product_units(units):
     return [unit for unit in (units or []) if getattr(unit, "is_active", True) is not False]
+
+
+def _strip_accents(value: str) -> str:
+    return "".join(
+        char for char in unicodedata.normalize("NFKD", value or "")
+        if not unicodedata.combining(char)
+    )
+
+
+def _search_variants(token: str) -> List[str]:
+    """Return forgiving token variants: accents, simple plurals and separators."""
+    clean = _strip_accents(str(token or "").lower()).strip()
+    clean = re.sub(r"\s+", " ", clean)
+    if not clean:
+        return []
+
+    variants = {clean}
+    compact = re.sub(r"[\s\-_.]+", "", clean)
+    if compact and compact != clean:
+        variants.add(compact)
+
+    candidates = {clean, compact}
+    for candidate in list(candidates):
+        if not candidate:
+            continue
+        if candidate.endswith("es") and len(candidate) > 4:
+            variants.add(candidate[:-2])
+        if candidate.endswith("s") and len(candidate) > 3:
+            variants.add(candidate[:-1])
+        if candidate.endswith("ces") and len(candidate) > 5:
+            variants.add(candidate[:-3] + "z")
+
+    return sorted({v for v in variants if len(v) >= 2})
+
+
+def _product_search_filter(search: Optional[str], include_serials: bool = True):
+    tokens = [token for token in re.split(r"\s+", (search or "").strip()) if token]
+    if not tokens:
+        return None
+
+    unaccent_name = func.lower(func.unaccent(models.Product.name))
+    unaccent_sku = func.lower(func.unaccent(func.coalesce(models.Product.sku, "")))
+    compact_name = func.regexp_replace(unaccent_name, r"[\s\-_.]+", "", "g")
+    compact_sku = func.regexp_replace(unaccent_sku, r"[\s\-_.]+", "", "g")
+
+    token_conditions = []
+    for token in tokens:
+        variant_conditions = []
+        for variant in _search_variants(token):
+            like = f"%{variant}%"
+            compact = re.sub(r"[\s\-_.]+", "", variant)
+            variant_conditions.extend([
+                unaccent_name.like(like),
+                unaccent_sku.like(like),
+                compact_name.like(f"%{compact}%"),
+                compact_sku.like(f"%{compact}%"),
+            ])
+
+            if include_serials and len(compact) >= 4:
+                variant_conditions.append(
+                    models.Product.instances.any(
+                        func.lower(models.ProductInstance.serial_number).like(f"%{compact.lower()}%")
+                    )
+                )
+
+        if variant_conditions:
+            token_conditions.append(or_(*variant_conditions))
+
+    return and_(*token_conditions) if token_conditions else None
+
+
+def _apply_product_search(query, search: Optional[str], include_serials: bool = True):
+    condition = _product_search_filter(search, include_serials=include_serials)
+    return query.filter(condition) if condition is not None else query
+
+
+def _product_search_rank(search: Optional[str]):
+    normalized = _strip_accents((search or "").lower()).strip()
+    normalized = re.sub(r"\s+", " ", normalized)
+    compact = re.sub(r"[\s\-_.]+", "", normalized)
+    if not compact or len(compact) < 3:
+        return None
+
+    unaccent_name = func.lower(func.unaccent(models.Product.name))
+    unaccent_sku = func.lower(func.unaccent(func.coalesce(models.Product.sku, "")))
+    compact_name = func.regexp_replace(unaccent_name, r"[\s\-_.]+", "", "g")
+    compact_sku = func.regexp_replace(unaccent_sku, r"[\s\-_.]+", "", "g")
+    return case(
+        (compact_sku == compact, 0),
+        (compact_name == compact, 1),
+        (compact_name.like(f"{compact}%"), 2),
+        (compact_sku.like(f"{compact}%"), 3),
+        (compact_name.like(f"%{compact}%"), 4),
+        (compact_sku.like(f"%{compact}%"), 5),
+        else_=9,
+    )
+
+
+def _apply_product_order(query, search: Optional[str] = None):
+    rank = _product_search_rank(search)
+    if rank is not None:
+        return query.order_by(rank, func.lower(models.Product.name))
+    return query.order_by(func.lower(models.Product.name))
 
 
 def _serialize_promotion_item(item):
@@ -326,7 +431,7 @@ def run_broadcast(event: str, data: dict, tenant_id: Optional[str] = None):
         loop.close()
 
 from typing import Optional
-from sqlalchemy import or_, and_, func, text
+from sqlalchemy import or_, and_, case, func, text
 from pydantic import BaseModel
 
 @router.get("/catalog", response_model=schemas.PaginatedCatalog, dependencies=[Depends(get_current_active_user)])
@@ -395,27 +500,7 @@ def read_catalog_products(
         base_query = base_query.filter(models.Product.is_menu_item == is_menu_item)
 
     if search:
-        # Split query into tokens and require ALL words to appear in name OR sku
-        # This handles: "Redmi 15C 256GB" matching "REDMI 15C 256GB-8RAM"
-        tokens = [t for t in search.strip().split() if t]
-        if len(tokens) == 1:
-            search_term = f"%{tokens[0]}%"
-            base_query = base_query.filter(
-                or_(
-                    models.Product.name.ilike(search_term),
-                    models.Product.sku.ilike(search_term),
-                )
-            )
-        else:
-            # Multi-word: each token must appear somewhere in name OR sku
-            token_conditions = [
-                or_(
-                    models.Product.name.ilike(f"%{t}%"),
-                    models.Product.sku.ilike(f"%{t}%"),
-                )
-                for t in tokens
-            ]
-            base_query = base_query.filter(and_(*token_conditions))
+        base_query = _apply_product_search(base_query, search)
 
     # Price range filter
     if min_price is not None:
@@ -677,18 +762,7 @@ def read_products(
             base_query = base_query.filter(models.Product.has_imei == has_imei)
 
         if search:
-            tokens = [t for t in search.strip().split() if t]
-            if len(tokens) == 1:
-                base_query = base_query.filter(
-                    or_(models.Product.name.ilike(f"%{tokens[0]}%"),
-                        models.Product.sku.ilike(f"%{tokens[0]}%"))
-                )
-            else:
-                for t in tokens:
-                    base_query = base_query.filter(
-                        or_(models.Product.name.ilike(f"%{t}%"),
-                            models.Product.sku.ilike(f"%{t}%"))
-                    )
+            base_query = _apply_product_search(base_query, search)
 
         if stock_filter:
             min_stock_default = 5
@@ -707,7 +781,7 @@ def read_products(
         # Contar total con filtros aplicados
         total = base_query.with_entities(func.count(models.Product.id)).scalar()
 
-        query = base_query.options(
+        query = _apply_product_order(base_query.options(
             joinedload(models.Product.category),
             joinedload(models.Product.units),
             with_loader_criteria(models.ProductUnit, models.ProductUnit.is_active == True, include_aliases=True),
@@ -718,7 +792,7 @@ def read_products(
             joinedload(models.Product.promotion_items).joinedload(models.ProductPromotionItem.child_product),
             joinedload(models.Product.price_rules),
             joinedload(models.Product.recipes).subqueryload(rest_models.RestaurantRecipe.ingredient).subqueryload(models.Product.stocks)
-        ).order_by(func.lower(models.Product.name))
+        ), search)
 
         products = query.offset(skip).limit(limit).all()
 
@@ -1453,12 +1527,7 @@ def export_excel(
     """Export products to Excel — respeta los filtros activos del inventario"""
     query = db.query(models.Product).filter(models.Product.is_active == True)
     if search:
-        tokens = [t for t in search.strip().split() if t]
-        for t in tokens:
-            query = query.filter(or_(
-                models.Product.name.ilike(f"%{t}%"),
-                models.Product.sku.ilike(f"%{t}%")
-            ))
+        query = _apply_product_search(query, search)
     if category_id:
         query = query.filter(models.Product.category_id == category_id)
     if stock_filter == 'out_of_stock':
@@ -1469,10 +1538,10 @@ def export_excel(
     elif stock_filter == 'in_stock':
         query = query.filter(
             models.Product.stock >= func.coalesce(models.Product.min_stock, 5))
-    products = query.options(
+    products = _apply_product_order(query.options(
         joinedload(models.Product.category),
         joinedload(models.Product.supplier)
-    ).order_by(func.lower(models.Product.name)).all()
+    ), search).all()
     
     buffer = ProductExportService.export_to_excel(products)
     
@@ -1496,12 +1565,7 @@ def export_pdf(
     business_name = "Inventario"
     query = db.query(models.Product).filter(models.Product.is_active == True)
     if search:
-        tokens = [t for t in search.strip().split() if t]
-        for t in tokens:
-            query = query.filter(or_(
-                models.Product.name.ilike(f"%{t}%"),
-                models.Product.sku.ilike(f"%{t}%")
-            ))
+        query = _apply_product_search(query, search)
     if category_id:
         query = query.filter(models.Product.category_id == category_id)
     if stock_filter == 'out_of_stock':
@@ -1512,10 +1576,10 @@ def export_pdf(
     elif stock_filter == 'in_stock':
         query = query.filter(
             models.Product.stock >= func.coalesce(models.Product.min_stock, 5))
-    products = query.options(
+    products = _apply_product_order(query.options(
         joinedload(models.Product.category),
         joinedload(models.Product.supplier)
-    ).order_by(func.lower(models.Product.name)).all()
+    ), search).all()
 
     # Cargar listas de precios activas del tenant + precios por producto
     price_lists = db.query(models.PriceList).filter(
