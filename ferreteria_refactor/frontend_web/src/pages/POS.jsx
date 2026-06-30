@@ -143,6 +143,7 @@ const POS = () => {
     const [newReprintCount, setNewReprintCount] = useState(0);
     const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
     const [calculatorAmount, setCalculatorAmount] = useState('');
+    const [calculatorMode, setCalculatorMode] = useState('USD_TO_LOCAL');
 
     // Express Mode State
     const isExpressMode = user?.preferences?.pos_mode === 'express';
@@ -177,8 +178,16 @@ const POS = () => {
     const calculatorCurrency = secondaryCurrency || secondaryCurrencies[0] || null;
     const calculatorRate = Number(calculatorCurrency?.rate || 0);
     const calculatorNumericAmount = Number(String(calculatorAmount || '').replace(',', '.')) || 0;
-    const calculatorResult = calculatorNumericAmount * calculatorRate;
     const calculatorSymbol = calculatorCurrency?.currency_symbol || calculatorCurrency?.symbol || calculatorCurrency?.currency_code || 'Bs';
+    const isCalculatorLocalToUsd = calculatorMode === 'LOCAL_TO_USD';
+    const calculatorResult = calculatorRate > 0
+        ? (isCalculatorLocalToUsd ? calculatorNumericAmount / calculatorRate : calculatorNumericAmount * calculatorRate)
+        : 0;
+    const calculatorInputSymbol = isCalculatorLocalToUsd ? calculatorSymbol : '$';
+    const calculatorOutputSymbol = isCalculatorLocalToUsd ? '$' : calculatorSymbol;
+    const calculatorInputLabel = isCalculatorLocalToUsd ? `Monto en ${calculatorSymbol}` : 'Monto en dolares';
+    const calculatorPlaceholder = isCalculatorLocalToUsd ? '3000' : '80';
+    const calculatorQuickAmounts = isCalculatorLocalToUsd ? [100, 500, 1000, 3000] : [10, 20, 50, 80];
     const formatCalculatorNumber = (value) => new Intl.NumberFormat('es-VE', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
@@ -1333,7 +1342,7 @@ const POS = () => {
                                 </div>
                                 <div>
                                     <h2 className="text-lg font-black text-slate-900">Calculadora</h2>
-                                    <p className="text-xs font-bold text-slate-500">USD a {calculatorSymbol} con la tasa activa</p>
+                                    <p className="text-xs font-bold text-slate-500">Convierte USD y {calculatorSymbol} con la tasa activa</p>
                                 </div>
                             </div>
                             <button
@@ -1358,16 +1367,39 @@ const POS = () => {
                                 </div>
                             </div>
 
+                            <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
+                                <button
+                                    type="button"
+                                    onClick={() => { setCalculatorMode('USD_TO_LOCAL'); setCalculatorAmount(''); }}
+                                    className={cn(
+                                        "rounded-xl px-3 py-2 text-sm font-black transition",
+                                        !isCalculatorLocalToUsd ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                                    )}
+                                >
+                                    USD a {calculatorSymbol}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setCalculatorMode('LOCAL_TO_USD'); setCalculatorAmount(''); }}
+                                    className={cn(
+                                        "rounded-xl px-3 py-2 text-sm font-black transition",
+                                        isCalculatorLocalToUsd ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                                    )}
+                                >
+                                    {calculatorSymbol} a USD
+                                </button>
+                            </div>
+
                             <label className="block">
-                                <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">Monto en dolares</span>
+                                <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">{calculatorInputLabel}</span>
                                 <div className="flex h-14 items-center rounded-2xl border border-indigo-200 bg-white px-4 shadow-sm focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-100">
-                                    <span className="mr-3 text-2xl font-black text-indigo-600">$</span>
+                                    <span className="mr-3 text-2xl font-black text-indigo-600">{calculatorInputSymbol}</span>
                                     <input
                                         value={calculatorAmount}
                                         onChange={(event) => setCalculatorAmount(event.target.value.replace(/[^0-9.,]/g, ''))}
                                         autoFocus
                                         inputMode="decimal"
-                                        placeholder="80"
+                                        placeholder={calculatorPlaceholder}
                                         className="h-full min-w-0 flex-1 bg-transparent text-2xl font-black text-slate-950 outline-none placeholder:text-slate-300"
                                     />
                                 </div>
@@ -1376,22 +1408,24 @@ const POS = () => {
                             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
                                 <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Resultado</p>
                                 <p className="mt-1 break-words text-3xl font-black text-emerald-700">
-                                    {calculatorSymbol} {formatCalculatorNumber(calculatorResult)}
+                                    {calculatorOutputSymbol} {formatCalculatorNumber(calculatorResult)}
                                 </p>
                                 <p className="mt-2 text-xs font-bold text-emerald-700/75">
-                                    {formatCalculatorNumber(calculatorNumericAmount)} USD x {formatCalculatorNumber(calculatorRate)}
+                                    {isCalculatorLocalToUsd
+                                        ? `${calculatorSymbol} ${formatCalculatorNumber(calculatorNumericAmount)} / ${formatCalculatorNumber(calculatorRate)}`
+                                        : `${formatCalculatorNumber(calculatorNumericAmount)} USD x ${formatCalculatorNumber(calculatorRate)}`}
                                 </p>
                             </div>
 
                             <div className="grid grid-cols-4 gap-2">
-                                {[10, 20, 50, 80].map((amount) => (
+                                {calculatorQuickAmounts.map((amount) => (
                                     <button
                                         key={amount}
                                         type="button"
                                         onClick={() => setCalculatorAmount(String(amount))}
                                         className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                                     >
-                                        ${amount}
+                                        {calculatorInputSymbol}{amount}
                                     </button>
                                 ))}
                             </div>
