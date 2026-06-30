@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
@@ -527,6 +527,8 @@ const ProductsTab = () => {
     const [filterType, setFilterType]     = useState('');
     const [filterIssue, setFilterIssue]   = useState('');
     const [showFilters, setShowFilters]   = useState(false);
+    const didRunProductFilterEffect = useRef(false);
+
     const [desktopView, setDesktopView] = useState(() => {
         if (typeof window === 'undefined') return 'cards';
         return window.localStorage.getItem('inventoryProductsView') || 'cards';
@@ -541,50 +543,42 @@ const ProductsTab = () => {
     const fetchProducts = async (page = currentPage) => {
         setIsLoading(true);
         try {
-            const [res, kpisRes] = await Promise.allSettled([
-                apiClient.get('/products/', {
-                    params: {
-                        skip: (page - 1) * ITEMS_PER_PAGE,
-                        limit: ITEMS_PER_PAGE,
-                        search: searchTerm || undefined,
-                        warehouse_id: filterWarehouse || undefined,
-                        category_id: filterCategory || undefined,
-                        stock_filter: filterStock || undefined,
-                        _t: Date.now()
-                    }
-                }),
-                apiClient.get('/products/kpis', {
-                    params: { warehouse_id: filterWarehouse || undefined },
-                    _silentNetworkError: true,
-                }),
-            ]);
-
-            if (res.status === 'fulfilled') {
-                const data = res.value.data;
-                // El endpoint ahora siempre devuelve {items, total, has_more}
-                const items = data?.items ?? (Array.isArray(data) ? data : []);
-                const total = data?.total ?? items.length;
-                setProducts(items);
-                setFilteredTotal(total);
-            } else {
-                toast.error(getApiErrorMessage(res.reason, 'No se pudo cargar el catalogo de productos'));
-                setProducts([]);
-                setFilteredTotal(0);
-            }
-
-            if (kpisRes.status === 'fulfilled') {
-                const k = kpisRes.value.data;
-                setTotalProductsReal(k.total ?? 0);
-                setGlobalKpis({
-                    inStock:    k.in_stock    ?? 0,
-                    lowStock:   k.low_stock   ?? 0,
-                    outOfStock: k.out_of_stock ?? 0,
-                });
-            }
+            const res = await apiClient.get('/products/', {
+                params: {
+                    skip: (page - 1) * ITEMS_PER_PAGE,
+                    limit: ITEMS_PER_PAGE,
+                    search: searchTerm || undefined,
+                    warehouse_id: filterWarehouse || undefined,
+                    category_id: filterCategory || undefined,
+                    stock_filter: filterStock || undefined,
+                }
+            });
+            const data = res.data;
+            const items = data?.items ?? (Array.isArray(data) ? data : []);
+            const total = data?.total ?? items.length;
+            setProducts(items);
+            setFilteredTotal(total);
         } catch (e) {
             toast.error(getApiErrorMessage(e, 'No se pudo cargar el catalogo de productos'));
+            setProducts([]);
+            setFilteredTotal(0);
         }
         finally { setIsLoading(false); }
+    };
+
+    const fetchProductKpis = async () => {
+        try {
+            const { data: k } = await apiClient.get('/products/kpis', {
+                params: { warehouse_id: filterWarehouse || undefined },
+                _silentNetworkError: true,
+            });
+            setTotalProductsReal(k.total ?? 0);
+            setGlobalKpis({
+                inStock:    k.in_stock    ?? 0,
+                lowStock:   k.low_stock   ?? 0,
+                outOfStock: k.out_of_stock ?? 0,
+            });
+        } catch {}
     };
 
 
@@ -639,13 +633,19 @@ const ProductsTab = () => {
         return () => { u1(); u2(); u3(); };
     }, [subscribe]);
 
-    // Recargar siempre al montar el componente para obtener datos frescos
-    useEffect(() => { fetchProducts(1); }, []);
     useEffect(() => { fetchProducts(currentPage); }, [currentPage]);
     useEffect(() => {
-        const t = setTimeout(() => { setCurrentPage(1); fetchProducts(1); }, 400);
+        if (!didRunProductFilterEffect.current) {
+            didRunProductFilterEffect.current = true;
+            return;
+        }
+        const t = setTimeout(() => {
+            if (currentPage !== 1) setCurrentPage(1);
+            else fetchProducts(1);
+        }, 400);
         return () => clearTimeout(t);
-    }, [searchTerm, filterCategory, filterWarehouse, filterStock, filterType, filterIssue]);
+    }, [searchTerm, filterCategory, filterWarehouse, filterStock]);
+    useEffect(() => { fetchProductKpis(); }, [filterWarehouse]);
 
     const filteredProducts = useMemo(() => {
         // Category, stock and search run in the backend. Smart filters run locally over the current page.

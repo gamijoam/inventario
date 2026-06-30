@@ -9,7 +9,6 @@ import InventoryMovementSheet from '../../../components/inventory/InventoryMovem
 import { useFeatureFlag } from '../../../hooks/useFeatureFlag';
 import apiClient from '../../../config/axios';
 import clsx from 'clsx';
-import { normalizeSearch } from '../../../utils/search';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -422,6 +421,10 @@ const KardexTab = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [filterType, setFilterType] = useState('ALL');
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+    const [currentPage, setCurrentPage] = useState(0);
+    const [kardexTotal, setKardexTotal] = useState(0);
+    const [kardexHasMore, setKardexHasMore] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
 
     const [startDate, setStartDate] = useState(() => {
@@ -433,13 +436,24 @@ const KardexTab = () => {
         return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0];
     });
 
-    const fetchKardex = async () => {
+    const ITEMS_PER_PAGE = 120;
+
+    const fetchKardex = async (page = currentPage) => {
         setIsLoading(true);
         try {
             const response = await apiClient.get('/inventory/kardex', {
-                params: { start_date: startDate, end_date: endDate, limit: 500 }
+                params: {
+                    start_date: startDate,
+                    end_date: endDate,
+                    limit: ITEMS_PER_PAGE,
+                    skip: page * ITEMS_PER_PAGE,
+                    movement_type: filterType !== 'ALL' ? filterType : undefined,
+                    q: debouncedSearchQuery || undefined,
+                }
             });
-            setKardex(response.data);
+            setKardex(response.data || []);
+            setKardexTotal(Number(response.headers?.['x-total-count'] || response.data?.length || 0));
+            setKardexHasMore(String(response.headers?.['x-has-more'] || '').toLowerCase() === 'true');
         } catch (error) {
             console.error("Error fetching kardex:", error);
         } finally {
@@ -447,22 +461,26 @@ const KardexTab = () => {
         }
     };
 
-    useEffect(() => { fetchKardex(); }, [startDate, endDate]);
+    useEffect(() => { fetchKardex(currentPage); }, [startDate, endDate, filterType, debouncedSearchQuery, currentPage]);
 
-    // Filtrado: búsqueda por nombre, IMEI o descripción + tipo
-    const filtered = kardex.filter(item => {
-        if (filterType !== 'ALL' && item.movement_type !== filterType) return false;
-        if (!searchQuery) return true;
-        const q = normalizeSearch(searchQuery);
-        const name = normalizeSearch(item.product?.name || '');
-        const desc = kardexMejorado ? normalizeSearch(`${item.description || ''} ${friendlyDescription(item)}`) : '';
-        return name.includes(q) || (kardexMejorado && desc.includes(q));
-    });
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery.trim());
+            setCurrentPage(0);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    useEffect(() => { setCurrentPage(0); }, [startDate, endDate, filterType]);
+
+    const filtered = kardex;
 
     // Stats rápidas
     const totalIn  = filtered.filter(i => getConfig(i.movement_type).dir === 'in').reduce((s, i) => s + Number(i.quantity), 0);
     const totalOut = filtered.filter(i => getConfig(i.movement_type).dir === 'out').reduce((s, i) => s + Math.abs(Number(i.quantity)), 0);
     const activeTypeLabel = filterType === 'ALL' ? 'Todos los movimientos' : getConfig(filterType).label;
+    const pageStart = kardexTotal > 0 ? currentPage * ITEMS_PER_PAGE + 1 : 0;
+    const pageEnd = currentPage * ITEMS_PER_PAGE + filtered.length;
     const hasActiveFilters = filterType !== 'ALL' || searchQuery;
     const clearFilters = () => {
         setSearchQuery('');
@@ -615,6 +633,29 @@ const KardexTab = () => {
                 </div>
             </div>
 
+            <section className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-xs font-bold text-slate-500">
+                    {kardexTotal > 0 ? (
+                        <>Mostrando <span className="text-slate-900">{pageStart}</span> - <span className="text-slate-900">{pageEnd}</span> de <span className="text-slate-900">{kardexTotal}</span> movimientos</>
+                    ) : 'Sin movimientos para los filtros actuales'}
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        disabled={isLoading || currentPage === 0}
+                        onClick={() => setCurrentPage(page => Math.max(0, page - 1))}
+                        className="h-8 rounded-md border border-slate-200 px-3 text-xs font-black text-slate-600 disabled:opacity-40"
+                    >Anterior</button>
+                    <span className="min-w-20 text-center text-xs font-black text-slate-500">Página {currentPage + 1}</span>
+                    <button
+                        type="button"
+                        disabled={isLoading || !kardexHasMore}
+                        onClick={() => setCurrentPage(page => page + 1)}
+                        className="h-8 rounded-md border border-slate-200 px-3 text-xs font-black text-slate-600 disabled:opacity-40"
+                    >Siguiente</button>
+                </div>
+            </section>
+
             <section className="hidden overflow-hidden rounded-b-lg border border-slate-200 bg-white shadow-sm md:block">
                 <table className="min-w-full divide-y divide-slate-100">
                     <thead className="bg-slate-50">
@@ -655,7 +696,7 @@ const KardexTab = () => {
             <InventoryMovementSheet
                 isOpen={isSheetOpen}
                 onClose={() => setIsSheetOpen(false)}
-                onSuccess={() => { fetchKardex(); }}
+                onSuccess={() => { fetchKardex(currentPage); }}
             />
         </div>
     );

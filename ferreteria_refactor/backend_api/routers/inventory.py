@@ -1,14 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, cast, String
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
 from datetime import datetime, timedelta
+import re
+import unicodedata
 from ..dependencies import warehouse_or_admin, require_permission, require_any_permission, get_current_active_user
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
@@ -19,6 +21,31 @@ router = APIRouter(
     tags=["inventory"],
     dependencies=[]  # Dependencies moved to individual endpoints
 )
+
+
+def _strip_accents(value: str) -> str:
+    return "".join(
+        char for char in unicodedata.normalize("NFKD", value or "")
+        if not unicodedata.combining(char)
+    )
+
+
+def _kardex_search_variants(value: Optional[str]) -> List[str]:
+    clean = _strip_accents(str(value or "").lower()).strip()
+    clean = re.sub(r"\s+", " ", clean)
+    if not clean:
+        return []
+    variants = {clean}
+    compact = re.sub(r"[\s\-_.]+", "", clean)
+    if compact and compact != clean:
+        variants.add(compact)
+    for candidate in list(variants):
+        if candidate.endswith("es") and len(candidate) > 4:
+            variants.add(candidate[:-2])
+        if candidate.endswith("s") and len(candidate) > 3:
+            variants.add(candidate[:-1])
+    return sorted(v for v in variants if len(v) >= 2)
+
 
 @router.post("/add")
 async def add_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = Depends(get_db), current_user: models.User = Depends(warehouse_or_admin)):
@@ -177,29 +204,57 @@ async def remove_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = 
 
 @router.get("/kardex", response_model=List[schemas.KardexRead], dependencies=[Depends(require_permission("inventory.kardex.view"))])
 def get_kardex(
-    product_id: Optional[int] = None, 
+    response: Response,
+    product_id: Optional[int] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    limit: int = 100, 
+    movement_type: Optional[str] = None,
+    q: Optional[str] = None,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=1000),
     db: Session = Depends(get_db)
 ):
     from sqlalchemy.orm import joinedload
-    query = db.query(models.Kardex).options(joinedload(models.Kardex.product))
-    
+    query = db.query(models.Kardex).join(models.Product, models.Kardex.product_id == models.Product.id).options(joinedload(models.Kardex.product))
+
     if product_id:
         query = query.filter(models.Kardex.product_id == product_id)
-        
+
+    if movement_type and movement_type != 'ALL':
+        query = query.filter(models.Kardex.movement_type == movement_type)
+
+    if q:
+        predicates = []
+        product_name = func.lower(func.unaccent(models.Product.name))
+        product_sku = func.lower(func.unaccent(func.coalesce(models.Product.sku, "")))
+        description = func.lower(func.unaccent(func.coalesce(models.Kardex.description, "")))
+        compact_name = func.regexp_replace(product_name, r"[\s\-_.]+", "", "g")
+        compact_sku = func.regexp_replace(product_sku, r"[\s\-_.]+", "", "g")
+        for variant in _kardex_search_variants(q):
+            compact = re.sub(r"[\s\-_.]+", "", variant)
+            like = f"%{variant}%"
+            predicates.extend([
+                product_name.like(like),
+                product_sku.like(like),
+                description.like(like),
+                compact_name.like(f"%{compact}%"),
+                compact_sku.like(f"%{compact}%"),
+                cast(models.Kardex.product_id, String).ilike(f"%{compact}%"),
+            ])
+        if predicates:
+            query = query.filter(or_(*predicates))
+
     if start_date:
         query = query.filter(models.Kardex.date >= start_date)
-        
+
     if end_date:
-        # Include the whole end day by adding time or next day logic if needed. 
-        # Assuming format YYYY-MM-DD, strict comparison might miss same-day events if not handled.
-        # Simple string compare works if client sends 'YYYY-MM-DD' and DB has 'YYYY-MM-DD HH:MM:SS'
-        # To be inclusive of the end date, we generally want <= end_date + " 23:59:59" or < next_day
         query = query.filter(models.Kardex.date <= f"{end_date} 23:59:59")
-        
-    return query.order_by(models.Kardex.date.desc()).limit(limit).all()
+
+    total = query.with_entities(func.count(models.Kardex.id)).scalar() or 0
+    response.headers["X-Total-Count"] = str(total)
+    response.headers["X-Has-More"] = "true" if skip + limit < total else "false"
+
+    return query.order_by(models.Kardex.date.desc(), models.Kardex.id.desc()).offset(skip).limit(limit).all()
 
 
 class InventoryExportRequest(BaseModel):
