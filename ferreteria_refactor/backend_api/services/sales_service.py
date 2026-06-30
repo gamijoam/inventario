@@ -1785,7 +1785,7 @@ Cierre:   {{ session.end_time }}
 # REMOVED: print_sale_ticket (Old Server-Side Logic)
 
     @staticmethod
-    def register_payment(db: Session, payment_data: schemas.SalePaymentCreate):
+    def register_payment(db: Session, payment_data: schemas.SalePaymentCreate, user_id: int = None):
         """
         Register a payment for a credit sale and update balance.
         Handles currency conversion automatically.
@@ -1794,6 +1794,49 @@ Cierre:   {{ session.end_time }}
         sale = db.query(models.Sale).filter(models.Sale.id == payment_data.sale_id).first()
         if not sale:
             raise HTTPException(status_code=404, detail="Sale not found")
+
+        payment_data.currency = _normalize_payment_currency(payment_data.currency)
+        method_name = str(payment_data.payment_method or "").strip()
+        payment_method = db.query(models.PaymentMethod).filter(
+            func.lower(models.PaymentMethod.name) == method_name.lower(),
+            models.PaymentMethod.is_active == True,
+        ).first()
+        if not payment_method:
+            raise HTTPException(status_code=400, detail=f"Metodo de pago no activo o no encontrado: {method_name or 'Sin metodo'}")
+
+        method_currency = _normalize_payment_currency(payment_method.currency_code or "FLEX")
+        if method_currency != "FLEX" and method_currency != payment_data.currency:
+            raise HTTPException(
+                status_code=400,
+                detail=f"El metodo '{payment_method.name}' solo acepta {method_currency}. El abono intenta pagar en {payment_data.currency}."
+            )
+
+        if payment_method.requires_reference and not str(payment_data.reference or "").strip():
+            raise HTTPException(status_code=400, detail=f"El metodo '{payment_method.name}' requiere referencia.")
+
+        if payment_data.currency in ("USD", "$"):
+            payment_data.currency = "USD"
+            payment_data.exchange_rate = Decimal("1")
+        else:
+            db_rate = db.query(models.ExchangeRate).filter(
+                or_(
+                    models.ExchangeRate.currency_code == payment_data.currency,
+                    models.ExchangeRate.currency_symbol == payment_data.currency,
+                ),
+                models.ExchangeRate.is_active == True,
+                models.ExchangeRate.is_default == True,
+            ).first()
+            if not db_rate:
+                db_rate = db.query(models.ExchangeRate).filter(
+                    or_(
+                        models.ExchangeRate.currency_code == payment_data.currency,
+                        models.ExchangeRate.currency_symbol == payment_data.currency,
+                    ),
+                    models.ExchangeRate.is_active == True,
+                ).first()
+            if not db_rate or not db_rate.rate or Decimal(str(db_rate.rate)) <= 0:
+                raise HTTPException(status_code=400, detail=f"Moneda no valida o sin tasa activa: {payment_data.currency}")
+            payment_data.exchange_rate = Decimal(str(db_rate.rate))
         
         # 2. Record Payment
         # Determine payment date (allow backdating)
@@ -1817,15 +1860,24 @@ Cierre:   {{ session.end_time }}
         # If Sale is from THIS session, 'financials.py' already picks up the SalePayment.
         
         active_session = None
-        if sale.session_id:
+        if user_id:
             active_session = db.query(models.CashSession).filter(
+                models.CashSession.status == "OPEN",
+                models.CashSession.user_id == user_id,
+            ).order_by(models.CashSession.start_time.desc(), models.CashSession.id.desc()).first()
+        if not active_session and sale.session_id:
+            sale_session = db.query(models.CashSession).filter(
                 models.CashSession.id == sale.session_id,
                 models.CashSession.status == "OPEN"
             ).first()
-        if not active_session:
+            if sale_session and (sale_session.user_id == user_id or _user_has_any_sale_permission(db, user_id, ["cash.audit.view", "cash.force_close"])):
+                active_session = sale_session
+        if not active_session and _user_has_any_sale_permission(db, user_id, ["cash.audit.view", "cash.force_close"]):
             active_session = db.query(models.CashSession).filter(
                 models.CashSession.status == "OPEN"
             ).order_by(models.CashSession.start_time.desc(), models.CashSession.id.desc()).first()
+        if not active_session:
+            raise HTTPException(status_code=400, detail="No hay una caja abierta para registrar este abono.")
         if active_session:
             # Check if Sale is older than session start
             # Use buffer of 1 minute to avoid race conditions
@@ -1856,21 +1908,12 @@ Cierre:   {{ session.end_time }}
         # Assuming sale.balance_pending is in USD (Anchor)
         amount_usd = 0.0
         
-        is_anchor = payment_data.currency == "USD" # Simplified check, should ideally check config
+        is_anchor = payment_data.currency == "USD"
         
         if is_anchor:
             amount_usd = float(payment_data.amount)
         else:
-            # Convert to USD
-            # rate = Bs / USD. So USD = Bs / rate
-            if payment_data.exchange_rate and payment_data.exchange_rate > 0:
-                amount_usd = float(payment_data.amount) / float(payment_data.exchange_rate)
-            else:
-                 # Fallback if no rate provided (shouldn't happen from frontend)
-                 # Try to find today's rate or error out?
-                 # ideally we trust the rate sent with payment
-                 amount_usd = 0 # Safety, or raise error?
-                 print(f"[WARNING] Payment in {payment_data.currency} without rate!")
+            amount_usd = float(payment_data.amount) / float(payment_data.exchange_rate)
 
         # 4. Update Balance
         current_balance = float(sale.balance_pending if sale.balance_pending is not None else sale.total_amount)

@@ -2685,47 +2685,25 @@ def list_print_jobs(
 @router.post("/sales/payments", dependencies=[Depends(cashier_or_admin)])
 def register_sale_payment(
     payment_data: schemas.SalePaymentCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     """Register a payment (abono) for a credit sale"""
     from ..services.sales_service import SalesService
-    return SalesService.register_payment(db, payment_data)
+    return SalesService.register_payment(db, payment_data, user_id=current_user.id)
 
-@router.put("/sales/{sale_id}", dependencies=[Depends(cashier_or_admin)])
+@router.put("/sales/{sale_id}", dependencies=[Depends(require_permission("accounting.ledger.rebuild"))])
 def update_sale(
     sale_id: int,
     balance_pending: float = None,
     paid: bool = None,
     db: Session = Depends(get_db)
 ):
-    """Update sale balance and paid status"""
-    print(f"[UPDATE] UPDATE SALE {sale_id}: balance_pending={balance_pending}, paid={paid}")
-    
-    sale = db.query(models.Sale).filter(models.Sale.id == sale_id).first()
-    if not sale:
-        raise HTTPException(status_code=404, detail="Sale not found")
-    
-    print(f"   Before: paid={sale.paid}, balance={sale.balance_pending}")
-    
-    if balance_pending is not None:
-        sale.balance_pending = balance_pending
-    
-    if paid is not None:
-        sale.paid = paid
-    
-    # Capture data
-    response_data = {
-        "id": sale.id,
-        "balance_pending": sale.balance_pending,
-        "paid": sale.paid
-    }
-
-    db.commit()
-    # db.refresh(sale)
-    
-    print(f"   After: paid={response_data['paid']}, balance={response_data['balance_pending']}")
-    
-    return {"status": "success", "sale": response_data}
+    """Legacy direct sale mutation endpoint. Use controlled payment/return flows instead."""
+    raise HTTPException(
+        status_code=410,
+        detail="Actualizacion directa de ventas deshabilitada. Usa abonos, devoluciones o ajustes auditados."
+    )
 
 @router.post("/bulk", response_model=schemas.BulkImportResult, dependencies=[Depends(require_permission("inventory.products.create"))])
 def bulk_create_products(products: List[schemas.ProductCreate], db: Session = Depends(get_db)):
