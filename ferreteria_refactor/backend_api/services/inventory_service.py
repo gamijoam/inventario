@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, func
 from sqlalchemy.exc import IntegrityError
 import asyncio
 import logging
@@ -72,6 +72,37 @@ class InventoryService:
                 status_code=409,
                 detail="Este archivo de traslado ya fue importado anteriormente en esta empresa.",
             ) from exc
+
+    @staticmethod
+    def _reconcile_transfer_serialized_products(db: Session, product_ids) -> None:
+        """Final safety net for IMEI imports: POS stock must match AVAILABLE serials."""
+        for product_id in sorted({int(pid) for pid in product_ids if pid}):
+            balance = reconcile_serialized_product_stock(db, product_id)
+            if balance is None:
+                continue
+
+            db.flush()
+            product = db.query(models.Product).filter(models.Product.id == product_id).first()
+            available_total = Decimal(db.query(func.count(models.ProductInstance.id)).filter(
+                models.ProductInstance.product_id == product_id,
+                models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE,
+            ).scalar() or 0)
+            stock_total_raw = db.query(func.coalesce(func.sum(models.ProductStock.quantity), 0)).filter(
+                models.ProductStock.product_id == product_id,
+            ).scalar()
+            stock_total = Decimal(str(stock_total_raw or 0))
+            product_stock = Decimal(str(product.stock or 0)) if product else Decimal("0")
+
+            if product_stock != available_total or stock_total != available_total:
+                name = product.name if product else f"ID {product_id}"
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        f"No se pudo cuadrar el stock serializado de '{name}'. "
+                        f"Producto={product_stock}, almacenes={stock_total}, IMEIs={available_total}. "
+                        "El traslado fue detenido para evitar inventario inconsistente."
+                    ),
+                )
 
     @staticmethod
     def get_product_availability(db: Session, product_id: int, warehouse_id: int = None) -> dict:
@@ -600,10 +631,11 @@ class InventoryService:
         success_count = 0
         failure_count = 0
         errors = []
+        serialized_product_ids = set()
         
         for item in data["items"]:
             sku = item.get("sku")
-            qty = float(item.get("quantity", 0))
+            qty = Decimal(str(item.get("quantity", 0)))
             name = item.get("name", "Unknown")
             serial_numbers = [str(s).strip().upper() for s in item.get("serial_numbers", []) if str(s).strip()]
             
@@ -615,7 +647,20 @@ class InventoryService:
             product = db.query(models.Product).filter(models.Product.sku == sku).first()
             
             if product:
-                product.stock += Decimal(str(qty))
+                product.stock += qty
+                target_warehouse_id = item.get("warehouse_id") or 1
+                p_stock = db.query(models.ProductStock).filter(
+                    models.ProductStock.product_id == product.id,
+                    models.ProductStock.warehouse_id == target_warehouse_id,
+                ).first()
+                if p_stock:
+                    p_stock.quantity += qty
+                else:
+                    db.add(models.ProductStock(
+                        product_id=product.id,
+                        warehouse_id=target_warehouse_id,
+                        quantity=qty,
+                    ))
                 if serial_numbers:
                     product.has_imei = True
                 
@@ -638,16 +683,23 @@ class InventoryService:
                         continue
                     db.add(models.ProductInstance(
                         product_id=product.id,
-                        warehouse_id=item.get("warehouse_id") or 1,
+                        warehouse_id=target_warehouse_id,
                         serial_number=serial,
                         status=models.ProductInstanceStatus.AVAILABLE,
                     ))
+                if serial_numbers:
+                    serialized_product_ids.add(product.id)
+                    balance_after = reconcile_serialized_product_stock(db, product.id)
+                    if balance_after is not None:
+                        kardex.balance_after = balance_after
                 success_count += 1
             else:
                 errors.append(f"SKU Not Found: {sku} ({name}) - Manual creation required")
                 failure_count += 1
         
         try:
+            if serialized_product_ids:
+                InventoryService._reconcile_transfer_serialized_products(db, serialized_product_ids)
             if success_count > 0:
                 InventoryService._mark_transfer_imported(db, package_id, data.get('source_company', 'Unknown'))
             db.commit()
@@ -774,6 +826,7 @@ class InventoryService:
         imported_units_count = 0.0
         imported_imei_count = 0
         errors = []
+        serialized_product_ids = set()
         source_company = data.get("source_company", "Unknown")
         package_id = InventoryService._canonical_transfer_package_id(data)
         InventoryService._assert_transfer_not_imported(db, package_id)
@@ -869,8 +922,10 @@ class InventoryService:
                         ))
 
                     if serial_numbers:
-                        reconcile_serialized_product_stock(db, product.id)
-                        kardex.balance_after = product.stock
+                        serialized_product_ids.add(product.id)
+                        balance_after = reconcile_serialized_product_stock(db, product.id)
+                        if balance_after is not None:
+                            kardex.balance_after = balance_after
 
                     success_count += 1
                     imported_units_count += float(qty)
@@ -915,8 +970,10 @@ class InventoryService:
                         ))
 
                     if serial_numbers:
-                        reconcile_serialized_product_stock(db, new_product.id)
-                        kardex.balance_after = new_product.stock
+                        serialized_product_ids.add(new_product.id)
+                        balance_after = reconcile_serialized_product_stock(db, new_product.id)
+                        if balance_after is not None:
+                            kardex.balance_after = balance_after
 
                     success_count += 1
                     created_count += 1
@@ -932,6 +989,8 @@ class InventoryService:
                 failure_count += 1
 
         try:
+            if serialized_product_ids:
+                InventoryService._reconcile_transfer_serialized_products(db, serialized_product_ids)
             if success_count > 0:
                 InventoryService._mark_transfer_imported(db, package_id, source_company)
             db.commit()
