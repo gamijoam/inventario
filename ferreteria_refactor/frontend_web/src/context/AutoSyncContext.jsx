@@ -13,6 +13,13 @@ export const useAutoSync = () => {
     return context;
 };
 
+const buildSyncStateFromStatus = (data) => ({
+    pendingSales: Number(data?.pending_sales || 0),
+    pendingSummary: data?.pending_summary || null,
+    totalPending: Number(data?.pending_summary?.total_pending || data?.pending_sales || 0),
+    metadataReady: data?.pending_summary?.metadata_ready !== false,
+});
+
 export const AutoSyncProvider = ({ children }) => {
     // Feature flag: Skip all sync logic if disabled
     const isSyncEnabled = import.meta.env.VITE_ENABLE_SYNC === 'true';
@@ -25,10 +32,36 @@ export const AutoSyncProvider = ({ children }) => {
         isOnline: true,
         isSyncing: false,
         pendingSales: 0,
+        pendingSummary: null,
+        totalPending: 0,
+        metadataReady: true,
         error: null
     });
 
-    // Detectar conexión a internet
+    const refreshSyncStatus = useCallback(async () => {
+        if (!user) return { success: false, reason: 'not_authenticated' };
+
+        try {
+            const response = await apiClient.get('/sync-local/status', {
+                _silent403: true,
+                _silentNetworkError: true,
+            });
+            const statusPatch = buildSyncStateFromStatus(response.data);
+            setSyncStatus(prev => ({
+                ...prev,
+                ...statusPatch,
+                error: response.data?.configured ? prev.error : 'Modo local no configurado',
+            }));
+            return { success: true, data: response.data };
+        } catch (error) {
+            if (![401, 403].includes(error.response?.status)) {
+                console.warn('[AutoSync] No se pudo leer estado local:', error.message);
+            }
+            return { success: false, reason: 'error', error };
+        }
+    }, [user]);
+
+    // Detectar conexion a internet
     const checkOnlineStatus = useCallback(async () => {
         // SAFEGUARD: No intentar conectar si no hay URL configurada o es localhost
         if (!cloudConfig.cloudUrl ||
@@ -45,34 +78,34 @@ export const AutoSyncProvider = ({ children }) => {
         }
 
         try {
-            // USAR BACKEND PARA VERIFICAR CONEXIÓN (Evita CORS)
+            // USAR BACKEND PARA VERIFICAR CONEXION (evita CORS)
             const response = await apiClient.post('/cloud/test-connection', {
-                url: cloudConfig.cloudUrl
+                url: cloudConfig.cloudUrl,
+                tenant_subdomain: cloudConfig.tenantSubdomain || '',
             }, { _silentNetworkError: true });
 
             if (response.data.success) {
                 setSyncStatus(prev => ({ ...prev, isOnline: true, error: null }));
                 return true;
-            } else {
-                setSyncStatus(prev => ({ ...prev, isOnline: false, error: 'Servidor no responde' }));
-                return false;
             }
+
+            setSyncStatus(prev => ({ ...prev, isOnline: false, error: 'Servidor no responde' }));
+            return false;
         } catch (error) {
-            console.warn('[AutoSync] Conexión fallida:', error);
+            console.warn('[AutoSync] Conexion fallida:', error);
             setSyncStatus(prev => ({
                 ...prev,
                 isOnline: false,
-                error: 'Sin conexión a nube'
+                error: 'Sin conexion a nube'
             }));
             return false;
         }
-    }, [cloudConfig.cloudUrl, cloudConfig.isConfigured]);
+    }, [cloudConfig.cloudUrl, cloudConfig.isConfigured, cloudConfig.tenantSubdomain]);
 
     // Sync cloud_url to backend once when config changes (uses cookies, not localStorage token)
-    // ⚠️ ONLY admin users have permission to PUT /config/cloud_url — skip for CASHIER/WAREHOUSE
+    // Solo admin tiene permiso para PUT /config/cloud_url; cajeros quedan fuera para evitar 403.
     useEffect(() => {
         if (!cloudConfig.isConfigured || !cloudConfig.cloudUrl) return;
-        // If user role is known and is NOT admin, skip entirely to avoid 403
         if (user?.role && user.role !== 'ADMIN') return;
 
         apiClient.put('/config/cloud_url', {
@@ -80,13 +113,13 @@ export const AutoSyncProvider = ({ children }) => {
             value: cloudConfig.cloudUrl
         }, {
             _silent403: true,
-            _silentNetworkError: true  // No mostrar toast si falla la red
+            _silentNetworkError: true
         }).catch(e => {
-            console.warn('[AutoSync] Falló sync de cloud_url:', e.message);
+            console.warn('[AutoSync] Fallo sync de cloud_url:', e.message);
         });
     }, [cloudConfig.isConfigured, cloudConfig.cloudUrl, user?.role]);
 
-    // Función de sincronización
+    // Funcion de sincronizacion
     const isSyncingRef = React.useRef(false);
 
     const performSync = useCallback(async (manual = false) => {
@@ -97,13 +130,13 @@ export const AutoSyncProvider = ({ children }) => {
         }
 
         if (isSyncingRef.current) {
-            console.log('⏳ Sincronización ya en progreso...');
-            return;
+            console.log('[SYNC] Sincronizacion ya en progreso...');
+            return { success: false, reason: 'already_syncing' };
         }
 
         if (!cloudConfig.isConfigured) {
             if (manual) {
-                showNotification('⚠️ No configurado', 'Configura la URL del servidor primero', 'warning');
+                showNotification('No configurado', 'Configura la URL del servidor primero', 'warning');
             }
             return { success: false, reason: 'not_configured' };
         }
@@ -112,43 +145,44 @@ export const AutoSyncProvider = ({ children }) => {
         setSyncStatus(prev => ({ ...prev, isSyncing: true, error: null }));
 
         try {
-            // 1. Verificar conexión
+            // 1. Verificar conexion
             const isOnline = await checkOnlineStatus();
 
             if (!isOnline) {
                 if (manual) {
-                    // Solo notificar si fue manual
-                    showNotification('⚠️ Sin conexión', 'No se puede sincronizar sin internet', 'warning');
+                    showNotification('Sin conexion', 'No se puede sincronizar sin internet', 'warning');
                 }
                 setSyncStatus(prev => ({ ...prev, isSyncing: false }));
+                isSyncingRef.current = false;
                 return { success: false, reason: 'offline' };
             }
 
-            // 2. Ejecutar sincronización
-            console.log('🔄 Iniciando sincronización...');
+            // 2. Ejecutar sincronizacion
+            console.log('[SYNC] Iniciando sincronizacion...');
             const response = await apiClient.post('/sync-local/trigger');
+            const statusPatch = buildSyncStateFromStatus(response.data);
 
             // 3. Actualizar estado
             setSyncStatus(prev => ({
                 ...prev,
+                ...statusPatch,
                 lastSync: new Date(),
                 isSyncing: false,
-                pendingSales: 0,
                 error: null
             }));
             isSyncingRef.current = false;
 
-            // 4. Notificar éxito
+            // 4. Notificar exito
             if (manual) {
-                showNotification('✅ Sincronización exitosa', 'Datos actualizados correctamente', 'success');
+                showNotification('Sincronizacion exitosa', 'Datos actualizados correctamente', 'success');
             } else {
-                console.log('✅ Sincronización automática completada');
+                console.log('[SYNC] Sincronizacion automatica completada');
             }
 
-            return { success: true };
+            return { success: true, data: response.data };
 
         } catch (error) {
-            console.error('❌ Error en sincronización:', error);
+            console.error('[SYNC] Error en sincronizacion:', error);
 
             const errorMsg = error.response?.data?.detail || error.message || 'Error desconocido';
 
@@ -160,19 +194,19 @@ export const AutoSyncProvider = ({ children }) => {
             }));
 
             if (manual) {
-                showNotification('❌ Error de sincronización', errorMsg, 'error');
+                showNotification('Error de sincronizacion', errorMsg, 'error');
             }
 
             return { success: false, reason: 'error', error: errorMsg };
         }
-    }, [checkOnlineStatus, cloudConfig.isConfigured]); // syncStatus.isSyncing reemplazado por ref
+    }, [checkOnlineStatus, cloudConfig.isConfigured, isSyncEnabled]);
 
-    // Sincronización manual (desde botón)
+    // Sincronizacion manual (desde boton)
     const syncNow = useCallback(() => {
         return performSync(true);
     }, [performSync]);
 
-    // Configurar sincronización automática
+    // Configurar sincronizacion automatica
     useEffect(() => {
         // Feature flag: Skip auto-sync if disabled
         if (!isSyncEnabled) {
@@ -182,15 +216,15 @@ export const AutoSyncProvider = ({ children }) => {
 
         if (!cloudConfig.syncEnabled || !cloudConfig.isConfigured) return;
 
-        // Sincronización inicial después de 30 segundos
+        // Sincronizacion inicial despues de 2 minutos
         const initialSync = setTimeout(() => {
-            console.log('🔄 Sincronización inicial automática...');
+            console.log('[SYNC] Sincronizacion inicial automatica...');
             performSync(false);
-        }, 120000); // cada 2 min
+        }, 120000);
 
-        // Sincronización periódica
+        // Sincronizacion periodica
         const interval = setInterval(() => {
-            console.log(`🔄 Sincronización automática (cada ${cloudConfig.syncIntervalMinutes} min)...`);
+            console.log(`[SYNC] Sincronizacion automatica cada ${cloudConfig.syncIntervalMinutes} min...`);
             performSync(false);
         }, cloudConfig.syncIntervalMinutes * 60 * 1000);
 
@@ -198,20 +232,29 @@ export const AutoSyncProvider = ({ children }) => {
             clearTimeout(initialSync);
             clearInterval(interval);
         };
-    }, [cloudConfig.syncEnabled, cloudConfig.syncIntervalMinutes, cloudConfig.isConfigured]); // performSync excluido intencionalmente - usa ref para evitar re-renders
+    }, [cloudConfig.syncEnabled, cloudConfig.syncIntervalMinutes, cloudConfig.isConfigured, isSyncEnabled]);
 
-    // Verificar estado online cada 2 minutos
+    // Refrescar estado local para el asistente tecnico/indicadores.
+    useEffect(() => {
+        if (!user) return;
+        refreshSyncStatus();
+        const interval = setInterval(refreshSyncStatus, 60000);
+        return () => clearInterval(interval);
+    }, [refreshSyncStatus, user]);
+
+    // Verificar estado online cada 5 minutos
     useEffect(() => {
         if (!cloudConfig.isConfigured) return;
 
-        const interval = setInterval(checkOnlineStatus, 300000); // cada 5 min
-        checkOnlineStatus(); // Check inicial
+        const interval = setInterval(checkOnlineStatus, 300000);
+        checkOnlineStatus();
         return () => clearInterval(interval);
-    }, [cloudConfig.isConfigured]); // checkOnlineStatus excluido para evitar re-renders
+    }, [cloudConfig.isConfigured, checkOnlineStatus]);
 
     const value = {
         syncStatus,
         syncNow,
+        refreshSyncStatus,
         checkOnlineStatus
     };
 
@@ -222,19 +265,12 @@ export const AutoSyncProvider = ({ children }) => {
     );
 };
 
-// Helper para notificaciones (puedes usar react-toastify o similar)
 function showNotification(title, message, type) {
-    // Implementar con tu librería de notificaciones preferida
-    // Por ahora, solo console
     console.log(`[${type.toUpperCase()}] ${title}: ${message}`);
 
-    // Ejemplo con alert (reemplazar con toast)
-    if (type === 'error' || type === 'warning') {
-        // En producción, usar console en lugar de alert para no bloquear la UI
-        if (type === 'error') console.error(`[AutoSync] ${title}: ${message}`);
-        else console.warn(`[AutoSync] ${title}: ${message}`);
-
-        // TODO: Integrar con react-hot-toast si está disponible:
-        // import toast from 'react-hot-toast'; toast.error(message);
+    if (type === 'error') {
+        console.error(`[AutoSync] ${title}: ${message}`);
+    } else if (type === 'warning') {
+        console.warn(`[AutoSync] ${title}: ${message}`);
     }
 }
