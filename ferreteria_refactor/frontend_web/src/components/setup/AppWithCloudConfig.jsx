@@ -14,8 +14,8 @@ const AppWithCloudConfig = ({ children }) => {
     const [showWizard, setShowWizard] = useState(false);
 
     const shouldShowWizard = useMemo(() => {
-        if (!setupWizardEnabled) return false;
         if (setupRequestedByUrl()) return true;
+        if (!setupWizardEnabled) return false;
         const completed = localStorage.getItem('offline_setup_completed') === 'true';
         return !completed && !config?.isConfigured;
     }, [config?.isConfigured, setupWizardEnabled]);
