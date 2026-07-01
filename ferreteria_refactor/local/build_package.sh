@@ -188,7 +188,7 @@ fi
 # ============================================================
 echo "[4/6] Frontend (Vite build)..."
 cd "$ROOT_DIR/frontend_web"
-VITE_API_URL=http://localhost:8000 npx vite build --mode production 2>&1 | tail -3
+VITE_API_URL=http://localhost:8000 VITE_OFFLINE_SETUP=true VITE_DESKTOP_OFFLINE=true VITE_SETUP_WIZARD=true VITE_ENABLE_SYNC=true npx vite build --mode production 2>&1 | tail -3
 mkdir -p "$DIST_DIR/frontend"
 cp -r dist/* "$DIST_DIR/frontend/"
 cd "$SCRIPT_DIR"

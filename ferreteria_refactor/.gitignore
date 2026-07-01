@@ -69,3 +69,6 @@ node_modules/
 frontend/
 local/cache/
 local/dist/
+
+# Offline packages
+local/*.zip
