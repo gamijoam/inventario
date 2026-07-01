@@ -287,6 +287,13 @@
     letter-spacing: 0;
 }
 
+.miw-field small {
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.35;
+    font-weight: 700;
+}
+
 .miw-field input,
 .miw-field select {
     width: 100%;

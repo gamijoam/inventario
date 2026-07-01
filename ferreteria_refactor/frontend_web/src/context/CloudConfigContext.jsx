@@ -5,6 +5,24 @@ import { API_BASE_URL } from '../config/constants';
 const CloudConfigContext = createContext();
 
 const isDesktopOffline = import.meta.env.VITE_DESKTOP_OFFLINE === 'true' || import.meta.env.VITE_OFFLINE_SETUP === 'true';
+
+const cleanCloudUrl = (value = '') => {
+    let cleanUrl = value.trim();
+    if (!cleanUrl) return '';
+
+    cleanUrl = cleanUrl.split('#')[0].trim();
+    cleanUrl = cleanUrl.replace(/\/+$/, '');
+
+    const pathsToRemove = ['/login', '/api/v1', '/api'];
+    for (const path of pathsToRemove) {
+        if (cleanUrl.endsWith(path)) {
+            cleanUrl = cleanUrl.slice(0, -path.length).replace(/\/+$/, '');
+        }
+    }
+
+    return cleanUrl;
+};
+
 const defaultConfig = {
     cloudUrl: isDesktopOffline ? '' : API_BASE_URL,
     tenantSubdomain: '',
@@ -56,14 +74,7 @@ export const CloudConfigProvider = ({ children }) => {
 
     const saveConfig = async (newConfig) => {
         try {
-            let cleanUrl = newConfig.cloudUrl ? newConfig.cloudUrl.trim() : '';
-            if (cleanUrl) {
-                if (cleanUrl.endsWith('/')) cleanUrl = cleanUrl.slice(0, -1);
-                const pathsToRemove = ['/login', '/api/v1', '/api'];
-                for (const path of pathsToRemove) {
-                    if (cleanUrl.endsWith(path)) cleanUrl = cleanUrl.slice(0, -path.length);
-                }
-            }
+            const cleanUrl = cleanCloudUrl(newConfig.cloudUrl || '');
 
             const configToSave = {
                 cloudUrl: cleanUrl,

@@ -17,9 +17,11 @@ import {
 import './InitialSetupWizard.css';
 
 const CLOUD_ROOTS = [
-    'miinventariofacil.com',
-    'qa.miinventariofacil.com',
+    { value: 'miinventariofacil.com', label: 'Produccion', example: 'tenant.miinventariofacil.com' },
+    { value: 'qa.miinventariofacil.com', label: 'QA / pruebas', example: 'tenant.qa.miinventariofacil.com' },
 ];
+
+const CLOUD_ROOT_VALUES = CLOUD_ROOTS.map(root => root.value);
 
 const INSTALL_MODES = [
     {
@@ -42,7 +44,29 @@ const INSTALL_MODES = [
     },
 ];
 
-const normalizeTenant = (value) => value.trim().toLowerCase().replace(/_/g, '-');
+const normalizeTenant = (value = '') => value.trim().toLowerCase().replace(/_/g, '-').replace(/[^a-z0-9-]/g, '');
+
+const parseTenantInput = (value = '') => {
+    const raw = value.trim().toLowerCase();
+    if (!raw) return { tenant: '', cloudRoot: null };
+
+    if (raw.includes('.') || raw.includes('/') || raw.includes('://')) {
+        try {
+            const url = new URL(raw.startsWith('http://') || raw.startsWith('https://') ? raw : `https://${raw}`);
+            const host = url.hostname.replace(/^www\./, '');
+            const cloudRoot = CLOUD_ROOT_VALUES.find(root => host === root || host.endsWith(`.${root}`));
+            if (cloudRoot) {
+                const tenantPart = host === cloudRoot ? '' : host.slice(0, -(cloudRoot.length + 1));
+                const tenant = tenantPart.split('.').filter(Boolean)[0] || '';
+                return { tenant: normalizeTenant(tenant), cloudRoot };
+            }
+        } catch (error) {
+            // Si no es una URL valida, se trata como subdominio normal.
+        }
+    }
+
+    return { tenant: normalizeTenant(raw), cloudRoot: null };
+};
 
 const InitialSetupWizard = ({ onComplete }) => {
     const { saveConfig, testConnection } = useCloudConfig();
@@ -51,7 +75,7 @@ const InitialSetupWizard = ({ onComplete }) => {
         installMode: 'store_server',
         localServerName: 'Servidor principal',
         tenantSubdomain: '',
-        cloudRoot: CLOUD_ROOTS[0],
+        cloudRoot: CLOUD_ROOTS[0].value,
         useCustomUrl: false,
         customUrl: '',
         cloudUrl: '',
@@ -80,6 +104,16 @@ const InitialSetupWizard = ({ onComplete }) => {
     const handleInputChange = (event) => {
         const { name, value, type, checked } = event.target;
         updateField(name, type === 'checkbox' ? checked : value);
+    };
+
+    const handleTenantChange = (event) => {
+        const parsed = parseTenantInput(event.target.value);
+        setFormData(prev => ({
+            ...prev,
+            tenantSubdomain: parsed.tenant,
+            cloudRoot: parsed.cloudRoot || prev.cloudRoot,
+        }));
+        setTestResult(null);
     };
 
     const handleTestConnection = async () => {
@@ -229,15 +263,18 @@ const InitialSetupWizard = ({ onComplete }) => {
                                     <input
                                         name="tenantSubdomain"
                                         value={formData.tenantSubdomain}
-                                        onChange={(event) => updateField('tenantSubdomain', normalizeTenant(event.target.value))}
-                                        placeholder="oscarcelltucacas"
+                                        onChange={handleTenantChange}
+                                        placeholder="restaurante3 o URL completa"
                                     />
+                                    <small>Puedes escribir solo el tenant o pegar https://restaurante3.qa.miinventariofacil.com/#/login.</small>
                                 </label>
 
                                 <label className="miw-field">
                                     <span>Ambiente</span>
                                     <select name="cloudRoot" value={formData.cloudRoot} onChange={handleInputChange} disabled={formData.useCustomUrl}>
-                                        {CLOUD_ROOTS.map(root => <option key={root} value={root}>{root}</option>)}
+                                        {CLOUD_ROOTS.map(root => (
+                                            <option key={root.value} value={root.value}>{root.label} - {root.value}</option>
+                                        ))}
                                     </select>
                                 </label>
                             </div>
@@ -261,6 +298,7 @@ const InitialSetupWizard = ({ onComplete }) => {
                                         onChange={handleInputChange}
                                         placeholder="https://tenant.miinventariofacil.com"
                                     />
+                                    <small>Solo usala si el cliente tiene un dominio distinto al patron normal.</small>
                                 </label>
                             )}
 

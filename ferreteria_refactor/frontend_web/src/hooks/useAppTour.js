@@ -1,16 +1,10 @@
 import { useNavigate } from 'react-router-dom';
+import { driver as bundledDriver } from 'driver.js';
+import 'driver.js/dist/driver.css';
 import api from '../config/axios';
 import { TOUR_FLOWS } from '../config/tourFlows';
 
-// --- Driver.js CDN Loader ---
-const getDriver = () => {
-    if (typeof window === 'undefined') return null;
-    const w = window;
-    if (w.driver && w.driver.js && w.driver.js.driver) return w.driver.js.driver;
-    if (w.driver && w.driver.driver) return w.driver.driver;
-    if (typeof w.driver === 'function') return w.driver;
-    return null;
-};
+const getDriver = () => bundledDriver;
 
 // --- Per-tour completion tracking (localStorage) ---
 const STORAGE_KEY = 'completed_tours';
@@ -109,23 +103,39 @@ export const useAppTour = () => {
         }
 
         const flow = TOUR_FLOWS[flowId] || TOUR_FLOWS.WELCOME;
+        const preparedSteps = [];
 
-        const steps = flow.steps.map((step, index) => ({
+        for (const step of flow.steps) {
+            if (step.navigate) {
+                await navigateForTour(step.navigate);
+            }
+
+            const preparedStep = { ...step };
+            if (preparedStep.element) {
+                const el = await waitForElement(preparedStep.element, 1800);
+                if (!el) {
+                    console.warn(`Tour: se omite elemento no disponible ${preparedStep.element}`);
+                    delete preparedStep.element;
+                }
+            }
+            preparedSteps.push(preparedStep);
+        }
+
+        const steps = preparedSteps.map((step, index) => ({
             ...step,
             onDeselected: async () => {
-                const nextStep = flow.steps[index + 1];
+                const nextStep = preparedSteps[index + 1];
                 if (nextStep?.navigate) {
                     await navigateForTour(nextStep.navigate);
-                    if (nextStep.element) await waitForElement(nextStep.element);
+                    if (nextStep.element) await waitForElement(nextStep.element, 1800);
                 }
             },
             onHighlightStarted: async () => {
                 if (step.navigate) {
                     await navigateForTour(step.navigate);
-                    if (step.element) await waitForElement(step.element);
+                    if (step.element) await waitForElement(step.element, 1800);
                 }
 
-                // If it's a sidebar group, try to expand it
                 if (step.element && step.element.includes('group')) {
                     const el = document.querySelector(step.element);
                     if (el && el.getAttribute('aria-expanded') === 'false') {
@@ -162,7 +172,13 @@ export const useAppTour = () => {
 
         const firstElement = steps.find(step => step.element)?.element;
         if (firstElement) await waitForElement(firstElement, 2500);
-        driverObj.drive();
+        try {
+            driverObj.drive();
+        } catch (error) {
+            console.error('Error iniciando tour guiado:', error);
+            driverObj.destroy?.();
+            if (onComplete) onComplete();
+        }
     };
 
     const markAsCompleted = async () => {
