@@ -1,197 +1,381 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useCloudConfig } from '../../context/CloudConfigContext';
 import toast from 'react-hot-toast';
+import {
+    AlertTriangle,
+    ArrowLeft,
+    ArrowRight,
+    CheckCircle2,
+    Cloud,
+    MonitorCog,
+    RefreshCw,
+    Server,
+    ShieldCheck,
+    Store,
+    Wifi,
+} from 'lucide-react';
 import './InitialSetupWizard.css';
+
+const CLOUD_ROOTS = [
+    'miinventariofacil.com',
+    'qa.miinventariofacil.com',
+];
+
+const INSTALL_MODES = [
+    {
+        id: 'store_server',
+        title: 'Servidor local de tienda',
+        description: 'Recomendado para tiendas con varias cajas. Este equipo guarda la base local y sincroniza con la nube.',
+        icon: Server,
+    },
+    {
+        id: 'client_terminal',
+        title: 'Caja cliente en red local',
+        description: 'Usa otra PC como servidor local. Ideal para caja 2, caja 3 o equipos secundarios.',
+        icon: MonitorCog,
+    },
+    {
+        id: 'standalone',
+        title: 'Equipo unico',
+        description: 'Una sola computadora vende, imprime y sincroniza. Sencillo para negocios pequenos.',
+        icon: Store,
+    },
+];
+
+const normalizeTenant = (value) => value.trim().toLowerCase().replace(/_/g, '-');
 
 const InitialSetupWizard = ({ onComplete }) => {
     const { saveConfig, testConnection } = useCloudConfig();
     const [step, setStep] = useState(1);
     const [formData, setFormData] = useState({
+        installMode: 'store_server',
+        localServerName: 'Servidor principal',
+        tenantSubdomain: '',
+        cloudRoot: CLOUD_ROOTS[0],
+        useCustomUrl: false,
+        customUrl: '',
         cloudUrl: '',
         syncEnabled: true,
-        syncIntervalMinutes: 10
+        syncIntervalMinutes: 10,
+        safeStockMode: true,
     });
     const [testing, setTesting] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [testResult, setTestResult] = useState(null);
 
-    const handleInputChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
-        setTestResult(null); // Reset test result when URL changes
+    const computedCloudUrl = useMemo(() => {
+        if (formData.useCustomUrl) return formData.customUrl.trim();
+        const tenant = normalizeTenant(formData.tenantSubdomain);
+        if (!tenant) return '';
+        return `https://${tenant}.${formData.cloudRoot}`;
+    }, [formData.cloudRoot, formData.customUrl, formData.tenantSubdomain, formData.useCustomUrl]);
+
+    const canContinueConnection = testResult?.success && computedCloudUrl;
+
+    const updateField = (name, value) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+        setTestResult(null);
+    };
+
+    const handleInputChange = (event) => {
+        const { name, value, type, checked } = event.target;
+        updateField(name, type === 'checkbox' ? checked : value);
     };
 
     const handleTestConnection = async () => {
-        if (!formData.cloudUrl.trim()) {
-            setTestResult({ success: false, error: 'Por favor ingresa una URL' });
+        const tenant = normalizeTenant(formData.tenantSubdomain);
+        const url = computedCloudUrl;
+
+        if (!url) {
+            setTestResult({ success: false, error: 'Indica el subdominio del tenant o una URL personalizada.' });
             return;
         }
 
         setTesting(true);
         setTestResult(null);
-
-        const result = await testConnection(formData.cloudUrl);
+        const result = await testConnection(url, tenant);
         setTestResult(result);
+        if (result.success && result.cleanedUrl) {
+            setFormData(prev => ({ ...prev, cloudUrl: result.cleanedUrl }));
+        }
         setTesting(false);
     };
 
     const handleSave = async () => {
-        const result = await saveConfig(formData);
+        setSaving(true);
+        const result = await saveConfig({
+            ...formData,
+            tenantSubdomain: normalizeTenant(formData.tenantSubdomain),
+            cloudUrl: testResult?.cleanedUrl || computedCloudUrl,
+        });
+        setSaving(false);
+
         if (result.success) {
-            onComplete();
+            toast.success('Equipo configurado para modo local');
+            onComplete?.();
         } else {
-            toast.error('Error al guardar configuración: ' + result.error);
+            toast.error('Error al guardar configuracion: ' + result.error);
         }
     };
 
-    const handleSkip = () => {
-        // Guardar con configuración por defecto (localhost)
-        saveConfig({
+    const handleLocalOnly = async () => {
+        setSaving(true);
+        const result = await saveConfig({
+            ...formData,
             cloudUrl: 'http://localhost:8000',
             syncEnabled: false,
-            syncIntervalMinutes: 10
+            installMode: 'standalone',
         });
-        onComplete();
+        setSaving(false);
+        if (result.success) onComplete?.();
     };
 
+    const steps = [
+        { number: 1, label: 'Equipo' },
+        { number: 2, label: 'Tenant' },
+        { number: 3, label: 'Sync' },
+    ];
+
     return (
-        <div className="setup-wizard-overlay">
-            <div className="setup-wizard-container">
-                <div className="setup-wizard-header">
-                    <h1>🚀 Configuración Inicial</h1>
-                    <p>Configura la conexión con el servidor en la nube</p>
-                </div>
+        <div className="miw-overlay">
+            <section className="miw-shell" aria-label="Asistente de configuracion offline">
+                <aside className="miw-rail">
+                    <div className="miw-brand">
+                        <div className="miw-brandIcon"><Cloud size={24} /></div>
+                        <div>
+                            <span>Mi Inventario</span>
+                            <strong>Modo local</strong>
+                        </div>
+                    </div>
 
-                <div className="setup-wizard-content">
-                    {step === 1 && (
-                        <div className="setup-step">
-                            <h2>Paso 1: URL del Servidor</h2>
-                            <p className="step-description">
-                                Ingresa la URL del servidor en la nube proporcionada por tu proveedor.
-                            </p>
-
-                            <div className="form-group">
-                                <label htmlFor="cloudUrl">URL del Servidor *</label>
-                                <input
-                                    type="text"
-                                    id="cloudUrl"
-                                    name="cloudUrl"
-                                    value={formData.cloudUrl}
-                                    onChange={handleInputChange}
-                                    placeholder="https://tu-servidor.com"
-                                    className="form-input"
-                                />
-                                <small className="form-hint">
-                                    Ejemplo: https://ferreteria.miempresa.com o http://192.168.1.100:8000
-                                </small>
-                            </div>
-
+                    <div className="miw-progress">
+                        {steps.map(item => (
                             <button
-                                onClick={handleTestConnection}
-                                disabled={testing || !formData.cloudUrl.trim()}
-                                className="btn btn-secondary"
+                                key={item.number}
+                                type="button"
+                                className={`miw-stepPill ${step === item.number ? 'active' : ''} ${step > item.number ? 'done' : ''}`}
+                                onClick={() => item.number < step && setStep(item.number)}
                             >
-                                {testing ? '🔄 Probando...' : '🔌 Probar Conexión'}
+                                <span>{step > item.number ? <CheckCircle2 size={16} /> : item.number}</span>
+                                {item.label}
                             </button>
+                        ))}
+                    </div>
 
-                            {testResult && (
-                                <div className={`test-result ${testResult.success ? 'success' : 'error'}`}>
-                                    {testResult.success ? (
-                                        <>
-                                            <span className="icon">✅</span>
-                                            <span>Conexión exitosa</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <span className="icon">❌</span>
-                                            <span>{testResult.error}</span>
-                                        </>
-                                    )}
-                                </div>
-                            )}
+                    <div className="miw-note">
+                        <ShieldCheck size={18} />
+                        <p>La nube sigue siendo la fuente principal. Este equipo solo trabaja offline con datos sincronizados.</p>
+                    </div>
+                </aside>
 
-                            <div className="wizard-actions">
-                                <button onClick={handleSkip} className="btn btn-ghost">
-                                    Omitir (Modo Local)
-                                </button>
-                                <button
-                                    onClick={() => setStep(2)}
-                                    disabled={!testResult?.success}
-                                    className="btn btn-primary"
-                                >
-                                    Siguiente →
-                                </button>
+                <main className="miw-main">
+                    <header className="miw-header">
+                        <div>
+                            <p>Configuracion para tecnicos</p>
+                            <h1>Conectar tienda local con su tenant</h1>
+                        </div>
+                        <button type="button" className="miw-linkBtn" onClick={handleLocalOnly} disabled={saving}>
+                            Modo local sin nube
+                        </button>
+                    </header>
+
+                    {step === 1 && (
+                        <div className="miw-panel">
+                            <div className="miw-sectionTitle">
+                                <h2>Tipo de instalacion</h2>
+                                <p>Define el rol de esta computadora dentro de la tienda.</p>
                             </div>
+
+                            <div className="miw-modeGrid">
+                                {INSTALL_MODES.map(mode => {
+                                    const Icon = mode.icon;
+                                    return (
+                                        <button
+                                            key={mode.id}
+                                            type="button"
+                                            className={`miw-modeCard ${formData.installMode === mode.id ? 'selected' : ''}`}
+                                            onClick={() => updateField('installMode', mode.id)}
+                                        >
+                                            <span><Icon size={22} /></span>
+                                            <strong>{mode.title}</strong>
+                                            <small>{mode.description}</small>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <label className="miw-field">
+                                <span>Nombre interno del equipo</span>
+                                <input
+                                    name="localServerName"
+                                    value={formData.localServerName}
+                                    onChange={handleInputChange}
+                                    placeholder="Ej: Servidor tienda principal"
+                                />
+                            </label>
                         </div>
                     )}
 
                     {step === 2 && (
-                        <div className="setup-step">
-                            <h2>Paso 2: Configuración de Sincronización</h2>
-                            <p className="step-description">
-                                Personaliza cómo y cuándo se sincronizarán los datos.
-                            </p>
+                        <div className="miw-panel">
+                            <div className="miw-sectionTitle">
+                                <h2>Tenant y subdominio</h2>
+                                <p>El tecnico solo coloca el subdominio. El asistente arma la URL y valida que exista.</p>
+                            </div>
 
-                            <div className="form-group">
-                                <label className="checkbox-label">
+                            <div className="miw-twoCols">
+                                <label className="miw-field">
+                                    <span>Subdominio del tenant</span>
                                     <input
-                                        type="checkbox"
-                                        name="syncEnabled"
-                                        checked={formData.syncEnabled}
-                                        onChange={handleInputChange}
+                                        name="tenantSubdomain"
+                                        value={formData.tenantSubdomain}
+                                        onChange={(event) => updateField('tenantSubdomain', normalizeTenant(event.target.value))}
+                                        placeholder="oscarcelltucacas"
                                     />
-                                    <span>Habilitar sincronización automática</span>
+                                </label>
+
+                                <label className="miw-field">
+                                    <span>Ambiente</span>
+                                    <select name="cloudRoot" value={formData.cloudRoot} onChange={handleInputChange} disabled={formData.useCustomUrl}>
+                                        {CLOUD_ROOTS.map(root => <option key={root} value={root}>{root}</option>)}
+                                    </select>
                                 </label>
                             </div>
 
-                            {formData.syncEnabled && (
-                                <div className="form-group">
-                                    <label htmlFor="syncIntervalMinutes">Intervalo de sincronización</label>
-                                    <select
-                                        id="syncIntervalMinutes"
-                                        name="syncIntervalMinutes"
-                                        value={formData.syncIntervalMinutes}
+                            <label className="miw-toggleRow">
+                                <input
+                                    type="checkbox"
+                                    name="useCustomUrl"
+                                    checked={formData.useCustomUrl}
+                                    onChange={handleInputChange}
+                                />
+                                <span>Usar URL personalizada</span>
+                            </label>
+
+                            {formData.useCustomUrl && (
+                                <label className="miw-field">
+                                    <span>URL completa</span>
+                                    <input
+                                        name="customUrl"
+                                        value={formData.customUrl}
                                         onChange={handleInputChange}
-                                        className="form-select"
-                                    >
+                                        placeholder="https://tenant.miinventariofacil.com"
+                                    />
+                                </label>
+                            )}
+
+                            <div className="miw-urlPreview">
+                                <Wifi size={18} />
+                                <div>
+                                    <span>URL a validar</span>
+                                    <strong>{computedCloudUrl || 'Pendiente por subdominio'}</strong>
+                                </div>
+                            </div>
+
+                            <button type="button" className="miw-testBtn" onClick={handleTestConnection} disabled={testing || !computedCloudUrl}>
+                                {testing ? <RefreshCw size={18} className="miw-spin" /> : <Wifi size={18} />}
+                                {testing ? 'Probando conexion...' : 'Probar conexion y tenant'}
+                            </button>
+
+                            {testResult && (
+                                <div className={`miw-result ${testResult.success ? 'success' : 'error'}`}>
+                                    {testResult.success ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
+                                    <div>
+                                        <strong>{testResult.success ? 'Conexion validada' : 'No se pudo validar'}</strong>
+                                        <p>
+                                            {testResult.success
+                                                ? `Tenant: ${testResult.tenantName || testResult.tenantSubdomain || 'validado'}`
+                                                : testResult.error}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {step === 3 && (
+                        <div className="miw-panel">
+                            <div className="miw-sectionTitle">
+                                <h2>Reglas de sincronizacion</h2>
+                                <p>Estas opciones controlan como se comporta la tienda cuando no hay internet.</p>
+                            </div>
+
+                            <label className="miw-toggleCard">
+                                <input
+                                    type="checkbox"
+                                    name="syncEnabled"
+                                    checked={formData.syncEnabled}
+                                    onChange={handleInputChange}
+                                />
+                                <span>
+                                    <strong>Sincronizacion automatica</strong>
+                                    <small>El equipo intenta enviar ventas y descargar cambios cuando vuelve internet.</small>
+                                </span>
+                            </label>
+
+                            {formData.syncEnabled && (
+                                <label className="miw-field compact">
+                                    <span>Intervalo de sincronizacion</span>
+                                    <select name="syncIntervalMinutes" value={formData.syncIntervalMinutes} onChange={handleInputChange}>
                                         <option value="5">Cada 5 minutos</option>
                                         <option value="10">Cada 10 minutos</option>
                                         <option value="15">Cada 15 minutos</option>
                                         <option value="30">Cada 30 minutos</option>
                                         <option value="60">Cada hora</option>
                                     </select>
-                                </div>
+                                </label>
                             )}
 
-                            <div className="config-summary">
-                                <h3>Resumen de Configuración:</h3>
-                                <ul>
-                                    <li><strong>Servidor:</strong> {formData.cloudUrl}</li>
-                                    <li><strong>Sincronización:</strong> {formData.syncEnabled ? 'Habilitada' : 'Deshabilitada'}</li>
-                                    {formData.syncEnabled && (
-                                        <li><strong>Intervalo:</strong> Cada {formData.syncIntervalMinutes} minutos</li>
-                                    )}
-                                </ul>
-                            </div>
+                            <label className="miw-toggleCard">
+                                <input
+                                    type="checkbox"
+                                    name="safeStockMode"
+                                    checked={formData.safeStockMode}
+                                    onChange={handleInputChange}
+                                />
+                                <span>
+                                    <strong>Modo seguro de stock e IMEI</strong>
+                                    <small>Solo permite vender existencias descargadas/asignadas al equipo local.</small>
+                                </span>
+                            </label>
 
-                            <div className="wizard-actions">
-                                <button onClick={() => setStep(1)} className="btn btn-ghost">
-                                    ← Atrás
-                                </button>
-                                <button onClick={handleSave} className="btn btn-primary">
-                                    ✅ Guardar y Continuar
-                                </button>
+                            <div className="miw-summary">
+                                <h3>Resumen</h3>
+                                <dl>
+                                    <div><dt>Equipo</dt><dd>{INSTALL_MODES.find(m => m.id === formData.installMode)?.title}</dd></div>
+                                    <div><dt>Tenant</dt><dd>{normalizeTenant(formData.tenantSubdomain) || 'Sin definir'}</dd></div>
+                                    <div><dt>Nube</dt><dd>{testResult?.cleanedUrl || computedCloudUrl}</dd></div>
+                                    <div><dt>Sync</dt><dd>{formData.syncEnabled ? `Cada ${formData.syncIntervalMinutes} min` : 'Manual / desactivada'}</dd></div>
+                                </dl>
                             </div>
                         </div>
                     )}
-                </div>
 
-                <div className="setup-wizard-footer">
-                    <small>💡 Puedes cambiar esta configuración más tarde desde Ajustes</small>
-                </div>
-            </div>
+                    <footer className="miw-actions">
+                        <button type="button" className="miw-secondary" onClick={() => setStep(step - 1)} disabled={step === 1 || saving}>
+                            <ArrowLeft size={18} />
+                            Atras
+                        </button>
+
+                        {step < 3 ? (
+                            <button
+                                type="button"
+                                className="miw-primary"
+                                onClick={() => setStep(step + 1)}
+                                disabled={step === 2 && !canContinueConnection}
+                            >
+                                Siguiente
+                                <ArrowRight size={18} />
+                            </button>
+                        ) : (
+                            <button type="button" className="miw-primary" onClick={handleSave} disabled={saving || !computedCloudUrl}>
+                                {saving ? <RefreshCw size={18} className="miw-spin" /> : <CheckCircle2 size={18} />}
+                                {saving ? 'Guardando...' : 'Guardar configuracion'}
+                            </button>
+                        )}
+                    </footer>
+                </main>
+            </section>
         </div>
     );
 };

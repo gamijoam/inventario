@@ -4,6 +4,18 @@ import { API_BASE_URL } from '../config/constants';
 
 const CloudConfigContext = createContext();
 
+const isDesktopOffline = import.meta.env.VITE_DESKTOP_OFFLINE === 'true' || import.meta.env.VITE_OFFLINE_SETUP === 'true';
+const defaultConfig = {
+    cloudUrl: isDesktopOffline ? '' : API_BASE_URL,
+    tenantSubdomain: '',
+    installMode: 'store_server',
+    localServerName: 'Servidor local',
+    isConfigured: !isDesktopOffline,
+    syncEnabled: true,
+    syncIntervalMinutes: 10,
+    safeStockMode: true,
+};
+
 export const useCloudConfig = () => {
     const context = useContext(CloudConfigContext);
     if (!context) {
@@ -13,44 +25,30 @@ export const useCloudConfig = () => {
 };
 
 export const CloudConfigProvider = ({ children }) => {
-    const [config, setConfig] = useState({
-        cloudUrl: API_BASE_URL,
-        isConfigured: true, // FORCED: Assume SaaS is always configured
-        syncEnabled: true,
-        syncIntervalMinutes: 10
-    });
-
+    const [config, setConfig] = useState(defaultConfig);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Cargar configuración al iniciar
     useEffect(() => {
         loadConfig();
     }, []);
 
     const loadConfig = async () => {
         try {
-            // Intentar cargar desde localStorage primero (para desarrollo web)
             const savedConfig = localStorage.getItem('cloud_config');
-
             if (savedConfig) {
                 const parsed = JSON.parse(savedConfig);
                 setConfig({
+                    ...defaultConfig,
                     ...parsed,
-                    cloudUrl: API_BASE_URL, // FORCE SaaS Primary URL
-                    isConfigured: true
+                    cloudUrl: isDesktopOffline ? (parsed.cloudUrl || '') : API_BASE_URL,
+                    isConfigured: isDesktopOffline ? Boolean(parsed.cloudUrl) : true,
                 });
             } else {
-                // Default SaaS setup
-                setConfig({
-                    cloudUrl: API_BASE_URL,
-                    isConfigured: true,
-                    syncEnabled: true,
-                    syncIntervalMinutes: 10
-                });
+                setConfig(defaultConfig);
             }
         } catch (error) {
             console.error('Error loading config:', error);
-            setConfig(prev => ({ ...prev, isConfigured: false }));
+            setConfig(prev => ({ ...prev, isConfigured: !isDesktopOffline }));
         } finally {
             setIsLoading(false);
         }
@@ -58,34 +56,47 @@ export const CloudConfigProvider = ({ children }) => {
 
     const saveConfig = async (newConfig) => {
         try {
-            // Clean URL before saving
             let cleanUrl = newConfig.cloudUrl ? newConfig.cloudUrl.trim() : '';
             if (cleanUrl) {
-                // Remove trailing slash
                 if (cleanUrl.endsWith('/')) cleanUrl = cleanUrl.slice(0, -1);
-
-                // Remove trailing paths
-                const pathsToRemove = ['/login', '/api', '/api/v1'];
+                const pathsToRemove = ['/login', '/api/v1', '/api'];
                 for (const path of pathsToRemove) {
                     if (cleanUrl.endsWith(path)) cleanUrl = cleanUrl.slice(0, -path.length);
                 }
             }
 
             const configToSave = {
-                cloudUrl: cleanUrl, // Use cleaned URL
+                cloudUrl: cleanUrl,
+                tenantSubdomain: (newConfig.tenantSubdomain || '').trim().toLowerCase(),
+                installMode: newConfig.installMode || 'store_server',
+                localServerName: newConfig.localServerName || 'Servidor local',
                 syncEnabled: newConfig.syncEnabled ?? true,
-                syncIntervalMinutes: newConfig.syncIntervalMinutes ?? 10
+                syncIntervalMinutes: Number(newConfig.syncIntervalMinutes || 10),
+                safeStockMode: newConfig.safeStockMode ?? true,
+                isConfigured: Boolean(cleanUrl),
             };
 
-            // Guardar en localStorage
             localStorage.setItem('cloud_config', JSON.stringify(configToSave));
+            localStorage.setItem('offline_setup_completed', 'true');
 
-            // SAFEGUARD: Guardar también en el BACKEND para que la sincronización manual funcione
             try {
-                if (cleanUrl) { // Use cleaned URL
-                    console.log('[Cloud Config] Syncing URL to backend database:', cleanUrl);
+                if (cleanUrl) {
+                    await axios.post('/api/v1/cloud/setup', {
+                        cloud_url: cleanUrl,
+                        tenant_subdomain: configToSave.tenantSubdomain,
+                        install_mode: configToSave.installMode,
+                        local_server_name: configToSave.localServerName,
+                        sync_enabled: configToSave.syncEnabled,
+                        sync_interval_minutes: configToSave.syncIntervalMinutes,
+                        safe_stock_mode: configToSave.safeStockMode,
+                    });
+                }
+            } catch (setupError) {
+                console.warn('[Cloud Config] No se pudo guardar en backend local:', setupError);
+            }
 
-                    // Obtener token explícitamente por si el interceptor no está listo
+            try {
+                if (cleanUrl) {
                     const token = localStorage.getItem('token');
                     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
@@ -93,36 +104,19 @@ export const CloudConfigProvider = ({ children }) => {
                         key: 'cloud_url',
                         value: cleanUrl
                     }, { headers, _silent403: true });
-
-                    console.log('[Cloud Config] URL synced to backend successfully');
                 }
             } catch (backendError) {
-                // FALLBACK: Si falla por 403 (cajero sin permisos), ignorar silenciosamente
                 if (backendError.response && backendError.response.status === 403) {
-                    // Normal para cajeros — no tienen acceso a config/cloud_url
-                } else
-                // FALLBACK: Si falla por 401 (no logueado en wizard), usar endpoint de setup público
-                if (backendError.response && backendError.response.status === 401) {
-                    console.log('[Cloud Config] Auth failed, trying setup endpoint...');
-                    try {
-                        await axios.post('/api/v1/cloud/setup', {
-                            cloud_url: cleanUrl
-                        });
-                        console.log('[Cloud Config] URL saved via Setup Endpoint');
-                    } catch (setupError) {
-                        console.error('[Cloud Config] Warning: Could not sync via setup endpoint:', setupError);
-                    }
+                    // Normal para cajeros: la configuracion ya fue guardada en /cloud/setup.
+                } else if (backendError.response && backendError.response.status === 401) {
+                    // Normal durante el asistente inicial antes de iniciar sesion.
                 } else {
-                    console.error('[Cloud Config] Warning: Could not sync to backend:', backendError);
+                    console.warn('[Cloud Config] Config secundaria no guardada:', backendError);
                 }
             }
 
-            setConfig({
-                ...configToSave,
-                isConfigured: true
-            });
-
-            return { success: true };
+            setConfig(configToSave);
+            return { success: true, config: configToSave };
         } catch (error) {
             console.error('Error saving config:', error);
             return { success: false, error: error.message };
@@ -132,12 +126,8 @@ export const CloudConfigProvider = ({ children }) => {
     const resetConfig = async () => {
         try {
             localStorage.removeItem('cloud_config');
-            setConfig({
-                cloudUrl: '',
-                isConfigured: false,
-                syncEnabled: true,
-                syncIntervalMinutes: 10
-            });
+            localStorage.removeItem('offline_setup_completed');
+            setConfig(defaultConfig);
             return { success: true };
         } catch (error) {
             console.error('Error resetting config:', error);
@@ -145,35 +135,37 @@ export const CloudConfigProvider = ({ children }) => {
         }
     };
 
-    const testConnection = async (url) => {
+    const testConnection = async (url, tenantSubdomain = '') => {
         try {
-            // Use backend endpoint to test connection (bypasses CORS)
-            console.log(`[Cloud Config] Testing connection via backend: ${url}`);
-
             const response = await axios.post('/api/v1/cloud/test-connection', {
-                url: url
+                url,
+                tenant_subdomain: tenantSubdomain,
             });
 
             const data = response.data;
-
-            console.log(`[Cloud Config] Backend test result:`, data);
-
             if (data.success) {
                 return {
                     success: true,
-                    cleanedUrl: data.cleaned_url
-                };
-            } else {
-                return {
-                    success: false,
-                    error: data.error || 'Servidor no responde correctamente'
+                    cleanedUrl: data.cleaned_url,
+                    apiUrl: data.api_url,
+                    tenantName: data.tenant_name,
+                    tenantSubdomain: data.tenant_subdomain,
+                    healthOk: data.health_ok,
+                    tenantOk: data.tenant_ok,
                 };
             }
+
+            return {
+                success: false,
+                error: data.error || 'Servidor no responde correctamente',
+                cleanedUrl: data.cleaned_url,
+                apiUrl: data.api_url,
+            };
         } catch (error) {
             console.error('[Cloud Config] Connection test failed:', error);
             return {
                 success: false,
-                error: error.response?.data?.error || 'No se puede conectar al servidor. Verifica la URL.'
+                error: error.response?.data?.error || error.response?.data?.detail || 'No se puede conectar al servidor. Verifica la URL.',
             };
         }
     };
@@ -181,9 +173,11 @@ export const CloudConfigProvider = ({ children }) => {
     const value = {
         config,
         isLoading,
+        isDesktopOffline,
         saveConfig,
         resetConfig,
-        testConnection
+        testConnection,
+        reloadConfig: loadConfig,
     };
 
     return (
