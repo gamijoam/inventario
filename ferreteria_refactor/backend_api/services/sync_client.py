@@ -15,7 +15,7 @@ import datetime
 VPS_BASE_URL = os.getenv("VPS_URL", "https://ferreteria-vps.gamijoam.com/api/v1") # Placeholder
 # AUTH_TOKEN = ... # We might need a machine token
 
-async def pull_catalog_from_cloud(db: Session, vps_url: str = None):
+async def pull_catalog_from_cloud(db: Session, vps_url: str = None, tenant_subdomain: str = None):
     """
     Connects to the VPS and downloads the catalog (Products, Customers, etc.)
     """
@@ -35,8 +35,10 @@ async def pull_catalog_from_cloud(db: Session, vps_url: str = None):
     # Use a hardcoded token or a specific 'sync' user token for now
     # In production, we'd do a proper handshake
     headers = {
-        "Authorization": f"Bearer {os.getenv('SYNC_API_KEY', 'dev-sync-key')}" 
+        "Authorization": f"Bearer {os.getenv('SYNC_API_KEY', 'dev-sync-key')}"
     }
+    if tenant_subdomain:
+        headers["X-Tenant-ID"] = tenant_subdomain
 
     try:
         print(f"[SYNC] Downloading catalog from {target_url}/sync/pull/catalog...")
@@ -143,7 +145,7 @@ async def pull_catalog_from_cloud(db: Session, vps_url: str = None):
         print(f"[ERROR] Sync Error: {e}")
         raise e
 
-async def push_sales_to_cloud(db: Session, vps_url: str = None):
+async def push_sales_to_cloud(db: Session, vps_url: str = None, tenant_subdomain: str = None):
     """
     Uploads pending sales to the VPS.
     """
@@ -156,6 +158,8 @@ async def push_sales_to_cloud(db: Session, vps_url: str = None):
     headers = {
         "Authorization": f"Bearer {os.getenv('SYNC_API_KEY', 'dev-sync-key')}"
     }
+    if tenant_subdomain:
+        headers["X-Tenant-ID"] = tenant_subdomain
 
     try:
         # 1. Get offline sales that haven't been synced
