@@ -162,9 +162,12 @@ async def startup_event_async():
             print(f"  {list(route.methods)} {route.path}")
     print("="*60 + "\n")
 
-    # --- SCHEDULER: Auto-expiración de licencias ---
+    # --- SCHEDULER: tareas automaticas ---
     from .database.db import SessionLocal
-    start_scheduler(SessionLocal)
+    try:
+        start_scheduler(SessionLocal)
+    except Exception as exc:
+        logger.exception("[SCHEDULER] No pudo iniciar; la API continuara levantando: %s", exc)
 
 
 @app.on_event("shutdown")

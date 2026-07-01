@@ -151,6 +151,7 @@ REQS="$ROOT_DIR/../requirements.txt"
 # (uvloop es Linux-only y causa error al resolver dependencias para win_amd64)
 REQS_WIN="$SCRIPT_DIR/cache/requirements.windows.txt"
 sed 's/uvicorn\[standard\]/uvicorn/' "$REQS" > "$REQS_WIN"
+printf 'tzdata\n' >> "$REQS_WIN"
 
 echo "  Descargando wheels Windows (win_amd64, cp312) con todas las dependencias..."
 
