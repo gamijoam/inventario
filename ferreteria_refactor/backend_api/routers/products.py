@@ -2233,21 +2233,33 @@ def _resolve_sale_print_register(db: Session, sale_id: int):
     return sale.cash_session.register if sale.cash_session else None
 
 
-def _find_connected_print_client(manager, tenant_id: str, client_id: Optional[str]) -> Optional[str]:
+def _print_tenant_connection_keys(tenant_id: str) -> List[str]:
+    tenant_key = (tenant_id or "").strip().lower() or "public"
+    keys = [tenant_key]
+    if tenant_key in {"default", "public"}:
+        keys.extend(["default", "public"])
+    return list(dict.fromkeys(keys))
+
+
+def _find_connected_print_client(manager, tenant_id: str, client_id: Optional[str]) -> Optional[dict]:
     target_client_id = _normalize_print_client_id(client_id)
     if not target_client_id:
         return None
-    for connected_client in manager.active_connections.get(tenant_id, {}).keys():
-        if connected_client.strip().lower() == target_client_id:
-            return connected_client
+    for tenant_key in _print_tenant_connection_keys(tenant_id):
+        for connected_client in manager.active_connections.get(tenant_key, {}).keys():
+            if connected_client.strip().lower() == target_client_id:
+                return {"client_id": connected_client, "tenant_id": tenant_key}
     return None
 
 
 def _connected_print_clients(manager, tenant_id: str) -> List[str]:
-    return sorted(
-        client_id for client_id in manager.active_connections.get(tenant_id, {}).keys()
-        if client_id and not client_id.lower().startswith("web_")
-    )
+    connected = set()
+    for tenant_key in _print_tenant_connection_keys(tenant_id):
+        connected.update(
+            client_id for client_id in manager.active_connections.get(tenant_key, {}).keys()
+            if client_id and not client_id.lower().startswith("web_")
+        )
+    return sorted(connected)
 
 
 def _infer_print_target_hint(
@@ -2330,17 +2342,26 @@ def _resolve_print_target(
     elif register_id:
         raise HTTPException(status_code=404, detail="Caja no encontrada o inactiva")
 
-    if tenant_id not in manager.active_connections:
+    has_tenant_connection = any(
+        tenant_key in manager.active_connections
+        for tenant_key in _print_tenant_connection_keys(tenant_id)
+    )
+    if not has_tenant_connection:
         print(f"❌ [PRINT DEBUG] Active Tenants in Memory: {list(manager.active_connections.keys())}")
         raise HTTPException(
             status_code=503,
             detail=f"Ninguna impresora conectada para la empresa '{tenant_id}'. Verifique que Invensoft Bridge este abierto."
         )
 
-    actual_client_id = _find_connected_print_client(manager, tenant_id, target_client_id)
-    if not actual_client_id:
+    actual_client = _find_connected_print_client(manager, tenant_id, target_client_id)
+    if not actual_client:
         connected = _connected_print_clients(manager, tenant_id)
-        print(f"❌ [PRINT DEBUG] Active Clients in '{tenant_id}': {list(manager.active_connections.get(tenant_id, {}).keys())}")
+        active = {
+            key: list(manager.active_connections.get(key, {}).keys())
+            for key in _print_tenant_connection_keys(tenant_id)
+            if key in manager.active_connections
+        }
+        print(f"❌ [PRINT DEBUG] Active Clients for '{tenant_id}': {active}")
         print(f"❌ [PRINT] Client '{target_client_id}' NOT connected for Tenant '{tenant_id}'")
         connected_text = ", ".join(connected) if connected else "ninguna"
         raise HTTPException(
@@ -2352,7 +2373,8 @@ def _resolve_print_target(
         )
 
     return {
-        "client_id": actual_client_id,
+        "client_id": actual_client["client_id"],
+        "tenant_id": actual_client["tenant_id"],
         "requested_client_id": target_client_id,
         "route": route,
         "register_id": register.id if register else register_id,
@@ -2435,7 +2457,7 @@ async def print_remote(
 
     print(
         f"📡 [PRINT] Remote request sale={request.sale_id} route={target['route']} "
-        f"client='{target['client_id']}' tenant='{tenant_id}' job={job_id}"
+        f"client='{target['client_id']}' tenant='{target.get('tenant_id', tenant_id)}' job={job_id}"
     )
 
     try:
@@ -2471,7 +2493,7 @@ async def print_remote(
         "payload": payload
     }
 
-    success = await manager.send_to_client(message, target["client_id"], tenant_id, timeout=2.5)
+    success = await manager.send_to_client(message, target["client_id"], target.get("tenant_id", tenant_id), timeout=2.5)
 
     if not success:
         detail = f"El bridge '{target['client_id']}' estaba conectado pero no confirmo el envio. Reabra Invensoft Bridge e intente de nuevo."
@@ -2586,7 +2608,7 @@ async def print_remote_payload(
         "payload": request.payload
     }
 
-    success = await manager.send_to_client(message, target["client_id"], tenant_id, timeout=2.5)
+    success = await manager.send_to_client(message, target["client_id"], target.get("tenant_id", tenant_id), timeout=2.5)
 
     if not success:
         detail = f"El bridge '{target['client_id']}' estaba conectado pero no confirmo el envio."

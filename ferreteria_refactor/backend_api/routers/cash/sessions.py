@@ -44,13 +44,29 @@ def _normalize_hardware_client_id(value: Optional[str]) -> Optional[str]:
     return normalized or None
 
 
+def _tenant_connection_keys(tenant_schema: str) -> List[str]:
+    """Return websocket tenant keys to inspect for the current local/cloud tenant.
+
+    Offline desktop installs historically exposed ``public`` to the bridge while
+    the local tenant schema is ``default``. Treat both as aliases so print status
+    does not show a false disconnect after a valid local bridge connection.
+    """
+    tenant_key = (tenant_schema or "").strip().lower() or "public"
+    keys = [tenant_key]
+    if tenant_key in {"default", "public"}:
+        keys.extend(["default", "public"])
+    return list(dict.fromkeys(keys))
+
+
 def _connected_bridge_ids(tenant_schema: str) -> List[str]:
-    tenant_key = (tenant_schema or "").strip().lower()
-    tenant_connections = manager.active_connections.get(tenant_key, {})
-    return sorted(
-        client_id for client_id in tenant_connections.keys()
-        if client_id and not client_id.lower().startswith("web_")
-    )
+    connected = set()
+    for tenant_key in _tenant_connection_keys(tenant_schema):
+        tenant_connections = manager.active_connections.get(tenant_key, {})
+        connected.update(
+            client_id for client_id in tenant_connections.keys()
+            if client_id and not client_id.lower().startswith("web_")
+        )
+    return sorted(connected)
 
 
 def _assert_hardware_client_id_available(

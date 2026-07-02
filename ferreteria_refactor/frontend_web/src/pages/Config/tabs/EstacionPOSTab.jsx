@@ -8,6 +8,8 @@ import { toast } from 'react-hot-toast';
 import apiClient from '../../../config/axios';
 import { getApiErrorMessage } from '../../../utils/apiErrors';
 
+const IS_DESKTOP_OFFLINE = import.meta.env.VITE_DESKTOP_OFFLINE === 'true' || import.meta.env.VITE_OFFLINE_SETUP === 'true';
+
 const SettingSection = ({ icon: Icon, title, description, children, action }) => (
     <Card className="overflow-hidden rounded-lg border-slate-200 shadow-sm">
         <CardHeader className="border-b border-slate-100 bg-white p-5">
@@ -174,10 +176,14 @@ const EstacionPOSTab = () => {
     };
 
     const getTenantId = () => {
-        if (user?.tenant_id && user.tenant_id !== 'public') return user.tenant_id;
         const hostname = window.location.hostname;
+        const isLocalHost = hostname.includes('localhost') || hostname === '127.0.0.1';
+        if (user?.tenant_id && user.tenant_id !== 'public') return user.tenant_id;
+        if (IS_DESKTOP_OFFLINE || isLocalHost) {
+            return localStorage.getItem('selected_tenant') || 'default';
+        }
         const parts = hostname.split('.');
-        if (parts.length >= 3 && !hostname.includes('localhost')) {
+        if (parts.length >= 3) {
             const subdomain = parts[0];
             if (!['www', 'api', 'app', 'dashboard', 'qa'].includes(subdomain)) return subdomain;
         }
