@@ -16,6 +16,7 @@ import hashlib
 import json
 import os
 import shutil
+import ssl
 import sys
 import tempfile
 import urllib.parse
@@ -102,10 +103,24 @@ def url_join(base_url: str, maybe_relative: str) -> str:
     return urllib.parse.urljoin(base_url, maybe_relative)
 
 
-def download(url: str, target: Path, timeout: int = 60) -> None:
+def _truthy(value: Any) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "si", "on"}
+
+
+def should_allow_insecure_tls(args: argparse.Namespace, manifest_url: str) -> bool:
+    config = load_json(CONFIG_FILE, {})
+    if getattr(args, "insecure_tls", False):
+        return True
+    if _truthy(config.get("allow_insecure_tls")) or _truthy(os.environ.get("MIF_UPDATE_INSECURE_TLS")):
+        return True
+    host = urllib.parse.urlparse(manifest_url).hostname or ""
+    return host.endswith(".qa.miinventariofacil.com")
+
+
+def download(url: str, target: Path, timeout: int = 60, ssl_context: Any = None) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     log(f"Descargando {url}")
-    with urllib.request.urlopen(url, timeout=timeout) as response:
+    with urllib.request.urlopen(url, timeout=timeout, context=ssl_context) as response:
         with target.open("wb") as handle:
             shutil.copyfileobj(response, handle)
 
@@ -202,7 +217,7 @@ def apply_staging(staging_root: Path) -> None:
         merge_tree(child, target)
 
 
-def apply_updates(manifest: dict[str, Any], manifest_url: str, args: argparse.Namespace) -> int:
+def apply_updates(manifest: dict[str, Any], manifest_url: str, args: argparse.Namespace, ssl_context: Any = None) -> int:
     state = load_json(STATE_FILE, {"packages": {}})
     packages = manifest.get("packages") or {}
     selected: list[tuple[str, dict[str, Any]]] = []
@@ -228,7 +243,7 @@ def apply_updates(manifest: dict[str, Any], manifest_url: str, args: argparse.Na
             url = url_join(manifest_url, str(package["url"]))
             zip_name = f"{package_name}-{package.get('version', 'latest')}.zip"
             cache_file = CACHE_DIR / zip_name
-            download(url, cache_file, timeout=args.timeout)
+            download(url, cache_file, timeout=args.timeout, ssl_context=ssl_context)
 
             expected_sha = str(package.get("sha256") or "").lower()
             actual_sha = sha256_file(cache_file).lower()
@@ -285,16 +300,22 @@ def main() -> int:
     parser.add_argument("--manifest-url", help="URL del manifest.json de actualizaciones")
     parser.add_argument("--check-only", action="store_true", help="Solo verifica si hay actualizaciones")
     parser.add_argument("--timeout", type=int, default=120, help="Timeout de descarga en segundos")
+    parser.add_argument("--insecure-tls", action="store_true", help="Permite certificado TLS no verificado. Solo para QA/laboratorio")
     args = parser.parse_args()
 
     manifest_url = resolve_manifest_url(args)
+    ssl_context = None
+    if should_allow_insecure_tls(args, manifest_url):
+        log("Modo QA: se permite certificado TLS no verificado para descargar actualizaciones.")
+        ssl_context = ssl._create_unverified_context()
+
     manifest_path = CACHE_DIR / "manifest.json"
     try:
-        download(manifest_url, manifest_path, timeout=args.timeout)
+        download(manifest_url, manifest_path, timeout=args.timeout, ssl_context=ssl_context)
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         if manifest.get("format") != "miinventario-offline-update-v1":
             raise RuntimeError("Manifest no compatible")
-        return apply_updates(manifest, manifest_url, args)
+        return apply_updates(manifest, manifest_url, args, ssl_context=ssl_context)
     except Exception as exc:
         log(f"ERROR: {exc}")
         return 1
