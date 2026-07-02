@@ -13,6 +13,7 @@ from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
 from . import webhook_service
 from .serialized_stock_service import reconcile_serialized_product_stock
+from .offline_sync_outbox import enqueue_sync_event, cash_session_uuid
 import asyncio
 from ..models.tenant import Tenant
 import asyncio
@@ -1060,6 +1061,46 @@ class SalesService:
                         exchange_rate=sale_data.exchange_rate
                     )
                     db.add(fallback_payment)
+
+            enqueue_sync_event(
+                db,
+                event_type="sale.created",
+                aggregate_type="sale",
+                aggregate_uuid=str(new_sale.unique_uuid or new_sale_id),
+                event_uuid=str(new_sale.unique_uuid) if new_sale.unique_uuid else None,
+                cash_session_uuid=cash_session_uuid(open_session.id if open_session else None),
+                source_terminal_id=(open_session.register.hardware_client_id if open_session and open_session.register else None),
+                payload={
+                    "sale_id": new_sale_id,
+                    "unique_uuid": new_sale.unique_uuid,
+                    "date": sale_date_iso,
+                    "user_id": user_id,
+                    "session_id": open_session.id if open_session else None,
+                    "register_id": open_session.register_id if open_session else None,
+                    "warehouse_id": warehouse_id,
+                    "customer_id": sale_customer_id,
+                    "total_amount": sale_total_amount,
+                    "total_amount_bs": sale_total_bs,
+                    "currency": sale_currency,
+                    "exchange_rate": sale_exchange_rate,
+                    "payment_method": sale_payment_method,
+                    "is_credit": bool(new_sale.is_credit),
+                    "items": [
+                        {
+                            "product_id": item.product_id,
+                            "quantity": item.quantity,
+                            "unit_price": item.unit_price,
+                            "subtotal": item.subtotal,
+                            "unit_id": getattr(item, "unit_id", None),
+                            "price_list_id": getattr(item, "price_list_id", None),
+                            "serial_numbers": getattr(item, "serial_numbers", None) or [],
+                            "is_promotion_gift": bool(getattr(item, "is_promotion_gift", False)),
+                        }
+                        for item in (sale_data.items or [])
+                    ],
+                    "payments": sale_payments_snapshot,
+                },
+            )
             
             db.commit()
 

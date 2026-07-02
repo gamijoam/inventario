@@ -126,20 +126,38 @@ def assert_safe_zip(zip_path: Path) -> None:
                 raise RuntimeError(f"Zip inseguro: {info.filename}")
 
 
-def copytree_or_file(source: Path, target: Path) -> None:
+def _ignore_updater_runtime(_dir: str, names: list[str]) -> set[str]:
+    return {name for name in names if name in {"cache", "logs", "backups", "__pycache__"}}
+
+
+def copytree_or_file(source: Path, target: Path, *, ignore_runtime: bool = False) -> None:
     if source.is_dir():
         if target.exists():
             if target.is_dir():
                 shutil.rmtree(target)
             else:
                 target.unlink()
-        shutil.copytree(source, target)
+        shutil.copytree(source, target, ignore=_ignore_updater_runtime if ignore_runtime else None)
     elif source.exists():
         target.parent.mkdir(parents=True, exist_ok=True)
         if target.exists():
             target.unlink()
         shutil.copy2(source, target)
 
+
+
+
+def merge_tree(source: Path, target: Path) -> None:
+    if source.is_dir():
+        target.mkdir(parents=True, exist_ok=True)
+        for child in source.iterdir():
+            if child.name in {"cache", "logs", "backups", "update_state.json", "update_config.json"}:
+                # Runtime/config files on the client must survive updater patches.
+                continue
+            merge_tree(child, target / child.name)
+    elif source.exists():
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
 
 def backup_targets(package_names: list[str]) -> Path:
     stamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -151,7 +169,7 @@ def backup_targets(package_names: list[str]) -> Path:
             continue
         source = APP_ROOT / rel_target
         if source.exists():
-            copytree_or_file(source, backup_root / rel_target)
+            copytree_or_file(source, backup_root / rel_target, ignore_runtime=(package_name == "updater"))
     return backup_root
 
 
@@ -181,7 +199,7 @@ def apply_staging(staging_root: Path) -> None:
         target = APP_ROOT / child.name
         if child.name in {"postgresql", "python", "redist"}:
             raise RuntimeError(f"El paquete incremental no puede reemplazar runtime: {child.name}")
-        copytree_or_file(child, target)
+        merge_tree(child, target)
 
 
 def apply_updates(manifest: dict[str, Any], manifest_url: str, args: argparse.Namespace) -> int:

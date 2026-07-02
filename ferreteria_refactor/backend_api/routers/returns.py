@@ -9,6 +9,7 @@ from ..commission_engine import CommissionEngine
 from ..dependencies import get_current_active_user, require_permission, require_any_permission
 from ..utils.time_utils import get_venezuela_now
 from ..services.serialized_stock_service import reconcile_serialized_product_stock
+from ..services.offline_sync_outbox import enqueue_sync_event, cash_session_uuid
 from datetime import datetime, date
 from decimal import Decimal
 import unicodedata
@@ -681,6 +682,8 @@ def process_return(
 
     # ── FIX 2: Registrar movimiento de caja ───────────────────────────────────
     # Buscar sesión abierta; si no hay, usar la sesión original de la venta
+    refund_session = None
+    cash_movement = None
     if actual_cash_refund > 0:
         amount_to_record = actual_cash_refund
         if _is_bs_currency(return_data.refund_currency):
@@ -689,6 +692,7 @@ def process_return(
         session = _resolve_cash_session_for_refund(db, sale, current_user)
 
         if session:
+            refund_session = session
             cash_movement = models.CashMovement(
                 session_id=session.id,
                 type="RETURN",
@@ -724,6 +728,39 @@ def process_return(
     new_return = db.query(models.Return).options(
         joinedload(models.Return.details).joinedload(models.ReturnDetail.product)
     ).filter(models.Return.id == captured_id).first()
+
+    db.flush()
+    enqueue_sync_event(
+        db,
+        event_type="return.created",
+        aggregate_type="return",
+        aggregate_uuid=str(new_return.id),
+        cash_session_uuid=cash_session_uuid(refund_session.id if refund_session else None),
+        source_terminal_id=(refund_session.register.hardware_client_id if refund_session and refund_session.register else None),
+        payload={
+            "return_id": new_return.id,
+            "sale_id": sale.id,
+            "user_id": current_user.id,
+            "session_id": refund_session.id if refund_session else None,
+            "cash_movement_id": cash_movement.id if cash_movement else None,
+            "resolution_type": resolution_type,
+            "total_refunded": new_return.total_refunded,
+            "refund_currency": getattr(return_data, "refund_currency", None),
+            "exchange_rate": getattr(return_data, "exchange_rate", None),
+            "actual_cash_refund": actual_cash_refund,
+            "exchange_credit_applied": exchange_credit_applied,
+            "is_full_return": is_full_return,
+            "reason": new_return.reason,
+            "items": [
+                {
+                    "product_id": item.product_id,
+                    "quantity": item.quantity,
+                    "serial_numbers": getattr(item, "serial_numbers", None) or [],
+                }
+                for item in (return_data.items or [])
+            ],
+        },
+    )
 
     db.commit()
 

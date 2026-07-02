@@ -19,6 +19,7 @@ from ...dependencies import get_current_active_user, require_permission
 from ...models import models
 from ... import schemas
 from ...utils.time_utils import get_venezuela_now
+from ...services.offline_sync_outbox import enqueue_sync_event, cash_session_uuid
 
 logger = logging.getLogger(__name__)
 
@@ -217,6 +218,31 @@ def register_movement(
         "incoming_reference": new_movement.incoming_reference,
         "date": new_movement.date
     }
+
+    enqueue_sync_event(
+        db,
+        event_type="cash_movement.created",
+        aggregate_type="cash_movement",
+        aggregate_uuid=str(new_movement.id),
+        cash_session_uuid=cash_session_uuid(session.id),
+        source_terminal_id=session.register.hardware_client_id if session.register else None,
+        payload={
+            "movement_id": new_movement.id,
+            "session_id": session.id,
+            "user_id": current_user.id,
+            "register_id": session.register_id,
+            "cash_fund_id": session.cash_fund_id,
+            "type": new_movement.type,
+            "amount": new_movement.amount,
+            "currency": new_movement.currency,
+            "description": new_movement.description,
+            "incoming_amount": new_movement.incoming_amount,
+            "incoming_currency": new_movement.incoming_currency,
+            "incoming_method": new_movement.incoming_method,
+            "incoming_reference": new_movement.incoming_reference,
+            "date": new_movement.date,
+        },
+    )
 
     db.commit()
     return response_data

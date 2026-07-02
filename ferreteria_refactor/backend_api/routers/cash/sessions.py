@@ -26,6 +26,7 @@ from ... import schemas
 from ...audit_utils import log_action
 from ...services.cash_reconciliation_service import CashReconciliationService
 from ...services.accounting_ledger_service import AccountingLedgerService
+from ...services.offline_sync_outbox import enqueue_sync_event, cash_session_uuid
 
 logger = logging.getLogger(__name__)
 
@@ -602,6 +603,25 @@ async def open_cash_session(
         captured_initial_cash = float(new_session.initial_cash or 0)
         captured_initial_cash_bs = float(new_session.initial_cash_bs or 0)
 
+        enqueue_sync_event(
+            db,
+            event_type="cash_session.opened",
+            aggregate_type="cash_session",
+            aggregate_uuid=cash_session_uuid(new_session_id),
+            cash_session_uuid=cash_session_uuid(new_session_id),
+            source_terminal_id=register.hardware_client_id,
+            payload={
+                "session_id": new_session_id,
+                "user_id": current_user.id,
+                "register_id": register.id,
+                "cash_fund_id": register.cash_fund_id,
+                "start_time": captured_start_time,
+                "initial_cash": captured_initial_cash,
+                "initial_cash_bs": captured_initial_cash_bs,
+                "currencies": currencies_response,
+            },
+        )
+
         # Final Commit
         print(f"   - Committing session #{new_session_id} with {len(currencies_response)} currencies...")
         db.commit()
@@ -895,6 +915,30 @@ async def close_cash_session(
     # session, currency counts and ledger remain atomic and idempotent.
     db.flush()
     AccountingLedgerService.rebuild_cash_session(db, session.id, commit=False)
+    enqueue_sync_event(
+        db,
+        event_type="cash_session.closed",
+        aggregate_type="cash_session",
+        aggregate_uuid=cash_session_uuid(session.id),
+        cash_session_uuid=cash_session_uuid(session.id),
+        source_terminal_id=session.register.hardware_client_id if session.register else None,
+        payload={
+            "session_id": session.id,
+            "user_id": session.user_id,
+            "closed_by_user_id": current_user.id,
+            "register_id": session.register_id,
+            "cash_fund_id": session.cash_fund_id,
+            "start_time": session.start_time,
+            "end_time": session.end_time,
+            "final_cash_reported": session.final_cash_reported,
+            "final_cash_reported_bs": session.final_cash_reported_bs,
+            "final_cash_expected": session.final_cash_expected,
+            "final_cash_expected_bs": session.final_cash_expected_bs,
+            "difference": session.difference,
+            "difference_bs": session.difference_bs,
+            "currencies": response_data.get("currencies", []),
+        },
+    )
 
     db.commit()
     # NO db.refresh(session) calls!
