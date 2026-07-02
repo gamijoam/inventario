@@ -26,6 +26,8 @@ import Dashboard from './pages/Dashboard';
 
 // Lazy-loaded pages (all non-critical-path pages)
 import PublicCatalog from './pages/Catalog/PublicCatalog';
+
+const IS_DESKTOP_OFFLINE = import.meta.env.VITE_DESKTOP_OFFLINE === 'true' || import.meta.env.VITE_OFFLINE_SETUP === 'true';
 const ForgotPassword = React.lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
 const Unauthorized = React.lazy(() => import('./pages/Unauthorized'));
@@ -174,6 +176,8 @@ function HomeRoute() {
 }
 
 function OnboardingGate({ children }) {
+  if (IS_DESKTOP_OFFLINE) return children;
+
   const { completed, loading, refresh } = useOnboarding();
   const [dismissed, setDismissed] = React.useState(false);
 

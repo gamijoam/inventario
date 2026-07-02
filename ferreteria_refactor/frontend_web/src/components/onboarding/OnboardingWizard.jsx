@@ -8,6 +8,8 @@ import {
   ReceiptText, DollarSign, Phone, Tag, Boxes, LayoutDashboard
 } from 'lucide-react';
 
+const IS_DESKTOP_OFFLINE = import.meta.env.VITE_DESKTOP_OFFLINE === 'true' || import.meta.env.VITE_OFFLINE_SETUP === 'true';
+
 const STEPS = [
   { n: 1, label: 'Negocio', desc: 'Datos visibles', icon: Store },
   { n: 2, label: 'Productos', desc: 'Primer stock', icon: Package },
@@ -73,12 +75,20 @@ function Step1({ onNext }) {
     if (!form.name.trim()) return toast.error('Ingresa el nombre del negocio');
     setSaving(true);
     try {
-      await apiClient.put('/config/business', { name: form.name.trim(), phone: form.phone.trim() });
-      await apiClient.post('/onboarding/step', { step: 1 });
+      if (IS_DESKTOP_OFFLINE) {
+        localStorage.setItem('offline_business_draft', JSON.stringify({ name: form.name.trim(), phone: form.phone.trim() }));
+        toast.success('Configuracion local guardada');
+        onNext();
+        return;
+      }
+
+      await apiClient.put('/config/business', { name: form.name.trim(), phone: form.phone.trim() }, { _skipErrorReport: true });
+      await apiClient.post('/onboarding/step', { step: 1 }, { _skipErrorReport: true });
       toast.success('Negocio configurado');
       onNext();
     } catch (e) {
-      toast.error('Error: ' + (e?.response?.data?.detail || e.message));
+      const message = e?.response?.data?.detail || e.message || 'No se pudo guardar la configuracion';
+      toast.error('No se pudo guardar: ' + message);
     } finally { setSaving(false); }
   };
 
@@ -153,6 +163,13 @@ function Step2({ onNext, onBack }) {
     if (!valid.length) return toast.error('Agrega al menos un producto con nombre y precio');
     setSaving(true);
     try {
+      if (IS_DESKTOP_OFFLINE) {
+        localStorage.setItem('offline_products_draft', JSON.stringify(valid));
+        toast.success(`${valid.length} producto(s) guardado(s) localmente`);
+        onNext();
+        return;
+      }
+
       for (const p of valid) {
         await apiClient.post('/products', {
           name: p.name.trim(),
@@ -160,9 +177,9 @@ function Step2({ onNext, onBack }) {
           stock: parseInt(p.stock) || 0,
           is_active: true,
           ...(p.sku && p.sku.trim() ? { sku: p.sku.trim() } : {}),
-        });
+        }, { _skipErrorReport: true });
       }
-      await apiClient.post('/onboarding/step', { step: 2 });
+      await apiClient.post('/onboarding/step', { step: 2 }, { _skipErrorReport: true });
       toast.success(`${valid.length} producto(s) guardado(s)`);
       onNext();
     } catch (e) {
@@ -171,7 +188,9 @@ function Step2({ onNext, onBack }) {
   };
 
   const skip = async () => {
-    try { await apiClient.post('/onboarding/step', { step: 2 }); } catch {}
+    if (!IS_DESKTOP_OFFLINE) {
+      try { await apiClient.post('/onboarding/step', { step: 2 }, { _skipErrorReport: true }); } catch {}
+    }
     onNext();
   };
 
@@ -255,7 +274,9 @@ function Step3({ onFinish }) {
 
   const go = async (path) => {
     setLoading(true);
-    try { await apiClient.post('/onboarding/complete'); } catch {}
+    if (!IS_DESKTOP_OFFLINE) {
+      try { await apiClient.post('/onboarding/complete', {}, { _skipErrorReport: true }); } catch {}
+    }
     onFinish();
     navigate(path);
   };

@@ -5,6 +5,7 @@ import api from '../config/axios';
 import { TOUR_FLOWS } from '../config/tourFlows';
 
 const getDriver = () => bundledDriver;
+const IS_DESKTOP_OFFLINE = import.meta.env.VITE_DESKTOP_OFFLINE === 'true' || import.meta.env.VITE_OFFLINE_SETUP === 'true';
 
 // --- Per-tour completion tracking (localStorage) ---
 const STORAGE_KEY = 'completed_tours';
@@ -95,6 +96,12 @@ export const useAppTour = () => {
     };
 
     const startTour = async (flowId = 'WELCOME', onComplete) => {
+        if (IS_DESKTOP_OFFLINE) {
+            markTourCompleted(flowId);
+            if (onComplete) onComplete();
+            return;
+        }
+
         const driverFn = getDriver();
         if (!driverFn) {
             console.warn('Driver.js not loaded via CDN');
@@ -182,6 +189,8 @@ export const useAppTour = () => {
     };
 
     const markAsCompleted = async () => {
+        if (IS_DESKTOP_OFFLINE) return;
+
         try {
             await api.post('/users/me/onboarding-completed');
         } catch (error) {
