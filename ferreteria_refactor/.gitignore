@@ -72,3 +72,9 @@ local/dist/
 
 # Offline packages
 local/*.zip
+# Offline updater runtime data
+local/updater/cache/
+local/updater/logs/
+local/updater/backups/
+frontend_web/public/downloads/offline/
+frontend_web/dist/downloads/offline/

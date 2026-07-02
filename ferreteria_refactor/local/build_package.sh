@@ -235,9 +235,18 @@ ENVEOF
 # Scripts de respaldo (por si el usuario prefiere línea de comandos)
 cp "$SCRIPT_DIR/start.bat" "$DIST_DIR/"
 cp "$SCRIPT_DIR/stop.bat" "$DIST_DIR/"
+cp "$SCRIPT_DIR/update.bat" "$DIST_DIR/"
 
 # setup.bat — inicializa la BD (ejecutado por InnoSetup en instalación)
 cp "$SCRIPT_DIR/setup.bat" "$DIST_DIR/"
+
+# Actualizador incremental: permite bajar parches pequenos sin reinstalar runtime.
+mkdir -p "$DIST_DIR/updater"
+rsync -a --exclude='cache/' --exclude='logs/' --exclude='backups/' \
+    "$SCRIPT_DIR/updater/" "$DIST_DIR/updater/"
+if [ ! -f "$DIST_DIR/updater/update_config.json" ] && [ -f "$SCRIPT_DIR/updater/update_config.example.json" ]; then
+    cp "$SCRIPT_DIR/updater/update_config.example.json" "$DIST_DIR/updater/update_config.json"
+fi
 
 echo "  ✅ Scripts listos"
 
@@ -255,6 +264,7 @@ Componentes:
   - PostgreSQL ${PG_VERSION}
   - Python ${PY_VERSION}
   - FastAPI + uvicorn
+  - Actualizador incremental offline
 
 Credenciales por defecto:
   Usuario: admin
@@ -266,6 +276,7 @@ Instrucciones:
   2. Ejecute start.bat para iniciar
   3. Abra http://localhost:8000 en su navegador
   4. Para detener: cierre la ventana o ejecute stop.bat
+  5. Para actualizar: ejecute update.bat
 EOF
 
 echo ""
