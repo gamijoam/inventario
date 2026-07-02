@@ -15,6 +15,8 @@ from ..tenant_context import get_tenant_schema
 router = APIRouter(prefix="/sync-local", tags=["sync-local"])
 
 SYNC_MONITORED_TABLES = [
+    ("sync_outbox", "Eventos offline"),
+    ("sync_conflicts", "Conflictos de sincronizacion"),
     ("sales", "Ventas"),
     ("sale_details", "Detalle de ventas"),
     ("sale_detail_instances", "Seriales vendidos"),
@@ -72,6 +74,30 @@ def _table_has_columns(db: Session, schema: str, table_name: str, columns: List[
 
 
 def _pending_count_for_table(db: Session, schema: str, table_name: str) -> int:
+    if table_name == "sync_outbox":
+        if not _table_has_columns(db, schema, table_name, ["status"]):
+            return 0
+        sql = text(
+            f'''
+            SELECT COUNT(*)
+            FROM "{schema}"."{table_name}"
+            WHERE COALESCE(status, 'PENDING') IN ('PENDING', 'ERROR')
+            '''
+        )
+        return int(db.execute(sql).scalar() or 0)
+
+    if table_name == "sync_conflicts":
+        if not _table_has_columns(db, schema, table_name, ["status"]):
+            return 0
+        sql = text(
+            f'''
+            SELECT COUNT(*)
+            FROM "{schema}"."{table_name}"
+            WHERE COALESCE(status, 'OPEN') = 'OPEN'
+            '''
+        )
+        return int(db.execute(sql).scalar() or 0)
+
     if table_name == "sales":
         return db.query(models.Sale).filter(
             models.Sale.sync_status == "PENDING",
@@ -99,12 +125,15 @@ def _sync_pending_summary(db: Session) -> Dict[str, Any]:
     metadata_ready = True
 
     for table_name, label in SYNC_MONITORED_TABLES:
-        has_metadata = table_name == "sales" or _table_has_columns(
-            db,
-            schema,
-            table_name,
-            ["sync_uuid", "sync_status", "is_offline_origin", "synced_at", "sync_error"],
-        )
+        if table_name in {"sync_outbox", "sync_conflicts"}:
+            has_metadata = _table_has_columns(db, schema, table_name, ["status"])
+        else:
+            has_metadata = table_name == "sales" or _table_has_columns(
+                db,
+                schema,
+                table_name,
+                ["sync_uuid", "sync_status", "is_offline_origin", "synced_at", "sync_error"],
+            )
         count = _pending_count_for_table(db, schema, table_name) if has_metadata else 0
         total += count
         metadata_ready = metadata_ready and has_metadata

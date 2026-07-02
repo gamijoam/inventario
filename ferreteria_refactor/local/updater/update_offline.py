@@ -32,7 +32,7 @@ LOG_DIR = UPDATER_DIR / "logs"
 LOG_FILE = LOG_DIR / "update.log"
 BACKUP_DIR = UPDATER_DIR / "backups"
 CACHE_DIR = UPDATER_DIR / "cache"
-DEFAULT_MANIFEST_URL = "https://qa.miinventariofacil.com/downloads/offline/manifest.json"
+DEFAULT_MANIFEST_URL = "https://restaurante3.qa.miinventariofacil.com/downloads/offline/manifest.json"
 PACKAGE_TARGETS = {
     "frontend": "frontend",
     "backend": "backend",
