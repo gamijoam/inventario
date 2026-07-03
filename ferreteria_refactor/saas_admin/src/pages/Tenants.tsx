@@ -309,14 +309,14 @@ const Tenants: React.FC = () => {
             let targetUrl = '';
 
             if (window.location.hostname.includes('localhost')) {
-                targetUrl = 'http://localhost:5173/login';
+                targetUrl = 'http://localhost:5173/#/login';
             } else {
                 const baseDomain = apiUrl.includes('api-qa')
                     ? 'qa.miinventariofacil.com'
                     : 'miinventariofacil.com';
                 targetUrl = data.tenant_domain
-                    ? `${protocol}//${data.tenant_domain}/login`
-                    : `${protocol}//${data.tenant_schema}.${baseDomain}/login`;
+                    ? `${protocol}//${data.tenant_domain}/#/login`
+                    : `${protocol}//${data.tenant_schema}.${baseDomain}/#/login`;
             }
 
             targetUrl += `${targetUrl.includes('?') ? '&' : '?'}impersonate_token=${data.access_token}`;
