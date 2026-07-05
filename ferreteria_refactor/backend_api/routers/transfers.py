@@ -112,6 +112,16 @@ def _validate_and_collect_imeis(
     return db_instances
 
 
+def _business_config_map(db: Session):
+    try:
+        rows = db.query(models.BusinessConfig).filter(
+            models.BusinessConfig.key.in_(["business_name", "business_rif", "business_phone", "business_address"])
+        ).all()
+        return {row.key: row.value for row in rows if row.value}
+    except Exception:
+        return {}
+
+
 def _movement_value(value):
     return getattr(value, "value", str(value))
 
@@ -120,12 +130,18 @@ def _extract_transfer_meta(description: str):
     text = description or ""
     package_match = re.search(r"package\s+(trf-[\w-]+)", text, re.IGNORECASE)
     guide_match = re.search(r"guide\s+([A-Z0-9-]+)", text, re.IGNORECASE)
-    to_match = re.search(r"\s+to\s+(.+)$", text, re.IGNORECASE)
-    from_match = re.search(r"\s+from\s+(.+)$", text, re.IGNORECASE)
+    serials_match = re.search(r"\s+serials\s+([0-9A-Za-z,._-]+)", text, re.IGNORECASE)
+    clean_text = re.sub(r"\s+serials\s+[0-9A-Za-z,._-]+", "", text, flags=re.IGNORECASE)
+    to_match = re.search(r"\s+to\s+(.+)$", clean_text, re.IGNORECASE)
+    from_match = re.search(r"\s+from\s+(.+)$", clean_text, re.IGNORECASE)
+    serials = []
+    if serials_match:
+        serials = [s.strip() for s in serials_match.group(1).split(',') if s.strip()]
     return {
         "package_id": package_match.group(1) if package_match else None,
         "dispatch_guide_number": guide_match.group(1) if guide_match else None,
         "company": (to_match.group(1) if to_match else from_match.group(1) if from_match else None),
+        "serial_numbers": serials,
     }
 
 
@@ -147,6 +163,8 @@ def read_external_transfer_history(direction: str = "all", limit: int = 200, db:
         query = query.filter(models.Kardex.movement_type == models.MovementType.EXTERNAL_TRANSFER_IN)
 
     movements = query.order_by(models.Kardex.date.desc()).limit(max(1, min(limit, 500))).all()
+    cfg = _business_config_map(db)
+    business_name = cfg.get("business_name") or "Mi Inventario"
     warehouse_ids = {m.warehouse_id for m in movements if m.warehouse_id}
     warehouses = {}
     if warehouse_ids:
@@ -167,6 +185,8 @@ def read_external_transfer_history(direction: str = "all", limit: int = 200, db:
             key = f"{movement_direction}:{minute}:{movement.description or ''}"
 
         if key not in groups:
+            source_company = business_name if movement_direction == "out" else (meta["company"] or "Origen externo")
+            destination_company = (meta["company"] or "Destino externo") if movement_direction == "out" else business_name
             groups[key] = {
                 "id": key,
                 "direction": movement_direction,
@@ -174,6 +194,8 @@ def read_external_transfer_history(direction: str = "all", limit: int = 200, db:
                 "package_id": package_id,
                 "dispatch_guide_number": meta["dispatch_guide_number"],
                 "company": meta["company"],
+                "source_company": source_company,
+                "destination_company": destination_company,
                 "date": movement.date,
                 "warehouse_id": movement.warehouse_id,
                 "warehouse_name": warehouses.get(movement.warehouse_id),
@@ -188,17 +210,48 @@ def read_external_transfer_history(direction: str = "all", limit: int = 200, db:
         group["units_count"] += qty
         if movement.date and movement.date > group["date"]:
             group["date"] = movement.date
+        product_name = movement.product.name if movement.product else "Producto"
+        sku = movement.product.sku if movement.product else None
         group["items"].append({
             "movement_id": movement.id,
             "product_id": movement.product_id,
-            "product_name": movement.product.name if movement.product else "Producto",
-            "sku": movement.product.sku if movement.product else None,
+            "product_name": product_name,
+            "name": product_name,
+            "sku": sku,
             "quantity": qty,
             "balance_after": float(movement.balance_after or 0),
             "warehouse_id": movement.warehouse_id,
             "warehouse_name": warehouses.get(movement.warehouse_id),
             "description": movement.description,
+            "serial_numbers": meta.get("serial_numbers") or [],
         })
+
+    for group in groups.values():
+        group["package"] = {
+            "package_id": group.get("package_id"),
+            "dispatch_guide_number": group.get("dispatch_guide_number"),
+            "source_company": group.get("source_company"),
+            "destination_company": group.get("destination_company"),
+            "source_warehouse_id": group.get("warehouse_id"),
+            "source_warehouse_name": group.get("warehouse_name"),
+            "generated_at": group.get("date").isoformat() if group.get("date") else None,
+            "items": [
+                {
+                    "sku": item.get("sku"),
+                    "quantity": item.get("quantity"),
+                    "name": item.get("product_name") or item.get("name"),
+                    "has_imei": bool(item.get("serial_numbers")),
+                    "serial_numbers": item.get("serial_numbers") or [],
+                }
+                for item in group.get("items", [])
+            ],
+            "items_count": group.get("models_count"),
+            "models_count": group.get("models_count"),
+            "units_count": group.get("units_count"),
+            "imei_count": sum(len(item.get("serial_numbers") or []) for item in group.get("items", [])),
+            "photos_count": 0,
+            "photo_urls": [],
+        }
 
     return list(groups.values())
 

@@ -751,7 +751,7 @@ from ..services.inventory_service import InventoryService
 from ..schemas import TransferPackageSchema, TransferResultSchema, TransferPreviewResult, TransferImportV2Request
 class TransferRequest(BaseModel):
     items: List[Dict[str, Any]]
-    source_company: str
+    source_company: Optional[str] = None
     warehouse_id: Optional[int] = None
     destination_company: Optional[str] = None
     dispatch_notes: Optional[str] = None
@@ -774,10 +774,14 @@ def export_transfer_package(
     Deducts stock immediately from this instance.
     """
     try:
+        cfg = _business_config_map(db)
+        source_company = (request.source_company or "").strip()
+        if not source_company or source_company.lower() in {"ferreteria principal", "ferretería principal"}:
+            source_company = cfg.get("business_name") or "Mi Inventario"
         return InventoryService.generate_transfer_package_v2(
             db,
             request.items,
-            request.source_company,
+            source_company,
             request.warehouse_id,
             request.photo_urls,
             request.destination_company,

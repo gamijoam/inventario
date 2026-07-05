@@ -559,12 +559,13 @@ class InventoryService:
                     product.stock -= qty
                     balance_after = product.stock
             
+            serials_suffix = f" serials {','.join(serial_numbers)}" if serial_numbers else ""
             kardex = models.Kardex(
                 product_id=product.id,
                 movement_type=models.MovementType.EXTERNAL_TRANSFER_OUT,
                 quantity=-qty,
                 balance_after=balance_after,
-                description=f"Transfer OUT package {package_id} guide {guide_number} to {destination_company or 'External'}",
+                description=f"Transfer OUT package {package_id} guide {guide_number} to {destination_company or 'External'}{serials_suffix}",
                 warehouse_id=warehouse_id,
                 date=datetime.now()
             )

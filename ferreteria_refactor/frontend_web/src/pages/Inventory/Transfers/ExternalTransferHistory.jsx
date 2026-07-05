@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Boxes, Eye, FileJson, History, Loader2, Package, RefreshCw, Search, X } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Download, Eye, FileJson, History, Loader2, RefreshCw, Search, X } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
 
@@ -23,6 +23,7 @@ const ExternalTransferHistory = () => {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [downloadingGuideId, setDownloadingGuideId] = useState(null);
 
   const fetchHistory = async () => {
     try {
@@ -65,6 +66,43 @@ const ExternalTransferHistory = () => {
     if (row.direction === 'in') acc.in += Number(row.units_count || 0);
     return acc;
   }, { packages: 0, models: 0, units: 0, out: 0, in: 0 }), [rows]);
+
+  const downloadBlobFile = (blob, filename) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const downloadDispatchGuide = async (row) => {
+    if (!row?.package || row.direction !== 'out') {
+      toast.error('La guia solo se puede reimprimir para salidas externas');
+      return;
+    }
+    try {
+      setDownloadingGuideId(row.id);
+      const response = await apiClient.post('/inventory/transfer/dispatch-guide', {
+        package: row.package,
+        source_company: row.source_company,
+        destination_company: row.destination_company || row.company,
+      }, { responseType: 'blob' });
+
+      const disposition = response.headers?.['content-disposition'] || '';
+      const match = disposition.match(/filename=\"?([^\";]+)\"?/i);
+      const filename = match?.[1] || `guia-despacho-${row.dispatch_guide_number || row.package_id || 'traslado'}.pdf`;
+      downloadBlobFile(response.data, filename);
+      toast.success('Guia de despacho descargada');
+    } catch (error) {
+      console.error('Error reimprimiendo guia:', error);
+      toast.error(error.response?.data?.detail || 'No se pudo reimprimir la guia');
+    } finally {
+      setDownloadingGuideId(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -177,9 +215,21 @@ const ExternalTransferHistory = () => {
                       </div>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <button onClick={() => setSelected(row)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-black text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
-                        <Eye size={15} /> Ver
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        {isOut && (
+                          <button
+                            onClick={() => downloadDispatchGuide(row)}
+                            disabled={downloadingGuideId === row.id}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+                          >
+                            {downloadingGuideId === row.id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+                            Guia PDF
+                          </button>
+                        )}
+                        <button onClick={() => setSelected(row)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-black text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                          <Eye size={15} /> Ver
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -218,7 +268,7 @@ const ExternalTransferHistory = () => {
                 </div>
                 <div className="rounded-lg border border-slate-200 p-3">
                   <p className="text-xs font-black uppercase tracking-wide text-slate-400">Empresa</p>
-                  <p className="mt-1 font-black text-slate-800">{selected.company || 'No especificada'}</p>
+                  <p className="mt-1 font-black text-slate-800">{selected.direction === 'out' ? (selected.destination_company || selected.company || 'No especificada') : (selected.source_company || selected.company || 'No especificada')}</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 p-3">
                   <p className="text-xs font-black uppercase tracking-wide text-slate-400">Fecha</p>
@@ -249,7 +299,17 @@ const ExternalTransferHistory = () => {
                 </table>
               </div>
             </div>
-            <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-5 py-4">
+            <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end">
+              {selected.direction === 'out' && (
+                <button
+                  onClick={() => downloadDispatchGuide(selected)}
+                  disabled={downloadingGuideId === selected.id}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-60"
+                >
+                  {downloadingGuideId === selected.id ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                  Reimprimir guia
+                </button>
+              )}
               <button onClick={() => setSelected(null)} className="rounded-lg px-4 py-2 text-sm font-black text-slate-600 hover:bg-white">Cerrar</button>
             </div>
           </div>
